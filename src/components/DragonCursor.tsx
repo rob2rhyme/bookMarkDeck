@@ -115,7 +115,8 @@ export function DragonCursor() {
   return (
     // IMPORTANT: absolute + z-0 so it's above the background
     // but behind your z-10 content, and doesn't eat mouse events.
-    <div className="pointer-events-none absolute inset-0 z-0 select-none">
+    // <div className="pointer-events-none absolute inset-0 z-0 select-none">
+    <div className="pointer-events-none fixed inset-0 z-0 select-none">
       <svg
         ref={svgRef}
         className="h-full w-full"

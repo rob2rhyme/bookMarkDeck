@@ -7,6 +7,7 @@ import { Bookmark } from "@/types/bookmark";
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
+import { DragonCursor } from "@/components/DragonCursor";
 
 export default function HomePage() {
   const {
@@ -170,8 +171,10 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
-      <div className="mx-auto max-w-6xl px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+    <main className="relative min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
+      {/* Dragon cursor layer (behind everything) */}
+      <DragonCursor />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-12">
         {/* Header */}
         <header className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
