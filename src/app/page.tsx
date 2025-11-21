@@ -284,8 +284,18 @@ export default function HomePage() {
                 placeholder="Search by title, URL, note, folder, or tag..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-2 pl-9 pr-3 text-sm text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-2 pl-9 pr-9 text-sm text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute inset-y-0 right-2 flex items-center justify-center rounded-full px-2 text-slate-500 transition hover:bg-slate-800/70 hover:text-slate-100"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -321,7 +331,7 @@ export default function HomePage() {
                 onClick={handleClearAll}
                 className="rounded-full border border-red-700/60 bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-900/80"
               >
-                Clear all
+                Delete All Bookmarks
               </button>
             )}
           </div>
