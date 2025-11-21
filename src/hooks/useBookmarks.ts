@@ -18,6 +18,7 @@ function normalizeBookmarks(raw: unknown): Bookmark[] {
     tags: Array.isArray(item.tags)
       ? item.tags.map((t: any) => String(t)).filter(Boolean)
       : [],
+      pinned: typeof item.pinned === "boolean" ? item.pinned : false,
   }));
 }
 
@@ -59,6 +60,7 @@ export function useBookmarks() {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       tags: partial.tags ?? [],
+      pinned: partial.pinned ?? false,
     };
     setBookmarks((prev) => [newBookmark, ...prev]);
   };
@@ -73,6 +75,7 @@ export function useBookmarks() {
               tags: data.tags
                 ? data.tags.map((t) => t.trim()).filter(Boolean)
                 : b.tags,
+                pinned: typeof data.pinned === "boolean" ? data.pinned : b.pinned,
             }
           : b
       )
@@ -90,7 +93,14 @@ export function useBookmarks() {
   
   // Restore an exact previous list of bookmarks (used for Undo)
   const restoreFromSnapshot = (snapshot: Bookmark[]) => {
-    setBookmarks(normalizeBookmarks(snapshot));
+    setBookmarks(
+      normalizeBookmarks(
+        snapshot.map((b) => ({
+          ...b,
+          pinned: typeof b.pinned === "boolean" ? b.pinned : false,
+        }))
+      )
+    );
   };
 
   return {

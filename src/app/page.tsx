@@ -20,7 +20,8 @@ export default function HomePage() {
   } = useBookmarks();
 
   const [search, setSearch] = useState("");
-  const [folderFilter, setFolderFilter] = useState<string>("");
+  // Default to "favorites" so only pinned bookmarks show initially
+  const [folderFilter, setFolderFilter] = useState<string>("favorites");
 
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -68,9 +69,13 @@ export default function HomePage() {
 
           // Folder filter logic
           let matchesFolder = true;
-          if (folderFilter === "with-notes") {
+          if (folderFilter === "favorites") {
+            // show only pinned / favorited bookmarks
+            matchesFolder = !!b.pinned;
+          } else if (folderFilter === "with-notes") {
             matchesFolder = !!b.note && b.note.trim().length > 0;
           } else if (folderFilter) {
+            // any specific folder name
             matchesFolder = b.folder === folderFilter;
           }
 
@@ -325,6 +330,8 @@ export default function HomePage() {
               onChange={(e) => setFolderFilter(e.target.value)}
               className="h-10 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
+              <option value="">All bookmarks</option>
+              <option value="favorites">Favorites only</option>
               <option value="with-notes">Only with notes</option>
               {folders
                 .filter((f) => f.trim().length > 0)

@@ -143,6 +143,10 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
 
   const tags = bookmark.tags ?? [];
 
+  const handleTogglePinned = () => {
+    onUpdate(bookmark.id, { pinned: !bookmark.pinned });
+  };
+
   return (
     <div
       className="relative z-0 overflow-hidden rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-md dark:bg-slate-900/80"
@@ -157,9 +161,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
           <div className="flex items-center">
             {!isEditing && (
               <button
-                onClick={() =>
-                  onUpdate(bookmark.id, { pinned: !bookmark.pinned })
-                }
+                onClick={handleTogglePinned}
                 className="
                   rounded-full
                   p-2
@@ -168,6 +170,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
                   hover:bg-slate-800 hover:text-amber-300
                 "
                 aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
+                aria-pressed={bookmark.pinned}
               >
                 {bookmark.pinned ? "★" : "☆"}
               </button>
@@ -276,9 +279,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
             <div className="flex shrink-0 items-center gap-1">
               {!isEditing && (
                 <button
-                  onClick={() =>
-                    onUpdate(bookmark.id, { pinned: !bookmark.pinned })
-                  }
+                  onClick={handleTogglePinned}
                   className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
                   aria-label={
                     bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"

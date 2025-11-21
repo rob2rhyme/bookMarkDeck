@@ -1,12 +1,15 @@
 //src/types/bookmark.ts
-export type Bookmark = {
-  id: string;            // uuid or timestamp
-  title: string;
-  url: string;
-  note: string;
-  folder?: string;       // optional (from imported bookmark folders)
-  createdAt: string;     // ISO string
-  tags: string[];        // NEW: tags for filtering
-  pinned?: boolean;      // NEW: favorite / pin flag
-};
-
+ export type Bookmark = {
+   id: string;
+   title: string;
+   url: string;
+   note?: string;
+   folder?: string;
+   tags?: string[];
+   createdAt: string;
+   /**
+    * Whether this bookmark is favorited / pinned.
+    * Persisted in localStorage so it survives refreshes.
+    */
+   pinned?: boolean;
+ };
