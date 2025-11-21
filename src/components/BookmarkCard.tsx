@@ -27,7 +27,6 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
   const [tagsInput, setTagsInput] = useState((bookmark.tags ?? []).join(", "));
   const [note, setNote] = useState(bookmark.note ?? "");
   const [isEditing, setIsEditing] = useState(false);
-  const [thumbError, setThumbError] = useState(false);
 
   const favicon = getFaviconUrl(bookmark.url);
   const [borderColor, setBorderColor] = useState<string>(
@@ -144,184 +143,260 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
 
   const tags = bookmark.tags ?? [];
 
-  // const thumbnail = getThumbnailUrl(bookmark.url);
-
   return (
     <div
-      className="relative z-0 flex flex-col justify-between overflow-hidden rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-md dark:bg-slate-900/80"
+      className="relative z-0 overflow-hidden rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-md dark:bg-slate-900/80"
       style={{
         border: `2px solid ${borderColor}`,
       }}
     >
-      <div className="relative z-10 p-4 space-y-3">
-        {/* Always: favicon + title strip */}
-        {!isEditing && (
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
-            {favicon && (
-              <img
-                src={favicon}
-                alt=""
-                className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
-                loading="lazy"
-              />
-            )}
-            <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
-              {bookmark.title || bookmark.url}
-            </span>
-          </div>
-        )}
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-1">
-            {isEditing ? (
-              <>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Title"
-                  className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-sm font-semibold text-slate-900 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
-                />
-                <input
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-xs text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-                />
-              </>
-            ) : (
-              <>
-                <a
-                  href={bookmark.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="line-clamp-2 break-words text-sm font-semibold text-slate-900 hover:text-blue-600 dark:text-slate-50 dark:hover:text-blue-400"
-                >
-                  {bookmark.title}
-                </a>
-                <p className="mt-1 line-clamp-1 break-all text-xs text-slate-500 dark:text-slate-400">
-                  {bookmark.url}
-                </p>
-              </>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {/* NEW: Pin / favorite toggle */}
-            {!isEditing && (
-              <button
-                onClick={() =>
-                  onUpdate(bookmark.id, { pinned: !bookmark.pinned })
-                }
-                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
-                aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
-              >
-                {bookmark.pinned ? "★" : "☆"}
-              </button>
-            )}
+      {/* MOBILE: compact icon-style card (4 per row) */}
+      <div className="flex h-full flex-col justify-between p-2 sm:hidden">
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="flex flex-col items-center gap-1 rounded-xl bg-slate-950/5 px-2 py-3 text-center hover:bg-slate-950/10"
+        >
+          {favicon && (
+            <img
+              src={favicon}
+              alt=""
+              className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
+              loading="lazy"
+            />
+          )}
+          <span className="line-clamp-2 text-[11px] font-medium text-slate-900 dark:text-slate-50">
+            {bookmark.title || bookmark.url}
+          </span>
+        </button>
 
-            {isEditing && (
-              <button
-                onClick={handleCancel}
-                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-                aria-label="Cancel edit"
-              >
-                ⟲
-              </button>
-            )}
+        {/* row 1: actions (star, edit, delete) */}
+        <div className="mt-2 flex items-center justify-center gap-1">
+          {!isEditing && (
             <button
-              onClick={handleEditClick}
-              className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800"
-              aria-label={isEditing ? "Save changes" : "Edit bookmark"}
+              onClick={() =>
+                onUpdate(bookmark.id, { pinned: !bookmark.pinned })
+              }
+              className="rounded-full p-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
+              aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
             >
-              {isEditing ? "✔︎" : "✏️"}
+              {bookmark.pinned ? "★" : "☆"}
             </button>
-            <button
-              onClick={() => onDelete(bookmark.id)}
-              className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
-              aria-label="Delete bookmark"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        {/* Folder + tags row */}
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {isEditing ? (
-              <input
-                value={folder}
-                onChange={(e) => setFolder(e.target.value)}
-                placeholder="Folder (optional)"
-                className="max-w-[50%] rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              />
-            ) : (
-              bookmark.folder && (
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  {bookmark.folder}
-                </span>
-              )
-            )}
-
-            {!isEditing && tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
 
           {isEditing && (
-            <input
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="Tags (comma separated)"
-              className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-            />
+            <button
+              onClick={handleCancel}
+              className="rounded-full p-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+              aria-label="Cancel edit"
+            >
+              ⟲
+            </button>
           )}
+
+          <button
+            onClick={handleEditClick}
+            className="rounded-full p-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800"
+            aria-label={isEditing ? "Save changes" : "Edit bookmark"}
+          >
+            {isEditing ? "✔︎" : "✏️"}
+          </button>
+
+          <button
+            onClick={() => onDelete(bookmark.id)}
+            className="rounded-full p-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
+            aria-label="Delete bookmark"
+          >
+            ✕
+          </button>
         </div>
 
-        {/* Note */}
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-            Note
-          </label>
-          {isEditing ? (
-            <textarea
-              className="h-20 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-0 transition focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:ring-blue-900/40"
-              placeholder="Add login hints, purpose, etc."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          ) : (
-            <p className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-400 dark:text-slate-300">
-              {bookmark.note || "Add login hints, purpose, etc."}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="relative z-10 flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
-        <span>
-          {new Date(bookmark.createdAt).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </span>
+        {/* row 2: Open button full-width at bottom */}
         {!isEditing && (
           <button
             type="button"
             onClick={handleOpen}
-            className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
+            className="mt-2 w-full rounded-full bg-blue-50 px-2.5 py-1.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
           >
             Open
           </button>
         )}
+      </div>
+
+      {/* TABLET / DESKTOP: full detailed card */}
+      <div className="hidden h-full flex-col justify-between sm:flex">
+        <div className="relative z-10 space-y-3 p-4">
+          {/* favicon + title strip */}
+          {!isEditing && (
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
+              {favicon && (
+                <img
+                  src={favicon}
+                  alt=""
+                  className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
+                  loading="lazy"
+                />
+              )}
+              <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
+                {bookmark.title || bookmark.url}
+              </span>
+            </div>
+          )}
+
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-1">
+              {isEditing ? (
+                <>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Title"
+                    className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-sm font-semibold text-slate-900 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
+                  />
+                  <input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-xs text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                  />
+                </>
+              ) : (
+                <>
+                  <a
+                    href={bookmark.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="line-clamp-2 break-words text-sm font-semibold text-slate-900 hover:text-blue-600 dark:text-slate-50 dark:hover:text-blue-400"
+                  >
+                    {bookmark.title}
+                  </a>
+                  <p className="mt-1 line-clamp-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                    {bookmark.url}
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              {!isEditing && (
+                <button
+                  onClick={() =>
+                    onUpdate(bookmark.id, { pinned: !bookmark.pinned })
+                  }
+                  className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
+                  aria-label={
+                    bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"
+                  }
+                >
+                  {bookmark.pinned ? "★" : "☆"}
+                </button>
+              )}
+
+              {isEditing && (
+                <button
+                  onClick={handleCancel}
+                  className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                  aria-label="Cancel edit"
+                >
+                  ⟲
+                </button>
+              )}
+              <button
+                onClick={handleEditClick}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800"
+                aria-label={isEditing ? "Save changes" : "Edit bookmark"}
+              >
+                {isEditing ? "✔︎" : "✏️"}
+              </button>
+              <button
+                onClick={() => onDelete(bookmark.id)}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
+                aria-label="Delete bookmark"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Folder + tags row */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {isEditing ? (
+                <input
+                  value={folder}
+                  onChange={(e) => setFolder(e.target.value)}
+                  placeholder="Folder (optional)"
+                  className="max-w-[50%] rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                />
+              ) : (
+                bookmark.folder && (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {bookmark.folder}
+                  </span>
+                )
+              )}
+
+              {!isEditing && tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {isEditing && (
+              <input
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                placeholder="Tags (comma separated)"
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              />
+            )}
+          </div>
+
+          {/* Note */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+              Note
+            </label>
+            {isEditing ? (
+              <textarea
+                className="h-20 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-0 transition focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:ring-blue-900/40"
+                placeholder="Add login hints, purpose, etc."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            ) : (
+              <p className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-400 dark:text-slate-300">
+                {bookmark.note || "Add login hints, purpose, etc."}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
+          <span>
+            {new Date(bookmark.createdAt).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={handleOpen}
+              className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
+            >
+              Open
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
