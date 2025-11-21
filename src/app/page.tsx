@@ -20,11 +20,11 @@ export default function HomePage() {
   } = useBookmarks();
 
   const [search, setSearch] = useState("");
-  const [folderFilter, setFolderFilter] = useState<string>("all");
-  const [tagFilter, setTagFilter] = useState<string>("all"); // NEW
+  const [folderFilter, setFolderFilter] = useState<string>("");
 
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
+  const [newFolder, setNewFolder] = useState(""); // NEW: folder to add to
   const [newTags, setNewTags] = useState(""); // NEW
   const [showAddForm, setShowAddForm] = useState(false);
   const [undoState, setUndoState] = useState<{
@@ -38,14 +38,6 @@ export default function HomePage() {
     const set = new Set<string>();
     bookmarks.forEach((b) => b.folder && set.add(b.folder));
     return Array.from(set);
-  }, [bookmarks]);
-
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    bookmarks.forEach((b) => {
-      (b.tags ?? []).forEach((t) => set.add(t));
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [bookmarks]);
 
   useEffect(() => {
@@ -74,16 +66,15 @@ export default function HomePage() {
             (b.folder ?? "").toLowerCase().includes(q) ||
             tags.some((t) => t.toLowerCase().includes(q)); // search tags
 
-          const matchesFolder =
-            folderFilter === "all" ||
-            (folderFilter === "with-notes" &&
-              (b.note ?? "").trim().length > 0) ||
-            b.folder === folderFilter;
+          // Folder filter logic
+          let matchesFolder = true;
+          if (folderFilter === "with-notes") {
+            matchesFolder = !!b.note && b.note.trim().length > 0;
+          } else if (folderFilter) {
+            matchesFolder = b.folder === folderFilter;
+          }
 
-          const matchesTag =
-            tagFilter === "all" || (b.tags ?? []).includes(tagFilter);
-
-          return matchesSearch && matchesFolder && matchesTag;
+          return matchesSearch && matchesFolder;
         })
         // NEW: surface pinned/favorite bookmarks at the top
         .sort((a, b) => {
@@ -99,11 +90,12 @@ export default function HomePage() {
           return aPinned ? -1 : 1;
         })
     );
-  }, [bookmarks, search, folderFilter, tagFilter]);
+  }, [bookmarks, search, folderFilter]);
 
   const handleAddQuick = () => {
     if (!newUrl.trim()) return;
 
+    const folderName = newFolder.trim() || undefined;
     const tags = newTags
       .split(",")
       .map((t) => t.trim())
@@ -113,12 +105,13 @@ export default function HomePage() {
       title: newTitle.trim() || newUrl.trim(),
       url: newUrl.trim(),
       note: "",
-      folder: undefined,
+      folder: folderName,
       tags,
     });
 
     setNewTitle("");
     setNewUrl("");
+    setNewFolder("");
     setNewTags("");
     setShowAddForm(false);
   };
@@ -278,10 +271,17 @@ export default function HomePage() {
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
               <input
                 type="text"
+                placeholder="Add to folder (e.g. Banking, Work)"
+                value={newFolder}
+                onChange={(e) => setNewFolder(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:max-w-xs"
+              />
+              <input
+                type="text"
                 placeholder="Tags (comma separated, e.g. work, dev, banking)"
                 value={newTags}
                 onChange={(e) => setNewTags(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
               <button
                 onClick={handleAddQuick}
@@ -305,7 +305,7 @@ export default function HomePage() {
                 placeholder="Search by title, URL, note, folder, or tag..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-2 pl-9 pr-9 text-sm text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full h-10 rounded-2xl border border-slate-800 bg-slate-900/80 py-2 pl-9 pr-9 text-sm text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
               {search && (
                 <button
@@ -323,35 +323,34 @@ export default function HomePage() {
             <select
               value={folderFilter}
               onChange={(e) => setFolderFilter(e.target.value)}
-              className="rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="h-10 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
-              <option value="all">All folders</option>
               <option value="with-notes">Only with notes</option>
-              {folders.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
+              {folders
+                .filter((f) => f.trim().length > 0)
+                .map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
             </select>
 
-            <select
-              value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-              className="rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setFolderFilter("");
+              }}
+              className="h-10 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-100 outline-none transition hover:border-blue-500 hover:bg-slate-800 hover:text-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
-              <option value="all">All tags</option>
-              {allTags.map((t) => (
-                <option key={t} value={t}>
-                  #{t}
-                </option>
-              ))}
-            </select>
+              Clear search & filters
+            </button>
 
             {bookmarks.length > 0 && (
               <button
                 type="button"
                 onClick={() => setShowClearConfirm(true)}
-                className="rounded-full border border-red-700/60 bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-900/80"
+                className="h-10 rounded-full border border-red-700/60 bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-900/80"
               >
                 Delete All Bookmarks
               </button>
