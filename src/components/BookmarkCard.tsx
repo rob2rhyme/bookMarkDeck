@@ -2,7 +2,7 @@
 "use client";
 
 import { Bookmark } from "@/types/bookmark";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function getThumbnailUrl(rawUrl: string): string | null {
   try {
@@ -20,9 +20,8 @@ function getThumbnailUrl(rawUrl: string): string | null {
 function getFaviconUrl(rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl);
-    return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(
-      url.origin
-    )}`;
+    // CORS-enabled favicon proxy (ICON.Horse)
+    return `https://icon.horse/icon/${url.hostname}`;
   } catch {
     return null;
   }
@@ -42,6 +41,61 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
   const [note, setNote] = useState(bookmark.note ?? "");
   const [isEditing, setIsEditing] = useState(false);
   const [thumbError, setThumbError] = useState(false);
+
+  const favicon = getFaviconUrl(bookmark.url);
+  const [borderColor, setBorderColor] = useState<string>(
+    "rgba(148,163,184,0.25)"
+  );
+
+  useEffect(() => {
+    if (!favicon) {
+      setBorderColor("rgba(148,163,184,0.25)");
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = favicon;
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width || 32;
+        canvas.height = img.height || 32;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let count = 0;
+
+        for (let i = 0; i < data.length; i += 4) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count++;
+        }
+
+        if (!count) return;
+
+        r = Math.round(r / count);
+        g = Math.round(g / count);
+        b = Math.round(b / count);
+
+        setBorderColor(`rgba(${r}, ${g}, ${b}, 0.9)`);
+      } catch {
+        setBorderColor("rgba(148,163,184,0.25)");
+      }
+    };
+
+    img.onerror = () => {
+      setBorderColor("rgba(148,163,184,0.25)");
+    };
+  }, [favicon]);
 
   const persistChanges = () => {
     const nextTitle = (title || url || bookmark.title).trim();
@@ -104,11 +158,15 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
   const tags = bookmark.tags ?? [];
 
   const thumbnail = getThumbnailUrl(bookmark.url);
-  const favicon = getFaviconUrl(bookmark.url);
 
   return (
-    <div className="flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/80">
-      <div className="p-4 space-y-3">
+    <div
+      className="relative z-0 flex flex-col justify-between overflow-hidden rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-md dark:bg-slate-900/80"
+      style={{
+        border: `2px solid ${borderColor}`,
+      }}
+    >
+      <div className="relative z-10 p-4 space-y-3">
         {/* Screenshot thumbnail (falls back to favicon banner on error) */}
         {!isEditing && thumbnail && !thumbError && (
           <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-slate-950/10 dark:border-slate-700/60">
@@ -260,7 +318,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
+      <div className="relative z-10 flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
         <span>
           {new Date(bookmark.createdAt).toLocaleDateString(undefined, {
             month: "short",
