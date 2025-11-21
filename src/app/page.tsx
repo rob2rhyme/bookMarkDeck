@@ -160,9 +160,16 @@ export default function HomePage() {
         {/* Header */}
         <header className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              Bookmark Deck
-            </h1>
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.png"
+                alt="Bookmark Deck logo"
+                className="h-15 w-15 rounded-md object-cover"
+              />
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                Bookmark Deck
+              </h1>
+            </div>
             <p className="mt-2 max-w-xl text-sm text-slate-400">
               All your frequently used sites in one place — fast, simple, and
               private.
