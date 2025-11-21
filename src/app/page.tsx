@@ -1,7 +1,7 @@
 //src/app/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { Bookmark } from "@/types/bookmark";
 import { BookmarkCard } from "@/components/BookmarkCard";
@@ -30,6 +30,7 @@ export default function HomePage() {
     type: "delete" | "clearAll";
     snapshot: Bookmark[];
   } | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const folders = useMemo(() => {
     const set = new Set<string>();
@@ -44,6 +45,17 @@ export default function HomePage() {
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [bookmarks]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (typeof window === "undefined") return;
+      setShowScrollTop(window.scrollY > 240);
+    };
+
+    handleScroll(); // initialize on mount
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -362,6 +374,45 @@ export default function HomePage() {
               </button>
             </div>
           </div>
+        )}
+        {showScrollTop && (
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            aria-label="Scroll to top"
+            className="
+    fixed bottom-6 right-6 z-40
+    flex items-center justify-center
+    h-12 w-12
+    rounded-full
+    bg-white/5
+    backdrop-blur-md
+    border border-white/10
+    shadow-lg shadow-black/30
+    text-slate-200
+    transition-all
+    duration-300
+    hover:scale-110
+    hover:bg-white/10
+    hover:border-blue-400/40
+    hover:shadow-blue-500/20
+  "
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+              className="h-6 w-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4l0 16M5 11l7-7 7 7"
+              />
+            </svg>
+          </button>
         )}
       </div>
     </main>
