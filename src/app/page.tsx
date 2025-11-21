@@ -31,6 +31,7 @@ export default function HomePage() {
     snapshot: Bookmark[];
   } | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const folders = useMemo(() => {
     const set = new Set<string>();
@@ -328,7 +329,8 @@ export default function HomePage() {
 
             {bookmarks.length > 0 && (
               <button
-                onClick={handleClearAll}
+                type="button"
+                onClick={() => setShowClearConfirm(true)}
                 className="rounded-full border border-red-700/60 bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-900/80"
               >
                 Delete All Bookmarks
@@ -385,6 +387,42 @@ export default function HomePage() {
             </div>
           </div>
         )}
+
+        {/* Confirm delete all modal */}
+        {showClearConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl">
+              <h2 className="mb-2 text-base font-semibold text-slate-50">
+                Delete all bookmarks?
+              </h2>
+              <p className="mb-4 text-xs text-slate-400">
+                This will remove every bookmark from this device. You can still
+                use the Undo snackbar right after, but this action cannot be
+                reversed later.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirm(false)}
+                  className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleClearAll();
+                    setShowClearConfirm(false);
+                  }}
+                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+                >
+                  Delete all
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showScrollTop && (
           <button
             type="button"
