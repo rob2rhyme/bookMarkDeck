@@ -153,14 +153,20 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
       {/* MOBILE: compact icon-style card (4 per row) */}
       <div className="flex h-full flex-col justify-between p-2 sm:hidden">
         {/* row 1: actions (star far-left, delete on right) */}
-        <div className="mb-1 flex items-center justify-between">
+        <div className="mb-1 flex items-center justify-between px-1">
           <div className="flex items-center">
             {!isEditing && (
               <button
                 onClick={() =>
                   onUpdate(bookmark.id, { pinned: !bookmark.pinned })
                 }
-                className="rounded-full p-1.5 text-xs text-slate-300 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
+                className="
+                  rounded-full
+                  p-2
+                  text-sm
+                  text-slate-100
+                  hover:bg-slate-800 hover:text-amber-300
+                "
                 aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
               >
                 {bookmark.pinned ? "★" : "☆"}
@@ -170,7 +176,13 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
 
           <button
             onClick={() => onDelete(bookmark.id)}
-            className="rounded-full p-1.5 text-xs text-slate-300 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
+            className="
+              rounded-full
+              p-2
+              text-sm
+              text-slate-100
+              hover:bg-slate-800 hover:text-red-400
+            "
             aria-label="Delete bookmark"
           >
             ✕
@@ -181,7 +193,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
         <button
           type="button"
           onClick={handleOpen}
-          className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/5 px-2 py-3 text-center hover:bg-slate-950/10"
+          className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/10 px-2 py-3 text-center hover:bg-slate-950/20"
         >
           {favicon && (
             <img
