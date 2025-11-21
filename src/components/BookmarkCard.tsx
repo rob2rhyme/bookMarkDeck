@@ -4,24 +4,11 @@
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect } from "react";
 
-function getThumbnailUrl(rawUrl: string): string | null {
-  try {
-    const url = new URL(rawUrl);
-    // Full-page screenshot thumbnail using external screenshot service.
-    // You can swap this URL pattern for another provider if you prefer.
-    return `https://image.thum.io/get/width/800/crop/600/noanimate/${encodeURIComponent(
-      url.href
-    )}`;
-  } catch {
-    return null;
-  }
-}
-
 function getFaviconUrl(rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl);
-    // CORS-enabled favicon proxy (ICON.Horse)
-    return `https://icon.horse/icon/${url.hostname}`;
+    // Reliable Google favicon service (CORS safe)
+    return `https://www.google.com/s2/favicons?sz=64&domain=${url.hostname}`;
   } catch {
     return null;
   }
@@ -157,7 +144,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
 
   const tags = bookmark.tags ?? [];
 
-  const thumbnail = getThumbnailUrl(bookmark.url);
+  // const thumbnail = getThumbnailUrl(bookmark.url);
 
   return (
     <div
@@ -167,21 +154,8 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
       }}
     >
       <div className="relative z-10 p-4 space-y-3">
-        {/* Screenshot thumbnail (falls back to favicon banner on error) */}
-        {!isEditing && thumbnail && !thumbError && (
-          <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-slate-950/10 dark:border-slate-700/60">
-            <img
-              src={thumbnail}
-              alt=""
-              className="h-32 w-full object-cover"
-              loading="lazy"
-              onError={() => setThumbError(true)}
-            />
-          </div>
-        )}
-
-        {/* Fallback: favicon + title strip when screenshot fails or is unavailable */}
-        {!isEditing && (!thumbnail || thumbError) && (
+        {/* Always: favicon + title strip */}
+        {!isEditing && (
           <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
             {favicon && (
               <img
@@ -230,6 +204,19 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {/* NEW: Pin / favorite toggle */}
+            {!isEditing && (
+              <button
+                onClick={() =>
+                  onUpdate(bookmark.id, { pinned: !bookmark.pinned })
+                }
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
+                aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
+              >
+                {bookmark.pinned ? "★" : "☆"}
+              </button>
+            )}
+
             {isEditing && (
               <button
                 onClick={handleCancel}

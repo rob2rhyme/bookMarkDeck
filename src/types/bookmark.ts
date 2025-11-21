@@ -7,5 +7,6 @@ export type Bookmark = {
   folder?: string;       // optional (from imported bookmark folders)
   createdAt: string;     // ISO string
   tags: string[];        // NEW: tags for filtering
+  pinned?: boolean;      // NEW: favorite / pin flag
 };
 

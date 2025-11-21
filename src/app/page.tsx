@@ -61,27 +61,44 @@ export default function HomePage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return bookmarks.filter((b) => {
-      const tags = b.tags ?? [];
+    return (
+      bookmarks
+        .filter((b) => {
+          const tags = b.tags ?? [];
 
-      const matchesSearch =
-        !q ||
-        b.title.toLowerCase().includes(q) ||
-        b.url.toLowerCase().includes(q) ||
-        (b.note ?? "").toLowerCase().includes(q) ||
-        (b.folder ?? "").toLowerCase().includes(q) ||
-        tags.some((t) => t.toLowerCase().includes(q)); // NEW: search tags
+          const matchesSearch =
+            !q ||
+            b.title.toLowerCase().includes(q) ||
+            b.url.toLowerCase().includes(q) ||
+            (b.note ?? "").toLowerCase().includes(q) ||
+            (b.folder ?? "").toLowerCase().includes(q) ||
+            tags.some((t) => t.toLowerCase().includes(q)); // search tags
 
-      const matchesFolder =
-        folderFilter === "all" ||
-        (folderFilter === "with-notes" && (b.note ?? "").trim().length > 0) ||
-        b.folder === folderFilter;
+          const matchesFolder =
+            folderFilter === "all" ||
+            (folderFilter === "with-notes" &&
+              (b.note ?? "").trim().length > 0) ||
+            b.folder === folderFilter;
 
-      const matchesTag =
-        tagFilter === "all" || (b.tags ?? []).includes(tagFilter);
+          const matchesTag =
+            tagFilter === "all" || (b.tags ?? []).includes(tagFilter);
 
-      return matchesSearch && matchesFolder && matchesTag;
-    });
+          return matchesSearch && matchesFolder && matchesTag;
+        })
+        // NEW: surface pinned/favorite bookmarks at the top
+        .sort((a, b) => {
+          const aPinned = !!a.pinned;
+          const bPinned = !!b.pinned;
+
+          if (aPinned === bPinned) {
+            // fall back to newest first
+            return (
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+          }
+          return aPinned ? -1 : 1;
+        })
+    );
   }, [bookmarks, search, folderFilter, tagFilter]);
 
   const handleAddQuick = () => {
