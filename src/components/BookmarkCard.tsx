@@ -7,6 +7,19 @@ import { useState } from "react";
 function getThumbnailUrl(rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl);
+    // Full-page screenshot thumbnail using external screenshot service.
+    // You can swap this URL pattern for another provider if you prefer.
+    return `https://image.thum.io/get/width/800/crop/600/noanimate/${encodeURIComponent(
+      url.href
+    )}`;
+  } catch {
+    return null;
+  }
+}
+
+function getFaviconUrl(rawUrl: string): string | null {
+  try {
+    const url = new URL(rawUrl);
     return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(
       url.origin
     )}`;
@@ -28,6 +41,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
   const [tagsInput, setTagsInput] = useState((bookmark.tags ?? []).join(", "));
   const [note, setNote] = useState(bookmark.note ?? "");
   const [isEditing, setIsEditing] = useState(false);
+  const [thumbError, setThumbError] = useState(false);
 
   const persistChanges = () => {
     const nextTitle = (title || url || bookmark.title).trim();
@@ -90,18 +104,41 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
   const tags = bookmark.tags ?? [];
 
   const thumbnail = getThumbnailUrl(bookmark.url);
+  const favicon = getFaviconUrl(bookmark.url);
 
   return (
     <div className="flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/80">
       <div className="p-4 space-y-3">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          {!isEditing && thumbnail && (
+        {/* Screenshot thumbnail (falls back to favicon banner on error) */}
+        {!isEditing && thumbnail && !thumbError && (
+          <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-slate-950/10 dark:border-slate-700/60">
             <img
               src={thumbnail}
               alt=""
-              className="mt-1 h-7 w-7 shrink-0 rounded-lg border border-slate-700/50 bg-slate-900 object-contain dark:border-slate-600"
+              className="h-32 w-full object-cover"
+              loading="lazy"
+              onError={() => setThumbError(true)}
             />
-          )}
+          </div>
+        )}
+
+        {/* Fallback: favicon + title strip when screenshot fails or is unavailable */}
+        {!isEditing && (!thumbnail || thumbError) && (
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
+            {favicon && (
+              <img
+                src={favicon}
+                alt=""
+                className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
+                loading="lazy"
+              />
+            )}
+            <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
+              {bookmark.title || bookmark.url}
+            </span>
+          </div>
+        )}
+        <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0 flex-1 space-y-1">
             {isEditing ? (
               <>

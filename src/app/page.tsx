@@ -25,6 +25,7 @@ export default function HomePage() {
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [newTags, setNewTags] = useState(""); // NEW
+  const [showAddForm, setShowAddForm] = useState(false);
   const [undoState, setUndoState] = useState<{
     type: "delete" | "clearAll";
     snapshot: Bookmark[];
@@ -88,6 +89,7 @@ export default function HomePage() {
     setNewTitle("");
     setNewUrl("");
     setNewTags("");
+    setShowAddForm(false);
   };
 
   const handleDelete = (id: string) => {
@@ -176,6 +178,14 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-500"
+            >
+              <span className="text-lg">＋</span>
+              Add quick link
+            </button>
             <label className="relative inline-flex cursor-pointer items-center">
               <input
                 type="file"
@@ -202,42 +212,53 @@ export default function HomePage() {
         </header>
 
         {/* Add quick link */}
-        <section className="mb-6 rounded-2xl bg-slate-900/60 p-4 shadow-inner ring-1 ring-white/5">
-          <h2 className="mb-3 text-sm font-medium text-slate-200">
-            Add quick link
-          </h2>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              type="text"
-              placeholder="Title (optional)"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-            <input
-              type="url"
-              placeholder="https://example.com"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <input
-              type="text"
-              placeholder="Tags (comma separated, e.g. work, dev, banking)"
-              value={newTags}
-              onChange={(e) => setNewTags(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleAddQuick}
-              className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
-            >
-              Save
-            </button>
-          </div>
-        </section>
+        {showAddForm && (
+          <section className="mb-6 rounded-2xl bg-slate-900/60 p-4 shadow-inner ring-1 ring-white/5">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-slate-200">
+                Add quick link
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="text-xs text-slate-400 hover:text-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                placeholder="Title (optional)"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <input
+                type="url"
+                placeholder="https://example.com"
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                placeholder="Tags (comma separated, e.g. work, dev, banking)"
+                value={newTags}
+                onChange={(e) => setNewTags(e.target.value)}
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleAddQuick}
+                className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
+              >
+                Save
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* Search + filters */}
         <section className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
