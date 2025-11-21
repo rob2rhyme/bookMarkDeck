@@ -4,6 +4,17 @@
 import { Bookmark } from "@/types/bookmark";
 import { useState } from "react";
 
+function getThumbnailUrl(rawUrl: string): string | null {
+  try {
+    const url = new URL(rawUrl);
+    return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(
+      url.origin
+    )}`;
+  } catch {
+    return null;
+  }
+}
+
 type Props = {
   bookmark: Bookmark;
   onUpdate: (id: string, data: Partial<Bookmark>) => void;
@@ -78,10 +89,19 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
 
   const tags = bookmark.tags ?? [];
 
+  const thumbnail = getThumbnailUrl(bookmark.url);
+
   return (
     <div className="flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-sm backdrop-blur-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/80">
       <div className="p-4 space-y-3">
         <div className="flex min-w-0 items-start justify-between gap-3">
+          {!isEditing && thumbnail && (
+            <img
+              src={thumbnail}
+              alt=""
+              className="mt-1 h-7 w-7 shrink-0 rounded-lg border border-slate-700/50 bg-slate-900 object-contain dark:border-slate-600"
+            />
+          )}
           <div className="min-w-0 flex-1 space-y-1">
             {isEditing ? (
               <>
