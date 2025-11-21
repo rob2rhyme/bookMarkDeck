@@ -152,10 +152,36 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
     >
       {/* MOBILE: compact icon-style card (4 per row) */}
       <div className="flex h-full flex-col justify-between p-2 sm:hidden">
+        {/* row 1: actions (star far-left, delete on right) */}
+        <div className="mb-1 flex items-center justify-between">
+          <div className="flex items-center">
+            {!isEditing && (
+              <button
+                onClick={() =>
+                  onUpdate(bookmark.id, { pinned: !bookmark.pinned })
+                }
+                className="rounded-full p-1.5 text-xs text-slate-300 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
+                aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
+              >
+                {bookmark.pinned ? "★" : "☆"}
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => onDelete(bookmark.id)}
+            className="rounded-full p-1.5 text-xs text-slate-300 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
+            aria-label="Delete bookmark"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* main icon + title */}
         <button
           type="button"
           onClick={handleOpen}
-          className="flex flex-col items-center gap-1 rounded-xl bg-slate-950/5 px-2 py-3 text-center hover:bg-slate-950/10"
+          className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/5 px-2 py-3 text-center hover:bg-slate-950/10"
         >
           {favicon && (
             <img
@@ -169,47 +195,6 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
             {bookmark.title || bookmark.url}
           </span>
         </button>
-
-        {/* row 1: actions (star, edit, delete) */}
-        <div className="mt-2 flex items-center justify-center gap-1">
-          {!isEditing && (
-            <button
-              onClick={() =>
-                onUpdate(bookmark.id, { pinned: !bookmark.pinned })
-              }
-              className="rounded-full p-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
-              aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
-            >
-              {bookmark.pinned ? "★" : "☆"}
-            </button>
-          )}
-
-          {isEditing && (
-            <button
-              onClick={handleCancel}
-              className="rounded-full p-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-              aria-label="Cancel edit"
-            >
-              ⟲
-            </button>
-          )}
-
-          <button
-            onClick={handleEditClick}
-            className="rounded-full p-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800"
-            aria-label={isEditing ? "Save changes" : "Edit bookmark"}
-          >
-            {isEditing ? "✔︎" : "✏️"}
-          </button>
-
-          <button
-            onClick={() => onDelete(bookmark.id)}
-            className="rounded-full p-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
-            aria-label="Delete bookmark"
-          >
-            ✕
-          </button>
-        </div>
 
         {/* row 2: Open button full-width at bottom */}
         {!isEditing && (
