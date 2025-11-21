@@ -1,36 +1,227 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📘 **Bookmark Deck**
 
-## Getting Started
+_A simple, elegant, privacy-first bookmark manager built with Next.js + Tailwind._
 
-First, run the development server:
+---
+
+## 🌟 Overview
+
+**Bookmark Deck** is a fast, modern bookmark manager that stores everything _locally_ on your device — no accounts, no syncing, no servers. Designed with a clean card layout and a premium serif typeface, it offers a calm and beautiful way to organize your frequently used sites.
+
+---
+
+## ✨ Features
+
+### 🔖 Bookmark Management
+
+- Add bookmarks with title, URL, folder, tags, and notes
+- Inline editing with a clean “pencil → save → cancel” UX
+- Import browser bookmark `.html` files
+- Export bookmarks back to **Netscape-compliant HTML**
+- Local-only data — **100% private**
+
+### 🗂️ Organization
+
+- Search by **title / URL / notes / tags / folder**
+- Filter by folder
+- Filter by tag
+- Tag chips with inline styling
+- Folder chips for organizing content
+
+### 🧭 UI & UX
+
+- Smooth card layout
+- Inline editing mode with save/cancel
+- Undo **Delete** and Undo **Clear All**
+- Responsive grid layout
+- Clean serif brand font: **Cormorant Garamond**
+- Accent handwritten font: **Neucha**
+
+### 📄 PDF & HTML
+
+- Export to:
+  - JSON
+  - Browser-compatible bookmark HTML
+- Import `.html` bookmark files from Chrome, Firefox, Safari
+
+---
+
+## 🏗️ Tech Stack
+
+- **Next.js 14** (App Router)
+- **React 18**
+- **Tailwind CSS** (v4 inline config)
+- **next/font** for optimized Google Fonts
+- **LocalStorage** for data persistence
+- **TypeScript** throughout
+
+---
+
+## 📁 Project Structure
+
+```
+bookmarkdeck/
+├── public/
+│   ├── icons/                 # Optional: exported logo/icon assets
+│   ├── favicon.ico
+│   └── ...other static files
+│
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx         # Root layout with Google Fonts + global providers
+│   │   ├── page.tsx           # Main Bookmark Deck UI
+│   │   ├── globals.css        # Global styles + Tailwind inline theme
+│   │   └── (optional routes)  # e.g., /about /settings if needed
+│   │
+│   ├── components/
+│   │   ├── BookmarkCard.tsx   # Fully editable card with pencil/save/cancel/undo
+│   │   └── Icon.tsx           # (optional) icon component pack
+│   │
+│   ├── hooks/
+│   │   └── useBookmarks.ts    # LocalStorage persistence + Undo system
+│   │
+│   ├── utils/
+│   │   ├── parseBookmarkHtml.ts   # Import browser bookmarks (.html)
+│   │   ├── bookmarksToHtml.ts     # Export back to Netscape-style bookmark HTML
+│   │   └── types.ts               # (optional) shared TS types
+│   │
+│   └── types/
+│       └── bookmark.ts        # Bookmark interface definition
+│
+├── .gitignore
+├── next.config.js
+├── package.json
+├── tsconfig.json
+├── postcss.config.js          # Auto-included for Tailwind
+├── tailwind.config.js         # (optional if using Tailwind v4 inline)
+│
+└── README.md                  # Generated project documentation
+
+```
+
+---
+
+## 🚀 Installation & Development
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/YOUR-USERNAME/bookmarkdeck.git
+cd bookmarkdeck
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Run the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open **http://localhost:3000**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📦 Build for Production
 
-## Learn More
+```bash
+npm run build
+npm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🎨 Fonts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This app uses **two Google Fonts**, optimized with `next/font/google`:
 
-## Deploy on Vercel
+- **Cormorant Garamond** — main serif brand font
+- **Neucha** — accent handwritten font (`class="font-hand"`)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Loaded in `layout.tsx` like:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```ts
+const bookmarkdeck = Cormorant_Garamond({
+  variable: "--font-bookmarkdeck",
+  subsets: ["latin"],
+});
+const bookmarkdeckHand = Neucha({
+  variable: "--font-bookmarkdeck-hand",
+  subsets: ["latin"],
+});
+```
+
+---
+
+## 💾 Data Storage
+
+Data is stored locally in the browser (`localStorage`) using a unified key:
+
+```
+bookmarkdeck:v1
+```
+
+All content stays on the user’s device.
+No cloud, no server, no tracking.
+
+---
+
+## 🔄 Undo System
+
+Both:
+
+- **Undo Delete**
+- **Undo Clear All**
+
+are implemented with a previous-state snapshot that restores the exact bookmark list.
+
+---
+
+## 📤 Import & Export
+
+### Import
+
+The app supports browser bookmark `.html` files.
+Uses Netscape-format parser in:
+
+```
+src/utils/parseBookmarkHtml.ts
+```
+
+### Export
+
+Exports back to a browser-importable `.html` bookmark file using:
+
+```
+src/utils/bookmarksToHtml.ts
+```
+
+---
+
+## 🖼️ Logo
+
+The Bookmark Deck logo uses:
+
+- Clean serif text
+- Optional standalone bookmark icon variant
+- Full SVG/PNG assets are available if needed
+
+---
+
+## 🛣️ Roadmap
+
+- [ ] Drag-and-drop reordering
+- [ ] Pinned bookmarks
+- [ ] Optional cloud sync (local-first)
+- [ ] Mobile app version (Expo)
+- [ ] Public bookmarking API (opt-in)
+
+---
+
+## 📝 License
+
+MIT License — free to use, modify, and distribute.
