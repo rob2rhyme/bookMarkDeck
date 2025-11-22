@@ -23,7 +23,7 @@ export function DragonCursor() {
     const blinkDuration = 0.1; // seconds
     const blinkSpeed = 1 / blinkDuration;
 
-    // 🌈 Dragon body gradients (head + wings + spine) + stops
+    // 🌈 Dragon body gradients (head + wings + spine)
     const headGradient =
       svg.querySelector<SVGLinearGradientElement>("#DragonHeadGrad");
     const wingGradient =
@@ -33,7 +33,11 @@ export function DragonCursor() {
     const spineGradBottom =
       svg.querySelector<SVGLinearGradientElement>("#LinearGradID_3");
 
-    // 🌈 Gradients that make up the spinal chord from head → tail
+    // Namespace constants for creating SVG elements
+    const xmlns = "http://www.w3.org/2000/svg";
+    const xlinkns = "http://www.w3.org/1999/xlink";
+
+    // 🌈 Gradients that make up the dragon body from head → tail
     // (head + wings + both spine gradients share the same color pattern)
     const bodyGradients: SVGLinearGradientElement[] = [
       headGradient,
@@ -42,8 +46,19 @@ export function DragonCursor() {
       spineGradBottom,
     ].filter((g): g is SVGLinearGradientElement => !!g);
 
-    const xmlns = "http://www.w3.org/2000/svg";
-    const xlinkns = "http://www.w3.org/1999/xlink";
+    // 💨 Smoke spit particles
+    // Higher count for denser smoke
+    const SMOKE_COUNT = 200;
+    type SmokeParticle = {
+      use: SVGUseElement;
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      life: number;
+      maxLife: number;
+    };
+    const smokeParticles: SmokeParticle[] = [];
 
     const N = 40;
     type ElemData = { use: SVGUseElement | null; x: number; y: number };
@@ -85,7 +100,7 @@ export function DragonCursor() {
       screen.prepend(elem);
     };
 
-    // Build dragon parts
+    // Build dragon parts (head, wings, spine segments)
     for (let i = 1; i < N; i++) {
       if (i === 1) prepend("Cabeza", i);
       else if (i === 8 || i === 14) prepend("Aletas", i);
@@ -94,12 +109,31 @@ export function DragonCursor() {
 
     let rafId = 0;
 
+    // Initialize smoke particle <use> elements once we know sizes
+    for (let i = 0; i < SMOKE_COUNT; i++) {
+      const use = document.createElementNS(xmlns, "use") as SVGUseElement;
+      use.setAttributeNS(xlinkns, "xlink:href", "#SmokePuff");
+      use.setAttribute("opacity", "0");
+      // Append so smoke sits slightly behind later dragon parts visually
+      screen.append(use);
+
+      smokeParticles.push({
+        use,
+        x: width / 2,
+        y: height / 2,
+        vx: 0,
+        vy: 0,
+        life: 0,
+        maxLife: 1,
+      });
+    }
+
     const run = () => {
       rafId = requestAnimationFrame(run);
 
       // 👁 Smooth eye blink / sweep
       if (eyeStops.length) {
-        // t goes 0 → 1 every 0.2 seconds
+        // t goes 0 → 1 every 0.1 seconds
         const t = (frm * blinkSpeed) % 1;
 
         // Sweep front → back by adjusting offset positions
@@ -113,7 +147,7 @@ export function DragonCursor() {
         eyeStops[2].setAttribute("stop-color", "#000");
       }
 
-      // 🌈 Animate dragon spinal chord colors (head → tail)
+      // 🌈 Animate dragon body colors (head + wings + spine)
       // Left and right sides share the SAME colors because we
       // compute hues per stop index, then apply to each gradient's
       // corresponding stop.
@@ -137,6 +171,64 @@ export function DragonCursor() {
         });
       }
 
+      // 💨 Update smoke spit particles (emit from mouth/front, drift & fade)
+      if (smokeParticles.length && elems[0] && elems[1]) {
+        const headPos = elems[1]; // head segment
+        const noseBase = elems[0]; // invisible leader segment in front
+
+        // Direction from head center → nose (front of dragon)
+        const dirX = noseBase.x - headPos.x;
+        const dirY = noseBase.y - headPos.y;
+        const len = Math.hypot(dirX, dirY) || 1;
+        const nx = dirX / len;
+        const ny = dirY / len;
+
+        // Spawn a few new puffs per frame when there are dead particles
+        for (let s = 0; s < 3; s++) {
+          const spawn = smokeParticles.find((p) => p.life <= 0);
+          if (!spawn) break;
+
+          // Position slightly in front of the mouth
+          const offset = 18 + Math.random() * 6;
+          spawn.x = headPos.x + nx * offset;
+          spawn.y = headPos.y + ny * offset;
+
+          // Velocity mostly forward, with small sideways jitter
+          const baseSpeed = 1.6 + Math.random() * 0.7;
+          spawn.vx = nx * baseSpeed + (Math.random() - 0.5) * 0.4;
+          spawn.vy = ny * baseSpeed + (Math.random() - 0.5) * 0.4;
+
+          spawn.maxLife = 150 + Math.random() * 40; // frames
+          spawn.life = spawn.maxLife;
+        }
+
+        // Integrate & render existing puffs
+        for (const p of smokeParticles) {
+          if (p.life <= 0) continue;
+          p.life -= 1;
+
+          p.x += p.vx;
+          p.y += p.vy;
+          // Slight drag so smoke slows as it travels
+          p.vx *= 0.985;
+          p.vy *= 0.985;
+
+          // alpha = how "alive" the puff is (1 = fresh, 0 = dead)
+          const alpha = Math.max(0, p.life / p.maxLife);
+          // Make the smoke dot grow as it fades:
+          // - small when alpha ~ 1 (just spawned)
+          // - larger when alpha ~ 0 (about to disappear)
+          const scale = 0.5 + (1 - alpha) * 1.2; // 0.5 → 1.7
+
+          p.use.setAttribute(
+            "transform",
+            `translate(${p.x},${p.y}) scale(${scale})`
+          );
+          p.use.setAttribute("opacity", alpha.toFixed(3));
+        }
+      }
+
+      // 🐉 Dragon body follow + orbit logic
       const e0 = elems[0];
       const ax = (Math.cos(3 * frm) * rad * width) / height;
       const ay = (Math.sin(4 * frm) * rad * height) / width;
@@ -183,7 +275,6 @@ export function DragonCursor() {
   return (
     // IMPORTANT: absolute + z-0 so it's above the background
     // but behind your z-10 content, and doesn't eat mouse events.
-    // <div className="pointer-events-none absolute inset-0 z-0 select-none">
     <div className="pointer-events-none fixed inset-0 z-0 select-none">
       <svg
         ref={svgRef}
@@ -195,11 +286,10 @@ export function DragonCursor() {
         <defs>
           {/* Dragon head gradient */}
           <linearGradient id="DragonHeadGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            {/* Front (nose) = dark red */}
+            {/* Initial colors; JS will override with animated HSL */}
             <stop offset="0%" stopColor="#8b0000" />
             <stop offset="40%" stopColor="#b30000" />
             <stop offset="70%" stopColor="#d82626" />
-            {/* Back = light red */}
             <stop offset="100%" stopColor="#000000" />
           </linearGradient>
 
@@ -230,7 +320,7 @@ export function DragonCursor() {
             />
           </g>
 
-          {/* Aletas (full original path – both wings) */}
+          {/* Aletas (wings) */}
           <g id="Aletas" transform="matrix(1, 0, 0, 1, 0, 0)">
             <linearGradient
               id="LinearGradID_1"
@@ -257,7 +347,7 @@ export function DragonCursor() {
             />
           </g>
 
-          {/* Espina */}
+          {/* Espina (spine) */}
           <g id="Espina" transform="matrix(1, 0, 0, 1, 0, 0)">
             <linearGradient
               id="LinearGradID_2"
@@ -304,6 +394,16 @@ export function DragonCursor() {
             <path
               style={{ fill: "url(#LinearGradID_3)" }}
               d="M18.8,0Q18 1.45 7.75 4.1Q2.7 2.4 0 5.95Q0.05 12.55 6.65 12.4Q1.25 16.25 -6.2 8.35Q-6.35 8.25 -6.45 8.25L-6.5 8.25Q-11.2 5.35 -12.3 9.6Q-17.85 5.7 -18.8 0L18.8 0"
+            />
+          </g>
+
+          {/* Smoke puff prototype */}
+          <g id="SmokePuff" transform="matrix(1, 0, 0, 1, 0, 0)">
+            <circle
+              cx="0"
+              cy="0"
+              r="12"
+              style={{ fill: "#ffffff", fillOpacity: 0.4 }}
             />
           </g>
         </defs>
