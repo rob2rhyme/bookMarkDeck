@@ -14,6 +14,24 @@ export function DragonCursor() {
     const screen = svg.querySelector<SVGGElement>("#screen");
     if (!screen) return;
 
+    // 👁 Dragon eye gradient stops
+    const eyeStops: SVGStopElement[] = Array.from(
+      svg.querySelectorAll("#DragonEyeGrad stop")
+    );
+
+    // Blink timing (faster sweep)
+    const blinkDuration = 0.1; // seconds
+    const blinkSpeed = 1 / blinkDuration;
+
+    // 🌈 Dragon head gradient + stops
+    const headGradient =
+      svg.querySelector<SVGLinearGradientElement>("#DragonHeadGrad");
+
+    // Collect all <stop> elements inside the gradient
+    const headStops: SVGStopElement[] = headGradient
+      ? Array.from(headGradient.querySelectorAll("stop"))
+      : [];
+
     const xmlns = "http://www.w3.org/2000/svg";
     const xlinkns = "http://www.w3.org/1999/xlink";
 
@@ -68,6 +86,40 @@ export function DragonCursor() {
 
     const run = () => {
       rafId = requestAnimationFrame(run);
+
+      // 👁 Smooth eye blink / sweep
+      if (eyeStops.length) {
+        // t goes 0 → 1 every 0.2 seconds
+        const t = (frm * blinkSpeed) % 1;
+
+        // Sweep front → back by adjusting offset positions
+        eyeStops[0].setAttribute("offset", `${Math.max(0, t - 0.1)}`);
+        eyeStops[1].setAttribute("offset", `${t}`);
+        eyeStops[2].setAttribute("offset", `${Math.min(1, t + 0.1)}`);
+
+        // Colors (white highlight sweeping)
+        eyeStops[0].setAttribute("stop-color", "#000");
+        eyeStops[1].setAttribute("stop-color", "#fff");
+        eyeStops[2].setAttribute("stop-color", "#000");
+      }
+
+      // 🌈 Animate dragon head gradient colors every frame
+      if (headStops.length) {
+        // Use frm as time-based hue rotation
+        const baseHue = frm * 180; // adjust to speed up/slow down
+
+        headStops.forEach((stop, index) => {
+          // Shift hue uniquely per stop
+          const hue = (baseHue + index * 90) % 360;
+          const saturation = 80;
+          const lightness = 55;
+
+          stop.setAttribute(
+            "stop-color",
+            `hsl(${hue}, ${saturation}%, ${lightness}%)`
+          );
+        });
+      }
 
       const e0 = elems[0];
       const ax = (Math.cos(3 * frm) * rad * width) / height;
@@ -137,8 +189,23 @@ export function DragonCursor() {
 
           {/* Cabeza */}
           <g id="Cabeza" transform="matrix(1, 0, 0, 1, 0, 0)">
+            {/* 👁 Eye gradient (front → back) */}
+            <linearGradient
+              id="DragonEyeGrad"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="0%"
+            >
+              <stop offset="0%" stopColor="#000" />
+              <stop offset="50%" stopColor="#fff" />
+              <stop offset="100%" stopColor="#000" />
+            </linearGradient>
+
+            {/* Eye path with gradient fill */}
             <path
-              style={{ fill: "#000000", fillOpacity: 1 }}
+              id="DragonEye"
+              style={{ fill: "url(#DragonEyeGrad)", fillOpacity: 1 }}
               d="M-28.9,-1.1L-28.55 -1.95Q-28.1 -3.1 -27.25 -2.95L-26.7 -2.95Q-27.7 -1.65 -28.9 -1.1M-18.35,-1.8Q-15.1 -10.3 -9.6 -6.05Q-15.1 -6.2 -18.35 -1.8M-18.35,1.1Q-15.1 5.45 -9.6 5.35Q-15.1 9.55 -18.35 1.1M-26.7,2.2L-27.25 2.25Q-28.1 2.4 -28.55 1.2L-28.9 0.35Q-27.7 0.9 -26.7 2.2"
             />
             <path
