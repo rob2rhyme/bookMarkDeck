@@ -23,14 +23,24 @@ export function DragonCursor() {
     const blinkDuration = 0.1; // seconds
     const blinkSpeed = 1 / blinkDuration;
 
-    // 🌈 Dragon head gradient + stops
+    // 🌈 Dragon body gradients (head + wings + spine) + stops
     const headGradient =
       svg.querySelector<SVGLinearGradientElement>("#DragonHeadGrad");
+    const wingGradient =
+      svg.querySelector<SVGLinearGradientElement>("#LinearGradID_1");
+    const spineGradTop =
+      svg.querySelector<SVGLinearGradientElement>("#LinearGradID_2");
+    const spineGradBottom =
+      svg.querySelector<SVGLinearGradientElement>("#LinearGradID_3");
 
-    // Collect all <stop> elements inside the gradient
-    const headStops: SVGStopElement[] = headGradient
-      ? Array.from(headGradient.querySelectorAll("stop"))
-      : [];
+    // 🌈 Gradients that make up the spinal chord from head → tail
+    // (head + wings + both spine gradients share the same color pattern)
+    const bodyGradients: SVGLinearGradientElement[] = [
+      headGradient,
+      wingGradient,
+      spineGradTop,
+      spineGradBottom,
+    ].filter((g): g is SVGLinearGradientElement => !!g);
 
     const xmlns = "http://www.w3.org/2000/svg";
     const xlinkns = "http://www.w3.org/1999/xlink";
@@ -103,21 +113,27 @@ export function DragonCursor() {
         eyeStops[2].setAttribute("stop-color", "#000");
       }
 
-      // 🌈 Animate dragon head gradient colors every frame
-      if (headStops.length) {
-        // Use frm as time-based hue rotation
-        const baseHue = frm * 180; // adjust to speed up/slow down
+      // 🌈 Animate dragon spinal chord colors (head → tail)
+      // Left and right sides share the SAME colors because we
+      // compute hues per stop index, then apply to each gradient's
+      // corresponding stop.
+      if (bodyGradients.length) {
+        const baseHue = frm * 180; // same pace / pattern as before
 
-        headStops.forEach((stop, index) => {
-          // Shift hue uniquely per stop
-          const hue = (baseHue + index * 90) % 360;
-          const saturation = 80;
-          const lightness = 55;
+        bodyGradients.forEach((gradient) => {
+          const stops = Array.from(gradient.querySelectorAll("stop"));
 
-          stop.setAttribute(
-            "stop-color",
-            `hsl(${hue}, ${saturation}%, ${lightness}%)`
-          );
+          stops.forEach((stop, stopIndex) => {
+            // Same hue for the same stop index across all gradients
+            const hue = (baseHue + stopIndex * 90) % 360;
+            const saturation = 80;
+            const lightness = 55;
+            const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+
+            // Override both attribute- and style-based colors
+            stop.setAttribute("stop-color", color);
+            (stop.style as any).stopColor = color;
+          });
         });
       }
 
