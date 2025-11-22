@@ -88,9 +88,31 @@ export default function LoginPage() {
                     onClick={() => handleClick("google")}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                   >
-                    <span className="flex h-5 w-5 items-center justify-center rounded-sm">
-                      {/* simple Google G */}
-                      <span className="text-lg">🟢</span>
+                    {/* Google G — clean inline SVG */}
+                    <span className="flex h-5 w-5 items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 48 48"
+                        width="20"
+                        height="20"
+                      >
+                        <path
+                          fill="#EA4335"
+                          d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.59 13.35 17.74 9.5 24 9.5z"
+                        />
+                        <path
+                          fill="#4285F4"
+                          d="M46.47 24.55c0-1.57-.14-3.08-.39-4.55H24v9.02h12.65c-.55 2.96-2.17 5.47-4.63 7.17l7.35 5.71C43.33 37.27 46.47 31.36 46.47 24.55z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M10.54 28.41A14.47 14.47 0 0 1 9.5 24c0-1.53.26-3 .74-4.41l-7.98-6.19A23.89 23.89 0 0 0 0 24c0 3.85.92 7.49 2.56 10.59l7.98-6.18z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M24 48c6.64 0 12.25-2.19 16.33-5.94l-7.35-5.71c-2.04 1.37-4.66 2.19-8.98 2.19-6.26 0-11.41-3.85-13.47-9.22l-7.98 6.18C6.51 42.63 14.62 48 24 48z"
+                        />
+                      </svg>
                     </span>
                     <span>
                       {isLoading === "google"
