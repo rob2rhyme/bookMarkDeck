@@ -370,7 +370,38 @@ export default function HomePage() {
           <div className="mt-10 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
             No bookmarks yet.{" "}
             <span className="font-medium text-slate-200">
-              Add one above or import from your browser.
+              Add{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddForm(true);
+                  if (typeof window !== "undefined") {
+                    window.scrollTo({
+                      top: 0,
+                      behavior: "smooth",
+                    });
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded-full bg-blue-600/90 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Quick Link
+              </button>{" "}
+              or{" "}
+              <label className="relative inline-flex cursor-pointer items-center align-middle">
+                <input
+                  type="file"
+                  accept=".html,text/html"
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  onChange={(e) =>
+                    handleImport(e.target.files?.[0] ?? null).catch(
+                      console.error
+                    )
+                  }
+                />
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700">
+                  📥 Import Bookmarks
+                </span>
+              </label>
             </span>
           </div>
         ) : (
