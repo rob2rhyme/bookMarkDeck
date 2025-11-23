@@ -8,18 +8,33 @@ const STORAGE_KEY = "bookmarkdeck:v1";
 
 function normalizeBookmarks(raw: unknown): Bookmark[] {
   if (!Array.isArray(raw)) return [];
-  return raw.map((item: any): Bookmark => ({
-    id: item.id ?? crypto.randomUUID(),
-    title: item.title ?? item.url ?? "Untitled",
-    url: item.url ?? "",
-    note: item.note ?? "",
-    folder: item.folder,
-    createdAt: item.createdAt ?? new Date().toISOString(),
-    tags: Array.isArray(item.tags)
-      ? item.tags.map((t: any) => String(t)).filter(Boolean)
-      : [],
-      pinned: typeof item.pinned === "boolean" ? item.pinned : false,
-  }));
+
+  return raw
+    .filter((item): item is Record<string, unknown> =>
+      Boolean(item) && typeof item === "object"
+    )
+    .map((item): Bookmark => {
+      const tags = Array.isArray(item.tags)
+        ? item.tags.map((tag) => String(tag)).filter(Boolean)
+        : [];
+
+      return {
+        id: typeof item.id === "string" ? item.id : crypto.randomUUID(),
+        title:
+          (typeof item.title === "string" && item.title) ||
+          (typeof item.url === "string" && item.url) ||
+          "Untitled",
+        url: typeof item.url === "string" ? item.url : "",
+        note: typeof item.note === "string" ? item.note : "",
+        folder: typeof item.folder === "string" ? item.folder : undefined,
+        createdAt:
+          typeof item.createdAt === "string"
+            ? item.createdAt
+            : new Date().toISOString(),
+        tags,
+        pinned: typeof item.pinned === "boolean" ? item.pinned : false,
+      };
+    });
 }
 
 function loadFromStorage(): Bookmark[] {
@@ -42,11 +57,9 @@ function saveToStorage(bookmarks: Bookmark[]) {
 type AddBookmarkInput = Omit<Bookmark, "id" | "createdAt">;
 
 export function useBookmarks() {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-
-  useEffect(() => {
-    setBookmarks(loadFromStorage());
-  }, []);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() =>
+    loadFromStorage()
+  );
 
   useEffect(() => {
     if (bookmarks.length >= 0) {
@@ -75,7 +88,8 @@ export function useBookmarks() {
               tags: data.tags
                 ? data.tags.map((t) => t.trim()).filter(Boolean)
                 : b.tags,
-                pinned: typeof data.pinned === "boolean" ? data.pinned : b.pinned,
+              pinned:
+                typeof data.pinned === "boolean" ? data.pinned : b.pinned,
             }
           : b
       )
@@ -90,7 +104,6 @@ export function useBookmarks() {
     setBookmarks([]);
   };
 
-  
   // Restore an exact previous list of bookmarks (used for Undo)
   const restoreFromSnapshot = (snapshot: Bookmark[]) => {
     setBookmarks(

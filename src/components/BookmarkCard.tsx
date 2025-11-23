@@ -1,6 +1,7 @@
 //src/components/BookmarkCard.tsx
 "use client";
 
+import NextImage from "next/image";
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect } from "react";
 
@@ -29,21 +30,20 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
   const [isEditing, setIsEditing] = useState(false);
 
   const favicon = getFaviconUrl(bookmark.url);
-  const [borderColor, setBorderColor] = useState<string>(
-    "rgba(148,163,184,0.25)"
-  );
+  const DEFAULT_BORDER_COLOR = "rgba(148,163,184,0.25)";
+  const [borderColor, setBorderColor] = useState<string>(DEFAULT_BORDER_COLOR);
 
   useEffect(() => {
-    if (!favicon) {
-      setBorderColor("rgba(148,163,184,0.25)");
-      return;
-    }
+    if (!favicon) return;
 
-    const img = new Image();
+    const img = new window.Image();
     img.crossOrigin = "anonymous";
     img.src = favicon;
 
+    let isCancelled = false;
+
     img.onload = () => {
+      if (isCancelled) return;
       try {
         const canvas = document.createElement("canvas");
         canvas.width = img.width || 32;
@@ -74,14 +74,22 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
 
         setBorderColor(`rgba(${r}, ${g}, ${b}, 0.9)`);
       } catch {
-        setBorderColor("rgba(148,163,184,0.25)");
+        setBorderColor(DEFAULT_BORDER_COLOR);
       }
     };
 
     img.onerror = () => {
-      setBorderColor("rgba(148,163,184,0.25)");
+      if (!isCancelled) {
+        setBorderColor(DEFAULT_BORDER_COLOR);
+      }
+    };
+
+    return () => {
+      isCancelled = true;
     };
   }, [favicon]);
+
+  const effectiveBorderColor = favicon ? borderColor : DEFAULT_BORDER_COLOR;
 
   const persistChanges = () => {
     const nextTitle = (title || url || bookmark.title).trim();
@@ -151,7 +159,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
     <div
       className="relative z-0 overflow-hidden rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-md dark:bg-slate-900/80"
       style={{
-        border: `2px solid ${borderColor}`,
+        border: `2px solid ${effectiveBorderColor}`,
       }}
     >
       {/* MOBILE: compact icon-style card (4 per row) */}
@@ -199,9 +207,11 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
           className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/10 px-2 py-3 text-center hover:bg-slate-950/20"
         >
           {favicon && (
-            <img
+            <NextImage
               src={favicon}
               alt=""
+              width={36}
+              height={36}
               className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
               loading="lazy"
             />
@@ -230,9 +240,11 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
           {!isEditing && (
             <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
               {favicon && (
-                <img
+                <NextImage
                   src={favicon}
                   alt=""
+                  width={28}
+                  height={28}
                   className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
                   loading="lazy"
                 />

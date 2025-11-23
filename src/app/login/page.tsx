@@ -1,6 +1,7 @@
 // src/app/login/page.tsx
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -45,10 +46,13 @@ export default function LoginPage() {
         {/* Top bar */}
         <header className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img
+            <Image
               src="/logo.png"
               alt="Bookmark Deck logo"
+              width={36}
+              height={36}
               className="h-9 w-9 rounded-lg object-cover shadow-sm"
+              priority
             />
             <span className="text-sm font-semibold tracking-tight text-slate-100">
               Bookmark Deck

@@ -1,6 +1,7 @@
 //src/app/page.tsx
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState, useEffect } from "react";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { Bookmark } from "@/types/bookmark";
@@ -194,10 +195,13 @@ export default function HomePage() {
         <header className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <img
+              <Image
                 src="/logo.png"
                 alt="Bookmark Deck logo"
-                className="h-15 w-15 rounded-md object-cover"
+                width={56}
+                height={56}
+                className="h-14 w-14 rounded-md object-cover"
+                priority
               />
               <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
                 Bookmark Deck
