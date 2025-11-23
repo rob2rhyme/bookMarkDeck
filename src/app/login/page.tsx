@@ -1,18 +1,40 @@
 // src/app/login/page.tsx
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState<
     null | "google" | "apple" | "microsoft"
   >(null);
 
+  useEffect(() => {
+    const isLoggedIn = document.cookie.includes("bookmarkdeck_auth=true");
+    if (isLoggedIn) {
+      router.replace("/");
+    }
+  }, [router]);
+
   const handleClick = (provider: "google" | "apple" | "microsoft") => {
-    // TODO: hook up real auth later
-    setIsLoading(provider);
-    setTimeout(() => setIsLoading(null), 800);
+    if (provider !== "google") {
+      setIsLoading(provider);
+      setTimeout(() => setIsLoading(null), 1200);
+      return;
+    }
+
+    setIsLoading("google");
+    document.cookie = `bookmarkdeck_auth=true; path=/; max-age=${
+      60 * 60 * 24 * 30
+    }`;
+
+    setTimeout(() => {
+      router.replace("/");
+    }, 850);
   };
 
   return (
@@ -27,10 +49,13 @@ export default function LoginPage() {
         {/* Top bar */}
         <header className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img
+            <Image
               src="/logo.png"
               alt="Bookmark Deck logo"
+              width={36}
+              height={36}
               className="h-9 w-9 rounded-lg object-cover shadow-sm"
+              priority
             />
             <span className="text-sm font-semibold tracking-tight text-slate-100">
               Bookmark Deck
@@ -38,10 +63,10 @@ export default function LoginPage() {
           </div>
 
           <Link
-            href="/"
+            href="/login"
             className="text-xs font-medium text-slate-400 underline-offset-4 hover:text-slate-100 hover:underline"
           >
-            Back to bookmarks
+            Need help?
           </Link>
         </header>
 
@@ -87,6 +112,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => handleClick("google")}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                    disabled={isLoading !== null}
                   >
                     {/* Google G — clean inline SVG */}
                     <span className="flex h-5 w-5 items-center justify-center">
@@ -126,6 +152,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => handleClick("apple")}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-slate-50 ring-1 ring-slate-700 transition hover:bg-slate-800 hover:ring-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    disabled={isLoading !== null}
                   >
                     <span className="flex h-5 w-5 items-center justify-center">
                       <span className="text-lg"></span>
@@ -142,6 +169,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => handleClick("microsoft")}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-500/90 px-3 py-2.5 text-sm font-medium text-slate-50 shadow-sm transition hover:bg-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    disabled={isLoading !== null}
                   >
                     <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-sky-700/80 text-[11px]">
                       ☐

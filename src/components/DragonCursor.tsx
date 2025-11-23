@@ -166,7 +166,7 @@ export function DragonCursor() {
 
             // Override both attribute- and style-based colors
             stop.setAttribute("stop-color", color);
-            (stop.style as any).stopColor = color;
+            stop.style.setProperty("stop-color", color);
           });
         });
       }
