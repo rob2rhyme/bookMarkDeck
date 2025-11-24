@@ -56,15 +56,21 @@ function saveToStorage(bookmarks: Bookmark[]) {
 type AddBookmarkInput = Omit<Bookmark, "id" | "createdAt">;
 
 export function useBookmarks() {
-    const [bookmarks, setBookmarks] = useState<Bookmark[]>(() =>
-    loadFromStorage()
-  );
+  // Start empty on the server and hydrate from localStorage client-side to avoid
+  // SSR/client mismatches.
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (bookmarks.length >= 0) {
-      saveToStorage(bookmarks);
-    }
-  }, [bookmarks]);
+    const stored = loadFromStorage();
+    setBookmarks(stored);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveToStorage(bookmarks);
+  }, [bookmarks, hydrated]);
 
   const addBookmark = (partial: AddBookmarkInput) => {
     const newBookmark: Bookmark = {

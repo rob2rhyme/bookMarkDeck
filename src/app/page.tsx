@@ -303,8 +303,8 @@ export default function HomePage() {
         )}
 
         {/* Search + filters */}
-        <section className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex-1">
+        <section className="mb-6 flex flex-col gap-3">
+          <div className="w-full">
             <div className="relative">
               <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
                 🔍
@@ -328,11 +328,11 @@ export default function HomePage() {
               )}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex w-full flex-wrap items-center gap-2 text-xs sm:flex-nowrap">
             <select
               value={folderFilter}
               onChange={(e) => setFolderFilter(e.target.value)}
-              className="h-10 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="h-10 flex-1 min-w-0 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 lg:w-1/2 lg:flex-none"
             >
               <option value="">All bookmarks</option>
               <option value="favorites">Favorites only</option>
@@ -352,7 +352,7 @@ export default function HomePage() {
                 setSearch("");
                 setFolderFilter("");
               }}
-              className="h-10 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-100 outline-none transition hover:border-blue-500 hover:bg-slate-800 hover:text-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="h-10 flex-1 min-w-0 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-100 text-center outline-none transition hover:border-blue-500 hover:bg-slate-800 hover:text-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 lg:w-1/4 lg:flex-none"
             >
               Clear search & filters
             </button>
@@ -361,7 +361,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setShowClearConfirm(true)}
-                className="h-10 rounded-full border border-red-700/60 bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-900/80"
+                className="h-10 flex-1 min-w-0 rounded-full border border-red-700/60 bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-200 text-center hover:bg-red-900/80 lg:flex-1"
               >
                 Delete All Bookmarks
               </button>
