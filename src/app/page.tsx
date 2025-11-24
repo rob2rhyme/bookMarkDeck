@@ -35,6 +35,11 @@ export default function HomePage() {
   } | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const handleLogout = () => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem("bookmarkdeck:v1");
+    window.location.href = "/";
+  };
 
   const folders = useMemo(() => {
     const set = new Set<string>();
@@ -242,6 +247,22 @@ export default function HomePage() {
             >
               <span className="text-lg">📤</span>
               Export
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              aria-label="Logout"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-lg shadow-blue-900/40 ring-1 ring-white/10 transition hover:from-blue-400 hover:to-blue-600 hover:shadow-blue-800/50"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-5 w-5 text-white"
+                aria-hidden="true"
+              >
+                <path d="M11 3a1 1 0 0 1 2 0v8a1 1 0 0 1-2 0zm-1.707 2.293a1 1 0 0 1 1.414 1.414 6 6 0 1 0 4.586 0 1 1 0 0 1 1.414-1.414 8 8 0 1 1-7.414 0" />
+              </svg>
             </button>
           </div>
         </header>
