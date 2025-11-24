@@ -3,6 +3,7 @@
 
 import Image from "next/image";
 import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { Bookmark } from "@/types/bookmark";
 import { BookmarkCard } from "@/components/BookmarkCard";
@@ -11,6 +12,7 @@ import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { DragonCursor } from "@/components/DragonCursor";
 
 export default function HomePage() {
+  const router = useRouter();
   const {
     bookmarks,
     addBookmark,
@@ -38,7 +40,8 @@ export default function HomePage() {
   const handleLogout = () => {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem("bookmarkdeck:v1");
-    window.location.href = "/";
+    document.cookie = "bookmarkdeck_auth=true; path=/; max-age=0";
+    router.push("/login");
   };
 
   const folders = useMemo(() => {
