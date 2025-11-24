@@ -6,26 +6,28 @@ const AUTH_COOKIE = "bookmarkdeck_auth";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const isAuthenticated = request.cookies.get(AUTH_COOKIE)?.value === "true";
 
-  const isPublicAsset =
+  // Allow static assets and Next internals through
+  if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
-    pathname.startsWith("/logo.png");
-
-  if (isPublicAsset) {
+    pathname.startsWith("/logo.png")
+  ) {
     return NextResponse.next();
   }
 
-  const isAuthRoute = pathname === "/login";
-  const isAuthenticated = request.cookies.get(AUTH_COOKIE)?.value === "true";
+  const isLoginRoute = pathname === "/login";
 
-  if (!isAuthenticated && !isAuthRoute) {
+  // If not logged in, send to login for all non-login routes
+  if (!isAuthenticated && !isLoginRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isAuthenticated && isAuthRoute) {
+  // If logged in and trying to hit /login, send home
+  if (isAuthenticated && isLoginRoute) {
     const homeUrl = request.nextUrl.clone();
     homeUrl.pathname = "/";
     return NextResponse.redirect(homeUrl);
@@ -35,5 +37,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/(login)?", "/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|logo.png).*)",
+  ],
 };
