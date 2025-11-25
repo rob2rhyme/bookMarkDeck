@@ -224,7 +224,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => setShowAddForm(true)}
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-500"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-blue-500"
             >
               <span className="text-lg">＋</span>
               Add Link
@@ -238,7 +238,7 @@ export default function HomePage() {
                   handleImport(e.target.files?.[0] ?? null).catch(console.error)
                 }
               />
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-4 py-2 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700">
+              <span className="inline-flex h-10 items-center gap-2 rounded-full bg-slate-800 px-4 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700">
                 <span className="text-lg">📥</span>
                 Import
               </span>
@@ -246,7 +246,7 @@ export default function HomePage() {
 
             <button
               onClick={handleExport}
-              className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm hover:bg-white"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-slate-100 px-4 text-xs font-semibold text-slate-900 shadow-sm hover:bg-white"
             >
               <span className="text-lg">📤</span>
               Export
