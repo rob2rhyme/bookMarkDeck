@@ -219,11 +219,12 @@ The Bookmark Deck logo uses:
 - [ ] Optional cloud sync (local-first)
 - [ ] Mobile app version (Expo)
 - [ ] Public bookmarking API (opt-in)
+- [ ] i want everyone to use Drive sync, submit the app for verification for the https://www.googleapis.com/auth/drive.appdata
 
 ---
 ## force deploy vercel
 ```
-vercel deploy --prod --force --confirm
+vercel deploy --prod --force --yes
 ```
 
 ---
