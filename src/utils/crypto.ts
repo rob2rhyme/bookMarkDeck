@@ -64,8 +64,14 @@ export async function decryptJson<T>(
   payload: { iv: string; ciphertext: string }
 ): Promise<T> {
   const key = await deriveKey(passphrase);
-  const iv = new Uint8Array<ArrayBuffer>(base64Decode(payload.iv));
-  const data = new Uint8Array<ArrayBuffer>(base64Decode(payload.ciphertext));
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
-  return JSON.parse(decoder.decode(decrypted)) as T;
+  const ivBytes = new Uint8Array(base64Decode(payload.iv));
+  const cipherBytes = new Uint8Array(base64Decode(payload.ciphertext));
+
+  const decryptedBuffer = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: ivBytes },
+    key,
+    cipherBytes.buffer
+  );
+
+  return JSON.parse(decoder.decode(decryptedBuffer)) as T;
 }

@@ -11,7 +11,19 @@ const FILE_NAME = "bookmarkdeck.json";
 type DriveFile = { id: string; modifiedTime?: string };
 type EncryptedPayload = { iv: string; ciphertext: string };
 
-async function loadGis(): Promise<typeof window.google> {
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        oauth2?: {
+          initTokenClient: (config: any) => { requestAccessToken: () => void };
+        };
+      };
+    };
+  }
+}
+
+async function loadGis(): Promise<NonNullable<typeof window.google>> {
   if (typeof window === "undefined") {
     throw new Error("Google Drive sync is client-only.");
   }
