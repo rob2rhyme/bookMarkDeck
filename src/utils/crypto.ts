@@ -13,13 +13,13 @@ function base64Encode(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-function base64Decode(value: string): Uint8Array {
+function base64Decode(value: string): ArrayBuffer {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes;
+  return bytes.buffer;
 }
 
 async function deriveKey(passphrase: string) {
@@ -64,8 +64,8 @@ export async function decryptJson<T>(
   payload: { iv: string; ciphertext: string }
 ): Promise<T> {
   const key = await deriveKey(passphrase);
-  const iv = base64Decode(payload.iv);
-  const data = base64Decode(payload.ciphertext);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data.buffer);
+  const iv = new Uint8Array(base64Decode(payload.iv));
+  const data = new Uint8Array(base64Decode(payload.ciphertext));
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
   return JSON.parse(decoder.decode(decrypted)) as T;
 }
