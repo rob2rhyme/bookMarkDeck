@@ -221,6 +221,12 @@ The Bookmark Deck logo uses:
 - [ ] Public bookmarking API (opt-in)
 
 ---
+## force deploy vercel
+```
+vercel deploy --prod --force --confirm
+```
+
+---
 
 ## 📝 License
 
