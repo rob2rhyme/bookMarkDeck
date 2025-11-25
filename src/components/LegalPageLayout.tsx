@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -22,19 +23,32 @@ export function LegalPageLayout({ title, lastUpdated, children }: Props) {
   return (
     <main className="relative flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-10">
-        <header className="mb-6 flex items-center justify-between">
+        <header className="mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/logo.png"
+                alt="Bookmark Deck logo"
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-lg object-cover shadow-sm"
+                priority
+              />
+              <span className="text-base font-semibold text-slate-100">Bookmark Deck</span>
+            </Link>
+            <Link
+              href="/"
+              className="rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 shadow hover:bg-slate-700"
+            >
+              ← Back to Home
+            </Link>
+          </div>
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
             {lastUpdated && (
               <p className="mt-1 text-sm text-slate-400">Last updated: {lastUpdated}</p>
             )}
           </div>
-          <Link
-            href="/"
-            className="rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 shadow hover:bg-slate-700"
-          >
-            ← Back to Home
-          </Link>
         </header>
 
         <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 p-6 shadow-lg">

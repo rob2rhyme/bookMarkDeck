@@ -50,7 +50,7 @@ export default function LoginPage() {
           </div>
 
           <Link
-            href="/login"
+            href="/faq"
             className="text-xs font-medium text-slate-400 underline-offset-4 hover:text-slate-100 hover:underline"
           >
             Need help?
