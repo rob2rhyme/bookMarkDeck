@@ -32,6 +32,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
   const [tagsInput, setTagsInput] = useState((bookmark.tags ?? []).join(", "));
   const [note, setNote] = useState(bookmark.note ?? "");
   const [isEditing, setIsEditing] = useState(false);
+  const [showNote, setShowNote] = useState(false);
 
   const favicon = getFaviconUrl(bookmark.url);
   const DEFAULT_BORDER_COLOR = "rgba(148,163,184,0.25)";
@@ -139,6 +140,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
       // already editing -> treat as save
       persistChanges();
       setIsEditing(false);
+      setShowNote(false);
     }
   };
 
@@ -149,6 +151,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
     setFolder(bookmark.folder ?? "");
     setTagsInput((bookmark.tags ?? []).join(", "));
     setNote(bookmark.note ?? "");
+    setShowNote(false);
   };
 
   const tags = bookmark.tags ?? [];
@@ -374,19 +377,35 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
           {/* Note */}
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-              Note
+              <span className="flex items-center gap-2">
+                <span>Note</span>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setShowNote((prev) => !prev)}
+                    className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    aria-label={showNote ? "Hide note" : "Show note"}
+                  >
+                    {showNote ? "🙈 Hide" : "🔒 Show"}
+                  </button>
+                )}
+              </span>
             </label>
             {isEditing ? (
               <textarea
-                className="h-20 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-800 outline-none ring-0 transition focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:ring-blue-900/40"
+                className="h-20 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 outline-none ring-0 transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-900/40"
                 placeholder="Add login hints, purpose, etc."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
             ) : (
-              <p className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-400 dark:text-slate-300">
-                {bookmark.note || "Add login hints, purpose, etc."}
-              </p>
+              <div className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-400 dark:text-slate-300">
+                {showNote
+                  ? bookmark.note || "Add login hints, purpose, etc."
+                  : bookmark.note
+                  ? "••••••••"
+                  : "Add login hints, purpose, etc."}
+              </div>
             )}
           </div>
         </div>

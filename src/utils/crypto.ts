@@ -66,6 +66,6 @@ export async function decryptJson<T>(
   const key = await deriveKey(passphrase);
   const iv = base64Decode(payload.iv);
   const data = base64Decode(payload.ciphertext);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data.buffer);
   return JSON.parse(decoder.decode(decrypted)) as T;
 }
