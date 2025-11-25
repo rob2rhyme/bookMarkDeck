@@ -16,7 +16,15 @@ export default function FaqPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-slate-50">What happens if I lose my passphrase?</h2>
-          <p>We cannot recover or decrypt your synced data without it.</p>
+          <div className="space-y-2">
+            <p>We cannot recover or decrypt your synced data without it (passphrase never leaves your device).</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>If you still have bookmarks locally: export them (or keep them), set a new passphrase, and “Sync to Drive” to overwrite the old encrypted file.</li>
+              <li>If you don’t have local bookmarks: start fresh and set a new passphrase for future syncs.</li>
+              <li>To clear the old encrypted copy: delete the Bookmark Deck file in Drive appData or overwrite by syncing an empty/cleared set, then set a new passphrase and re-sync.</li>
+            </ul>
+            <p>We’re happy to walk you through exporting, clearing, and re-syncing, but lost passphrases make old cloud data unrecoverable.</p>
+          </div>
         </div>
 
         <div>
