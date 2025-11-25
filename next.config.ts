@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
         hostname: "icons.duckduckgo.com",
         pathname: "/ip3/**",
       },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
     ],
   },
 };
