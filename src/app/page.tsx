@@ -255,30 +255,26 @@ export default function HomePage() {
               type="button"
               onClick={handleLogout}
               aria-label="Logout"
-              className="group relative inline-flex h-10 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-b from-[#3a75ff] via-[#1f4dc5] to-[#0c2f93] px-4 text-white shadow-[0_10px_20px_rgba(0,0,0,0.35)] ring-1 ring-white/20 transition hover:translate-y-[-1px] hover:brightness-110"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
             >
-              <span className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/20 via-transparent to-white/5 mix-blend-screen opacity-80" />
-              <span className="pointer-events-none absolute inset-x-0.5 top-0.5 h-2/5 rounded-xl bg-white/25 blur-[2px]" />
-              <span className="relative z-10 flex flex-row items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/90 bg-white/15 shadow-inner shadow-black/30">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    className="h-5 w-5"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      d="M12 3v8M8.5 6.5a6 6 0 1 0 7 0"
-                    />
-                  </svg>
-                </span>
-                <span className="text-[11px] font-semibold tracking-wide text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">
-                  LOGOUT
-                </span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/80 bg-white/15 shadow-inner shadow-black/30">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  className="h-5 w-5"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    d="M12 3v8M8.5 6.5a6 6 0 1 0 7 0"
+                  />
+                </svg>
+              </span>
+              <span className="text-[11px] font-semibold tracking-wide text-white">
+                LOGOUT
               </span>
             </button>
           </div>
