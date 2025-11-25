@@ -61,7 +61,7 @@ export default function LoginPage() {
         <div className="flex flex-1 items-center justify-center">
           <div className="grid w-full max-w-3xl gap-8 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
             {/* Left: copy / hero */}
-            <section className="hidden flex-col justify-center md:flex">
+            <section className="flex flex-col justify-center text-center md:text-left">
               <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">
                 Sign in to sync your{" "}
                 <span className="bg-gradient-to-r from-blue-400 via-sky-300 to-cyan-400 bg-clip-text text-transparent">
@@ -179,13 +179,19 @@ export default function LoginPage() {
                 {/* Optional helper text */}
                 <p className="text-[11px] leading-relaxed text-slate-500">
                   By continuing, you agree to the{" "}
-                  <span className="cursor-pointer text-slate-300 underline-offset-2 hover:underline">
+                  <Link
+                    href="/terms"
+                    className="cursor-pointer text-slate-300 underline-offset-2 hover:underline"
+                  >
                     Terms of Service
-                  </span>{" "}
+                  </Link>{" "}
                   and{" "}
-                  <span className="cursor-pointer text-slate-300 underline-offset-2 hover:underline">
+                  <Link
+                    href="/privacy"
+                    className="cursor-pointer text-slate-300 underline-offset-2 hover:underline"
+                  >
                     Privacy Policy
-                  </span>
+                  </Link>
                   .
                 </p>
               </div>
