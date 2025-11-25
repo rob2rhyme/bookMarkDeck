@@ -1,15 +1,19 @@
 //src/components/BookmarkCard.tsx
 "use client";
-
-import NextImage from "next/image";
+/* eslint-disable @next/next/no-img-element */
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect } from "react";
 
 function getFaviconUrl(rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl);
-    // Reliable Google favicon service (CORS safe)
-    return `https://www.google.com/s2/favicons?sz=64&domain=${url.hostname}`;
+    const host = url.hostname;
+    // Skip empty hosts and bare words (no dot) to avoid noisy 404s.
+    if (!host || !host.includes(".")) return null;
+    // Google s2 service returns a fallback icon instead of 404s.
+    return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(
+      host
+    )}`;
   } catch {
     return null;
   }
@@ -205,7 +209,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
           className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/10 px-2 py-3 text-center hover:bg-slate-950/20"
         >
           {favicon && (
-            <NextImage
+            <img
               src={favicon}
               alt=""
               width={36}
@@ -238,7 +242,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
           {!isEditing && (
             <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
               {favicon && (
-                <NextImage
+                <img
                   src={favicon}
                   alt=""
                   width={28}

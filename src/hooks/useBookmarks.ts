@@ -63,6 +63,8 @@ export function useBookmarks() {
 
   useEffect(() => {
     const stored = loadFromStorage();
+    // Loading from localStorage happens once on the client; safe to set state here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBookmarks(stored);
     setHydrated(true);
   }, []);

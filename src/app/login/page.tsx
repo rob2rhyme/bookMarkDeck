@@ -4,37 +4,24 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+
+import { useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState<
-    null | "google" | "apple" | "microsoft"
-  >(null);
+  const { status } = useSession();
+  const [isLoading, setIsLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    const isLoggedIn = document.cookie.includes("bookmarkdeck_auth=true");
-    if (isLoggedIn) {
-      router.replace("/");
-    }
-  }, [router]);
+    if (status === "authenticated") router.replace("/");
+  }, [status, router]);
 
-  const handleClick = (provider: "google" | "apple" | "microsoft") => {
-    if (provider !== "google") {
-      setIsLoading(provider);
-      setTimeout(() => setIsLoading(null), 1200);
-      return;
-    }
-
-    setIsLoading("google");
-    document.cookie = `bookmarkdeck_auth=true; path=/; max-age=${
-      60 * 60 * 24 * 30
-    }`;
-
-    setTimeout(() => {
-      router.replace("/");
-    }, 850);
+  const handleClick = (provider: string) => {
+    setIsLoading(provider);
+    signIn(provider, { callbackUrl: "/" }).finally(() => setIsLoading(null));
   };
 
   return (
