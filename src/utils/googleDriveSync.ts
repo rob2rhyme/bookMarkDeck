@@ -10,11 +10,21 @@ const FILE_NAME = "bookmarkdeck.json";
 
 type DriveFile = { id: string; modifiedTime?: string };
 type EncryptedPayload = { iv: string; ciphertext: string };
+type TokenResponse = { access_token?: string; error?: string };
+
+type TokenClientConfig = {
+  client_id: string;
+  scope: string;
+  prompt: "consent" | "none";
+  callback: (resp: TokenResponse) => void;
+};
 
 type GoogleIdentity = {
   accounts: {
     oauth2: {
-      initTokenClient: (config: any) => { requestAccessToken: () => void };
+      initTokenClient: (config: TokenClientConfig) => {
+        requestAccessToken: () => void;
+      };
     };
   };
 };
@@ -61,7 +71,7 @@ async function getAccessToken(prompt: "consent" | "none" = "consent"): Promise<s
       client_id: CLIENT_ID,
       scope: SCOPES,
       prompt,
-      callback: (resp) => {
+      callback: (resp: TokenResponse) => {
         if (resp.error || !resp.access_token) {
           reject(new Error(resp.error || "No access token"));
           return;
