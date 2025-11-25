@@ -3,6 +3,10 @@
 
 import { useEffect, useState } from "react";
 import { Bookmark } from "@/types/bookmark";
+import {
+  downloadBookmarksFromDrive,
+  uploadBookmarksToDrive,
+} from "@/utils/googleDriveSync";
 
 const STORAGE_KEY = "bookmarkdeck:v1";
 
@@ -60,11 +64,12 @@ export function useBookmarks() {
   // SSR/client mismatches.
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = loadFromStorage();
-    // Loading from localStorage happens once on the client; safe to set state here.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBookmarks(stored);
     setHydrated(true);
   }, []);
@@ -110,7 +115,43 @@ export function useBookmarks() {
   const clearAll = () => {
     setBookmarks([]);
   };
-  
+
+  const syncFromCloud = async (passphrase: string) => {
+    if (!passphrase.trim()) return;
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const remote = await downloadBookmarksFromDrive(passphrase.trim());
+      if (remote && Array.isArray(remote.bookmarks)) {
+        setBookmarks(remote.bookmarks);
+        saveToStorage(remote.bookmarks);
+        setLastSyncedAt(remote.modifiedAt ?? new Date().toISOString());
+      }
+    } catch (err) {
+      setSyncError(
+        err instanceof Error ? err.message : "Failed to sync from Google Drive."
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const syncToCloud = async (passphrase: string) => {
+    if (!passphrase.trim()) return;
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      await uploadBookmarksToDrive(passphrase.trim(), bookmarks);
+      setLastSyncedAt(new Date().toISOString());
+    } catch (err) {
+      setSyncError(
+        err instanceof Error ? err.message : "Failed to sync to Google Drive."
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Restore an exact previous list of bookmarks (used for Undo)
   const restoreFromSnapshot = (snapshot: Bookmark[]) => {
     setBookmarks(
@@ -130,5 +171,10 @@ export function useBookmarks() {
     deleteBookmark,
     clearAll,
     restoreFromSnapshot,
+    syncFromCloud,
+    syncToCloud,
+    isSyncing,
+    syncError,
+    lastSyncedAt,
   };
 }
