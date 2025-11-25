@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import Link from "next/link";
 
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { DragonCursor } from "@/components/DragonCursor";
@@ -205,10 +206,10 @@ export function HomePageClient() {
   };
 
   return (
-    <main className="relative min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
+    <main className="relative flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
       {/* Dragon cursor layer (behind everything) */}
       <DragonCursor />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-12">
         {/* Header */}
         <header className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -574,6 +575,28 @@ export function HomePageClient() {
             </div>
           </div>
         )}
+
+        <footer className="mt-12 flex w-full flex-col items-center gap-2 text-sm text-slate-400">
+          <div className="flex w-full max-w-5xl items-center gap-3 text-[11px] text-slate-500">
+            <span className="h-px flex-1 bg-slate-800" />
+            <span className="shrink-0">Info</span>
+            <span className="h-px flex-1 bg-slate-800" />
+          </div>
+          <div className="flex items-center gap-4">
+            <Link className="hover:text-blue-300" href="/privacy">
+              Privacy
+            </Link>
+            <Link className="hover:text-blue-300" href="/terms">
+              Terms
+            </Link>
+            <Link className="hover:text-blue-300" href="/faq">
+              FAQ
+            </Link>
+          </div>
+          <div className="text-xs text-slate-500">
+            © {new Date().getFullYear()} Bookmark Deck. All rights reserved.
+          </div>
+        </footer>
 
         {showScrollTop && (
           <button

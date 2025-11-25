@@ -67,6 +67,7 @@ async function getAccessToken(prompt: "consent" | "none" = "consent"): Promise<s
   }
 
   return new Promise((resolve, reject) => {
+    type TokenResponse = { access_token?: string; error?: string };
     const client = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPES,
