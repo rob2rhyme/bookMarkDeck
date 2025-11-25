@@ -223,7 +223,7 @@ The Bookmark Deck logo uses:
 ---
 ## force deploy vercel
 ```
-vercel deploy --prod --force --confirm
+vercel deploy --prod --force --yes
 ```
 
 ---
