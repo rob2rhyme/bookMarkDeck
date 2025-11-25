@@ -227,7 +227,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-500"
             >
               <span className="text-lg">＋</span>
-              Add quick link
+              Add Link
             </button>
             <label className="relative inline-flex cursor-pointer items-center">
               <input
@@ -240,7 +240,7 @@ export default function HomePage() {
               />
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-4 py-2 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700">
                 <span className="text-lg">📥</span>
-                Import bookmarks
+                Import
               </span>
             </label>
 
@@ -255,17 +255,31 @@ export default function HomePage() {
               type="button"
               onClick={handleLogout}
               aria-label="Logout"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-lg shadow-blue-900/40 ring-1 ring-white/10 transition hover:from-blue-400 hover:to-blue-600 hover:shadow-blue-800/50"
+              className="group relative inline-flex h-10 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-b from-[#3a75ff] via-[#1f4dc5] to-[#0c2f93] px-4 text-white shadow-[0_10px_20px_rgba(0,0,0,0.35)] ring-1 ring-white/20 transition hover:translate-y-[-1px] hover:brightness-110"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="h-5 w-5 text-white"
-                aria-hidden="true"
-              >
-                <path d="M11 3a1 1 0 0 1 2 0v8a1 1 0 0 1-2 0zm-1.707 2.293a1 1 0 0 1 1.414 1.414 6 6 0 1 0 4.586 0 1 1 0 0 1 1.414-1.414 8 8 0 1 1-7.414 0" />
-              </svg>
+              <span className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/20 via-transparent to-white/5 mix-blend-screen opacity-80" />
+              <span className="pointer-events-none absolute inset-x-0.5 top-0.5 h-2/5 rounded-xl bg-white/25 blur-[2px]" />
+              <span className="relative z-10 flex flex-row items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/90 bg-white/15 shadow-inner shadow-black/30">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    className="h-5 w-5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      d="M12 3v8M8.5 6.5a6 6 0 1 0 7 0"
+                    />
+                  </svg>
+                </span>
+                <span className="text-[11px] font-semibold tracking-wide text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">
+                  LOGOUT
+                </span>
+              </span>
             </button>
           </div>
         </header>
@@ -274,9 +288,7 @@ export default function HomePage() {
         {showAddForm && (
           <section className="mb-6 rounded-2xl bg-slate-900/60 p-4 shadow-inner ring-1 ring-white/5">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-medium text-slate-200">
-                Add quick link
-              </h2>
+              <h2 className="text-sm font-medium text-slate-200">Add link</h2>
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
@@ -427,7 +439,7 @@ export default function HomePage() {
                   }
                 />
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700">
-                  📥 Import Bookmarks
+                  📥 Import
                 </span>
               </label>
             </span>
