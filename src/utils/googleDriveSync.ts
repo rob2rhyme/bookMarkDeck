@@ -11,24 +11,26 @@ const FILE_NAME = "bookmarkdeck.json";
 type DriveFile = { id: string; modifiedTime?: string };
 type EncryptedPayload = { iv: string; ciphertext: string };
 
+type GoogleIdentity = {
+  accounts: {
+    oauth2: {
+      initTokenClient: (config: any) => { requestAccessToken: () => void };
+    };
+  };
+};
+
 declare global {
   interface Window {
-    google?: {
-      accounts?: {
-        oauth2?: {
-          initTokenClient: (config: any) => { requestAccessToken: () => void };
-        };
-      };
-    };
+    google?: GoogleIdentity;
   }
 }
 
-async function loadGis(): Promise<NonNullable<typeof window.google>> {
+async function loadGis(): Promise<GoogleIdentity> {
   if (typeof window === "undefined") {
     throw new Error("Google Drive sync is client-only.");
   }
 
-  if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+  if (window.google?.accounts?.oauth2) {
     return window.google;
   }
 
@@ -41,10 +43,11 @@ async function loadGis(): Promise<NonNullable<typeof window.google>> {
     document.head.appendChild(script);
   });
 
-  if (!window.google || !window.google.accounts.oauth2) {
+  const google = window.google;
+  if (!google?.accounts?.oauth2) {
     throw new Error("Google identity client not available.");
   }
-  return window.google;
+  return google;
 }
 
 async function getAccessToken(prompt: "consent" | "none" = "consent"): Promise<string> {
