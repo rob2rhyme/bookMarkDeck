@@ -2,7 +2,7 @@ import LegalPageLayout from "@/components/LegalPageLayout";
 
 export default function TermsPage() {
   return (
-    <LegalPageLayout title="Terms of Service" lastUpdated="November 25, 2025">
+    <LegalPageLayout title="Terms of Service" lastUpdated="November 26, 2025">
       <section className="space-y-4 text-sm leading-relaxed text-slate-200">
         <div>
           <h2 className="text-lg font-semibold text-slate-50">Use of the Service</h2>
@@ -11,13 +11,13 @@ export default function TermsPage() {
 
         <div>
           <h2 className="text-lg font-semibold text-slate-50">Accounts and Access</h2>
-          <p>Sign-in is via Google. You are responsible for securing your Google account and device. If you enable sync, you must keep Drive access active.</p>
+          <p>Sign-in is via Google. You are responsible for securing your Google account and device. If you enable sync, your bookmarks are tied to your Google account in Firebase.</p>
         </div>
 
         <div>
           <h2 className="text-lg font-semibold text-slate-50">Data Storage and Sync</h2>
           <p>
-            Bookmarks are stored locally. If you enable sync, an encrypted copy is stored in your Google Drive appData folder. Your passphrase never leaves your device; losing it means we cannot decrypt your data.
+            Bookmarks are stored locally. If you enable sync, a copy is stored in Firebase Firestore linked to your Google account. There is no separate passphrase; access is controlled by your Google authentication and Firebase security rules.
           </p>
         </div>
 
@@ -34,6 +34,11 @@ export default function TermsPage() {
         <div>
           <h2 className="text-lg font-semibold text-slate-50">Disclaimers and Liability</h2>
           <p>To the maximum extent allowed by law, we disclaim warranties and are not liable for indirect or consequential damages, including data loss.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">Sensitive data warning</h2>
+          <p>Do not store sensitive credentials or personal data (passwords, PINs, credit/debit card numbers, Social Security numbers) in Bookmark Deck. You are responsible for any loss or misuse of such data.</p>
         </div>
 
         <div>
