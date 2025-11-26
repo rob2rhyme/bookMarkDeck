@@ -6,11 +6,11 @@
   /* Local fallbacks to avoid network font fetch in build environments */
   --font-geist-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  --font-geist-mono: "SFMono-Regular", ui-monospace, Menlo, Monaco,
-    Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-geist-mono: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
-@theme inline {
+:root {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -28,7 +28,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   /* Professional modern UI typography */
-  @apply bg-slate-950 text-slate-50 antialiased text-[15px] leading-relaxed;
+  background-color: #0f172a; /* bg-slate-950 */
+  color: #f8fafc; /* text-slate-50 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 15px;
+  line-height: 1.625; /* leading-relaxed */
   font-family: var(--font-geist-sans), system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -37,14 +42,25 @@ body {
   h1,
   h2,
   h3 {
-    @apply font-semibold tracking-tight;
+    font-weight: 600; /* font-semibold */
+    letter-spacing: -0.015em; /* tracking-tight */
   }
 
   .card-title {
-    @apply text-[16px] font-semibold;
+    font-size: 16px; /* text-[16px] */
+    font-weight: 600; /* font-semibold */
   }
 
   .card-subtle {
-    @apply text-[13px] text-slate-400;
+    font-size: 13px; /* text-[13px] */
+    color: #94a3b8; /* text-slate-400 */
+  }
+
+  /* Prevent mobile auto-zoom on text inputs by keeping font-size >=16px */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+    /* Prevents iOS zooming on focus */
   }
 }
