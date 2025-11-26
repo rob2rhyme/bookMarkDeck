@@ -124,26 +124,29 @@ export function HomePageClient() {
   }, [filtered]);
 
   const trending = useMemo(() => {
-    const scored = filtered
-      .filter((b) => (b.hits ?? 0) > 0)
-      .map((b) => ({
-        ...b,
-        score: (b.hits ?? 0) * 10 + (b.pinned ? 5 : 0),
-      }))
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
-        const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
-        return bTime - aTime;
-      });
-    return scored.slice(0, 6);
+    const scored = filtered.map((b) => {
+      const hits = b.hits ?? 0;
+      const lastUsed = b.lastUsedAt
+        ? new Date(b.lastUsedAt).getTime()
+        : new Date(b.createdAt).getTime();
+      // weight hits heavily, then pin status, then recency
+      const score = hits * 10 + (b.pinned ? 5 : 0) + lastUsed / 1_000_000;
+      return { ...b, score };
+    });
+
+    const top = scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
+
+    return top;
   }, [filtered]);
 
   const usageLabelFor = (hits?: number) => {
     const h = hits ?? 0;
     if (h >= 15) return "#Highly Used";
     if (h >= 6) return "#Medium Used";
-    return "#Lightly Used";
+    if (h >= 1) return "#Lightly Used";
+    return "#New";
   };
 
   const handleAddQuick = () => {
@@ -545,41 +548,51 @@ export function HomePageClient() {
         {/* Grid of cards grouped by tag */}
         {filtered.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
-            No bookmarks yet.{" "}
-            <span className="font-medium text-slate-200">
-              Add{" "}
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-base text-slate-200">No bookmarks yet.</p>
               <button
                 type="button"
-                onClick={() => {
-                  setShowAddForm(true);
-                  if (typeof window !== "undefined") {
-                    window.scrollTo({
-                      top: 0,
-                      behavior: "smooth",
-                    });
-                  }
-                }}
-                className="inline-flex items-center gap-1 rounded-full bg-blue-600/90 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                onClick={handleSyncDownload}
+                disabled={isSyncing || !userId}
+                className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-100 shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Quick Link
-              </button>{" "}
-              or{" "}
-              <label className="relative inline-flex cursor-pointer items-center align-middle">
-                <input
-                  type="file"
-                  accept=".html,text/html"
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                  onChange={(e) =>
-                    handleImport(e.target.files?.[0] ?? null).catch(
-                      console.error
-                    )
-                  }
-                />
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700">
-                  📥 Import
-                </span>
-              </label>
-            </span>
+                <span>Sync from cloud</span>
+                {isSyncing && <span className="text-[10px] text-slate-400">...</span>}
+              </button>
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(true);
+                    if (typeof window !== "undefined") {
+                      window.scrollTo({
+                        top: 0,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full bg-blue-600/90 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                >
+                  Quick Link
+                </button>
+                <span className="text-slate-400">or</span>
+                <label className="relative inline-flex cursor-pointer items-center align-middle">
+                  <input
+                    type="file"
+                    accept=".html,text/html"
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    onChange={(e) =>
+                      handleImport(e.target.files?.[0] ?? null).catch(
+                        console.error
+                      )
+                    }
+                  />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700">
+                    📥 Import
+                  </span>
+                </label>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
