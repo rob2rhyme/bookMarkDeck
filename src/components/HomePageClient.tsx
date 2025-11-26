@@ -384,7 +384,7 @@ export function HomePageClient() {
                 placeholder="Search by title, URL, note, folder, or tag..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-10 rounded-2xl border border-slate-800 bg-slate-900/80 py-2 pl-9 pr-9 text-sm text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full h-10 rounded-2xl border border-slate-800 bg-slate-900/80 py-2 pl-9 pr-9 text-base text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
               {search && (
                 <button
@@ -451,7 +451,7 @@ export function HomePageClient() {
                 value={cloudPassphrase}
                 onChange={(e) => setCloudPassphrase(e.target.value)}
                 placeholder="Create a passphrase to encrypt your Drive backup"
-                className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-base text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <p className="mt-1 text-[11px] text-slate-500">
                 Bookmarks are encrypted client-side and stored in your Google Drive app folder. You must use the same passphrase on every device.
