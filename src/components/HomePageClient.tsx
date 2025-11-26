@@ -258,7 +258,7 @@ export function HomePageClient() {
               private.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
+          <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto sm:flex-wrap sm:gap-2.5 sm:justify-end sm:overflow-visible">
             <button
               type="button"
               onClick={() => setShowAddForm(true)}
