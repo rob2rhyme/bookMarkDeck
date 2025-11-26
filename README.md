@@ -214,13 +214,18 @@ The Bookmark Deck logo uses:
 
 ## 🛣️ Roadmap
 
-- [ ] Drag-and-drop reordering
-- [ ] Pinned bookmarks
-- [ ] Optional cloud sync (local-first)
-- [ ] Mobile app version (Expo)
-- [ ] Public bookmarking API (opt-in)
-- [ ] i want everyone to use Drive sync, submit the app for verification for the https://www.googleapis.com/auth/drive.appdata
-
+- [ ] Create a Firebase project and enable Firestore.
+- [ ] Add a Web app; copy apiKey, authDomain, projectId, appId.
+- [ ] Use existing NextAuth Google identity as the user id (e.g., session.user.email).
+- [ ] Pick data model: either a single doc users/<userId>/data with bookmarks array + updatedAt (+ optional version), or subcollection users/<userId>/bookmarks for large sets.
+- [ ] Add Firebase SDK deps: firebase/app, firebase/firestore.
+- [ ] Create src/lib/firebase.ts to init Firebase from env vars.
+- [ ] Replace Drive helpers with Firestore:
+- [ ] fetchBookmarks(userId): read doc, return bookmarks or [].
+- [ ] saveBookmarks(userId, bookmarks): set doc with bookmarks + updatedAt.
+- [ ] Update useBookmarks to sync via Firestore using session.user.email/id; decide merge vs overwrite when pulling.
+- [ ] Security rules: restrict read/write to the same user (request.auth.uid == userId with Firebase Auth) or enforce via a server API if using NextAuth only.
+- [ ] Env/config: add Firebase keys to .env.local (use NEXT_PUBLIC_FIREBASE_* for client-side); don’t commit secrets.
 ---
 ## force deploy vercel
 ```
