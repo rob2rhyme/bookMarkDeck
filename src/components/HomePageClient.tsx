@@ -123,6 +123,29 @@ export function HomePageClient() {
     );
   }, [filtered]);
 
+  const trending = useMemo(() => {
+    const scored = filtered
+      .filter((b) => (b.hits ?? 0) > 0)
+      .map((b) => ({
+        ...b,
+        score: (b.hits ?? 0) * 10 + (b.pinned ? 5 : 0),
+      }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+        const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+        return bTime - aTime;
+      });
+    return scored.slice(0, 6);
+  }, [filtered]);
+
+  const usageLabelFor = (hits?: number) => {
+    const h = hits ?? 0;
+    if (h >= 15) return "#Highly Used";
+    if (h >= 6) return "#Medium Used";
+    return "#Lightly Used";
+  };
+
   const handleAddQuick = () => {
     if (!newUrl.trim()) return;
 
@@ -383,6 +406,31 @@ export function HomePageClient() {
               >
                 Save
               </button>
+            </div>
+          </section>
+        )}
+
+        {/* Trending */}
+        {trending.length > 0 && (
+          <section className="mb-6 rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+                Trending
+              </h2>
+              <span className="text-xs text-slate-500">
+                Most opened bookmarks (per device/account)
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              {trending.map((b) => (
+                <BookmarkCard
+                  key={`trending-${b.id}`}
+                  bookmark={b}
+                  onUpdate={updateBookmark}
+                  onDelete={handleDelete}
+                  usageLabel={usageLabelFor(b.hits)}
+                />
+              ))}
             </div>
           </section>
         )}

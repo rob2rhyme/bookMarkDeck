@@ -23,9 +23,10 @@ type Props = {
   bookmark: Bookmark;
   onUpdate: (id: string, data: Partial<Bookmark>) => void;
   onDelete: (id: string) => void;
+  usageLabel?: string;
 };
 
-export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
+export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props) {
   const [title, setTitle] = useState(bookmark.title ?? "");
   const [url, setUrl] = useState(bookmark.url ?? "");
   const [folder, setFolder] = useState(bookmark.folder ?? "");
@@ -125,6 +126,11 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
     const finalUrl = (isEditing ? url : bookmark.url).trim();
     if (!finalUrl) return;
     window.open(finalUrl, "_blank", "noopener,noreferrer");
+    const nextHits = (bookmark.hits ?? 0) + 1;
+    onUpdate(bookmark.id, {
+      hits: nextHits,
+      lastUsedAt: new Date().toISOString(),
+    });
   };
 
   const handleEditClick = () => {
@@ -167,6 +173,11 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete }: Props) {
         border: `2px solid ${effectiveBorderColor}`,
       }}
     >
+      {usageLabel && (
+        <span className="absolute right-2 top-2 z-20 rounded-full bg-blue-600/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
+          {usageLabel}
+        </span>
+      )}
       {/* MOBILE: compact icon-style card (4 per row) */}
       <div className="flex h-full flex-col justify-between p-2 sm:hidden">
         {/* row 1: actions (star far-left, delete on right) */}

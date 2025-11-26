@@ -33,6 +33,14 @@ function normalizeBookmarks(raw: unknown): Bookmark[] {
             : new Date().toISOString(),
         tags,
         pinned: typeof item.pinned === "boolean" ? item.pinned : false,
+        hits:
+          typeof (item as Record<string, unknown>).hits === "number"
+            ? (item as Record<string, unknown>).hits
+            : 0,
+        lastUsedAt:
+          typeof (item as Record<string, unknown>).lastUsedAt === "string"
+            ? (item as Record<string, unknown>).lastUsedAt
+            : undefined,
       };
     });
 }
