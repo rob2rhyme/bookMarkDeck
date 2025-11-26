@@ -3,12 +3,9 @@
 
 import { useEffect, useState } from "react";
 import { Bookmark } from "@/types/bookmark";
-import {
-  downloadBookmarksFromDrive,
-  uploadBookmarksToDrive,
-} from "@/utils/googleDriveSync";
+import { fetchBookmarks, saveBookmarks } from "@/utils/firestoreBookmarks";
 
-const STORAGE_KEY = "bookmarkdeck:v1";
+const BASE_STORAGE_KEY = "bookmarkdeck:v1";
 
 function normalizeBookmarks(raw: unknown): Bookmark[] {
   if (!Array.isArray(raw)) return [];
@@ -40,10 +37,14 @@ function normalizeBookmarks(raw: unknown): Bookmark[] {
     });
 }
 
-function loadFromStorage(): Bookmark[] {
+function storageKeyForUser(userId?: string | null) {
+  return userId ? `${BASE_STORAGE_KEY}:${userId}` : BASE_STORAGE_KEY;
+}
+
+function loadFromStorage(userId?: string | null): Bookmark[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKeyForUser(userId));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return normalizeBookmarks(parsed);
@@ -52,14 +53,14 @@ function loadFromStorage(): Bookmark[] {
   }
 }
 
-function saveToStorage(bookmarks: Bookmark[]) {
+function saveToStorage(bookmarks: Bookmark[], userId?: string | null) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
+  window.localStorage.setItem(storageKeyForUser(userId), JSON.stringify(bookmarks));
 }
 
 type AddBookmarkInput = Omit<Bookmark, "id" | "createdAt">;
 
-export function useBookmarks() {
+export function useBookmarks(userId?: string | null) {
   // Start empty on the server and hydrate from localStorage client-side to avoid
   // SSR/client mismatches.
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -69,15 +70,20 @@ export function useBookmarks() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = loadFromStorage();
+    const stored = loadFromStorage(userId);
     setBookmarks(stored);
     setHydrated(true);
-  }, []);
+    // Reset state when user changes
+    return () => {
+      setBookmarks([]);
+      setHydrated(false);
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!hydrated) return;
-    saveToStorage(bookmarks);
-  }, [bookmarks, hydrated]);
+    saveToStorage(bookmarks, userId);
+  }, [bookmarks, hydrated, userId]);
 
   const addBookmark = (partial: AddBookmarkInput) => {
     const newBookmark: Bookmark = {
@@ -116,36 +122,45 @@ export function useBookmarks() {
     setBookmarks([]);
   };
 
-  const syncFromCloud = async (passphrase: string) => {
-    if (!passphrase.trim()) return;
+  const syncFromCloud = async (userIdHint: string | null | undefined) => {
+    if (!userIdHint) {
+      setSyncError("Sign in to sync your bookmarks.");
+      return;
+    }
     setIsSyncing(true);
     setSyncError(null);
     try {
-      const remote = await downloadBookmarksFromDrive(passphrase.trim());
-      if (remote && Array.isArray(remote.bookmarks)) {
-        setBookmarks(remote.bookmarks);
-        saveToStorage(remote.bookmarks);
-        setLastSyncedAt(remote.modifiedAt ?? new Date().toISOString());
+      const remote = await fetchBookmarks(userIdHint);
+      if (!remote || !Array.isArray(remote.bookmarks)) {
+        setSyncError("No cloud backup found.");
+        return;
       }
+      const normalized = normalizeBookmarks(remote.bookmarks);
+      setBookmarks(normalized);
+      saveToStorage(normalized, userIdHint);
+      setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
     } catch (err) {
       setSyncError(
-        err instanceof Error ? err.message : "Failed to sync from Google Drive."
+        err instanceof Error ? err.message : "Failed to sync from cloud."
       );
     } finally {
       setIsSyncing(false);
     }
   };
 
-  const syncToCloud = async (passphrase: string) => {
-    if (!passphrase.trim()) return;
+  const syncToCloud = async (userIdHint: string | null | undefined) => {
+    if (!userIdHint) {
+      setSyncError("Sign in to sync your bookmarks.");
+      return;
+    }
     setIsSyncing(true);
     setSyncError(null);
     try {
-      await uploadBookmarksToDrive(passphrase.trim(), bookmarks);
+      await saveBookmarks(userIdHint, bookmarks);
       setLastSyncedAt(new Date().toISOString());
     } catch (err) {
       setSyncError(
-        err instanceof Error ? err.message : "Failed to sync to Google Drive."
+        err instanceof Error ? err.message : "Failed to sync to cloud."
       );
     } finally {
       setIsSyncing(false);

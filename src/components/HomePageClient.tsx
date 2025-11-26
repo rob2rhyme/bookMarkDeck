@@ -14,6 +14,7 @@ import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 
 export function HomePageClient() {
   const { data: session } = useSession();
+  const userId = session?.user?.email ?? null;
   const {
     bookmarks,
     addBookmark,
@@ -26,7 +27,7 @@ export function HomePageClient() {
     isSyncing,
     syncError,
     lastSyncedAt,
-  } = useBookmarks();
+  } = useBookmarks(userId);
 
   const [search, setSearch] = useState("");
   // Default to "favorites" so only pinned bookmarks show initially
@@ -37,7 +38,6 @@ export function HomePageClient() {
   const [newFolder, setNewFolder] = useState(""); // NEW: folder to add to
   const [newTags, setNewTags] = useState(""); // NEW
   const [showAddForm, setShowAddForm] = useState(false);
-  const [cloudPassphrase, setCloudPassphrase] = useState("");
   const [undoState, setUndoState] = useState<{
     type: "delete" | "clearAll";
     snapshot: Bookmark[];
@@ -197,13 +197,13 @@ export function HomePageClient() {
   };
 
   const handleSyncDownload = () => {
-    if (!cloudPassphrase.trim() || isSyncing) return;
-    syncFromCloud(cloudPassphrase);
+    if (isSyncing) return;
+    syncFromCloud(userId);
   };
 
   const handleSyncUpload = () => {
-    if (!cloudPassphrase.trim() || isSyncing) return;
-    syncToCloud(cloudPassphrase);
+    if (isSyncing) return;
+    syncToCloud(userId);
   };
 
   const avatarSrc = session?.user?.image ?? null;
@@ -439,30 +439,21 @@ export function HomePageClient() {
           </div>
         </section>
 
-        {/* Cloud sync (Google Drive) */}
+        {/* Cloud sync (Firebase) */}
         <section className="mb-6 rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <div className="flex-1">
-              <label className="block text-[11px] uppercase tracking-[0.08em] text-slate-400">
-                Sync passphrase (kept on this device only)
-              </label>
-              <input
-                type="password"
-                value={cloudPassphrase}
-                onChange={(e) => setCloudPassphrase(e.target.value)}
-                placeholder="Create a passphrase to encrypt your Drive backup"
-                className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-base text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                Bookmarks are encrypted client-side and stored in your Google Drive app folder. You must use the same passphrase on every device.
+            <div className="flex-1 space-y-1.5">
+              <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
+                Cloud sync (signed in as {userId ?? "guest"})
+              </p>
+              <p className="text-[12px] text-slate-500">
+                Sync bookmarks to Firebase so they follow your Google login across devices.
               </p>
               {syncError && (
-                <p className="mt-1 text-[11px] text-red-400">
-                  {syncError}
-                </p>
+                <p className="text-[11px] text-red-400">{syncError}</p>
               )}
               {lastSyncedAt && (
-                <p className="mt-1 text-[11px] text-emerald-300">
+                <p className="text-[11px] text-emerald-300">
                   Last synced: {new Date(lastSyncedAt).toLocaleString()}
                 </p>
               )}
@@ -471,18 +462,18 @@ export function HomePageClient() {
               <button
                 type="button"
                 onClick={handleSyncDownload}
-                disabled={isSyncing || !cloudPassphrase.trim()}
+                disabled={isSyncing || !userId}
                 className="w-full rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSyncing ? "Syncing..." : "Sync from Drive"}
+                {isSyncing ? "Syncing..." : "Sync from cloud"}
               </button>
               <button
                 type="button"
                 onClick={handleSyncUpload}
-                disabled={isSyncing || !cloudPassphrase.trim()}
+                disabled={isSyncing || !userId}
                 className="w-full rounded-full bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSyncing ? "Syncing..." : "Sync to Drive"}
+                {isSyncing ? "Syncing..." : "Sync to cloud"}
               </button>
             </div>
           </div>
