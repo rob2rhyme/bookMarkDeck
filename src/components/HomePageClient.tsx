@@ -108,6 +108,21 @@ export function HomePageClient() {
     );
   }, [bookmarks, search, folderFilter]);
 
+  const groupedByTag = useMemo(() => {
+    const groups: Map<string, Bookmark[]> = new Map();
+    filtered.forEach((b) => {
+      const tags = b.tags && b.tags.length ? b.tags : ["Untagged"];
+      tags.forEach((tag) => {
+        const key = tag.trim() || "Untagged";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(b);
+      });
+    });
+    return Array.from(groups.entries()).sort(([a], [b]) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [filtered]);
+
   const handleAddQuick = () => {
     if (!newUrl.trim()) return;
 
@@ -479,7 +494,7 @@ export function HomePageClient() {
           </div>
         </section>
 
-        {/* Grid of cards */}
+        {/* Grid of cards grouped by tag */}
         {filtered.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
             No bookmarks yet.{" "}
@@ -519,19 +534,28 @@ export function HomePageClient() {
             </span>
           </div>
         ) : (
-          <section
-            aria-label="Bookmarks"
-            className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
-          >
-            {filtered.map((b) => (
-              <BookmarkCard
-                key={b.id}
-                bookmark={b}
-                onUpdate={updateBookmark}
-                onDelete={handleDelete}
-              />
+          <div className="space-y-6">
+            {groupedByTag.map(([tag, items]) => (
+              <section key={tag} aria-label={`Bookmarks tagged ${tag}`} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    {tag}
+                  </h3>
+                  <span className="text-xs text-slate-500">{items.length} item{items.length !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                  {items.map((b) => (
+                    <BookmarkCard
+                      key={`${tag}-${b.id}`}
+                      bookmark={b}
+                      onUpdate={updateBookmark}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
-          </section>
+          </div>
         )}
         {/* Undo bar */}
         {undoState && (
