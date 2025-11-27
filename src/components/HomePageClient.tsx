@@ -7,8 +7,11 @@ import Link from "next/link";
 
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { DragonCursor } from "@/components/DragonCursor";
+import { ShortcutCard } from "@/components/ShortcutCard";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
+import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 
@@ -38,9 +41,26 @@ export function HomePageClient() {
   const [newFolder, setNewFolder] = useState(""); // NEW: folder to add to
   const [newTags, setNewTags] = useState(""); // NEW
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddShortcutForm, setShowAddShortcutForm] = useState(false);
+  const [shortcutName, setShortcutName] = useState("");
+  const [shortcutUrl, setShortcutUrl] = useState("");
+  const [shortcutIcon, setShortcutIcon] = useState("");
+  const [shortcutPlatform, setShortcutPlatform] = useState<
+    "web" | "mac" | "windows" | "both"
+  >("web");
+  const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editIcon, setEditIcon] = useState("");
+  const [editPlatform, setEditPlatform] = useState<
+    "web" | "mac" | "windows" | "both"
+  >("web");
   const [undoState, setUndoState] = useState<{
     type: "delete" | "clearAll";
     snapshot: Bookmark[];
+  } | null>(null);
+  const [shortcutUndoState, setShortcutUndoState] = useState<{
+    snapshot: ShortcutApp[];
   } | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -123,6 +143,17 @@ export function HomePageClient() {
     );
   }, [filtered]);
 
+  const {
+    shortcuts,
+    addShortcut,
+    updateShortcut,
+    deleteShortcut,
+    restoreFromSnapshot: restoreShortcuts,
+    syncFromCloudShortcuts,
+    syncToCloudShortcuts,
+    isSyncing: isSyncingShortcuts,
+  } = useShortcuts(userId);
+
   const trending = useMemo(() => {
     const scored = filtered.map((b) => {
       const hits = b.hits ?? 0;
@@ -173,6 +204,21 @@ export function HomePageClient() {
     setShowAddForm(false);
   };
 
+  const handleAddShortcut = () => {
+    if (!shortcutName.trim() || !shortcutUrl.trim()) return;
+    addShortcut({
+      name: shortcutName.trim(),
+      url: shortcutUrl.trim(),
+      icon: shortcutIcon.trim() || undefined,
+      platform: shortcutPlatform,
+    });
+    setShortcutName("");
+    setShortcutUrl("");
+    setShortcutIcon("");
+    setShortcutPlatform("web");
+    setShowAddShortcutForm(false);
+  };
+
   const handleDelete = (id: string) => {
     if (bookmarks.length === 0) return;
     // snapshot BEFORE delete
@@ -190,6 +236,46 @@ export function HomePageClient() {
     if (!undoState) return;
     restoreFromSnapshot(undoState.snapshot);
     setUndoState(null);
+  };
+
+  const handleShortcutDelete = (id: string) => {
+    if (shortcuts.length === 0) return;
+    setShortcutUndoState({ snapshot: shortcuts });
+    deleteShortcut(id);
+  };
+
+  const handleShortcutUpdate = (id: string, data: Partial<ShortcutApp>) => {
+    updateShortcut(id, data);
+  };
+
+  const handleStartShortcutEdit = (app: ShortcutApp) => {
+    setEditingShortcut(app);
+    setEditName(app.name);
+    setEditUrl(app.url);
+    setEditIcon(app.icon ?? "");
+    setEditPlatform(app.platform ?? "web");
+  };
+
+  const handleSaveShortcutEdit = () => {
+    if (!editingShortcut) return;
+    if (!editName.trim() || !editUrl.trim()) return;
+    handleShortcutUpdate(editingShortcut.id, {
+      name: editName.trim(),
+      url: editUrl.trim(),
+      icon: editIcon.trim() || undefined,
+      platform: editPlatform,
+    });
+    setEditingShortcut(null);
+  };
+
+  const handleCancelShortcutEdit = () => {
+    setEditingShortcut(null);
+  };
+
+  const handleShortcutUndo = () => {
+    if (!shortcutUndoState) return;
+    restoreShortcuts(shortcutUndoState.snapshot);
+    setShortcutUndoState(null);
   };
 
   const handleDismissUndo = () => {
@@ -237,14 +323,16 @@ export function HomePageClient() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSyncDownload = () => {
-    if (isSyncing) return;
-    syncFromCloud(userId);
+  const handleSyncDownload = async () => {
+    if (isSyncing || isSyncingShortcuts) return;
+    await syncFromCloud(userId);
+    await syncFromCloudShortcuts(userId);
   };
 
-  const handleSyncUpload = () => {
-    if (isSyncing) return;
-    syncToCloud(userId);
+  const handleSyncUpload = async () => {
+    if (isSyncing || isSyncingShortcuts) return;
+    await syncToCloud(userId);
+    await syncToCloudShortcuts(userId);
   };
 
   const avatarSrc = session?.user?.image ?? null;
@@ -413,6 +501,85 @@ export function HomePageClient() {
           </section>
         )}
 
+        {/* App shortcuts */}
+        <section className="mb-6 rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+              App shortcuts
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Open common tools fast</span>
+              <button
+                type="button"
+                onClick={() => setShowAddShortcutForm((v) => !v)}
+                className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                {showAddShortcutForm ? "Close" : "Add shortcut"}
+              </button>
+            </div>
+          </div>
+          {showAddShortcutForm && (
+            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:grid-cols-5 sm:items-center">
+              <input
+                type="text"
+                placeholder="App name"
+                value={shortcutName}
+                onChange={(e) => setShortcutName(e.target.value)}
+                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <input
+                type="url"
+                placeholder="https://app.example.com"
+                value={shortcutUrl}
+                onChange={(e) => setShortcutUrl(e.target.value)}
+                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="Emoji icon (optional)"
+                value={shortcutIcon}
+                onChange={(e) => setShortcutIcon(e.target.value)}
+                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <select
+                value={shortcutPlatform}
+                onChange={(e) =>
+                  setShortcutPlatform(e.target.value as typeof shortcutPlatform)
+                }
+                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="web">Web</option>
+                <option value="mac">Mac</option>
+                <option value="windows">Windows</option>
+                <option value="both">Mac + Windows</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleAddShortcut}
+                className="h-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Save shortcut
+              </button>
+            </div>
+          )}
+          {shortcuts.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">
+              No shortcuts yet. Add one to jump into your favorite apps faster.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 min-[906px]:grid-cols-2">
+              {shortcuts.map((app) => (
+                <ShortcutCard
+                  key={app.id}
+                  app={app}
+                  onDelete={handleShortcutDelete}
+                  onEdit={handleStartShortcutEdit}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
         {/* Trending */}
         {trending.length > 0 && (
           <section className="mb-6 rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 shadow-sm">
@@ -528,18 +695,18 @@ export function HomePageClient() {
               <button
                 type="button"
                 onClick={handleSyncDownload}
-                disabled={isSyncing || !userId}
+                disabled={isSyncing || isSyncingShortcuts || !userId}
                 className="w-full rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSyncing ? "Syncing..." : "Sync from cloud"}
+                {isSyncing || isSyncingShortcuts ? "Syncing..." : "Sync from cloud"}
               </button>
               <button
                 type="button"
                 onClick={handleSyncUpload}
-                disabled={isSyncing || !userId}
+                disabled={isSyncing || isSyncingShortcuts || !userId}
                 className="w-full rounded-full bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSyncing ? "Syncing..." : "Sync to cloud"}
+                {isSyncing || isSyncingShortcuts ? "Syncing..." : "Sync to cloud"}
               </button>
             </div>
           </div>
@@ -553,11 +720,13 @@ export function HomePageClient() {
               <button
                 type="button"
                 onClick={handleSyncDownload}
-                disabled={isSyncing || !userId}
+                disabled={isSyncing || isSyncingShortcuts || !userId}
                 className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-100 shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span>Sync from cloud</span>
-                {isSyncing && <span className="text-[10px] text-slate-400">...</span>}
+                {(isSyncing || isSyncingShortcuts) && (
+                  <span className="text-[10px] text-slate-400">...</span>
+                )}
               </button>
               <div className="flex items-center gap-2 text-xs font-medium text-slate-200">
                 <button
@@ -618,7 +787,108 @@ export function HomePageClient() {
             ))}
           </div>
         )}
+        {/* Shortcut edit modal */}
+        {editingShortcut && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
+                    Edit shortcut
+                  </p>
+                  <p className="text-sm font-semibold text-slate-100">
+                    {editingShortcut.name}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelShortcutEdit}
+                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="flex flex-col gap-3">
+                <input
+                  type="text"
+                  placeholder="App name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="https:// or myapp://"
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    placeholder="Emoji icon"
+                    value={editIcon}
+                    onChange={(e) => setEditIcon(e.target.value)}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <select
+                    value={editPlatform}
+                    onChange={(e) =>
+                      setEditPlatform(e.target.value as typeof editPlatform)
+                    }
+                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="web">Web</option>
+                    <option value="mac">Mac</option>
+                    <option value="windows">Windows</option>
+                    <option value="both">Mac + Windows</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelShortcutEdit}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveShortcutEdit}
+                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Undo bar */}
+        {shortcutUndoState && (
+          <div
+            className={`fixed inset-x-0 ${
+              undoState ? "bottom-16" : "bottom-4"
+            } z-50 flex justify-center px-4`}
+          >
+            <div className="flex items-center gap-3 rounded-full bg-slate-900/90 px-4 py-2 text-xs text-slate-100 shadow-lg ring-1 ring-slate-700">
+              <span>Shortcut removed</span>
+              <button
+                onClick={handleShortcutUndo}
+                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-white"
+              >
+                Undo
+              </button>
+              <button
+                onClick={() => setShortcutUndoState(null)}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                aria-label="Dismiss undo"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
         {undoState && (
           <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
             <div className="flex items-center gap-3 rounded-full bg-slate-900/90 px-4 py-2 text-xs text-slate-100 shadow-lg ring-1 ring-slate-700">
