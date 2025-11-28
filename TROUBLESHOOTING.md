@@ -17,3 +17,21 @@
   ```bash
   npm run build
   ```
+
+## Google sign-in shows `redirect_uri_mismatch`
+- **Symptom:** Google sign-in fails with `Error 400: redirect_uri_mismatch` or "This app's request is invalid" during OAuth consent.
+- **Cause:** The Google OAuth client does not have the deployed callback URL whitelisted, or `NEXTAUTH_URL` is missing so NextAuth sends an incorrect redirect URI.
+- **Fix:**
+  1. Set the production URL for NextAuth (also works for Vercel previews):
+     ```bash
+     # .env
+     NEXTAUTH_URL=https://<your-domain>
+     NEXTAUTH_SECRET=<generated-secret>
+     GOOGLE_CLIENT_ID=<from Google Cloud>
+     GOOGLE_CLIENT_SECRET=<from Google Cloud>
+     ```
+  2. In Google Cloud Console → Credentials → OAuth 2.0 Client IDs, add the redirect URI:
+     ```
+     https://<your-domain>/api/auth/callback/google
+     ```
+  3. Redeploy after updating environment variables.
