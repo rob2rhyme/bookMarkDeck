@@ -15,6 +15,14 @@ const BASE_STORAGE_KEY = "bookmarkdeck:shortcuts:v1";
 const DEFAULT_SHORTCUTS: ShortcutApp[] = [];
 
 const VALID_PLATFORMS = ["web", "mac", "windows", "both"] as const;
+type SupportedPlatform = (typeof VALID_PLATFORMS)[number];
+
+function normalizePlatform(value: unknown): SupportedPlatform | undefined {
+  return typeof value === "string" &&
+    VALID_PLATFORMS.includes(value as SupportedPlatform)
+    ? (value as SupportedPlatform)
+    : undefined;
+}
 
 function storageKeyForUser(userId?: string | null) {
   return userId ? `${BASE_STORAGE_KEY}:${userId}` : BASE_STORAGE_KEY;
@@ -33,12 +41,7 @@ function loadFromStorage(userId?: string | null): ShortcutApp[] {
         name: typeof item.name === "string" ? item.name : "Shortcut",
         url: typeof item.url === "string" ? item.url : "",
         icon: typeof item.icon === "string" ? item.icon : undefined,
-        platform: VALID_PLATFORMS.includes(
-          (item as Record<string, unknown>).platform as ShortcutApp["platform"]
-        )
-          ? ((item as Record<string, unknown>)
-              .platform as ShortcutApp["platform"])
-          : undefined,
+        platform: normalizePlatform((item as Record<string, unknown>).platform),
       }))
       .filter((s) => s.url.trim().length > 0);
   } catch {
@@ -94,11 +97,10 @@ export function useShortcuts(userId?: string | null) {
           ? {
               ...s,
               ...data,
-              platform: VALID_PLATFORMS.includes(
-                data.platform as ShortcutApp["platform"]
-              )
-                ? data.platform
-                : s.platform,
+              platform:
+                data.platform !== undefined
+                  ? normalizePlatform(data.platform) ?? s.platform
+                  : s.platform,
             }
           : s
       )
