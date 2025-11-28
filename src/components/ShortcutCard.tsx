@@ -14,7 +14,17 @@ function getFaviconUrl(rawUrl: string): string | null {
       host
     )}`;
   } catch {
-    return null;
+    // Retry for entries missing protocol (e.g., "mail.google.com")
+    try {
+      const url = new URL(`https://${rawUrl}`);
+      const host = url.hostname;
+      if (!host || !host.includes(".")) return null;
+      return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(
+        host
+      )}`;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -24,8 +34,27 @@ type Props = {
   onEdit?: (app: ShortcutApp) => void;
 };
 
+function firstLetterFromUrlOrName(url: string, name: string): string {
+  const extract = (value: string) => {
+    try {
+      const parsed = new URL(value);
+      const host = parsed.hostname.replace(/^www\./i, "");
+      return host[0]?.toUpperCase() ?? "";
+    } catch {
+      return "";
+    }
+  };
+  const fromUrl = extract(url) || extract(`https://${url}`);
+  if (fromUrl) return fromUrl;
+  return name.trim()[0]?.toUpperCase() ?? "A";
+}
+
 export function ShortcutCard({ app, onDelete, onEdit }: Props) {
   const favicon = getFaviconUrl(app.url);
+  const iconIsUrl =
+    typeof app.icon === "string" &&
+    (app.icon.startsWith("http://") || app.icon.startsWith("https://"));
+  const initial = firstLetterFromUrlOrName(app.url, app.name);
   const hostname = useMemo(() => {
     try {
       return new URL(app.url).hostname;
@@ -44,7 +73,16 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
     <div className="group relative flex h-full min-h-[88px] flex-nowrap items-center justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-500/50 hover:bg-slate-900">
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <div className="flex h-12 w-12 min-w-[48px] items-center justify-center overflow-hidden rounded-2xl bg-slate-800 text-xl text-white ring-1 ring-white/5">
-          {app.icon ? (
+          {iconIsUrl ? (
+            <img
+              src={app.icon}
+              alt=""
+              width={44}
+              height={44}
+              className="h-11 w-11 object-contain"
+              loading="lazy"
+            />
+          ) : app.icon ? (
             <span aria-hidden="true">{app.icon}</span>
           ) : favicon ? (
             <img
@@ -56,8 +94,8 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
               loading="lazy"
             />
           ) : (
-            <span className="text-[11px] uppercase tracking-wide text-slate-300">
-              App
+            <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-100">
+              {initial}
             </span>
           )}
         </div>

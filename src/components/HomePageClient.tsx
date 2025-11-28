@@ -15,6 +15,28 @@ import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 
+function getFaviconUrl(rawUrl: string): string {
+  const resolve = (value: string) => {
+    try {
+      const url = new URL(value);
+      const host = url.hostname;
+      if (!host || !host.includes(".")) return "";
+      return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(
+        host
+      )}`;
+    } catch {
+      return "";
+    }
+  };
+
+  const direct = resolve(rawUrl);
+  if (direct) return direct;
+  if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+    return resolve(`https://${rawUrl}`);
+  }
+  return "";
+}
+
 export function HomePageClient() {
   const { data: session } = useSession();
   const userId = session?.user?.email ?? null;
@@ -41,23 +63,25 @@ export function HomePageClient() {
   const [newFolder, setNewFolder] = useState(""); // NEW: folder to add to
   const [newTags, setNewTags] = useState(""); // NEW
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showAddShortcutForm, setShowAddShortcutForm] = useState(false);
-  const [shortcutName, setShortcutName] = useState("");
-  const [shortcutUrl, setShortcutUrl] = useState("");
-  const [shortcutIcon, setShortcutIcon] = useState("");
-  const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editUrl, setEditUrl] = useState("");
-  const [editIcon, setEditIcon] = useState("");
+const [showAddShortcutForm, setShowAddShortcutForm] = useState(false);
+const [shortcutName, setShortcutName] = useState("");
+const [shortcutUrl, setShortcutUrl] = useState("");
+const [shortcutIcon, setShortcutIcon] = useState("");
+const [shortcutIconTouched, setShortcutIconTouched] = useState(false);
+const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null);
+const [editName, setEditName] = useState("");
+const [editUrl, setEditUrl] = useState("");
+const [editIcon, setEditIcon] = useState("");
+const [editIconTouched, setEditIconTouched] = useState(false);
   const [undoState, setUndoState] = useState<{
     type: "delete" | "clearAll";
     snapshot: Bookmark[];
   } | null>(null);
-  const [shortcutUndoState, setShortcutUndoState] = useState<{
-    snapshot: ShortcutApp[];
-  } | null>(null);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
+const [shortcutUndoState, setShortcutUndoState] = useState<{
+  snapshot: ShortcutApp[];
+} | null>(null);
+const [showScrollTop, setShowScrollTop] = useState(false);
+const [showClearConfirm, setShowClearConfirm] = useState(false);
   const handleLogout = () => signOut({ callbackUrl: "/login" });
 
   const folders = useMemo(() => {
@@ -76,6 +100,26 @@ export function HomePageClient() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (shortcutIconTouched) return;
+    if (!shortcutUrl.trim()) {
+      setShortcutIcon("");
+      return;
+    }
+    const favicon = getFaviconUrl(shortcutUrl);
+    setShortcutIcon(favicon);
+  }, [shortcutUrl, shortcutIconTouched]);
+
+  useEffect(() => {
+    if (!editingShortcut) return;
+    if (editIconTouched) return;
+    if (editIcon.trim()) return;
+    const favicon = getFaviconUrl(editUrl);
+    if (favicon) {
+      setEditIcon(favicon);
+    }
+  }, [editUrl, editIcon, editIconTouched, editingShortcut]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -200,14 +244,17 @@ export function HomePageClient() {
 
   const handleAddShortcut = () => {
     if (!shortcutName.trim() || !shortcutUrl.trim()) return;
+    const autoIcon = getFaviconUrl(shortcutUrl.trim());
+    const icon = shortcutIconTouched ? shortcutIcon.trim() : autoIcon;
     addShortcut({
       name: shortcutName.trim(),
       url: shortcutUrl.trim(),
-      icon: shortcutIcon.trim() || undefined,
+      icon: icon || undefined,
     });
     setShortcutName("");
     setShortcutUrl("");
     setShortcutIcon("");
+    setShortcutIconTouched(false);
     setShowAddShortcutForm(false);
   };
 
@@ -245,21 +292,25 @@ export function HomePageClient() {
     setEditName(app.name);
     setEditUrl(app.url);
     setEditIcon(app.icon ?? "");
+    setEditIconTouched(false);
   };
 
   const handleSaveShortcutEdit = () => {
     if (!editingShortcut) return;
     if (!editName.trim() || !editUrl.trim()) return;
+    const autoIcon = getFaviconUrl(editUrl.trim());
+    const icon = editIconTouched ? editIcon.trim() : autoIcon;
     handleShortcutUpdate(editingShortcut.id, {
       name: editName.trim(),
       url: editUrl.trim(),
-      icon: editIcon.trim() || undefined,
+      icon: icon || undefined,
     });
     setEditingShortcut(null);
   };
 
   const handleCancelShortcutEdit = () => {
     setEditingShortcut(null);
+    setEditIconTouched(false);
   };
 
   const handleShortcutUndo = () => {
@@ -501,7 +552,18 @@ export function HomePageClient() {
               <span className="text-xs text-slate-500">Open common tools fast</span>
               <button
                 type="button"
-                onClick={() => setShowAddShortcutForm((v) => !v)}
+                onClick={() =>
+                  setShowAddShortcutForm((v) => {
+                    const next = !v;
+                    if (next) {
+                      setShortcutIconTouched(false);
+                      if (!shortcutIcon.trim() && shortcutUrl.trim()) {
+                        setShortcutIcon(getFaviconUrl(shortcutUrl));
+                      }
+                    }
+                    return next;
+                  })
+                }
                 className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-500"
               >
                 {showAddShortcutForm ? "Close" : "Add shortcut"}
@@ -509,7 +571,7 @@ export function HomePageClient() {
             </div>
           </div>
           {showAddShortcutForm && (
-            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:grid-cols-4 sm:items-center">
+            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:grid-cols-3 sm:items-center">
               <input
                 type="text"
                 placeholder="App name"
@@ -522,13 +584,6 @@ export function HomePageClient() {
                 placeholder="https://app.example.com"
                 value={shortcutUrl}
                 onChange={(e) => setShortcutUrl(e.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Emoji icon (optional)"
-                value={shortcutIcon}
-                onChange={(e) => setShortcutIcon(e.target.value)}
                 className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
               <button
@@ -805,7 +860,10 @@ export function HomePageClient() {
                   type="text"
                   placeholder="Emoji icon"
                   value={editIcon}
-                  onChange={(e) => setEditIcon(e.target.value)}
+                  onChange={(e) => {
+                    setEditIconTouched(true);
+                    setEditIcon(e.target.value);
+                  }}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
