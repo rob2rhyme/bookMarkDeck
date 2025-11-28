@@ -15,6 +15,18 @@ import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 
+function getHostname(rawUrl: string) {
+  try {
+    return new URL(rawUrl).hostname;
+  } catch {
+    try {
+      return new URL(`https://${rawUrl}`).hostname;
+    } catch {
+      return rawUrl;
+    }
+  }
+}
+
 function getFaviconUrl(rawUrl: string): string {
   const resolve = (value: string) => {
     try {
@@ -35,6 +47,13 @@ function getFaviconUrl(rawUrl: string): string {
     return resolve(`https://${rawUrl}`);
   }
   return "";
+}
+
+function firstLetterFromUrlOrTitle(url: string, title?: string): string {
+  const hostname = getHostname(url).replace(/^www\./i, "");
+  if (hostname) return hostname[0]?.toUpperCase() ?? "A";
+  const fromTitle = (title ?? "").trim();
+  return fromTitle ? fromTitle[0].toUpperCase() : "A";
 }
 
 export function HomePageClient() {
@@ -209,6 +228,90 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     return top;
   }, [filtered]);
+
+  const TrendingBookmarkCard = ({
+    bookmark,
+    usageLabel,
+  }: {
+    bookmark: Bookmark;
+    usageLabel?: string;
+  }) => {
+    const favicon = getFaviconUrl(bookmark.url);
+    const initial = firstLetterFromUrlOrTitle(bookmark.url, bookmark.title);
+    const hostname = getHostname(bookmark.url);
+
+    const handleOpen = () => {
+      const target = bookmark.url.trim();
+      if (!target) return;
+      window.open(target, "_blank", "noopener,noreferrer");
+    };
+
+    const togglePinned = () => {
+      updateBookmark(bookmark.id, { pinned: !bookmark.pinned });
+    };
+
+    return (
+      <div className="group relative flex h-full min-h-[92px] items-center justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-500/50 hover:bg-slate-900">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          <div className="flex h-12 w-12 min-w-[48px] items-center justify-center overflow-hidden rounded-2xl bg-slate-800 text-xl text-white ring-1 ring-white/5">
+            {favicon ? (
+              <img
+                src={favicon}
+                alt=""
+                width={44}
+                height={44}
+                className="h-11 w-11 object-contain"
+                loading="lazy"
+              />
+            ) : (
+              <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-100">
+                {initial}
+              </span>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-base font-semibold leading-tight text-slate-100">
+                {bookmark.title || hostname}
+              </span>
+              {usageLabel && (
+                <span className="rounded-full border border-slate-700/80 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+                  {usageLabel}
+                </span>
+              )}
+            </div>
+            <span className="truncate text-[12px] text-slate-400">{hostname}</span>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-nowrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleOpen}
+            className="shrink-0 whitespace-nowrap rounded-full bg-blue-600/90 px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition group-hover:bg-blue-500"
+          >
+            Open
+          </button>
+          <button
+            type="button"
+            onClick={togglePinned}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-200 transition hover:border-blue-400 hover:text-white"
+            aria-label={bookmark.pinned ? "Unfavorite" : "Favorite"}
+          >
+            {bookmark.pinned ? "★" : "☆"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(bookmark.id)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white"
+            aria-label={`Delete ${bookmark.title || hostname}`}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const usageLabelFor = (hits?: number) => {
     const h = hits ?? 0;
@@ -624,13 +727,11 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
                 Most opened bookmarks (per device/account)
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 min-[902px]:grid-cols-2 sm:gap-4">
               {trending.map((b) => (
-                <BookmarkCard
+                <TrendingBookmarkCard
                   key={`trending-${b.id}`}
                   bookmark={b}
-                  onUpdate={updateBookmark}
-                  onDelete={handleDelete}
                   usageLabel={usageLabelFor(b.hits)}
                 />
               ))}
