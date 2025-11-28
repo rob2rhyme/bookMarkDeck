@@ -14,33 +14,33 @@ function normalizeBookmarks(raw: unknown): Bookmark[] {
       Boolean(item) && typeof item === "object"
     )
     .map((item): Bookmark => {
-      const tags = Array.isArray(item.tags)
-        ? item.tags.map((tag) => String(tag)).filter(Boolean)
+      const record = item as Record<string, unknown>;
+      const tags = Array.isArray(record.tags)
+        ? record.tags.map((tag) => String(tag)).filter(Boolean)
         : [];
 
+      const hitsValue = record.hits;
+      const lastUsedAtValue = record.lastUsedAt;
+
       return {
-        id: typeof item.id === "string" ? item.id : crypto.randomUUID(),
+        id: typeof record.id === "string" ? record.id : crypto.randomUUID(),
         title:
-          (typeof item.title === "string" && item.title) ||
-          (typeof item.url === "string" && item.url) ||
+          (typeof record.title === "string" && record.title) ||
+          (typeof record.url === "string" && record.url) ||
           "Untitled",
-        url: typeof item.url === "string" ? item.url : "",
-        note: typeof item.note === "string" ? item.note : "",
-        folder: typeof item.folder === "string" ? item.folder : undefined,
+        url: typeof record.url === "string" ? record.url : "",
+        note: typeof record.note === "string" ? record.note : "",
+        folder:
+          typeof record.folder === "string" ? record.folder : undefined,
         createdAt:
-          typeof item.createdAt === "string"
-            ? item.createdAt
+          typeof record.createdAt === "string"
+            ? record.createdAt
             : new Date().toISOString(),
         tags,
-        pinned: typeof item.pinned === "boolean" ? item.pinned : false,
-        hits:
-          typeof (item as Record<string, unknown>).hits === "number"
-            ? (item as Record<string, unknown>).hits
-            : 0,
+        pinned: typeof record.pinned === "boolean" ? record.pinned : false,
+        hits: typeof hitsValue === "number" ? hitsValue : 0,
         lastUsedAt:
-          typeof (item as Record<string, unknown>).lastUsedAt === "string"
-            ? (item as Record<string, unknown>).lastUsedAt
-            : undefined,
+          typeof lastUsedAtValue === "string" ? lastUsedAtValue : undefined,
       };
     });
 }
