@@ -5,5 +5,4 @@ export type ShortcutApp = {
   name: string;
   url: string;
   icon?: string;
-  platform?: "web" | "mac" | "windows" | "both";
 };

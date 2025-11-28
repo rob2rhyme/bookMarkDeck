@@ -10,6 +10,18 @@ export type FirestoreShortcutsPayload = {
   updatedAt?: string;
 };
 
+function sanitizeShortcut(raw: ShortcutApp): ShortcutApp {
+  const base: ShortcutApp = {
+    id: typeof raw.id === "string" && raw.id.trim() ? raw.id : crypto.randomUUID(),
+    name: typeof raw.name === "string" ? raw.name : "",
+    url: typeof raw.url === "string" ? raw.url : "",
+  };
+
+  const icon = typeof raw.icon === "string" && raw.icon.trim() ? raw.icon : undefined;
+
+  return icon ? { ...base, icon } : base;
+}
+
 export async function fetchShortcuts(userIdHint: string): Promise<FirestoreShortcutsPayload> {
   const user = await ensureFirebaseGoogleAuth(userIdHint);
   const snap = await getDoc(userDocRef(user.uid));
@@ -22,17 +34,20 @@ export async function fetchShortcuts(userIdHint: string): Promise<FirestoreShort
         ? data.shortcutsUpdatedAt
         : undefined;
   return {
-    shortcuts: Array.isArray(data.shortcuts) ? (data.shortcuts as ShortcutApp[]) : [],
+    shortcuts: Array.isArray(data.shortcuts)
+      ? (data.shortcuts as ShortcutApp[]).map(sanitizeShortcut)
+      : [],
     updatedAt,
   };
 }
 
 export async function saveShortcuts(userIdHint: string, shortcuts: ShortcutApp[]): Promise<void> {
   const user = await ensureFirebaseGoogleAuth(userIdHint);
+  const sanitized = shortcuts.map(sanitizeShortcut);
   await setDoc(
     userDocRef(user.uid),
     {
-      shortcuts,
+      shortcuts: sanitized,
       shortcutsUpdatedAt: serverTimestamp(),
       version: 1,
     },

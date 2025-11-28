@@ -45,16 +45,10 @@ export function HomePageClient() {
   const [shortcutName, setShortcutName] = useState("");
   const [shortcutUrl, setShortcutUrl] = useState("");
   const [shortcutIcon, setShortcutIcon] = useState("");
-  const [shortcutPlatform, setShortcutPlatform] = useState<
-    "web" | "mac" | "windows" | "both"
-  >("web");
   const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null);
   const [editName, setEditName] = useState("");
   const [editUrl, setEditUrl] = useState("");
   const [editIcon, setEditIcon] = useState("");
-  const [editPlatform, setEditPlatform] = useState<
-    "web" | "mac" | "windows" | "both"
-  >("web");
   const [undoState, setUndoState] = useState<{
     type: "delete" | "clearAll";
     snapshot: Bookmark[];
@@ -210,12 +204,10 @@ export function HomePageClient() {
       name: shortcutName.trim(),
       url: shortcutUrl.trim(),
       icon: shortcutIcon.trim() || undefined,
-      platform: shortcutPlatform,
     });
     setShortcutName("");
     setShortcutUrl("");
     setShortcutIcon("");
-    setShortcutPlatform("web");
     setShowAddShortcutForm(false);
   };
 
@@ -253,7 +245,6 @@ export function HomePageClient() {
     setEditName(app.name);
     setEditUrl(app.url);
     setEditIcon(app.icon ?? "");
-    setEditPlatform(app.platform ?? "web");
   };
 
   const handleSaveShortcutEdit = () => {
@@ -263,7 +254,6 @@ export function HomePageClient() {
       name: editName.trim(),
       url: editUrl.trim(),
       icon: editIcon.trim() || undefined,
-      platform: editPlatform,
     });
     setEditingShortcut(null);
   };
@@ -519,7 +509,7 @@ export function HomePageClient() {
             </div>
           </div>
           {showAddShortcutForm && (
-            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:grid-cols-5 sm:items-center">
+            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:grid-cols-4 sm:items-center">
               <input
                 type="text"
                 placeholder="App name"
@@ -541,18 +531,6 @@ export function HomePageClient() {
                 onChange={(e) => setShortcutIcon(e.target.value)}
                 className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
-              <select
-                value={shortcutPlatform}
-                onChange={(e) =>
-                  setShortcutPlatform(e.target.value as typeof shortcutPlatform)
-                }
-                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="web">Web</option>
-                <option value="mac">Mac</option>
-                <option value="windows">Windows</option>
-                <option value="both">Mac + Windows</option>
-              </select>
               <button
                 type="button"
                 onClick={handleAddShortcut}
@@ -823,27 +801,13 @@ export function HomePageClient() {
                   onChange={(e) => setEditUrl(e.target.value)}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <input
-                    type="text"
-                    placeholder="Emoji icon"
-                    value={editIcon}
-                    onChange={(e) => setEditIcon(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                  <select
-                    value={editPlatform}
-                    onChange={(e) =>
-                      setEditPlatform(e.target.value as typeof editPlatform)
-                    }
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="web">Web</option>
-                    <option value="mac">Mac</option>
-                    <option value="windows">Windows</option>
-                    <option value="both">Mac + Windows</option>
-                  </select>
-                </div>
+                <input
+                  type="text"
+                  placeholder="Emoji icon"
+                  value={editIcon}
+                  onChange={(e) => setEditIcon(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
               </div>
               <div className="mt-5 flex justify-end gap-2">
                 <button
