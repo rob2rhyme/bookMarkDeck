@@ -15,7 +15,17 @@ function getFaviconUrl(rawUrl: string): string | null {
       host
     )}`;
   } catch {
-    return null;
+    // Retry for entries missing protocol (e.g., "example.com").
+    try {
+      const url = new URL(`https://${rawUrl}`);
+      const host = url.hostname;
+      if (!host || !host.includes(".")) return null;
+      return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(
+        host
+      )}`;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -25,6 +35,22 @@ type Props = {
   onDelete: (id: string) => void;
   usageLabel?: string;
 };
+
+function firstLetterFromUrlOrTitle(url: string, title?: string): string {
+  const extract = (value: string) => {
+    try {
+      const parsed = new URL(value);
+      const host = parsed.hostname.replace(/^www\./i, "");
+      return host[0]?.toUpperCase() ?? "";
+    } catch {
+      return "";
+    }
+  };
+  const fromUrl = extract(url) || extract(`https://${url}`);
+  if (fromUrl) return fromUrl;
+  const fromTitle = (title ?? "").trim();
+  return fromTitle ? fromTitle[0].toUpperCase() : "A";
+}
 
 export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props) {
   const [title, setTitle] = useState(bookmark.title ?? "");
@@ -36,6 +62,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
   const [showNote, setShowNote] = useState(false);
 
   const favicon = getFaviconUrl(bookmark.url);
+  const initial = firstLetterFromUrlOrTitle(bookmark.url, bookmark.title);
   const DEFAULT_BORDER_COLOR = "rgba(148,163,184,0.25)";
   const [borderColor, setBorderColor] = useState<string>(DEFAULT_BORDER_COLOR);
 
@@ -222,7 +249,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
           onClick={handleOpen}
           className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/10 px-2 py-3 text-center hover:bg-slate-950/20"
         >
-          {favicon && (
+          {favicon ? (
             <img
               src={favicon}
               alt=""
@@ -231,6 +258,10 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
               className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
               loading="lazy"
             />
+          ) : (
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
+              {initial}
+            </span>
           )}
           <span className="line-clamp-2 text-[11px] font-medium text-slate-900 dark:text-slate-50">
             {bookmark.title || bookmark.url}
@@ -255,7 +286,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
           {/* favicon + title strip */}
           {!isEditing && (
             <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
-              {favicon && (
+              {favicon ? (
                 <img
                   src={favicon}
                   alt=""
@@ -264,6 +295,10 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
                   className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
                   loading="lazy"
                 />
+              ) : (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/60 bg-slate-800 text-[11px] font-semibold uppercase text-slate-100">
+                  {initial}
+                </span>
               )}
               <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
                 {bookmark.title || bookmark.url}
