@@ -38,6 +38,7 @@ function normalizeShortcuts(raw: unknown): ShortcutApp[] {
     .filter((shortcut) => shortcut.url.trim().length > 0);
 }
 
+// Start empty to mirror bookmarks behavior (blank slate on fresh devices)
 const DEFAULT_SHORTCUTS: ShortcutApp[] = [];
 
 function storageKeyForUser(userId?: string | null) {
@@ -98,9 +99,7 @@ export function useShortcuts(userId?: string | null) {
   const updateShortcut = (id: string, data: Partial<ShortcutApp>) => {
     setShortcuts((prev) =>
       prev.map((s) =>
-        s.id === id
-          ? normalizeShortcut({ ...s, ...data }, s.id) ?? s
-          : s
+        s.id === id ? normalizeShortcut({ ...s, ...data }, s.id) ?? s : s
       )
     );
   };
