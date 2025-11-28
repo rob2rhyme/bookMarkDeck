@@ -11,7 +11,33 @@ import {
 
 const BASE_STORAGE_KEY = "bookmarkdeck:shortcuts:v1";
 
-// Start empty to mirror bookmarks behavior (blank slate on fresh devices)
+function normalizeShortcut(raw: unknown, fallbackId?: string): ShortcutApp | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const record = raw as Record<string, unknown>;
+  const icon =
+    typeof record.icon === "string" && record.icon.trim() ? record.icon.trim() : undefined;
+
+  const shortcut: ShortcutApp = {
+    id:
+      typeof record.id === "string" && record.id.trim()
+        ? record.id
+        : fallbackId ?? crypto.randomUUID(),
+    name: typeof record.name === "string" && record.name.trim() ? record.name : "Shortcut",
+    url: typeof record.url === "string" ? record.url : "",
+  };
+
+  return icon ? { ...shortcut, icon } : shortcut;
+}
+
+function normalizeShortcuts(raw: unknown): ShortcutApp[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => normalizeShortcut(item))
+    .filter((shortcut): shortcut is ShortcutApp => Boolean(shortcut))
+    .filter((shortcut) => shortcut.url.trim().length > 0);
+}
+
 const DEFAULT_SHORTCUTS: ShortcutApp[] = [];
 
 function storageKeyForUser(userId?: string | null) {
@@ -24,15 +50,7 @@ function loadFromStorage(userId?: string | null): ShortcutApp[] {
     const raw = window.localStorage.getItem(storageKeyForUser(userId));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((item) => ({
-        id: typeof item.id === "string" ? item.id : crypto.randomUUID(),
-        name: typeof item.name === "string" ? item.name : "Shortcut",
-        url: typeof item.url === "string" ? item.url : "",
-        icon: typeof item.icon === "string" ? item.icon : undefined,
-      }))
-      .filter((s) => s.url.trim().length > 0);
+    return normalizeShortcuts(parsed);
   } catch {
     return [];
   }
@@ -72,21 +90,16 @@ export function useShortcuts(userId?: string | null) {
   }, [shortcuts, hydrated, userId]);
 
   const addShortcut = (data: AddShortcutInput) => {
-    const newShortcut: ShortcutApp = {
-      ...data,
-      id: crypto.randomUUID(),
-    };
-    setShortcuts((prev) => [newShortcut, ...prev]);
+    const normalized = normalizeShortcut({ ...data, id: crypto.randomUUID() });
+    if (!normalized) return;
+    setShortcuts((prev) => [normalized, ...prev]);
   };
 
   const updateShortcut = (id: string, data: Partial<ShortcutApp>) => {
     setShortcuts((prev) =>
       prev.map((s) =>
         s.id === id
-          ? {
-              ...s,
-              ...data,
-            }
+          ? normalizeShortcut({ ...s, ...data }, s.id) ?? s
           : s
       )
     );
@@ -97,7 +110,7 @@ export function useShortcuts(userId?: string | null) {
   };
 
   const restoreFromSnapshot = (snapshot: ShortcutApp[]) => {
-    setShortcuts(snapshot);
+    setShortcuts(normalizeShortcuts(snapshot));
   };
 
   const syncFromCloudShortcuts = async (userIdHint: string | null | undefined) => {
@@ -113,10 +126,7 @@ export function useShortcuts(userId?: string | null) {
         setSyncError("No cloud shortcuts found.");
         return;
       }
-      const normalized = remote.shortcuts.map((s) => ({
-        ...s,
-        id: typeof s.id === "string" ? s.id : crypto.randomUUID(),
-      }));
+      const normalized = normalizeShortcuts(remote.shortcuts);
       setShortcuts(normalized);
       saveToStorage(normalized, userIdHint);
       setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
