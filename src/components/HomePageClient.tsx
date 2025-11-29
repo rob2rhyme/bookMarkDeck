@@ -14,6 +14,7 @@ import { Bookmark } from "@/types/bookmark";
 import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
+import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 
 function getHostname(rawUrl: string) {
   try {
@@ -71,11 +72,16 @@ export function HomePageClient() {
     isSyncing,
     syncError,
     lastSyncedAt,
+    refreshBackups,
+    backups,
+    areBackupsLoading,
+    backupError,
   } = useBookmarks(userId);
 
   const [search, setSearch] = useState("");
   // Default to "favorites" so only pinned bookmarks show initially
-  const [folderFilter, setFolderFilter] = useState<string>("favorites");
+  // Start with all bookmarks so imports are visible immediately
+  const [folderFilter, setFolderFilter] = useState<string>("");
 
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -101,6 +107,7 @@ const [shortcutUndoState, setShortcutUndoState] = useState<{
 } | null>(null);
 const [showScrollTop, setShowScrollTop] = useState(false);
 const [showClearConfirm, setShowClearConfirm] = useState(false);
+const [showBackups, setShowBackups] = useState(false);
   const handleLogout = () => signOut({ callbackUrl: "/login" });
 
   const folders = useMemo(() => {
@@ -429,6 +436,63 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
   const handleImport = async (file: File | null) => {
     if (!file) return;
     const text = await file.text();
+
+    // Attempt JSON first (supports cross-account backups with shortcuts).
+    const isLikelyJson =
+      file.name.toLowerCase().endsWith(".json") || text.trim().startsWith("{");
+    if (isLikelyJson) {
+      try {
+        const parsed = JSON.parse(text);
+        const importedBookmarks: Bookmark[] = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed.bookmarks)
+            ? parsed.bookmarks
+            : [];
+        const importedShortcuts: ShortcutApp[] = Array.isArray(parsed.shortcuts)
+          ? parsed.shortcuts
+          : [];
+
+        // Merge bookmarks by URL
+        if (importedBookmarks.length > 0) {
+          const existingByUrl = new Map(bookmarks.map((b) => [b.url, b]));
+          const merged: Bookmark[] = [...bookmarks];
+          importedBookmarks.forEach((imp) => {
+            if (!existingByUrl.has(imp.url)) {
+              merged.push(imp);
+            }
+          });
+          clearAll();
+          merged.forEach((b) =>
+            addBookmark({
+              title: b.title,
+              url: b.url,
+              note: b.note,
+              folder: b.folder,
+              tags: b.tags ?? [],
+            })
+          );
+        }
+
+        // Merge shortcuts by URL
+        if (importedShortcuts.length > 0) {
+          const existingByUrl = new Map(shortcuts.map((s) => [s.url, s]));
+          const mergedShortcuts: ShortcutApp[] = [...shortcuts];
+          importedShortcuts.forEach((imp) => {
+            if (!existingByUrl.has(imp.url)) {
+              mergedShortcuts.push(imp);
+            }
+          });
+          restoreShortcuts(mergedShortcuts);
+        }
+
+        // If JSON was parsed successfully, stop here.
+        return;
+      } catch (err) {
+        console.error("JSON import failed, trying HTML instead", err);
+      }
+    }
+
+    // Fallback to Netscape HTML import (bookmarks only)
     const imported = parseBookmarkHtml(text);
 
     // Merge, de-dupe by URL
@@ -467,16 +531,56 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
     URL.revokeObjectURL(url);
   };
 
+  const handleBackupDownload = (backup: FirestoreBookmarkBackup) => {
+    if (!backup.bookmarks.length && !(backup.shortcuts?.length)) return;
+    const createdStamp = (() => {
+      const date = new Date(backup.createdAt);
+      if (Number.isNaN(date.getTime())) return backup.id;
+      return date.toISOString().replace(/[:.]/g, "-");
+    })();
+
+    // Export full-fidelity JSON so bookmarks + shortcuts roundtrip across accounts.
+    const payload = {
+      createdAt: backup.createdAt,
+      bookmarks: backup.bookmarks,
+      shortcuts: backup.shortcuts ?? [],
+      type: "bookmarkdeck-backup",
+      version: 1,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bookmarkdeck-backup-${createdStamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const formatBackupDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString();
+  };
+
+  const handleRefreshBackups = async () => {
+    if (!userId) return;
+    await refreshBackups(userId);
+  };
+
   const handleSyncDownload = async () => {
     if (isSyncing || isSyncingShortcuts) return;
     await syncFromCloud(userId);
     await syncFromCloudShortcuts(userId);
+    await handleRefreshBackups();
   };
 
   const handleSyncUpload = async () => {
     if (isSyncing || isSyncingShortcuts) return;
-    await syncToCloud(userId);
+    await syncToCloud(userId, shortcuts);
     await syncToCloudShortcuts(userId);
+    await handleRefreshBackups();
   };
 
   const avatarSrc = session?.user?.image ?? null;
@@ -824,6 +928,9 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
                   Last synced: {new Date(lastSyncedAt).toLocaleString()}
                 </p>
               )}
+              <p className="text-[11px] text-slate-500">
+                We keep the last 7 sync snapshots (bookmarks + app shortcuts) and make each downloadable as JSON for cross-account restores.
+              </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:w-56">
               <button
@@ -842,8 +949,56 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
               >
                 {isSyncing || isSyncingShortcuts ? "Syncing..." : "Sync to cloud"}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showBackups;
+                  setShowBackups(next);
+                  if (!next) return;
+                  handleRefreshBackups().catch(console.error);
+                }}
+                disabled={!userId || areBackupsLoading}
+                className="w-full rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {areBackupsLoading ? "Loading..." : showBackups ? "Hide backups" : "My Backups"}
+              </button>
             </div>
           </div>
+          {showBackups && (
+            <div className="mt-4 space-y-2 rounded-xl border border-slate-800/70 bg-slate-900/70 p-3">
+              {areBackupsLoading ? (
+                <p className="text-xs text-slate-400">Loading backups…</p>
+              ) : backupError ? (
+                <p className="text-xs text-red-400">Backups unavailable: {backupError}</p>
+              ) : backups.length === 0 ? (
+                <p className="text-xs text-slate-400">No backups yet. Sync to cloud to create one.</p>
+              ) : (
+                backups.map((backup) => (
+                  <div
+                    key={backup.id}
+                    className="flex flex-col gap-1 rounded-lg border border-slate-800/70 bg-slate-950/40 p-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-100">
+                        {formatBackupDate(backup.createdAt)}
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        {backup.bookmarks.length} bookmark{backup.bookmarks.length !== 1 ? "s" : ""} ·{" "}
+                        {backup.shortcuts?.length ?? 0} shortcut{(backup.shortcuts?.length ?? 0) !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleBackupDownload(backup)}
+                      className="inline-flex items-center justify-center rounded-full bg-slate-800 px-3 py-1.5 text-[11px] font-semibold text-slate-100 transition hover:bg-slate-700"
+                    >
+                      Download backup
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </section>
 
         {/* Grid of cards grouped by tag */}

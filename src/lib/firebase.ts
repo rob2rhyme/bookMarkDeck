@@ -1,7 +1,7 @@
 // src/lib/firebase.ts
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, type User } from "firebase/auth";
+import { getAuth, getRedirectResult, GoogleAuthProvider, signInWithPopup, signOut, type User } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -43,13 +43,46 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
     } else {
       provider.setCustomParameters({ prompt: "select_account" });
     }
-    authPromise = signInWithPopup(auth, provider).then((cred) => {
-      if (!cred.user) {
-        authPromise = null;
-        throw new Error("Firebase Google auth failed");
-      }
-      return cred.user;
-    });
+    authPromise = getRedirectResult(auth)
+      .catch(() => null)
+      .then(async (redirectCred) => {
+        if (redirectCred?.user) {
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(REDIRECT_TRIED_KEY);
+          }
+          return redirectCred.user;
+        }
+
+        const tryPopup = async () => {
+          const credFromPopup = await signInWithPopup(auth, provider);
+          if (!credFromPopup?.user) throw new Error("Firebase Google auth failed");
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(REDIRECT_TRIED_KEY);
+          }
+          return credFromPopup.user;
+        };
+
+        try {
+          return await tryPopup();
+        } catch (err) {
+          const popupBlocked =
+            (err as { code?: string })?.code === "auth/popup-blocked" ||
+            (err as { code?: string })?.code === "auth/popup-closed-by-user";
+
+          if (!popupBlocked) throw err;
+
+          throw new Error(
+            "Google sign-in was blocked. Please allow popups and third-party cookies for Google, then try again."
+          );
+        }
+      })
+      .then((cred) => {
+        if (!cred || !cred.user) {
+          authPromise = null;
+          throw new Error("Firebase Google auth failed");
+        }
+        return cred.user;
+      });
   }
   return authPromise;
 }
