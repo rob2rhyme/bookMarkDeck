@@ -1,13 +1,37 @@
 // src/utils/firestoreBookmarks.ts
-import { Timestamp, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  Timestamp,
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { Bookmark } from "@/types/bookmark";
+import { ShortcutApp } from "@/types/shortcut";
 
 const userDocRef = (uid: string) => doc(db, "users", uid);
+const userBackupsCollectionRef = (uid: string) =>
+  collection(db, "users", uid, "bookmarkBackups");
+
+const MAX_BACKUPS = 7;
 
 export type FirestoreBookmarkPayload = {
   bookmarks: Bookmark[];
   updatedAt?: string;
+};
+
+export type FirestoreBookmarkBackup = {
+  id: string;
+  bookmarks: Bookmark[];
+  createdAt: string;
+  shortcuts?: ShortcutApp[];
 };
 
 function sanitizeBookmark(raw: Bookmark): Bookmark {
@@ -36,6 +60,16 @@ function sanitizeBookmark(raw: Bookmark): Bookmark {
   return { ...base, ...optional };
 }
 
+function sanitizeShortcut(raw: ShortcutApp): ShortcutApp {
+  const base: ShortcutApp = {
+    id: typeof raw.id === "string" && raw.id.trim() ? raw.id : crypto.randomUUID(),
+    name: typeof raw.name === "string" ? raw.name : "",
+    url: typeof raw.url === "string" ? raw.url : "",
+  };
+  const icon = typeof raw.icon === "string" && raw.icon.trim() ? raw.icon : undefined;
+  return icon ? { ...base, icon } : base;
+}
+
 export async function fetchBookmarks(userIdHint: string): Promise<FirestoreBookmarkPayload> {
   const user = await ensureFirebaseGoogleAuth(userIdHint);
   const snap = await getDoc(userDocRef(user.uid));
@@ -55,9 +89,63 @@ export async function fetchBookmarks(userIdHint: string): Promise<FirestoreBookm
   };
 }
 
-export async function saveBookmarks(userIdHint: string, bookmarks: Bookmark[]): Promise<void> {
+async function createBackupSnapshot(uid: string, bookmarks: Bookmark[], shortcuts?: ShortcutApp[]) {
+  const createdAt = new Date();
+  await addDoc(userBackupsCollectionRef(uid), {
+    bookmarks,
+    shortcuts: shortcuts?.map(sanitizeShortcut) ?? [],
+    createdAt: Timestamp.fromDate(createdAt),
+  });
+
+  // Keep only the most recent MAX_BACKUPS snapshots
+  const all = await getDocs(
+    query(userBackupsCollectionRef(uid), orderBy("createdAt", "desc"))
+  );
+  const extras = all.docs.slice(MAX_BACKUPS);
+  if (extras.length > 0) {
+    await Promise.all(extras.map((docSnap) => deleteDoc(docSnap.ref)));
+  }
+}
+
+export async function fetchBookmarkBackups(userIdHint: string): Promise<FirestoreBookmarkBackup[]> {
+  const user = await ensureFirebaseGoogleAuth(userIdHint);
+  const snap = await getDocs(
+    query(userBackupsCollectionRef(user.uid), orderBy("createdAt", "desc"))
+  );
+
+  return snap.docs.map((docSnap) => {
+    const data = docSnap.data();
+    const createdAt =
+      data.createdAt instanceof Timestamp
+        ? data.createdAt.toDate().toISOString()
+        : typeof data.createdAt === "string"
+          ? data.createdAt
+          : new Date().toISOString();
+
+    const backupBookmarks = Array.isArray(data.bookmarks)
+      ? (data.bookmarks as Bookmark[]).map(sanitizeBookmark)
+      : [];
+    const backupShortcuts = Array.isArray(data.shortcuts)
+      ? (data.shortcuts as ShortcutApp[]).map(sanitizeShortcut)
+      : undefined;
+
+    return {
+      id: docSnap.id,
+      bookmarks: backupBookmarks,
+      createdAt,
+      shortcuts: backupShortcuts,
+    };
+  });
+}
+
+export async function saveBookmarks(
+  userIdHint: string,
+  bookmarks: Bookmark[],
+  shortcuts?: ShortcutApp[]
+): Promise<void> {
   const user = await ensureFirebaseGoogleAuth(userIdHint);
   const sanitized = bookmarks.map(sanitizeBookmark);
+  await createBackupSnapshot(user.uid, sanitized, shortcuts);
   await setDoc(userDocRef(user.uid), {
     bookmarks: sanitized,
     updatedAt: serverTimestamp(),

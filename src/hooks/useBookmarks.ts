@@ -3,7 +3,13 @@
 
 import { useEffect, useState } from "react";
 import { Bookmark } from "@/types/bookmark";
-import { fetchBookmarks, saveBookmarks } from "@/utils/firestoreBookmarks";
+import {
+  fetchBookmarkBackups,
+  fetchBookmarks,
+  saveBookmarks,
+  type FirestoreBookmarkBackup,
+} from "@/utils/firestoreBookmarks";
+import { ShortcutApp } from "@/types/shortcut";
 
 const BASE_STORAGE_KEY = "bookmarkdeck:v1";
 
@@ -76,6 +82,9 @@ export function useBookmarks(userId?: string | null) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [backups, setBackups] = useState<FirestoreBookmarkBackup[]>([]);
+  const [areBackupsLoading, setAreBackupsLoading] = useState(false);
+  const [backupError, setBackupError] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = loadFromStorage(userId);
@@ -92,6 +101,29 @@ export function useBookmarks(userId?: string | null) {
     if (!hydrated) return;
     saveToStorage(bookmarks, userId);
   }, [bookmarks, hydrated, userId]);
+
+  const refreshBackups = async (userIdHint: string | null | undefined) => {
+    if (!userIdHint) {
+      setBackups([]);
+      setBackupError(null);
+      return;
+    }
+    setAreBackupsLoading(true);
+    setBackupError(null);
+    try {
+      const remoteBackups = await fetchBookmarkBackups(userIdHint);
+      setBackups(remoteBackups);
+    } catch (err) {
+      console.error(err);
+      setBackupError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load backups (permission or network issue)."
+      );
+    } finally {
+      setAreBackupsLoading(false);
+    }
+  };
 
   const addBookmark = (partial: AddBookmarkInput) => {
     const newBookmark: Bookmark = {
@@ -147,6 +179,7 @@ export function useBookmarks(userId?: string | null) {
       setBookmarks(normalized);
       saveToStorage(normalized, userIdHint);
       setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
+      await refreshBackups(userIdHint);
     } catch (err) {
       setSyncError(
         err instanceof Error ? err.message : "Failed to sync from cloud."
@@ -156,7 +189,10 @@ export function useBookmarks(userId?: string | null) {
     }
   };
 
-  const syncToCloud = async (userIdHint: string | null | undefined) => {
+  const syncToCloud = async (
+    userIdHint: string | null | undefined,
+    shortcuts?: ShortcutApp[]
+  ) => {
     if (!userIdHint) {
       setSyncError("Sign in to sync your bookmarks.");
       return;
@@ -164,7 +200,7 @@ export function useBookmarks(userId?: string | null) {
     setIsSyncing(true);
     setSyncError(null);
     try {
-      await saveBookmarks(userIdHint, bookmarks);
+      await saveBookmarks(userIdHint, bookmarks, shortcuts);
       setLastSyncedAt(new Date().toISOString());
     } catch (err) {
       setSyncError(
@@ -199,5 +235,9 @@ export function useBookmarks(userId?: string | null) {
     isSyncing,
     syncError,
     lastSyncedAt,
+    refreshBackups,
+    backups,
+    areBackupsLoading,
+    backupError,
   };
 }
