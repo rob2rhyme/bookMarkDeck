@@ -15,6 +15,7 @@ export const db = getFirestore(app);
 export const auth = getAuth(app);
 
 let authPromise: Promise<User> | null = null;
+const REDIRECT_TRIED_KEY = "firebaseRedirectTried";
 
 /**
  * Ensure Firebase Auth is signed in with the intended Google account.
@@ -76,12 +77,12 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
           );
         }
       })
-      .then((cred) => {
-        if (!cred || !cred.user) {
+      .then((user) => {
+        if (!user) {
           authPromise = null;
           throw new Error("Firebase Google auth failed");
         }
-        return cred.user;
+        return user;
       });
   }
   return authPromise;
