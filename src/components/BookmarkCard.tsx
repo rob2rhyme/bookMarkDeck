@@ -68,10 +68,6 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
   const [faviconFailed, setFaviconFailed] = useState(false);
 
   useEffect(() => {
-    setFaviconFailed(false);
-  }, [bookmark.url]);
-
-  useEffect(() => {
     if (!favicon || faviconFailed) return;
 
     const img = new window.Image();
@@ -126,8 +122,14 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
     };
   }, [favicon, faviconFailed]);
 
-  const effectiveBorderColor =
-    favicon && !faviconFailed ? borderColor : DEFAULT_BORDER_COLOR;
+  useEffect(() => {
+    setFaviconFailed(false);
+  }, [favicon]);
+
+  const shouldShowFavicon = favicon && !faviconFailed;
+  const effectiveBorderColor = shouldShowFavicon
+    ? borderColor
+    : DEFAULT_BORDER_COLOR;
 
   const persistChanges = () => {
     const nextTitle = (title || url || bookmark.title).trim();
@@ -256,7 +258,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
           onClick={handleOpen}
           className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/10 px-2 py-3 text-center hover:bg-slate-950/20"
         >
-          {favicon && !faviconFailed ? (
+          {shouldShowFavicon ? (
             <img
               src={favicon}
               alt=""
@@ -294,7 +296,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
           {/* favicon + title strip */}
           {!isEditing && (
             <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
-              {favicon && !faviconFailed ? (
+              {shouldShowFavicon ? (
                 <img
                   src={favicon}
                   alt=""
