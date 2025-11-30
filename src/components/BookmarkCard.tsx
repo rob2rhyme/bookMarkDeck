@@ -65,9 +65,14 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
   const initial = firstLetterFromUrlOrTitle(bookmark.url, bookmark.title);
   const DEFAULT_BORDER_COLOR = "rgba(148,163,184,0.25)";
   const [borderColor, setBorderColor] = useState<string>(DEFAULT_BORDER_COLOR);
+  const [faviconFailed, setFaviconFailed] = useState(false);
 
   useEffect(() => {
-    if (!favicon) return;
+    setFaviconFailed(false);
+  }, [bookmark.url]);
+
+  useEffect(() => {
+    if (!favicon || faviconFailed) return;
 
     const img = new window.Image();
     img.crossOrigin = "anonymous";
@@ -112,15 +117,17 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
     img.onerror = () => {
       if (!isCancelled) {
         setBorderColor(DEFAULT_BORDER_COLOR);
+        setFaviconFailed(true);
       }
     };
 
     return () => {
       isCancelled = true;
     };
-  }, [favicon]);
+  }, [favicon, faviconFailed]);
 
-  const effectiveBorderColor = favicon ? borderColor : DEFAULT_BORDER_COLOR;
+  const effectiveBorderColor =
+    favicon && !faviconFailed ? borderColor : DEFAULT_BORDER_COLOR;
 
   const persistChanges = () => {
     const nextTitle = (title || url || bookmark.title).trim();
@@ -249,7 +256,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
           onClick={handleOpen}
           className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/10 px-2 py-3 text-center hover:bg-slate-950/20"
         >
-          {favicon ? (
+          {favicon && !faviconFailed ? (
             <img
               src={favicon}
               alt=""
@@ -257,6 +264,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
               height={36}
               className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
               loading="lazy"
+              onError={() => setFaviconFailed(true)}
             />
           ) : (
             <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
@@ -286,7 +294,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
           {/* favicon + title strip */}
           {!isEditing && (
             <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
-              {favicon ? (
+              {favicon && !faviconFailed ? (
                 <img
                   src={favicon}
                   alt=""
@@ -294,6 +302,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
                   height={28}
                   className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
                   loading="lazy"
+                  onError={() => setFaviconFailed(true)}
                 />
               ) : (
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/60 bg-slate-800 text-[11px] font-semibold uppercase text-slate-100">

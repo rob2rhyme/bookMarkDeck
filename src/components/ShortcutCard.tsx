@@ -2,7 +2,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { ShortcutApp } from "@/types/shortcut";
 
 function getFaviconUrl(rawUrl: string): string | null {
@@ -55,6 +55,12 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
     typeof app.icon === "string" &&
     (app.icon.startsWith("http://") || app.icon.startsWith("https://"));
   const initial = firstLetterFromUrlOrName(app.url, app.name);
+  const [iconLoadError, setIconLoadError] = useState(false);
+  const iconUrl = iconIsUrl ? app.icon : favicon;
+
+  useEffect(() => {
+    setIconLoadError(false);
+  }, [iconUrl]);
   const hostname = useMemo(() => {
     try {
       return new URL(app.url).hostname;
@@ -73,26 +79,18 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
     <div className="group relative flex h-full min-h-[88px] flex-nowrap items-center justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-500/50 hover:bg-slate-900">
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <div className="flex h-12 w-12 min-w-[48px] items-center justify-center overflow-hidden rounded-2xl bg-slate-800 text-xl text-white ring-1 ring-white/5">
-          {iconIsUrl ? (
+          {iconUrl && !iconLoadError ? (
             <img
-              src={app.icon}
+              src={iconUrl}
               alt=""
               width={44}
               height={44}
               className="h-11 w-11 object-contain"
               loading="lazy"
+              onError={() => setIconLoadError(true)}
             />
           ) : app.icon ? (
             <span aria-hidden="true">{app.icon}</span>
-          ) : favicon ? (
-            <img
-              src={favicon}
-              alt=""
-              width={44}
-              height={44}
-              className="h-11 w-11 object-contain"
-              loading="lazy"
-            />
           ) : (
             <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-100">
               {initial}
