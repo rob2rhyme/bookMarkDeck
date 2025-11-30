@@ -14,6 +14,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
+export const REDIRECT_TRIED_KEY = "firebaseRedirectTried";
 const REDIRECT_TRIED_KEY = "firebaseRedirectTried";
 
 let authPromise: Promise<User> | null = null;
