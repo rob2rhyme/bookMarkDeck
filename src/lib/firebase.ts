@@ -14,6 +14,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
+export const FIREBASE_REDIRECT_TRIED_KEY = "firebaseRedirectTried";
 let authPromise: Promise<User> | null = null;
 
 /**
@@ -48,7 +49,7 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
       .then(async (redirectCred) => {
         if (redirectCred?.user) {
           if (typeof window !== "undefined") {
-            window.localStorage.removeItem(REDIRECT_TRIED_KEY);
+            window.localStorage.removeItem(FIREBASE_REDIRECT_TRIED_KEY);
           }
           return redirectCred.user;
         }
@@ -57,7 +58,7 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
           const credFromPopup = await signInWithPopup(auth, provider);
           if (!credFromPopup?.user) throw new Error("Firebase Google auth failed");
           if (typeof window !== "undefined") {
-            window.localStorage.removeItem(REDIRECT_TRIED_KEY);
+            window.localStorage.removeItem(FIREBASE_REDIRECT_TRIED_KEY);
           }
           return credFromPopup.user;
         };
@@ -76,12 +77,12 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
           );
         }
       })
-      .then((cred) => {
-        if (!cred || !cred.user) {
+      .then((user) => {
+        if (!user) {
           authPromise = null;
           throw new Error("Firebase Google auth failed");
         }
-        return cred.user;
+        return user;
       });
   }
   return authPromise;
