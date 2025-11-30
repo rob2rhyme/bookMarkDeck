@@ -113,6 +113,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
     img.onerror = () => {
       if (!isCancelled) {
         setBorderColor(DEFAULT_BORDER_COLOR);
+        setFaviconFailed(true);
       }
     };
 
