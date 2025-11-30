@@ -246,6 +246,11 @@ const [showBackups, setShowBackups] = useState(false);
     const favicon = getFaviconUrl(bookmark.url);
     const initial = firstLetterFromUrlOrTitle(bookmark.url, bookmark.title);
     const hostname = getHostname(bookmark.url);
+    const [faviconFailed, setFaviconFailed] = useState(false);
+
+    useEffect(() => {
+      setFaviconFailed(false);
+    }, [bookmark.url]);
 
     const handleOpen = () => {
       const target = bookmark.url.trim();
@@ -261,7 +266,7 @@ const [showBackups, setShowBackups] = useState(false);
       <div className="group relative flex h-full min-h-[92px] items-center justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-500/50 hover:bg-slate-900">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <div className="flex h-12 w-12 min-w-[48px] items-center justify-center overflow-hidden rounded-2xl bg-slate-800 text-xl text-white ring-1 ring-white/5">
-            {favicon ? (
+            {favicon && !faviconFailed ? (
               <img
                 src={favicon}
                 alt=""
@@ -269,6 +274,7 @@ const [showBackups, setShowBackups] = useState(false);
                 height={44}
                 className="h-11 w-11 object-contain"
                 loading="lazy"
+                onError={() => setFaviconFailed(true)}
               />
             ) : (
               <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-100">
