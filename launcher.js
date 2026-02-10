@@ -1,7 +1,8 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-const express = require("express");
-const { execFile } = require("child_process");
-const os = require("os");
+
+// launcher.js
+import express from "express";
+import { execFile } from "child_process";
+import os from "os";
 
 const app = express();
 const PORT = Number(process.env.BOOKMARKDECK_PORT) || 47831;
