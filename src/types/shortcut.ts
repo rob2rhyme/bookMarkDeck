@@ -5,4 +5,7 @@ export type ShortcutApp = {
   name: string;
   url: string;
   icon?: string;
+  localPath?: string;
+  bundleId?: string;
+  appUserModelId?: string;
 };

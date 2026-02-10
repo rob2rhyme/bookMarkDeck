@@ -1,7 +1,9 @@
+//src/components/HomePageClient.tsx
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import Image from "next/image";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 
@@ -57,6 +59,117 @@ function firstLetterFromUrlOrTitle(url: string, title?: string): string {
   return fromTitle ? fromTitle[0].toUpperCase() : "A";
 }
 
+function isHttpUrl(value: string): boolean {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function CopyIconButton({ value, tooltip }: { value: string; tooltip: string }) {
+  const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const setCopiedState = () => {
+    setCopied(true);
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = window.setTimeout(() => {
+      setCopied(false);
+      timeoutRef.current = null;
+    }, 1500);
+  };
+
+  const fallbackCopy = () => {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+      setCopiedState();
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        setCopiedState();
+        return;
+      } catch {
+        // fall through to legacy copy
+      }
+    }
+    fallbackCopy();
+  };
+
+  const tooltipText = copied ? "Copied!" : tooltip;
+
+  return (
+    <div className="group relative flex items-center">
+      <button
+        type="button"
+        onClick={handleCopy}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 transition hover:bg-slate-800/70 hover:text-white ${
+          copied ? "text-green-400" : ""
+        }`}
+        aria-label={tooltip}
+      >
+        {copied ? (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 12l4 4L19 6" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 9h9v11H9z" />
+            <path d="M6 4h9v3H6z" />
+          </svg>
+        )}
+      </button>
+      <div className="pointer-events-none absolute -top-9 right-0 z-10 translate-y-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-100 opacity-0 shadow-lg transition duration-150 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+        {tooltipText}
+        <div className="absolute -bottom-1 right-2 h-2 w-2 rotate-45 border-b border-r border-slate-700 bg-slate-900" />
+      </div>
+    </div>
+  );
+}
+
 export function HomePageClient() {
   const { data: session } = useSession();
   const userId = session?.user?.email ?? null;
@@ -85,18 +198,20 @@ export function HomePageClient() {
 
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
-  const [newFolder, setNewFolder] = useState(""); // NEW: folder to add to
+  const [newFolderSelection, setNewFolderSelection] = useState("__unstaged__");
   const [newTags, setNewTags] = useState(""); // NEW
   const [showAddForm, setShowAddForm] = useState(false);
 const [showAddShortcutForm, setShowAddShortcutForm] = useState(false);
 const [shortcutName, setShortcutName] = useState("");
 const [shortcutUrl, setShortcutUrl] = useState("");
-const [shortcutIcon, setShortcutIcon] = useState("");
+const [shortcutLocalPath, setShortcutLocalPath] = useState("");
+const [shortcutIconValue, setShortcutIconValue] = useState("");
 const [shortcutIconTouched, setShortcutIconTouched] = useState(false);
 const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null);
 const [editName, setEditName] = useState("");
 const [editUrl, setEditUrl] = useState("");
-const [editIcon, setEditIcon] = useState("");
+const [editLocalPath, setEditLocalPath] = useState("");
+const [editIconValue, setEditIconValue] = useState("");
 const [editIconTouched, setEditIconTouched] = useState(false);
   const [undoState, setUndoState] = useState<{
     type: "delete" | "clearAll";
@@ -107,14 +222,111 @@ const [shortcutUndoState, setShortcutUndoState] = useState<{
 } | null>(null);
 const [showScrollTop, setShowScrollTop] = useState(false);
 const [showClearConfirm, setShowClearConfirm] = useState(false);
-const [showBackups, setShowBackups] = useState(false);
+  const [showBackups, setShowBackups] = useState(false);
+  const [activeFolderKey, setActiveFolderKey] = useState<string | null>(null);
+  const [activeFolderLabel, setActiveFolderLabel] = useState<string>("Unstaged");
+const [showShortcutInfo, setShowShortcutInfo] = useState(false);
+const [localFolders, setLocalFolders] = useState<string[]>([]);
+const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+const [newFolderName, setNewFolderName] = useState("");
+const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
   const handleLogout = () => signOut({ callbackUrl: "/login" });
 
-  const folders = useMemo(() => {
-    const set = new Set<string>();
-    bookmarks.forEach((b) => b.folder && set.add(b.folder));
-    return Array.from(set);
+  const localFoldersKey = userId
+    ? `bookmarkDeck.folders.local:${userId}`
+    : "bookmarkDeck.folders.local:guest";
+
+  const folderDisplayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    bookmarks.forEach((b) => {
+      const raw = b.folder ?? "";
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, trimmed);
+      }
+    });
+    return map;
   }, [bookmarks]);
+
+  const normalizeFolderName = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  };
+
+  const folders = useMemo(() => {
+    return Array.from(folderDisplayMap.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [folderDisplayMap]);
+
+  const mergedFolders = useMemo(() => {
+    const map = new Map<string, string>();
+    folders.forEach((name) => {
+      map.set(name.toLowerCase(), name);
+    });
+    localFolders.forEach((name) => {
+      const trimmed = normalizeFolderName(name);
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, trimmed);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [folders, localFolders]);
+
+  const localOnlyFolders = useMemo(() => {
+    const existingKeys = new Set(folders.map((name) => name.toLowerCase()));
+    return mergedFolders.filter((name) => !existingKeys.has(name.toLowerCase()));
+  }, [folders, mergedFolders]);
+
+  const orderedFolderList = useMemo(() => {
+    return [...localOnlyFolders, ...folders];
+  }, [localOnlyFolders, folders]);
+
+  const addLocalFolder = (name: string) => {
+    const normalized = normalizeFolderName(name);
+    if (!normalized) return null;
+    const existing = mergedFolders.find(
+      (folderName) => folderName.toLowerCase() === normalized.toLowerCase()
+    );
+    if (!existing) {
+      setLocalFolders((prev) => [...prev, normalized]);
+    }
+    return existing ?? normalized;
+  };
+
+  const openNewFolderModal = (onCreated?: (name: string) => void) => {
+    newFolderRequestRef.current = onCreated ?? null;
+    setNewFolderName("");
+    setShowNewFolderModal(true);
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(localFoldersKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .filter(Boolean);
+        setLocalFolders(Array.from(new Set(cleaned)));
+      }
+    } catch {
+      // ignore local-only folder parse errors
+    }
+  }, [localFoldersKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(localFoldersKey, JSON.stringify(localFolders));
+  }, [localFolders, localFoldersKey]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -128,24 +340,95 @@ const [showBackups, setShowBackups] = useState(false);
   }, []);
 
   useEffect(() => {
+    if (!showShortcutInfo) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowShortcutInfo(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showShortcutInfo]);
+
+  useEffect(() => {
+    if (!showAddForm) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowAddForm(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showAddForm]);
+
+  useEffect(() => {
+    if (!showAddShortcutForm) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowAddShortcutForm(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showAddShortcutForm]);
+
+  useEffect(() => {
+    if (!showNewFolderModal) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowNewFolderModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showNewFolderModal]);
+
+  useEffect(() => {
+    if (!activeFolderKey) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveFolderKey(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeFolderKey]);
+
+
+  useEffect(() => {
     if (shortcutIconTouched) return;
     if (!shortcutUrl.trim()) {
-      setShortcutIcon("");
+      setShortcutIconValue("");
       return;
     }
     const favicon = getFaviconUrl(shortcutUrl);
-    setShortcutIcon(favicon);
+    setShortcutIconValue(favicon);
   }, [shortcutUrl, shortcutIconTouched]);
 
   useEffect(() => {
     if (!editingShortcut) return;
     if (editIconTouched) return;
-    if (editIcon.trim()) return;
+    if (editIconValue.trim()) return;
     const favicon = getFaviconUrl(editUrl);
     if (favicon) {
-      setEditIcon(favicon);
+      setEditIconValue(favicon);
     }
-  }, [editUrl, editIcon, editIconTouched, editingShortcut]);
+  }, [editUrl, editIconValue, editIconTouched, editingShortcut]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -162,19 +445,16 @@ const [showBackups, setShowBackups] = useState(false);
             (b.folder ?? "").toLowerCase().includes(q) ||
             tags.some((t) => t.toLowerCase().includes(q)); // search tags
 
-          // Folder filter logic
-          let matchesFolder = true;
+          // Extra filters (favorites/notes)
+          let matchesExtra = true;
           if (folderFilter === "favorites") {
             // show only pinned / favorited bookmarks
-            matchesFolder = !!b.pinned;
+            matchesExtra = !!b.pinned;
           } else if (folderFilter === "with-notes") {
-            matchesFolder = !!b.note && b.note.trim().length > 0;
-          } else if (folderFilter) {
-            // any specific folder name
-            matchesFolder = b.folder === folderFilter;
+            matchesExtra = !!b.note && b.note.trim().length > 0;
           }
 
-          return matchesSearch && matchesFolder;
+          return matchesSearch && matchesExtra;
         })
         // NEW: surface pinned/favorite bookmarks at the top
         .sort((a, b) => {
@@ -192,19 +472,24 @@ const [showBackups, setShowBackups] = useState(false);
     );
   }, [bookmarks, search, folderFilter]);
 
-  const groupedByTag = useMemo(() => {
-    const groups: Map<string, Bookmark[]> = new Map();
+  const folderBuckets = useMemo(() => {
+    const byKey = new Map<string, Bookmark[]>();
+    const unstaged: Bookmark[] = [];
     filtered.forEach((b) => {
-      const tags = b.tags && b.tags.length ? b.tags : ["Untagged"];
-      tags.forEach((tag) => {
-        const key = tag.trim() || "Untagged";
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(b);
-      });
+      const trimmed = (b.folder ?? "").trim();
+      if (!trimmed) {
+        unstaged.push(b);
+        return;
+      }
+      const key = trimmed.toLowerCase();
+      const bucket = byKey.get(key);
+      if (bucket) {
+        bucket.push(b);
+      } else {
+        byKey.set(key, [b]);
+      }
     });
-    return Array.from(groups.entries()).sort(([a], [b]) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" })
-    );
+    return { byKey, unstaged };
   }, [filtered]);
 
   const {
@@ -246,13 +531,22 @@ const [showBackups, setShowBackups] = useState(false);
     const favicon = getFaviconUrl(bookmark.url);
     const initial = firstLetterFromUrlOrTitle(bookmark.url, bookmark.title);
     const hostname = getHostname(bookmark.url);
+    const iconValue = (bookmark.icon ?? "").trim();
+    const iconUrl = isHttpUrl(iconValue) ? iconValue : "";
     const [faviconFailed, setFaviconFailed] = useState(false);
+    const [iconImgFailed, setIconImgFailed] = useState(false);
 
     useEffect(() => {
       setFaviconFailed(false);
     }, [favicon]);
+    useEffect(() => {
+      setIconImgFailed(false);
+    }, [iconUrl]);
 
+    const shouldShowIconUrl = iconUrl && !iconImgFailed;
     const shouldShowFavicon = favicon && !faviconFailed;
+    const shouldShowIconText =
+      !shouldShowIconUrl && !shouldShowFavicon && iconValue.length > 0;
 
     const handleOpen = () => {
       const target = bookmark.url.trim();
@@ -268,7 +562,17 @@ const [showBackups, setShowBackups] = useState(false);
       <div className="group relative flex h-full min-h-[92px] items-center justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-500/50 hover:bg-slate-900">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <div className="flex h-12 w-12 min-w-[48px] items-center justify-center overflow-hidden rounded bg-slate-100 text-xl text-white ring-1 ring-white/5">
-            {shouldShowFavicon ? (
+            {shouldShowIconUrl ? (
+              <img
+                src={iconUrl}
+                alt=""
+                width={44}
+                height={44}
+                className="h-11 w-11 object-contain"
+                loading="lazy"
+                onError={() => setIconImgFailed(true)}
+              />
+            ) : shouldShowFavicon ? (
               <img
                 src={favicon}
                 alt=""
@@ -278,6 +582,10 @@ const [showBackups, setShowBackups] = useState(false);
                 loading="lazy"
                 onError={() => setFaviconFailed(true)}
               />
+            ) : shouldShowIconText ? (
+              <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-100">
+                {iconValue}
+              </span>
             ) : (
               <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-100">
                 {initial}
@@ -336,10 +644,114 @@ const [showBackups, setShowBackups] = useState(false);
     return "#New";
   };
 
+  const FolderCard = ({
+    name,
+    count,
+    previews,
+    onOpen,
+    isUnstaged,
+    isEmpty,
+  }: {
+    name: string;
+    count: number;
+    previews: Bookmark[];
+    onOpen: () => void;
+    isUnstaged?: boolean;
+    isEmpty?: boolean;
+  }) => {
+    const previewCards = previews.slice(0, 16);
+    const FolderPreviewTile = ({ bookmark }: { bookmark: Bookmark }) => {
+      const iconValue = (bookmark.icon ?? "").trim();
+      const iconUrl = isHttpUrl(iconValue) ? iconValue : "";
+      const favicon = getFaviconUrl(bookmark.url);
+      const initial = firstLetterFromUrlOrTitle(bookmark.url, bookmark.title);
+      const [iconFailed, setIconFailed] = useState(false);
+      const [faviconFailed, setFaviconFailed] = useState(false);
+      const shouldShowIconUrl = iconUrl && !iconFailed;
+      const shouldShowFavicon = favicon && !faviconFailed;
+      const shouldShowIconText =
+        !shouldShowIconUrl && !shouldShowFavicon && iconValue.length > 0;
+      return (
+        <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-slate-900 text-[12px] font-semibold uppercase text-slate-100 ring-1 ring-white/5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_25px_-18px_rgba(0,0,0,0.9)]">
+          {shouldShowIconUrl ? (
+            <img
+              src={iconUrl}
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setIconFailed(true)}
+            />
+          ) : shouldShowFavicon ? (
+            <img
+              src={favicon}
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setFaviconFailed(true)}
+            />
+          ) : shouldShowIconText ? (
+            <span>{iconValue}</span>
+          ) : (
+            <span>{initial}</span>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group relative flex w-full flex-col gap-4 rounded-3xl border border-slate-800/70 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/80 p-6 text-left shadow-[0_20px_40px_-30px_rgba(0,0,0,0.8)] transition hover:-translate-y-0.5 hover:border-blue-500/50"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-100">{name}</p>
+            <p className="text-[11px] text-slate-400">
+              {count} bookmark{count !== 1 ? "s" : ""}
+              {isUnstaged ? " · No folder yet" : ""}
+              {isEmpty ? " · Empty" : ""}
+            </p>
+          </div>
+          <span className="rounded-full border border-slate-700/80 bg-slate-800/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+            Open
+          </span>
+        </div>
+        <div className="h-52 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3">
+          {previewCards.length === 0 ? (
+            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/50 text-xs text-slate-500">
+              No bookmarks yet
+            </div>
+          ) : (
+            <div className="relative grid h-full grid-cols-4 grid-rows-4 gap-2">
+              {previewCards.map((b, index) => (
+                <FolderPreviewTile key={`${b.id}-${index}`} bookmark={b} />
+              ))}
+              {count > 16 && (
+                <div className="pointer-events-none absolute bottom-1 right-1 rounded-full border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100 ring-1 ring-white/5">
+                  +{count - 16}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </button>
+    );
+  };
+
   const handleAddQuick = () => {
     if (!newUrl.trim()) return;
 
-    const folderName = newFolder.trim() || undefined;
+    const folderName =
+      newFolderSelection === "__unstaged__"
+        ? undefined
+        : newFolderSelection.trim() || undefined;
     const tags = newTags
       .split(",")
       .map((t) => t.trim())
@@ -355,23 +767,28 @@ const [showBackups, setShowBackups] = useState(false);
 
     setNewTitle("");
     setNewUrl("");
-    setNewFolder("");
+    setNewFolderSelection("__unstaged__");
     setNewTags("");
     setShowAddForm(false);
   };
 
   const handleAddShortcut = () => {
-    if (!shortcutName.trim() || !shortcutUrl.trim()) return;
-    const autoIcon = getFaviconUrl(shortcutUrl.trim());
-    const icon = shortcutIconTouched ? shortcutIcon.trim() : autoIcon;
+    const trimmedName = shortcutName.trim();
+    const trimmedUrl = shortcutUrl.trim();
+    const trimmedLocalPath = shortcutLocalPath.trim();
+    if (!trimmedName || (!trimmedUrl && !trimmedLocalPath)) return;
+    const autoIcon = trimmedUrl ? getFaviconUrl(trimmedUrl) : "";
+    const icon = shortcutIconTouched ? shortcutIconValue.trim() : autoIcon;
     addShortcut({
-      name: shortcutName.trim(),
-      url: shortcutUrl.trim(),
+      name: trimmedName,
+      url: trimmedUrl,
       icon: icon || undefined,
+      localPath: trimmedLocalPath || undefined,
     });
     setShortcutName("");
     setShortcutUrl("");
-    setShortcutIcon("");
+    setShortcutLocalPath("");
+    setShortcutIconValue("");
     setShortcutIconTouched(false);
     setShowAddShortcutForm(false);
   };
@@ -395,6 +812,18 @@ const [showBackups, setShowBackups] = useState(false);
     setUndoState(null);
   };
 
+  const handleAddLinkForFolder = (folderLabel: string | null) => {
+    setShowAddForm(true);
+    if (folderLabel) {
+      setNewFolderSelection(folderLabel);
+    } else {
+      setNewFolderSelection("__unstaged__");
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const handleShortcutDelete = (id: string) => {
     if (shortcuts.length === 0) return;
     setShortcutUndoState({ snapshot: shortcuts });
@@ -409,19 +838,24 @@ const [showBackups, setShowBackups] = useState(false);
     setEditingShortcut(app);
     setEditName(app.name);
     setEditUrl(app.url);
-    setEditIcon(app.icon ?? "");
+    setEditLocalPath(app.localPath ?? "");
+    setEditIconValue(app.icon ?? "");
     setEditIconTouched(false);
   };
 
   const handleSaveShortcutEdit = () => {
     if (!editingShortcut) return;
-    if (!editName.trim() || !editUrl.trim()) return;
-    const autoIcon = getFaviconUrl(editUrl.trim());
-    const icon = editIconTouched ? editIcon.trim() : autoIcon;
+    const trimmedName = editName.trim();
+    const trimmedUrl = editUrl.trim();
+    const trimmedLocalPath = editLocalPath.trim();
+    if (!trimmedName || (!trimmedUrl && !trimmedLocalPath)) return;
+    const autoIcon = trimmedUrl ? getFaviconUrl(trimmedUrl) : "";
+    const icon = editIconTouched ? editIconValue.trim() : autoIcon;
     handleShortcutUpdate(editingShortcut.id, {
-      name: editName.trim(),
-      url: editUrl.trim(),
+      name: trimmedName,
+      url: trimmedUrl,
       icon: icon || undefined,
+      localPath: trimmedLocalPath || undefined,
     });
     setEditingShortcut(null);
   };
@@ -481,12 +915,20 @@ const [showBackups, setShowBackups] = useState(false);
           );
         }
 
-        // Merge shortcuts by URL
+        // Merge shortcuts by URL; for native-only shortcuts, fall back to id or name+localPath.
         if (importedShortcuts.length > 0) {
-          const existingByUrl = new Map(shortcuts.map((s) => [s.url, s]));
+          const shortcutKey = (s: ShortcutApp) => {
+            const url = s.url?.trim();
+            if (url) return `url:${url}`;
+            if (s.id?.trim()) return `id:${s.id}`;
+            const name = s.name?.trim() || "shortcut";
+            const localPath = s.localPath?.trim() || "";
+            return `native:${name}::${localPath}`;
+          };
+          const existingByKey = new Map(shortcuts.map((s) => [shortcutKey(s), s]));
           const mergedShortcuts: ShortcutApp[] = [...shortcuts];
           importedShortcuts.forEach((imp) => {
-            if (!existingByUrl.has(imp.url)) {
+            if (!existingByKey.has(shortcutKey(imp))) {
               mergedShortcuts.push(imp);
             }
           });
@@ -635,6 +1077,29 @@ const [showBackups, setShowBackups] = useState(false);
                   <span className="max-w-[100px] truncate text-[10px] font-medium text-slate-200 sm:max-w-[180px] sm:text-xs">
                     {avatarLabel}
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-blue-500 transition hover:border-blue-400 hover:text-blue-300"
+                    aria-label="Sign out"
+                  >
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white/15 shadow-inner shadow-black/30">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        className="h-5 w-5"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          d="M12 3v8M8.5 6.5a6 6 0 1 0 7 0"
+                        />
+                      </svg>
+                    </span>
+                  </button>
                 </div>
               )}
             </div>
@@ -643,118 +1108,87 @@ const [showBackups, setShowBackups] = useState(false);
               private.
             </p>
           </div>
-          <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto sm:flex-wrap sm:gap-2.5 sm:justify-end sm:overflow-visible">
-            <button
-              type="button"
-              onClick={() => setShowAddForm(true)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-blue-600 px-2.5 text-[10px] font-semibold text-white shadow-sm hover:bg-blue-500 sm:h-10 sm:px-4 sm:text-xs"
-            >
-              <span className="text-lg">＋</span>
-              Add Link
-            </button>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="file"
-                accept=".html,text/html"
-                className="absolute inset-0 cursor-pointer opacity-0"
-                onChange={(e) =>
-                  handleImport(e.target.files?.[0] ?? null).catch(console.error)
-                }
-              />
-              <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-800 px-2.5 text-[10px] font-medium text-slate-100 shadow-sm hover:bg-slate-700 sm:h-10 sm:px-4 sm:text-xs">
-                <span className="text-base">📥</span>
-                Import
-              </span>
-            </label>
-
-            <button
-              onClick={handleExport}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-[10px] font-semibold text-slate-900 shadow-sm hover:bg-white sm:h-10 sm:px-4 sm:text-xs"
-            >
-              <span className="text-base">📤</span>
-              Export
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              aria-label="Logout"
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-2xl bg-blue-600 px-2.5 text-[10px] font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:h-10 sm:px-4 sm:text-xs"
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white/15 shadow-inner shadow-black/30 sm:h-7 sm:w-7">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  className="h-5 w-5"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    d="M12 3v8M8.5 6.5a6 6 0 1 0 7 0"
-                  />
-                </svg>
-              </span>
-              <span className="text-[11px] font-semibold tracking-wide text-white">
-                LOGOUT
-              </span>
-            </button>
-          </div>
         </header>
 
-        {/* Add quick link */}
+        {/* Add link modal */}
         {showAddForm && (
-          <section className="mb-6 rounded-2xl bg-slate-900/60 p-4 shadow-inner ring-1 ring-white/5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-medium text-slate-200">Add link</h2>
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="text-xs text-slate-400 hover:text-slate-200"
-              >
-                Cancel
-              </button>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            onClick={() => setShowAddForm(false)}
+          >
+            <div
+              className="w-full max-w-3xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Add link"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-medium text-slate-200">Add link</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="text-xs text-slate-400 hover:text-slate-200"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="max-h-[80vh] overflow-y-auto">
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    type="text"
+                    placeholder="Title (optional)"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <input
+                    type="url"
+                    placeholder="https://example.com"
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <select
+                    value={newFolderSelection}
+                    onChange={(e) => {
+                      if (e.target.value === "__new__") {
+                        openNewFolderModal((name) => {
+                          setNewFolderSelection(name);
+                        });
+                        return;
+                      }
+                      setNewFolderSelection(e.target.value);
+                    }}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:max-w-xs"
+                  >
+                    <option value="__unstaged__">Unstaged</option>
+                    {orderedFolderList.map((folderName) => (
+                      <option key={folderName} value={folderName}>
+                        {folderName}
+                      </option>
+                    ))}
+                    <option value="__new__">New folder…</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Tags (comma separated, e.g. work, dev, banking)"
+                    value={newTags}
+                    onChange={(e) => setNewTags(e.target.value)}
+                    className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleAddQuick}
+                    className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                placeholder="Title (optional)"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <input
-                type="url"
-                placeholder="https://example.com"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <input
-                type="text"
-                placeholder="Add to folder (e.g. Banking, Work)"
-                value={newFolder}
-                onChange={(e) => setNewFolder(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:max-w-xs"
-              />
-              <input
-                type="text"
-                placeholder="Tags (comma separated, e.g. work, dev, banking)"
-                value={newTags}
-                onChange={(e) => setNewTags(e.target.value)}
-                className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                onClick={handleAddQuick}
-                className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
-              >
-                Save
-              </button>
-            </div>
-          </section>
+          </div>
         )}
 
         {/* App shortcuts */}
@@ -767,13 +1201,21 @@ const [showBackups, setShowBackups] = useState(false);
               <span className="text-xs text-slate-500">Open common tools fast</span>
               <button
                 type="button"
+                onClick={() => setShowShortcutInfo(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-[12px] font-semibold text-slate-200 transition hover:border-blue-400 hover:text-white"
+                aria-label="Shortcut path help"
+              >
+                i
+              </button>
+              <button
+                type="button"
                 onClick={() =>
                   setShowAddShortcutForm((v) => {
                     const next = !v;
                     if (next) {
                       setShortcutIconTouched(false);
-                      if (!shortcutIcon.trim() && shortcutUrl.trim()) {
-                        setShortcutIcon(getFaviconUrl(shortcutUrl));
+                      if (!shortcutIconValue.trim() && shortcutUrl.trim()) {
+                        setShortcutIconValue(getFaviconUrl(shortcutUrl));
                       }
                     }
                     return next;
@@ -786,28 +1228,74 @@ const [showBackups, setShowBackups] = useState(false);
             </div>
           </div>
           {showAddShortcutForm && (
-            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3 sm:grid-cols-3 sm:items-center">
-              <input
-                type="text"
-                placeholder="App name"
-                value={shortcutName}
-                onChange={(e) => setShortcutName(e.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <input
-                type="url"
-                placeholder="https://app.example.com"
-                value={shortcutUrl}
-                onChange={(e) => setShortcutUrl(e.target.value)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={handleAddShortcut}
-                className="h-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+              onClick={() => setShowAddShortcutForm(false)}
+            >
+              <div
+                className="w-full max-w-3xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Add app shortcut"
               >
-                Save shortcut
-              </button>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-medium text-slate-200">Add shortcut</h2>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddShortcutForm(false)}
+                    className="text-xs text-slate-400 hover:text-slate-200"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="max-h-[80vh] overflow-y-auto">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="App name"
+                      value={shortcutName}
+                      onChange={(e) => setShortcutName(e.target.value)}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="url"
+                      placeholder="https://app.example.com"
+                      value={shortcutUrl}
+                      onChange={(e) => setShortcutUrl(e.target.value)}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Path (native open, device-only)"
+                      value={shortcutLocalPath}
+                      onChange={(e) => setShortcutLocalPath(e.target.value)}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      // UI-only label change; rendering already supports URLs or emoji.
+                      placeholder="😀 or https://example.com/icon.png"
+                      aria-label="Icon (emoji or image URL)"
+                      value={shortcutIconValue}
+                      onChange={(e) => {
+                        setShortcutIconTouched(true);
+                        setShortcutIconValue(e.target.value);
+                      }}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleAddShortcut}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                    >
+                      Save shortcut
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           {shortcuts.length === 0 ? (
@@ -851,8 +1339,54 @@ const [showBackups, setShowBackups] = useState(false);
           </section>
         )}
 
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAddForm(true)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-blue-600 px-2.5 text-[10px] font-semibold text-white shadow-sm hover:bg-blue-500 sm:h-10 sm:px-4 sm:text-xs"
+          >
+            <span className="text-lg">＋</span>
+            Add Link
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              openNewFolderModal((name) => {
+                setActiveFolderKey(name.toLowerCase());
+                setActiveFolderLabel(name);
+              })
+            }
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-2.5 text-[10px] font-semibold text-slate-100 shadow-sm hover:border-blue-400 hover:text-white sm:h-10 sm:px-4 sm:text-xs"
+          >
+            <span className="text-lg">＋</span>
+            Folder
+          </button>
+          <label className="relative inline-flex cursor-pointer items-center">
+            <input
+              type="file"
+              accept=".html,text/html"
+              className="absolute inset-0 cursor-pointer opacity-0"
+              onChange={(e) =>
+                handleImport(e.target.files?.[0] ?? null).catch(console.error)
+              }
+            />
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-800 px-2.5 text-[10px] font-medium text-slate-100 shadow-sm hover:bg-slate-700 sm:h-10 sm:px-4 sm:text-xs">
+              <span className="text-base">📥</span>
+              Import
+            </span>
+          </label>
+
+          <button
+            onClick={handleExport}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-[10px] font-semibold text-slate-900 shadow-sm hover:bg-white sm:h-10 sm:px-4 sm:text-xs"
+          >
+            <span className="text-base">📤</span>
+            Export
+          </button>
+        </div>
+
         {/* Search + filters */}
-        <section className="mb-6 flex flex-col gap-3">
+        <section className="mb-4 flex flex-col gap-3">
           <div className="w-full">
             <div className="relative">
               <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
@@ -886,13 +1420,6 @@ const [showBackups, setShowBackups] = useState(false);
               <option value="">All bookmarks</option>
               <option value="favorites">Favorites only</option>
               <option value="with-notes">Only with notes</option>
-              {folders
-                .filter((f) => f.trim().length > 0)
-                .map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
             </select>
 
             <button
@@ -1009,8 +1536,8 @@ const [showBackups, setShowBackups] = useState(false);
           )}
         </section>
 
-        {/* Grid of cards grouped by tag */}
-        {filtered.length === 0 ? (
+        {/* Folders (wallet view) */}
+        {bookmarks.length === 0 && mergedFolders.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
             <div className="flex flex-col items-center gap-3">
               <p className="text-base text-slate-200">No bookmarks yet.</p>
@@ -1061,27 +1588,52 @@ const [showBackups, setShowBackups] = useState(false);
             </div>
           </div>
         ) : (
-          <div className="space-y-6">
-            {groupedByTag.map(([tag, items]) => (
-              <section key={tag} aria-label={`Bookmarks tagged ${tag}`} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    {tag}
-                  </h3>
-                  <span className="text-xs text-slate-500">{items.length} item{items.length !== 1 ? "s" : ""}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-                  {items.map((b) => (
-                    <BookmarkCard
-                      key={`${tag}-${b.id}`}
-                      bookmark={b}
-                      onUpdate={updateBookmark}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Folders
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Group bookmarks into wallet-style folders.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {(!search || folderBuckets.unstaged.length > 0) && (
+              <FolderCard
+                name="Unstaged"
+                count={folderBuckets.unstaged.length}
+                previews={folderBuckets.unstaged}
+                isUnstaged
+                isEmpty={folderBuckets.unstaged.length === 0}
+                onOpen={() => {
+                  setActiveFolderKey("UNSTAGED");
+                  setActiveFolderLabel("Unstaged");
+                }}
+              />
+            )}
+            {orderedFolderList.map((folderName) => {
+              const key = folderName.toLowerCase();
+              const items = folderBuckets.byKey.get(key) ?? [];
+              if (search && items.length === 0) {
+                return null;
+              }
+              return (
+                <FolderCard
+                  key={folderName}
+                  name={folderName}
+                  count={items.length}
+                  previews={items}
+                  isEmpty={items.length === 0}
+                  onOpen={() => {
+                    setActiveFolderKey(key);
+                    setActiveFolderLabel(folderName);
+                  }}
+                />
+              );
+            })}
+            </div>
           </div>
         )}
         {/* Shortcut edit modal */}
@@ -1122,11 +1674,20 @@ const [showBackups, setShowBackups] = useState(false);
                 />
                 <input
                   type="text"
-                  placeholder="Emoji icon"
-                  value={editIcon}
+                  placeholder="Path (native open, device-only)"
+                  value={editLocalPath}
+                  onChange={(e) => setEditLocalPath(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  // UI-only label change; rendering already supports URLs or emoji.
+                  placeholder="😀 or https://example.com/icon.png"
+                  aria-label="Icon (emoji or image URL)"
+                  value={editIconValue}
                   onChange={(e) => {
                     setEditIconTouched(true);
-                    setEditIcon(e.target.value);
+                    setEditIconValue(e.target.value);
                   }}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
@@ -1234,8 +1795,320 @@ const [showBackups, setShowBackups] = useState(false);
             </div>
           </div>
         )}
+        {activeFolderKey && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+            onClick={() => setActiveFolderKey(null)}
+          >
+            <div
+              className="w-full max-w-5xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${activeFolderLabel} folder`}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
+                    Folder
+                  </p>
+                  <p className="text-sm font-semibold text-slate-100">
+                    {activeFolderLabel}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const label =
+                        activeFolderKey === "UNSTAGED" ? null : activeFolderLabel;
+                      setActiveFolderKey(null);
+                      handleAddLinkForFolder(label);
+                    }}
+                    className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                  >
+                    + Add Link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFolderKey(null)}
+                    className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-[80vh] overflow-y-auto pr-1">
+                {(() => {
+                  const items =
+                    activeFolderKey === "UNSTAGED"
+                      ? folderBuckets.unstaged
+                      : folderBuckets.byKey.get(activeFolderKey) ?? [];
+                  if (items.length === 0) {
+                    return (
+                      <div className="rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">
+                        <p className="text-slate-200">No bookmarks in this folder yet.</p>
+                        <p className="mt-2 text-xs text-slate-400">
+                          Assign a bookmark to this folder from the edit menu.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const label =
+                              activeFolderKey === "UNSTAGED" ? null : activeFolderLabel;
+                            setActiveFolderKey(null);
+                            handleAddLinkForFolder(label);
+                          }}
+                          className="mt-4 inline-flex items-center rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                        >
+                          + Add Link to this folder
+                        </button>
+                      </div>
+                    );
+                  }
+                  const grouped = (() => {
+                    const groups: Map<string, Bookmark[]> = new Map();
+                    items.forEach((b) => {
+                      const tags = b.tags && b.tags.length ? b.tags : ["Untagged"];
+                      tags.forEach((tag) => {
+                        const key = tag.trim() || "Untagged";
+                        if (!groups.has(key)) groups.set(key, []);
+                        groups.get(key)!.push(b);
+                      });
+                    });
+                    return Array.from(groups.entries()).sort(([a], [b]) =>
+                      a.localeCompare(b, undefined, { sensitivity: "base" })
+                    );
+                  })();
+                  return (
+                    <div className="space-y-6">
+                      {grouped.map(([tag, tagItems]) => (
+                        <section
+                          key={tag}
+                          aria-label={`Bookmarks tagged ${tag}`}
+                          className="space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+                              {tag}
+                            </h3>
+                            <span className="text-xs text-slate-500">
+                              {tagItems.length} item{tagItems.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                            {tagItems.map((b) => (
+                              <BookmarkCard
+                                key={`${tag}-${b.id}`}
+                                bookmark={b}
+                                folders={orderedFolderList}
+                                onRequestNewFolder={(onCreated) => {
+                                  openNewFolderModal((name) => {
+                                    onCreated(name);
+                                  });
+                                }}
+                                onCreateFolder={(name) => {
+                                  addLocalFolder(name);
+                                }}
+                                onUpdate={updateBookmark}
+                                onDelete={handleDelete}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+        {showNewFolderModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            onClick={() => setShowNewFolderModal(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="New folder"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-100">New folder</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowNewFolderModal(false)}
+                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Folder name (e.g. Medical, Work)"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const normalized = addLocalFolder(newFolderName);
+                      if (!normalized) return;
+                      newFolderRequestRef.current?.(normalized);
+                      setShowNewFolderModal(false);
+                    }
+                  }}
+                />
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewFolderModal(false)}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const normalized = addLocalFolder(newFolderName);
+                    if (!normalized) return;
+                    newFolderRequestRef.current?.(normalized);
+                    setShowNewFolderModal(false);
+                  }}
+                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showShortcutInfo && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+            onClick={() => setShowShortcutInfo(false)}
+          >
+            <div
+              className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="How to add native app shortcuts"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-100">
+                  How to add native app shortcuts
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowShortcutInfo(false)}
+                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="max-h-[80vh] space-y-4 overflow-y-auto pr-1 text-sm text-slate-300">
+                <p>
+                  Use “Path” when you want the Open button to launch a native desktop app via the local launcher.
+                  If you only have a website, leave Path empty and use URL.
+                </p>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    macOS examples
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs text-slate-400">Installed app (most apps):</p>
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
+                        <span className="truncate font-mono text-sm text-slate-200">
+                          /Applications/Canva.app
+                        </span>
+                        <CopyIconButton value="/Applications/Canva.app" tooltip="Copy path" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Built-in system app:</p>
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
+                        <span className="truncate font-mono text-sm text-slate-200">
+                          /System/Applications/Notes.app
+                        </span>
+                        <CopyIconButton value="/System/Applications/Notes.app" tooltip="Copy path" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Tip: You can locate an app by right-clicking it in Finder → Get Info, or by using Spotlight and dragging the app into Terminal.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Windows examples
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs text-slate-400">Common install path:</p>
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
+                        <span className="truncate font-mono text-sm text-slate-200">
+                          C:\Program Files\Canva\Canva.exe
+                        </span>
+                        <CopyIconButton
+                          value="C:\\Program Files\\Canva\\Canva.exe"
+                          tooltip="Copy path"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Store apps may require an AppUserModelId instead of a file path (advanced).
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    ChromeOS / Linux notes
+                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-400">
+                      ChromeOS does not expose native app paths in the same way. Use web URLs or Progressive Web Apps (PWAs) instead.
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Linux often uses .desktop entries; path support depends on the launcher implementation.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Launcher Pairing Token (dev)
+                  </p>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
+                    <span className="truncate font-mono text-sm text-slate-200">
+                      dev-token-change-me
+                    </span>
+                    <CopyIconButton value="dev-token-change-me" tooltip="Copy token" />
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    This must match the token your local launcher is started with. Keep this token device-local (do not store in cloud sync).
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowShortcutInfo(false)}
+                  className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-        <footer className="mt-12 flex w-full flex-col items-center gap-2 text-sm text-slate-400">
+        <footer className="mt-12 mt-auto flex w-full flex-col items-center gap-2 text-sm text-slate-400">
           <div className="flex w-full max-w-5xl items-center gap-3 text-[11px] text-slate-500">
             <span className="h-px flex-1 bg-slate-800" />
             <span className="shrink-0">Info</span>

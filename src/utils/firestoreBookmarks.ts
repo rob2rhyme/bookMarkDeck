@@ -46,6 +46,8 @@ function sanitizeBookmark(raw: Bookmark): Bookmark {
 
   if (typeof raw.note === "string" && raw.note.length > 0) optional.note = raw.note;
   if (typeof raw.folder === "string" && raw.folder.length > 0) optional.folder = raw.folder;
+  if (typeof raw.icon === "string" && raw.icon.trim().length > 0)
+    optional.icon = raw.icon.trim();
 
   if (Array.isArray(raw.tags)) {
     const tags = raw.tags.filter((tag): tag is string => typeof tag === "string" && tag.length > 0);

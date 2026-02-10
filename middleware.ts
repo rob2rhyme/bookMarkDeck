@@ -5,8 +5,6 @@ import { withAuth } from "next-auth/middleware";
 // Protect all routes except Next internals/assets and let unauthenticated users hit /login.
 export default withAuth(
   function middleware(req) {
-    const publicPaths = ["/login", "/privacy", "/terms", "/faq"];
-    const isPublic = publicPaths.includes(req.nextUrl.pathname);
     const isLogin = req.nextUrl.pathname === "/login";
     const isAuthed = !!req.nextauth.token;
 

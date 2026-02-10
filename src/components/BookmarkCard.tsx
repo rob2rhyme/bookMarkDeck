@@ -4,29 +4,29 @@
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect } from "react";
 
-function getFaviconUrl(rawUrl: string): string | null {
+function safeParseUrl(rawUrl: string): URL | null {
   try {
-    const url = new URL(rawUrl);
-    const host = url.hostname;
-    // Skip empty hosts and bare words (no dot) to avoid noisy 404s.
-    if (!host || !host.includes(".")) return null;
-    // Google s2 service returns a fallback icon instead of 404s.
-    return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(
-      host
-    )}`;
+    return new URL(rawUrl);
   } catch {
-    // Retry for entries missing protocol (e.g., "example.com").
     try {
-      const url = new URL(`https://${rawUrl}`);
-      const host = url.hostname;
-      if (!host || !host.includes(".")) return null;
-      return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(
-        host
-      )}`;
+      return new URL(`https://${rawUrl}`);
     } catch {
       return null;
     }
   }
+}
+
+function getFaviconCandidates(rawUrl: string): string[] {
+  const parsed = safeParseUrl(rawUrl);
+  if (!parsed) return [];
+  const host = parsed.hostname;
+  if (!host || !host.includes(".")) return [];
+  // favicon candidate fallback logic
+  return [
+    `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`,
+    `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(host)}`,
+    `${parsed.origin}/favicon.ico`,
+  ];
 }
 
 type Props = {
@@ -34,6 +34,9 @@ type Props = {
   onUpdate: (id: string, data: Partial<Bookmark>) => void;
   onDelete: (id: string) => void;
   usageLabel?: string;
+  folders: string[];
+  onCreateFolder?: (name: string) => void;
+  onRequestNewFolder?: (onCreated: (name: string) => void) => void;
 };
 
 function firstLetterFromUrlOrTitle(url: string, title?: string): string {
@@ -52,23 +55,68 @@ function firstLetterFromUrlOrTitle(url: string, title?: string): string {
   return fromTitle ? fromTitle[0].toUpperCase() : "A";
 }
 
-export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props) {
+function isHttpUrl(value: string): boolean {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export function BookmarkCard({
+  bookmark,
+  onUpdate,
+  onDelete,
+  usageLabel,
+  folders,
+  onCreateFolder,
+  onRequestNewFolder,
+}: Props) {
   const [title, setTitle] = useState(bookmark.title ?? "");
   const [url, setUrl] = useState(bookmark.url ?? "");
+  const [icon, setIcon] = useState(bookmark.icon ?? "");
   const [folder, setFolder] = useState(bookmark.folder ?? "");
   const [tagsInput, setTagsInput] = useState((bookmark.tags ?? []).join(", "));
   const [note, setNote] = useState(bookmark.note ?? "");
   const [isEditing, setIsEditing] = useState(false);
   const [showNote, setShowNote] = useState(false);
 
-  const favicon = getFaviconUrl(bookmark.url);
+  const faviconCandidates = getFaviconCandidates(bookmark.url);
+  const [faviconState, setFaviconState] = useState<{
+    url: string;
+    index: number;
+  }>({ url: bookmark.url ?? "", index: 0 });
+  const faviconIndex =
+    faviconState.url === (bookmark.url ?? "") ? faviconState.index : 0;
+  const favicon = faviconCandidates[faviconIndex];
   const initial = firstLetterFromUrlOrTitle(bookmark.url, bookmark.title);
+  const editFaviconCandidates = getFaviconCandidates(url);
+  const [editFaviconState, setEditFaviconState] = useState<{
+    url: string;
+    index: number;
+  }>({ url: url ?? "", index: 0 });
+  const editFaviconIndex =
+    editFaviconState.url === (url ?? "") ? editFaviconState.index : 0;
+  const editFavicon = editFaviconCandidates[editFaviconIndex];
+  const editInitial = firstLetterFromUrlOrTitle(url, title);
+  const viewIconValue = (bookmark.icon ?? "").trim();
+  const editIconValue = icon.trim();
+  const viewIconUrl = isHttpUrl(viewIconValue) ? viewIconValue : null;
+  const editIconUrl = isHttpUrl(editIconValue) ? editIconValue : null;
   const DEFAULT_BORDER_COLOR = "rgba(148,163,184,0.25)";
-  const [borderColor, setBorderColor] = useState<string>(DEFAULT_BORDER_COLOR);
-  const [faviconFailed, setFaviconFailed] = useState(false);
+  const [borderColorState, setBorderColorState] = useState<{
+    url: string;
+    color: string;
+  } | null>(null);
+  const [iconImgFailedFor, setIconImgFailedFor] = useState<string | null>(null);
+  const [editIconImgFailedFor, setEditIconImgFailedFor] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
-    if (!favicon || faviconFailed) return;
+    if (!favicon) return;
 
     const img = new window.Image();
     img.crossOrigin = "anonymous";
@@ -104,36 +152,48 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
         g = Math.round(g / count);
         b = Math.round(b / count);
 
-        setBorderColor(`rgba(${r}, ${g}, ${b}, 0.9)`);
+        setBorderColorState({ url: favicon, color: `rgba(${r}, ${g}, ${b}, 0.9)` });
       } catch {
-        setBorderColor(DEFAULT_BORDER_COLOR);
+        setBorderColorState(null);
       }
     };
 
     img.onerror = () => {
       if (!isCancelled) {
-        setBorderColor(DEFAULT_BORDER_COLOR);
-        setFaviconFailed(true);
+        setBorderColorState(null);
+        setFaviconState((current) => {
+          const urlKey = bookmark.url ?? "";
+          const baseIndex = current.url === urlKey ? current.index : 0;
+          const nextIndex =
+            baseIndex + 1 < faviconCandidates.length ? baseIndex + 1 : baseIndex;
+          return { url: urlKey, index: nextIndex };
+        });
       }
     };
 
     return () => {
       isCancelled = true;
     };
-  }, [favicon, faviconFailed]);
+  }, [favicon, faviconCandidates.length, bookmark.url]);
 
-  useEffect(() => {
-    setFaviconFailed(false);
-  }, [favicon]);
-
-  const shouldShowFavicon = favicon && !faviconFailed;
+  const shouldShowFavicon = Boolean(favicon);
+  const shouldShowEditFavicon = Boolean(editFavicon);
+  const shouldShowIconUrl = viewIconUrl && iconImgFailedFor !== viewIconUrl;
+  const shouldShowEditIconUrl =
+    editIconUrl && editIconImgFailedFor !== editIconUrl;
+  const shouldShowIconText = !shouldShowIconUrl && !shouldShowFavicon && viewIconValue.length > 0;
+  const shouldShowEditIconText =
+    !shouldShowEditIconUrl && !shouldShowEditFavicon && editIconValue.length > 0;
   const effectiveBorderColor = shouldShowFavicon
-    ? borderColor
+    ? borderColorState?.url === favicon
+      ? borderColorState.color
+      : DEFAULT_BORDER_COLOR
     : DEFAULT_BORDER_COLOR;
 
   const persistChanges = () => {
     const nextTitle = (title || url || bookmark.title).trim();
     const nextUrl = (url || bookmark.url).trim();
+    const nextIcon = icon.trim() || undefined;
     const nextFolder = folder.trim() || undefined;
     const nextTags = tagsInput
       .split(",")
@@ -143,6 +203,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
     const changed =
       nextTitle !== bookmark.title ||
       nextUrl !== bookmark.url ||
+      nextIcon !== bookmark.icon ||
       nextFolder !== bookmark.folder ||
       note !== (bookmark.note ?? "") ||
       JSON.stringify(nextTags) !== JSON.stringify(bookmark.tags ?? []);
@@ -152,6 +213,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
     onUpdate(bookmark.id, {
       title: nextTitle,
       url: nextUrl,
+      icon: nextIcon,
       folder: nextFolder,
       note,
       tags: nextTags,
@@ -174,6 +236,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
     if (!isEditing) {
       setTitle(bookmark.title ?? "");
       setUrl(bookmark.url ?? "");
+      setIcon(bookmark.icon ?? "");
       setFolder(bookmark.folder ?? "");
       setTagsInput((bookmark.tags ?? []).join(", "));
       setNote(bookmark.note ?? "");
@@ -190,6 +253,7 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
     setIsEditing(false);
     setTitle(bookmark.title ?? "");
     setUrl(bookmark.url ?? "");
+    setIcon(bookmark.icon ?? "");
     setFolder(bookmark.folder ?? "");
     setTagsInput((bookmark.tags ?? []).join(", "));
     setNote(bookmark.note ?? "");
@@ -201,6 +265,26 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
   const handleTogglePinned = () => {
     onUpdate(bookmark.id, { pinned: !bookmark.pinned });
   };
+
+  const handleFolderChange = (value: string) => {
+    if (value === "__new__") {
+      if (onRequestNewFolder) {
+        onRequestNewFolder((name) => {
+          if (onCreateFolder) onCreateFolder(name);
+          setFolder(name);
+        });
+        return;
+      }
+      return;
+    }
+    if (value === "__unstaged__") {
+      setFolder("");
+      return;
+    }
+    setFolder(value);
+  };
+
+  const currentFolderValue = folder.trim() || "__unstaged__";
 
   return (
     <div
@@ -258,7 +342,64 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
           onClick={handleOpen}
           className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/10 px-2 py-3 text-center hover:bg-slate-950/20"
         >
-          {shouldShowFavicon ? (
+          {isEditing ? (
+            shouldShowEditIconUrl ? (
+              <img
+                src={editIconUrl ?? ""}
+                alt=""
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={() => {
+                  if (editIconUrl) setEditIconImgFailedFor(editIconUrl);
+                }}
+              />
+            ) : shouldShowEditFavicon ? (
+              <img
+                src={editFavicon ?? ""}
+                alt=""
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => {
+                setEditFaviconState((current) => {
+                  const urlKey = url ?? "";
+                  const baseIndex = current.url === urlKey ? current.index : 0;
+                  const nextIndex =
+                    baseIndex + 1 < editFaviconCandidates.length
+                      ? baseIndex + 1
+                      : baseIndex;
+                  return { url: urlKey, index: nextIndex };
+                });
+              }}
+            />
+            ) : shouldShowEditIconText ? (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
+                {editIconValue}
+              </span>
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
+                {editInitial}
+              </span>
+            )
+          ) : shouldShowIconUrl ? (
+            <img
+              src={viewIconUrl ?? ""}
+              alt=""
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => {
+                if (viewIconUrl) setIconImgFailedFor(viewIconUrl);
+              }}
+            />
+          ) : shouldShowFavicon ? (
             <img
               src={favicon}
               alt=""
@@ -266,15 +407,30 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
               height={36}
               className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
               loading="lazy"
-              onError={() => setFaviconFailed(true)}
+              referrerPolicy="no-referrer"
+              onError={() => {
+                setFaviconState((current) => {
+                  const urlKey = bookmark.url ?? "";
+                  const baseIndex = current.url === urlKey ? current.index : 0;
+                  const nextIndex =
+                    baseIndex + 1 < faviconCandidates.length
+                      ? baseIndex + 1
+                      : baseIndex;
+                  return { url: urlKey, index: nextIndex };
+                });
+              }}
             />
+          ) : shouldShowIconText ? (
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
+              {viewIconValue}
+            </span>
           ) : (
             <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
               {initial}
             </span>
           )}
           <span className="line-clamp-2 text-[11px] font-medium text-slate-900 dark:text-slate-50">
-            {bookmark.title || bookmark.url}
+            {isEditing ? title || url : bookmark.title || bookmark.url}
           </span>
         </button>
 
@@ -294,9 +450,22 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
       <div className="hidden h-full flex-col justify-between sm:flex">
         <div className="relative z-10 space-y-3 p-4">
           {/* favicon + title strip */}
-          {!isEditing && (
+          {!isEditing ? (
             <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
-              {shouldShowFavicon ? (
+              {shouldShowIconUrl ? (
+                <img
+                  src={viewIconUrl ?? ""}
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={() => {
+                    if (viewIconUrl) setIconImgFailedFor(viewIconUrl);
+                  }}
+                />
+              ) : shouldShowFavicon ? (
                 <img
                   src={favicon}
                   alt=""
@@ -304,8 +473,23 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
                   height={28}
                   className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
                   loading="lazy"
-                  onError={() => setFaviconFailed(true)}
+                  referrerPolicy="no-referrer"
+                  onError={() => {
+                    setFaviconState((current) => {
+                      const urlKey = bookmark.url ?? "";
+                      const baseIndex = current.url === urlKey ? current.index : 0;
+                      const nextIndex =
+                        baseIndex + 1 < faviconCandidates.length
+                          ? baseIndex + 1
+                          : baseIndex;
+                      return { url: urlKey, index: nextIndex };
+                    });
+                  }}
                 />
+              ) : shouldShowIconText ? (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/60 bg-slate-800 text-[11px] font-semibold uppercase text-slate-100">
+                  {viewIconValue}
+                </span>
               ) : (
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/60 bg-slate-800 text-[11px] font-semibold uppercase text-slate-100">
                   {initial}
@@ -313,6 +497,55 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
               )}
               <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
                 {bookmark.title || bookmark.url}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
+              {shouldShowEditIconUrl ? (
+                <img
+                  src={editIconUrl ?? ""}
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={() => {
+                    if (editIconUrl) setEditIconImgFailedFor(editIconUrl);
+                  }}
+                />
+              ) : shouldShowEditFavicon ? (
+                <img
+                  src={editFavicon ?? ""}
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={() => {
+                    setEditFaviconState((current) => {
+                      const urlKey = url ?? "";
+                      const baseIndex = current.url === urlKey ? current.index : 0;
+                      const nextIndex =
+                        baseIndex + 1 < editFaviconCandidates.length
+                          ? baseIndex + 1
+                          : baseIndex;
+                      return { url: urlKey, index: nextIndex };
+                    });
+                  }}
+                />
+              ) : shouldShowEditIconText ? (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/60 bg-slate-800 text-[11px] font-semibold uppercase text-slate-100">
+                  {editIconValue}
+                </span>
+              ) : (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/60 bg-slate-800 text-[11px] font-semibold uppercase text-slate-100">
+                  {editInitial}
+                </span>
+              )}
+              <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
+                {title || url}
               </span>
             </div>
           )}
@@ -333,6 +566,17 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
                     placeholder="https://example.com"
                     className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-xs text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
                   />
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      Icon (emoji or image URL)
+                    </label>
+                    <input
+                      value={icon}
+                      onChange={(e) => setIcon(e.target.value)}
+                      placeholder="😀 or https://example.com/icon.png"
+                      className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-xs text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                    />
+                  </div>
                 </>
               ) : (
                 <>
@@ -362,7 +606,6 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
                   {bookmark.pinned ? "★" : "☆"}
                 </button>
               )}
-
               {isEditing && (
                 <button
                   onClick={handleCancel}
@@ -393,12 +636,22 @@ export function BookmarkCard({ bookmark, onUpdate, onDelete, usageLabel }: Props
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               {isEditing ? (
-                <input
-                  value={folder}
-                  onChange={(e) => setFolder(e.target.value)}
-                  placeholder="Folder (optional)"
-                  className="max-w-[50%] rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                />
+                <div className="flex items-center gap-2">
+                  <select
+                    value={currentFolderValue}
+                    onChange={(e) => handleFolderChange(e.target.value)}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    aria-label="Folder"
+                  >
+                    <option value="__unstaged__">Unstaged</option>
+                    {folders.map((folderName) => (
+                      <option key={folderName} value={folderName}>
+                        {folderName}
+                      </option>
+                    ))}
+                    <option value="__new__">New folder…</option>
+                  </select>
+                </div>
               ) : (
                 bookmark.folder && (
                   <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">

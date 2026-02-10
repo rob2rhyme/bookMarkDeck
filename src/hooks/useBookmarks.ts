@@ -24,6 +24,10 @@ function normalizeBookmarks(raw: unknown): Bookmark[] {
       const tags = Array.isArray(record.tags)
         ? record.tags.map((tag) => String(tag)).filter(Boolean)
         : [];
+      const icon =
+        typeof record.icon === "string" && record.icon.trim()
+          ? record.icon.trim()
+          : undefined;
 
       const hitsValue = record.hits;
       const lastUsedAtValue = record.lastUsedAt;
@@ -35,6 +39,7 @@ function normalizeBookmarks(raw: unknown): Bookmark[] {
           (typeof record.url === "string" && record.url) ||
           "Untitled",
         url: typeof record.url === "string" ? record.url : "",
+        icon,
         note: typeof record.note === "string" ? record.note : "",
         folder:
           typeof record.folder === "string" ? record.folder : undefined,

@@ -2,8 +2,9 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { ShortcutApp } from "@/types/shortcut";
+import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
 
 function getFaviconUrl(rawUrl: string): string | null {
   try {
@@ -55,12 +56,9 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
     typeof app.icon === "string" &&
     (app.icon.startsWith("http://") || app.icon.startsWith("https://"));
   const initial = firstLetterFromUrlOrName(app.url, app.name);
-  const [iconLoadError, setIconLoadError] = useState(false);
+  const [iconLoadErrorFor, setIconLoadErrorFor] = useState<string | null>(null);
   const iconUrl = iconIsUrl ? app.icon : favicon;
-
-  useEffect(() => {
-    setIconLoadError(false);
-  }, [iconUrl]);
+  const iconLoadError = iconUrl ? iconLoadErrorFor === iconUrl : false;
   const hostname = useMemo(() => {
     try {
       return new URL(app.url).hostname;
@@ -69,7 +67,30 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
     }
   }, [app.url]);
 
-  const handleOpen = () => {
+  const handleOpen = async () => {
+    const hasNativeTarget =
+      Boolean(app.localPath?.trim()) ||
+      Boolean(app.bundleId?.trim()) ||
+      Boolean(app.appUserModelId?.trim());
+
+    if (hasNativeTarget) {
+      const healthy = await launcherHealth();
+      if (!healthy) {
+        alert("Launcher not reachable. Start the local launcher and try again.");
+        return;
+      }
+      try {
+        await launcherOpen({
+          localPath: app.localPath?.trim() || undefined,
+          bundleId: app.bundleId?.trim() || undefined,
+          appUserModelId: app.appUserModelId?.trim() || undefined,
+        });
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "Failed to open native app.");
+      }
+      return;
+    }
+
     const target = app.url.trim();
     if (!target) return;
     window.open(target, "_blank", "noopener,noreferrer");
@@ -87,7 +108,9 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
               height={44}
               className="h-11 w-11 object-contain"
               loading="lazy"
-              onError={() => setIconLoadError(true)}
+              onError={() => {
+                if (iconUrl) setIconLoadErrorFor(iconUrl);
+              }}
             />
           ) : app.icon ? (
             <span aria-hidden="true">{app.icon}</span>
