@@ -10,14 +10,24 @@ const TOKEN = process.env.BOOKMARKDECK_LAUNCHER_TOKEN || "";
 
 const ALLOWLIST = new Set([
   "http://localhost:3000",
-  // add your production origin later
+  "https://bmarkdeck.rob2rhyme.app",
+  "https://bmarkdeck.vercel.app",
 ]);
+
+const isVercelPreviewOrigin = (origin) => {
+  try {
+    const url = new URL(origin);
+    return url.hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+};
 
 app.use(express.json());
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && ALLOWLIST.has(origin)) {
+  if (origin && (ALLOWLIST.has(origin) || isVercelPreviewOrigin(origin))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
   res.setHeader("Vary", "Origin");
