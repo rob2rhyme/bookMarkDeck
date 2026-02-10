@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 .env.local
+/launcher-desktop/node_modules
+/launcher-desktop/dist
+/launcher-desktop/out
