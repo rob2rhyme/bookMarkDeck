@@ -1,3 +1,4 @@
+//src/utils/launcherClient.ts
 "use client";
 
 const TOKEN_KEY = "bookmarkdeck:launcherToken:v1";
