@@ -35,3 +35,57 @@
      https://<your-domain>/api/auth/callback/google
      ```
   3. Redeploy after updating environment variables.
+
+## Local Launcher
+- **Start launcher (from `launcher-desktop/`):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck/launcher-desktop
+  BOOKMARKDECK_LAUNCHER_TOKEN=test123 npm start
+  ```
+- **Configure web app token (from repo root):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck
+  echo 'NEXT_PUBLIC_BOOKMARKDECK_LAUNCHER_TOKEN=test123' >> .env.local
+  ```
+- **Restart Next dev server after env changes (from repo root):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck
+  npm run dev
+  ```
+- **Optional: verify health (from repo root):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck
+  curl -i http://127.0.0.1:47831/health
+  ```
+- **Optional: verify open works (from repo root):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck
+  curl -i -X POST http://127.0.0.1:47831/open \
+    -H "Content-Type: application/json" \
+    -H "X-BookmarkDeck-Token: test123" \
+    -d '{"bundleId":"com.apple.Safari"}'
+  ```
+
+## CSP / Local Launcher
+- **A) Start Next dev server (repo root):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck
+  npm run dev
+  ```
+- **B) Confirm CSP header is present on `/login` and `/` (repo root):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck
+  curl -sD - http://localhost:3000/login -o /dev/null | tr -d '\r' | grep -i '^content-security-policy' || echo "NO CSP on /login"
+  curl -sD - http://localhost:3000/ -o /dev/null | tr -d '\r' | grep -i '^content-security-policy' || echo "NO CSP on /"
+  ```
+- **C) Confirm launcher is reachable (repo root):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck
+  lsof -nP -iTCP:47831 -sTCP:LISTEN || echo "NOT LISTENING on 47831"
+  curl -i http://127.0.0.1:47831/health
+  ```
+- **D) If needed, start launcher (`launcher-desktop`):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck/launcher-desktop
+  BOOKMARKDECK_LAUNCHER_TOKEN=test123 npm start
+  ```
