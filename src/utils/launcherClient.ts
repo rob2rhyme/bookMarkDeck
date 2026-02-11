@@ -1,8 +1,6 @@
 //src/utils/launcherClient.ts
 "use client";
 
-const TOKEN_KEY = "bookmarkdeck:launcherToken:v1";
-
 const LAUNCHER_HOST =
   process.env.NEXT_PUBLIC_LAUNCHER_HOST?.trim() || "127.0.0.1";
 const LAUNCHER_PORT = Number(process.env.NEXT_PUBLIC_LAUNCHER_PORT) || 47831;
@@ -19,9 +17,24 @@ function getBaseUrl() {
   return `http://${LAUNCHER_HOST}:${LAUNCHER_PORT}`;
 }
 
-function toErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
+function getHostPort() {
+  return `${LAUNCHER_HOST}:${LAUNCHER_PORT}`;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function isConnectionError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("connection refused") ||
+    message.includes("err_connection_refused") ||
+    message.includes("load failed")
+  );
 }
 
 async function fetchWithTimeout(
@@ -42,16 +55,13 @@ export function ensureLauncherToken(): string {
   if (typeof window === "undefined") {
     throw new Error("Launcher token unavailable outside the browser.");
   }
-  const existing = window.localStorage.getItem(TOKEN_KEY);
-  if (existing && existing.trim()) return existing.trim();
-  const entered = window.prompt(
-    "Enter the Bookmark Deck launcher token to pair this device:"
-  );
-  if (!entered || !entered.trim()) {
-    throw new Error("Launcher token is required to open native apps.");
+  const token = process.env.NEXT_PUBLIC_BOOKMARKDECK_LAUNCHER_TOKEN?.trim();
+  if (!token) {
+    throw new Error(
+      "Launcher token missing. Set NEXT_PUBLIC_BOOKMARKDECK_LAUNCHER_TOKEN in .env.local and restart the dev server."
+    );
   }
-  window.localStorage.setItem(TOKEN_KEY, entered.trim());
-  return entered.trim();
+  return token;
 }
 
 export async function launcherHealth(): Promise<boolean> {
@@ -96,20 +106,25 @@ export async function launcherOpen(target: LauncherTarget): Promise<void> {
     );
 
     if (res.status === 401) {
-      throw new Error("Launcher rejected the token. Check your pairing token.");
+      throw new Error(
+        "Launcher token mismatch. The web token (NEXT_PUBLIC_BOOKMARKDECK_LAUNCHER_TOKEN) must match the launcher token (BOOKMARKDECK_LAUNCHER_TOKEN used to start Electron)."
+      );
     }
     if (!res.ok) {
-      const detail = await res.text().catch(() => "");
+      const detail = (await res.text().catch(() => "")).trim();
       throw new Error(detail || "Launcher failed to open the app.");
     }
   } catch (error) {
-    const message = toErrorMessage(
-      error,
-      "Failed to reach the launcher. Is it running on this device?"
-    );
-    if (message.toLowerCase().includes("abort")) {
-      throw new Error("Launcher timed out. Is it running on 127.0.0.1?");
+    if (isAbortError(error)) {
+      throw new Error(
+        `Launcher timed out. Is it running on ${getHostPort()}?`
+      );
     }
-    throw new Error(message);
+    if (isConnectionError(error)) {
+      throw new Error(
+        "Launcher not reachable. Start the local launcher and try again."
+      );
+    }
+    throw new Error("Launcher request failed.");
   }
 }
