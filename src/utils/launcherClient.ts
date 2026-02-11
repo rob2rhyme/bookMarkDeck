@@ -4,6 +4,8 @@
 const LAUNCHER_HOST =
   process.env.NEXT_PUBLIC_LAUNCHER_HOST?.trim() || "127.0.0.1";
 const LAUNCHER_PORT = Number(process.env.NEXT_PUBLIC_LAUNCHER_PORT) || 47831;
+const LAUNCHER_PROTOCOL_ENV =
+  process.env.NEXT_PUBLIC_LAUNCHER_PROTOCOL?.trim().toLowerCase() || "";
 
 const DEFAULT_TIMEOUT_MS = 1500;
 
@@ -13,8 +15,23 @@ type LauncherTarget = {
   appUserModelId?: string;
 };
 
+function getLauncherProtocol() {
+  if (
+    LAUNCHER_PROTOCOL_ENV === "http" ||
+    LAUNCHER_PROTOCOL_ENV === "https"
+  ) {
+    return LAUNCHER_PROTOCOL_ENV;
+  }
+
+  if (typeof window !== "undefined" && window.location.protocol === "https:") {
+    return "https";
+  }
+
+  return "http";
+}
+
 function getBaseUrl() {
-  return `http://${LAUNCHER_HOST}:${LAUNCHER_PORT}`;
+  return `${getLauncherProtocol()}://${LAUNCHER_HOST}:${LAUNCHER_PORT}`;
 }
 
 function getHostPort() {

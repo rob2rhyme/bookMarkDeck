@@ -89,3 +89,22 @@
   cd /Users/noah-novah/Desktop/CODING/bookMarkDeck/launcher-desktop
   BOOKMARKDECK_LAUNCHER_TOKEN=test123 npm start
   ```
+
+## Production Launcher
+- **Generate local HTTPS certs with `mkcert` (`launcher-desktop`):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck/launcher-desktop
+  mkdir -p certs
+  mkcert -install
+  mkcert -key-file certs/127.0.0.1-key.pem -cert-file certs/127.0.0.1-cert.pem 127.0.0.1 localhost
+  ```
+- **Start launcher with HTTPS + token (`launcher-desktop`):**
+  ```bash
+  cd /Users/noah-novah/Desktop/CODING/bookMarkDeck/launcher-desktop
+  BOOKMARKDECK_LAUNCHER_TOKEN=test123 node -e "const { startServer } = require('./server'); startServer({ port: 47831, https: { keyPath: './certs/127.0.0.1-key.pem', certPath: './certs/127.0.0.1-cert.pem' } });"
+  ```
+- **Set production web token env in Vercel (must match launcher token):**
+  ```bash
+  NEXT_PUBLIC_BOOKMARKDECK_LAUNCHER_TOKEN=test123
+  ```
+- **Do not commit certs/keys.** `launcher-desktop/certs` and key/cert extensions are gitignored.

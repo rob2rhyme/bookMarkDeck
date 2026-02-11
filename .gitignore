@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+*.key
+*.crt
 
 # debug
 npm-debug.log*
@@ -45,3 +47,4 @@ next-env.d.ts
 /launcher-desktop/node_modules
 /launcher-desktop/dist
 /launcher-desktop/out
+/launcher-desktop/certs
