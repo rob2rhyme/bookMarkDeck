@@ -229,6 +229,10 @@ const [showShortcutInfo, setShowShortcutInfo] = useState(false);
 const [localFolders, setLocalFolders] = useState<string[]>([]);
 const [showNewFolderModal, setShowNewFolderModal] = useState(false);
 const [newFolderName, setNewFolderName] = useState("");
+const [showRenameFolderModal, setShowRenameFolderModal] = useState(false);
+const [renameFolderInput, setRenameFolderInput] = useState("");
+const [renameFolderError, setRenameFolderError] = useState("");
+const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(false);
 const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
   const handleLogout = () => signOut({ callbackUrl: "/login" });
 
@@ -304,6 +308,95 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     newFolderRequestRef.current = onCreated ?? null;
     setNewFolderName("");
     setShowNewFolderModal(true);
+  };
+
+  const MAX_FOLDER_NAME = 60;
+
+  const folderKey = (value: string) => value.trim().toLowerCase();
+
+  const cleanFolderLabel = (value: string) => value.replace(/\s+/g, " ").trim();
+
+  const findExistingFolderLabelCI = (value: string) => {
+    const targetKey = folderKey(value);
+    if (!targetKey) return null;
+    return (
+      mergedFolders.find((folderName) => folderKey(folderName) === targetKey) ?? null
+    );
+  };
+
+  const updateBookmarksFolderLabel = (fromLabel: string, nextLabel?: string) => {
+    const sourceKey = folderKey(fromLabel);
+    if (!sourceKey) return;
+    bookmarks.forEach((bookmark) => {
+      const bookmarkKey = folderKey(bookmark.folder ?? "");
+      if (bookmarkKey !== sourceKey) return;
+      updateBookmark(bookmark.id, { folder: nextLabel });
+    });
+  };
+
+  const openRenameForActiveFolder = () => {
+    if (!activeFolderKey || activeFolderKey === "UNSTAGED") return;
+    setRenameFolderError("");
+    setRenameFolderInput(activeFolderLabel);
+    setShowRenameFolderModal(true);
+  };
+
+  const openDeleteForActiveFolder = () => {
+    if (!activeFolderKey || activeFolderKey === "UNSTAGED") return;
+    setShowDeleteFolderConfirm(true);
+  };
+
+  const renameFolder = (oldLabel: string, nextLabel: string) => {
+    const sourceKey = folderKey(oldLabel);
+    if (!sourceKey) return;
+
+    const cleanedNext = cleanFolderLabel(nextLabel);
+    if (!cleanedNext) {
+      setRenameFolderError("Folder name is required.");
+      return;
+    }
+    if (cleanedNext.length > MAX_FOLDER_NAME) {
+      setRenameFolderError(`Folder name must be ${MAX_FOLDER_NAME} characters or less.`);
+      return;
+    }
+
+    const existingLabel = findExistingFolderLabelCI(cleanedNext);
+    const shouldMergeIntoExisting =
+      !!existingLabel && folderKey(existingLabel) !== sourceKey;
+    const targetLabel = shouldMergeIntoExisting ? existingLabel : cleanedNext;
+    const targetKey = folderKey(targetLabel);
+
+    updateBookmarksFolderLabel(oldLabel, targetLabel);
+    setLocalFolders((prev) => {
+      const withoutOld = prev.filter((name) => folderKey(name) !== sourceKey);
+      if (!targetKey) return withoutOld;
+      const hasTarget = withoutOld.some((name) => folderKey(name) === targetKey);
+      if (hasTarget) return withoutOld;
+      return [...withoutOld, targetLabel];
+    });
+
+    if (activeFolderKey === sourceKey) {
+      setActiveFolderKey(targetKey);
+      setActiveFolderLabel(targetLabel);
+    }
+
+    setShowRenameFolderModal(false);
+    setRenameFolderError("");
+  };
+
+  const deleteFolder = (label: string) => {
+    const sourceKey = folderKey(label);
+    if (!sourceKey) return;
+
+    updateBookmarksFolderLabel(label, undefined);
+    setLocalFolders((prev) => prev.filter((name) => folderKey(name) !== sourceKey));
+
+    if (activeFolderKey === sourceKey) {
+      setActiveFolderKey(null);
+      setActiveFolderLabel("Unstaged");
+    }
+
+    setShowDeleteFolderConfirm(false);
   };
 
   useEffect(() => {
@@ -1817,6 +1910,53 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {activeFolderKey !== "UNSTAGED" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={openRenameForActiveFolder}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-blue-400 hover:text-white"
+                        aria-label="Rename folder"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openDeleteForActiveFolder}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white"
+                        aria-label="Delete folder"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4h8v2" />
+                          <path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1920,6 +2060,115 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                     </div>
                   );
                 })()}
+              </div>
+            </div>
+          </div>
+        )}
+        {showRenameFolderModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            onClick={() => {
+              setShowRenameFolderModal(false);
+              setRenameFolderError("");
+            }}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Rename folder"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-100">Rename folder</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRenameFolderModal(false);
+                    setRenameFolderError("");
+                  }}
+                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Folder name"
+                  value={renameFolderInput}
+                  onChange={(e) => {
+                    setRenameFolderInput(e.target.value);
+                    if (renameFolderError) {
+                      setRenameFolderError("");
+                    }
+                  }}
+                  maxLength={MAX_FOLDER_NAME}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      renameFolder(activeFolderLabel, renameFolderInput);
+                    }
+                  }}
+                />
+                {renameFolderError && (
+                  <p className="text-xs text-red-400">{renameFolderError}</p>
+                )}
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRenameFolderModal(false);
+                    setRenameFolderError("");
+                  }}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => renameFolder(activeFolderLabel, renameFolderInput)}
+                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showDeleteFolderConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            onClick={() => setShowDeleteFolderConfirm(false)}
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Delete folder"
+            >
+              <h2 className="mb-2 text-base font-semibold text-slate-50">
+                Delete folder?
+              </h2>
+              <p className="mb-4 text-xs text-slate-400">bookmarks moved to Unstaged</p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteFolderConfirm(false)}
+                  className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteFolder(activeFolderLabel)}
+                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>
