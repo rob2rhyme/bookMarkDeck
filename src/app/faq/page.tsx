@@ -1,57 +1,93 @@
+//src/app/faq/page.tsx
 import LegalPageLayout from "@/components/LegalPageLayout";
 
 export default function FaqPage() {
   return (
-    <LegalPageLayout title="FAQ">
+    <LegalPageLayout title="FAQ" lastUpdated="February 12, 2026">
       <section className="space-y-5 text-sm leading-relaxed text-slate-200">
         <div>
-          <h2 className="text-lg font-semibold text-slate-50">What does sync do?</h2>
-          <p>If enabled, it stores your bookmarks in Firebase Firestore tied to your Google login so they’re available on any browser/device you sign into.</p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Do I need a passphrase?</h2>
-          <p>No. Access is controlled by your Google sign-in and Firebase security rules. Keep your Google account secure.</p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Is my data encrypted?</h2>
-          <p>Local data lives in your browser. Cloud data sits in Firestore and is protected by your Google authentication and Firebase rules; we do not add extra end-to-end encryption in the cloud.</p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Do you store my data on your servers?</h2>
-          <p>No. Data lives in your browser (localStorage) and, if you opt in, in our Firebase Firestore project scoped to your Google account.</p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">How do I remove my data?</h2>
-          <ul className="list-disc space-y-2 pl-5">
-            <li>Local: use “Delete All Bookmarks” or clear site data.</li>
-            <li>Cloud: delete bookmarks locally and run “Sync to cloud” to overwrite, or contact support to purge.</li>
-            <li>Revoke access: remove the app in your Google account permissions.</li>
-          </ul>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">When should I sync?</h2>
-          <p>Any time you add, edit, delete, or import bookmarks, click “Sync to cloud” so those changes are saved to your Google-linked Firestore data.</p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Can I store sensitive info?</h2>
-          <p>No. Do not store passwords, PINs, credit/debit card numbers, Social Security numbers, or other sensitive credentials. You are responsible for any loss or misuse of such data.</p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Who do I contact for help?</h2>
+          <h2 className="text-lg font-semibold text-slate-50">How are folders represented?</h2>
           <p>
-            Email{" "}
-            <a className="text-blue-300 underline" href="mailto:support@example.com">
-              support@example.com
-            </a>
-            .
+            Folders are label-based. A bookmark belongs to a folder through its `folder` string value.
+            Route pages use normalized keys (`trim().toLowerCase()`).
           </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">What are the folder routes?</h2>
+          <p>
+            Use <code>/folders/unstaged</code> for bookmarks without a folder label, and
+            <code> /folders/[folderKey]</code> for named folders. Home focuses on named folders, while unstaged
+            remains supported by route.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">How does bookmark bulk select work?</h2>
+          <p>
+            On folder pages, press <strong>Select</strong> to choose multiple bookmarks, then move or delete in bulk.
+            Move supports existing folders, <strong>Unstaged</strong>, or creating a new folder.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">What does sync do?</h2>
+          <p>
+            Sync stores cloud copies in Firebase Firestore under your Google-authenticated account so you can pull
+            data on another device.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">Are backups included?</h2>
+          <p>
+            Yes. Cloud sync keeps recent backup snapshots (up to 7). You can download backup JSON from the UI.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">Do native app shortcuts sync?</h2>
+          <p>
+            Cloud sync stores shortcut name/URL/icon. Native-only target fields are device-local by design and are
+            not synced to Firestore.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">Does Bookmark Deck support PWA/offline?</h2>
+          <p>
+            Yes. The app includes a web manifest, service worker registration, and an offline fallback page.
+            Cached assets help with offline navigation, but sync and cloud operations still require internet.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">Do I need the local launcher?</h2>
+          <p>
+            Only for opening native desktop apps from shortcut cards. Web URLs work without it.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">Why do I see “Launcher not reachable”?</h2>
+          <p>
+            The local helper is not running, not reachable on configured host/port/protocol, or token values do not
+            match. See <code>TROUBLESHOOTING.md</code>.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">Do you run analytics?</h2>
+          <p>No analytics SDK is currently integrated in the app code.</p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-slate-50">How do I delete my data?</h2>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Local: delete items in-app, use clear actions, or clear browser site data.</li>
+            <li>Cloud: delete locally, then run sync-to-cloud to overwrite cloud copies.</li>
+            <li>Account access: revoke app access from Google account permissions.</li>
+          </ul>
         </div>
       </section>
     </LegalPageLayout>

@@ -2,13 +2,11 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import Image from "next/image";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { signOut, useSession } from "next-auth/react";
-import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 import { BookmarkCard } from "@/components/BookmarkCard";
-import { DragonCursor } from "@/components/DragonCursor";
 import { ShortcutCard } from "@/components/ShortcutCard";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
@@ -171,6 +169,7 @@ function CopyIconButton({ value, tooltip }: { value: string; tooltip: string }) 
 }
 
 export function HomePageClient() {
+  const router = useRouter();
   const { data: session } = useSession();
   const userId = session?.user?.email ?? null;
   const {
@@ -211,16 +210,15 @@ const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null)
 const [editName, setEditName] = useState("");
 const [editUrl, setEditUrl] = useState("");
 const [editLocalPath, setEditLocalPath] = useState("");
-const [editIconValue, setEditIconValue] = useState("");
-const [editIconTouched, setEditIconTouched] = useState(false);
+  const [editIconValue, setEditIconValue] = useState("");
+  const [editIconTouched, setEditIconTouched] = useState(false);
   const [undoState, setUndoState] = useState<{
-    type: "delete" | "clearAll";
+    type: "delete" | "bulkDelete" | "clearAll";
     snapshot: Bookmark[];
   } | null>(null);
 const [shortcutUndoState, setShortcutUndoState] = useState<{
   snapshot: ShortcutApp[];
 } | null>(null);
-const [showScrollTop, setShowScrollTop] = useState(false);
 const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showBackups, setShowBackups] = useState(false);
   const [activeFolderKey, setActiveFolderKey] = useState<string | null>(null);
@@ -233,9 +231,15 @@ const [showRenameFolderModal, setShowRenameFolderModal] = useState(false);
 const [renameFolderInput, setRenameFolderInput] = useState("");
 const [renameFolderError, setRenameFolderError] = useState("");
 const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(false);
+const [folderSelectMode, setFolderSelectMode] = useState(false);
+const [selectedFolderKeys, setSelectedFolderKeys] = useState<string[]>([]);
+const [bookmarkSelectMode, setBookmarkSelectMode] = useState(false);
+const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([]);
+const [showBulkDeleteFoldersConfirm, setShowBulkDeleteFoldersConfirm] = useState(false);
+const [showBulkMoveBookmarksModal, setShowBulkMoveBookmarksModal] = useState(false);
+const [bookmarkBulkTarget, setBookmarkBulkTarget] = useState("__unstaged__");
+const [showBulkDeleteBookmarksConfirm, setShowBulkDeleteBookmarksConfirm] = useState(false);
 const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
-  const handleLogout = () => signOut({ callbackUrl: "/login" });
-
   const localFoldersKey = userId
     ? `bookmarkDeck.folders.local:${userId}`
     : "bookmarkDeck.folders.local:guest";
@@ -396,6 +400,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
       setActiveFolderLabel("Unstaged");
     }
 
+    setSelectedFolderKeys((prev) => prev.filter((key) => key !== sourceKey));
     setShowDeleteFolderConfirm(false);
   };
 
@@ -420,17 +425,6 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     if (typeof window === "undefined") return;
     window.localStorage.setItem(localFoldersKey, JSON.stringify(localFolders));
   }, [localFolders, localFoldersKey]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (typeof window === "undefined") return;
-      setShowScrollTop(window.scrollY > 240);
-    };
-
-    handleScroll(); // initialize on mount
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     if (!showShortcutInfo) return;
@@ -500,6 +494,23 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeFolderKey]);
+
+  useEffect(() => {
+    if (folderSelectMode) return;
+    if (selectedFolderKeys.length === 0) return;
+    setSelectedFolderKeys([]);
+  }, [folderSelectMode, selectedFolderKeys]);
+
+  useEffect(() => {
+    if (bookmarkSelectMode) return;
+    if (selectedBookmarkIds.length === 0) return;
+    setSelectedBookmarkIds([]);
+  }, [bookmarkSelectMode, selectedBookmarkIds]);
+
+  useEffect(() => {
+    setBookmarkSelectMode(false);
+    setSelectedBookmarkIds([]);
   }, [activeFolderKey]);
 
 
@@ -584,6 +595,40 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     });
     return { byKey, unstaged };
   }, [filtered]);
+
+  const folderLabelByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    orderedFolderList.forEach((name) => {
+      map.set(folderKey(name), name);
+    });
+    return map;
+  }, [orderedFolderList]);
+
+  const selectedFolderLabels = useMemo(() => {
+    return selectedFolderKeys
+      .map((key) => folderLabelByKey.get(key))
+      .filter((value): value is string => Boolean(value));
+  }, [selectedFolderKeys, folderLabelByKey]);
+
+  const clearFolderSelection = () => {
+    setSelectedFolderKeys([]);
+    setFolderSelectMode(false);
+  };
+
+  const toggleFolderSelection = (name: string) => {
+    const key = folderKey(name);
+    if (!key) return;
+    setSelectedFolderKeys((prev) =>
+      prev.includes(key) ? prev.filter((value) => value !== key) : [...prev, key]
+    );
+  };
+
+  const applyBulkDeleteFolders = () => {
+    if (selectedFolderLabels.length === 0) return;
+    selectedFolderLabels.forEach((label) => deleteFolder(label));
+    setShowBulkDeleteFoldersConfirm(false);
+    clearFolderSelection();
+  };
 
   const {
     shortcuts,
@@ -744,6 +789,10 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     onOpen,
     isUnstaged,
     isEmpty,
+    selectMode,
+    isSelected,
+    isSelectable,
+    onToggleSelect,
   }: {
     name: string;
     count: number;
@@ -751,6 +800,10 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     onOpen: () => void;
     isUnstaged?: boolean;
     isEmpty?: boolean;
+    selectMode?: boolean;
+    isSelected?: boolean;
+    isSelectable?: boolean;
+    onToggleSelect?: () => void;
   }) => {
     const previewCards = previews.slice(0, 16);
     const FolderPreviewTile = ({ bookmark }: { bookmark: Bookmark }) => {
@@ -800,9 +853,25 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     return (
       <button
         type="button"
-        onClick={onOpen}
-        className="group relative flex w-full flex-col gap-4 rounded-3xl border border-slate-800/70 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/80 p-6 text-left shadow-[0_20px_40px_-30px_rgba(0,0,0,0.8)] transition hover:-translate-y-0.5 hover:border-blue-500/50"
+        onClick={() => {
+          if (selectMode) {
+            if (isSelectable) onToggleSelect?.();
+            return;
+          }
+          onOpen();
+        }}
+        className={`group relative flex w-full flex-col gap-4 rounded-3xl border bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/80 p-6 text-left shadow-[0_20px_40px_-30px_rgba(0,0,0,0.8)] transition ${
+          isSelected
+            ? "border-blue-400 ring-2 ring-blue-400/60"
+            : "border-slate-800/70 hover:-translate-y-0.5 hover:border-blue-500/50"
+        } ${selectMode && !isSelectable ? "cursor-not-allowed opacity-80" : ""}`}
+        aria-pressed={selectMode ? !!isSelected : undefined}
       >
+        {selectMode && isSelectable && (
+          <span className="absolute left-4 top-4 flex h-5 w-5 items-center justify-center rounded border border-slate-500 bg-slate-900/90 text-[11px] text-white">
+            {isSelected ? "✓" : ""}
+          </span>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-slate-100">{name}</p>
@@ -813,7 +882,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
             </p>
           </div>
           <span className="rounded-full border border-slate-700/80 bg-slate-800/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-            Open
+            {selectMode ? (isSelectable ? "Select" : "Locked") : "Open"}
           </span>
         </div>
         <div className="h-52 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3">
@@ -966,6 +1035,90 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
 
   const handleDismissUndo = () => {
     setUndoState(null);
+  };
+
+  const activeFolderItems = useMemo(() => {
+    if (!activeFolderKey) return [];
+    if (activeFolderKey === "UNSTAGED") return folderBuckets.unstaged;
+    return folderBuckets.byKey.get(activeFolderKey) ?? [];
+  }, [activeFolderKey, folderBuckets]);
+
+  const groupedActiveFolderItems = useMemo(() => {
+    const groups: Map<string, Bookmark[]> = new Map();
+    activeFolderItems.forEach((bookmark) => {
+      const tags = bookmark.tags && bookmark.tags.length ? bookmark.tags : ["Untagged"];
+      tags.forEach((tag) => {
+        const key = tag.trim() || "Untagged";
+        const current = groups.get(key);
+        if (current) {
+          current.push(bookmark);
+        } else {
+          groups.set(key, [bookmark]);
+        }
+      });
+    });
+    return Array.from(groups.entries()).sort(([a], [b]) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [activeFolderItems]);
+
+  const clearBookmarkSelection = () => {
+    setSelectedBookmarkIds([]);
+    setBookmarkSelectMode(false);
+  };
+
+  const toggleBookmarkSelection = (id: string) => {
+    setSelectedBookmarkIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllBookmarksInActiveFolder = () => {
+    const ids = Array.from(new Set(activeFolderItems.map((bookmark) => bookmark.id)));
+    setSelectedBookmarkIds(ids);
+  };
+
+  const clearSelectedBookmarks = () => {
+    setSelectedBookmarkIds([]);
+  };
+
+  const moveBookmarksToFolder = (targetFolderLabel?: string) => {
+    const target =
+      targetFolderLabel && targetFolderLabel.trim()
+        ? targetFolderLabel.trim()
+        : undefined;
+    const uniqueIds = Array.from(new Set(selectedBookmarkIds));
+    if (uniqueIds.length === 0) return;
+    uniqueIds.forEach((id) => {
+      updateBookmark(id, { folder: target });
+    });
+    setSelectedBookmarkIds([]);
+    setBookmarkSelectMode(false);
+    setShowBulkMoveBookmarksModal(false);
+  };
+
+  const applyBulkMoveBookmarks = () => {
+    if (selectedBookmarkIds.length === 0) return;
+    if (bookmarkBulkTarget === "__new__") {
+      setShowBulkMoveBookmarksModal(false);
+      openNewFolderModal((name) => {
+        const normalized = addLocalFolder(name);
+        if (!normalized) return;
+        moveBookmarksToFolder(normalized);
+      });
+      return;
+    }
+    const target =
+      bookmarkBulkTarget === "__unstaged__" ? undefined : bookmarkBulkTarget;
+    moveBookmarksToFolder(target);
+  };
+
+  const applyBulkDeleteBookmarks = () => {
+    if (selectedBookmarkIds.length === 0) return;
+    setUndoState({ type: "bulkDelete", snapshot: bookmarks });
+    selectedBookmarkIds.forEach((id) => deleteBookmark(id));
+    setSelectedBookmarkIds([]);
+    setShowBulkDeleteBookmarksConfirm(false);
   };
 
   const handleImport = async (file: File | null) => {
@@ -1126,83 +1279,8 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     await handleRefreshBackups();
   };
 
-  const avatarSrc = session?.user?.image ?? null;
-  const avatarLabel =
-    session?.user?.name ?? session?.user?.email ?? "Account";
-
   return (
-    <main className="relative flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
-      {/* Dragon cursor layer (behind everything) */}
-      <DragonCursor />
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-12">
-        {/* Header */}
-        <header className="mb-8 flex flex-col gap-4 sm:mb-10">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 sm:gap-3">
-                <Image
-                  src="/logo.png"
-                  alt="Bookmark Deck logo"
-                  width={56}
-                  height={56}
-                  className="h-11 w-11 rounded-md object-cover sm:h-14 sm:w-14"
-                  priority
-                />
-                <h1 className="text-xl font-semibold tracking-tight sm:text-4xl">
-                  Bookmark Deck
-                </h1>
-              </div>
-              {session && (
-                <div className="flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-2 py-1 shadow-sm sm:gap-3 sm:px-3 sm:py-1.5">
-                  <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-800 text-[11px] font-semibold text-slate-100 ring-1 ring-white/5 sm:h-9 sm:w-9 sm:text-sm">
-                    {avatarSrc ? (
-                      <Image
-                        src={avatarSrc}
-                        alt={avatarLabel}
-                        width={36}
-                        height={36}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span>{avatarLabel.charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <span className="max-w-[100px] truncate text-[10px] font-medium text-slate-200 sm:max-w-[180px] sm:text-xs">
-                    {avatarLabel}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-blue-500 transition hover:border-blue-400 hover:text-blue-300"
-                    aria-label="Sign out"
-                  >
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white/15 shadow-inner shadow-black/30">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        className="h-5 w-5"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          d="M12 3v8M8.5 6.5a6 6 0 1 0 7 0"
-                        />
-                      </svg>
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <p className="mt-1 max-w-xl text-sm text-slate-400">
-              All your frequently used sites in one place — fast, simple, and
-              private.
-            </p>
-          </div>
-        </header>
-
+    <>
         {/* Add link modal */}
         {showAddForm && (
           <div
@@ -1445,8 +1523,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
             type="button"
             onClick={() =>
               openNewFolderModal((name) => {
-                setActiveFolderKey(name.toLowerCase());
-                setActiveFolderLabel(name);
+                router.push(`/folders/${encodeURIComponent(folderKey(name))}`);
               })
             }
             className="inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-2.5 text-[10px] font-semibold text-slate-100 shadow-sm hover:border-blue-400 hover:text-white sm:h-10 sm:px-4 sm:text-xs"
@@ -1691,23 +1768,49 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   Group bookmarks into wallet-style folders.
                 </p>
               </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {(!search || folderBuckets.unstaged.length > 0) && (
-              <FolderCard
-                name="Unstaged"
-                count={folderBuckets.unstaged.length}
-                previews={folderBuckets.unstaged}
-                isUnstaged
-                isEmpty={folderBuckets.unstaged.length === 0}
-                onOpen={() => {
-                  setActiveFolderKey("UNSTAGED");
-                  setActiveFolderLabel("Unstaged");
+              <button
+                type="button"
+                onClick={() => {
+                  if (folderSelectMode) {
+                    clearFolderSelection();
+                    return;
+                  }
+                  setFolderSelectMode(true);
                 }}
-              />
+                className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+              >
+                {folderSelectMode ? "Done" : "Select"}
+              </button>
+            </div>
+            {folderSelectMode && (
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
+                <span className="text-xs text-slate-300">
+                  {selectedFolderKeys.length} folder
+                  {selectedFolderKeys.length !== 1 ? "s" : ""} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedFolderKeys.length === 0) return;
+                    setShowBulkDeleteFoldersConfirm(true);
+                  }}
+                  disabled={selectedFolderKeys.length === 0}
+                  className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Delete folders
+                </button>
+                <button
+                  type="button"
+                  onClick={clearFolderSelection}
+                  className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                >
+                  Cancel
+                </button>
+              </div>
             )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {orderedFolderList.map((folderName) => {
-              const key = folderName.toLowerCase();
+              const key = folderKey(folderName);
               const items = folderBuckets.byKey.get(key) ?? [];
               if (search && items.length === 0) {
                 return null;
@@ -1719,9 +1822,12 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   count={items.length}
                   previews={items}
                   isEmpty={items.length === 0}
+                  selectMode={folderSelectMode}
+                  isSelected={selectedFolderKeys.includes(key)}
+                  isSelectable
+                  onToggleSelect={() => toggleFolderSelection(folderName)}
                   onOpen={() => {
-                    setActiveFolderKey(key);
-                    setActiveFolderLabel(folderName);
+                    router.push(`/folders/${encodeURIComponent(key)}`);
                   }}
                 />
               );
@@ -1835,6 +1941,8 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
               <span>
                 {undoState.type === "delete"
                   ? "Bookmark deleted"
+                  : undoState.type === "bulkDelete"
+                    ? "Bookmarks deleted"
                   : "All bookmarks cleared"}
               </span>
               <button
@@ -1883,6 +1991,138 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
                 >
                   Delete all
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showBulkDeleteFoldersConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            onClick={() => setShowBulkDeleteFoldersConfirm(false)}
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Delete folders"
+            >
+              <h2 className="mb-2 text-base font-semibold text-slate-50">
+                Delete {selectedFolderKeys.length} folders?
+              </h2>
+              <p className="mb-4 text-xs text-slate-400">
+                Bookmarks will be moved to Unstaged.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkDeleteFoldersConfirm(false)}
+                  className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={applyBulkDeleteFolders}
+                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+                >
+                  Delete folders
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showBulkMoveBookmarksModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            onClick={() => setShowBulkMoveBookmarksModal(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Move bookmarks"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-100">Move bookmarks</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowBulkMoveBookmarksModal(false)}
+                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs text-slate-400">
+                  Move {selectedBookmarkIds.length} selected bookmark
+                  {selectedBookmarkIds.length !== 1 ? "s" : ""} to:
+                </p>
+                <select
+                  value={bookmarkBulkTarget}
+                  onChange={(e) => setBookmarkBulkTarget(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="__unstaged__">Unstaged</option>
+                  {orderedFolderList.map((folderName) => (
+                    <option key={folderName} value={folderName}>
+                      {folderName}
+                    </option>
+                  ))}
+                  <option value="__new__">New folder…</option>
+                </select>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkMoveBookmarksModal(false)}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={applyBulkMoveBookmarks}
+                  disabled={selectedBookmarkIds.length === 0}
+                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Move
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showBulkDeleteBookmarksConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Delete bookmarks"
+            >
+              <h2 className="mb-2 text-base font-semibold text-slate-50">
+                Delete {selectedBookmarkIds.length} bookmarks?
+              </h2>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
+                  className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={applyBulkDeleteBookmarks}
+                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+                >
+                  Delete
                 </button>
               </div>
             </div>
@@ -1960,6 +2200,20 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   <button
                     type="button"
                     onClick={() => {
+                      if (bookmarkSelectMode) {
+                        clearBookmarkSelection();
+                        return;
+                      }
+                      setBookmarkSelectMode(true);
+                      setSelectedBookmarkIds([]);
+                    }}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+                  >
+                    {bookmarkSelectMode ? "Done" : "Select"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       const label =
                         activeFolderKey === "UNSTAGED" ? null : activeFolderLabel;
                       setActiveFolderKey(null);
@@ -1979,87 +2233,119 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                 </div>
               </div>
               <div className="max-h-[80vh] overflow-y-auto pr-1">
-                {(() => {
-                  const items =
-                    activeFolderKey === "UNSTAGED"
-                      ? folderBuckets.unstaged
-                      : folderBuckets.byKey.get(activeFolderKey) ?? [];
-                  if (items.length === 0) {
-                    return (
-                      <div className="rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">
-                        <p className="text-slate-200">No bookmarks in this folder yet.</p>
-                        <p className="mt-2 text-xs text-slate-400">
-                          Assign a bookmark to this folder from the edit menu.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const label =
-                              activeFolderKey === "UNSTAGED" ? null : activeFolderLabel;
-                            setActiveFolderKey(null);
-                            handleAddLinkForFolder(label);
-                          }}
-                          className="mt-4 inline-flex items-center rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-                        >
-                          + Add Link to this folder
-                        </button>
-                      </div>
-                    );
-                  }
-                  const grouped = (() => {
-                    const groups: Map<string, Bookmark[]> = new Map();
-                    items.forEach((b) => {
-                      const tags = b.tags && b.tags.length ? b.tags : ["Untagged"];
-                      tags.forEach((tag) => {
-                        const key = tag.trim() || "Untagged";
-                        if (!groups.has(key)) groups.set(key, []);
-                        groups.get(key)!.push(b);
-                      });
-                    });
-                    return Array.from(groups.entries()).sort(([a], [b]) =>
-                      a.localeCompare(b, undefined, { sensitivity: "base" })
-                    );
-                  })();
-                  return (
-                    <div className="space-y-6">
-                      {grouped.map(([tag, tagItems]) => (
-                        <section
-                          key={tag}
-                          aria-label={`Bookmarks tagged ${tag}`}
-                          className="space-y-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
-                              {tag}
-                            </h3>
-                            <span className="text-xs text-slate-500">
-                              {tagItems.length} item{tagItems.length !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-                            {tagItems.map((b) => (
-                              <BookmarkCard
-                                key={`${tag}-${b.id}`}
-                                bookmark={b}
-                                folders={orderedFolderList}
-                                onRequestNewFolder={(onCreated) => {
-                                  openNewFolderModal((name) => {
-                                    onCreated(name);
-                                  });
-                                }}
-                                onCreateFolder={(name) => {
-                                  addLocalFolder(name);
-                                }}
-                                onUpdate={updateBookmark}
-                                onDelete={handleDelete}
-                              />
-                            ))}
-                          </div>
-                        </section>
-                      ))}
-                    </div>
-                  );
-                })()}
+                {bookmarkSelectMode && (
+                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
+                    <span className="text-xs text-slate-300">
+                      {selectedBookmarkIds.length} bookmark
+                      {selectedBookmarkIds.length !== 1 ? "s" : ""} selected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedBookmarkIds.length === 0) return;
+                        setBookmarkBulkTarget("__unstaged__");
+                        setShowBulkMoveBookmarksModal(true);
+                      }}
+                      disabled={selectedBookmarkIds.length === 0}
+                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Move
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedBookmarkIds.length === 0) return;
+                        setShowBulkDeleteBookmarksConfirm(true);
+                      }}
+                      disabled={selectedBookmarkIds.length === 0}
+                      className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={selectAllBookmarksInActiveFolder}
+                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSelectedBookmarks}
+                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearBookmarkSelection}
+                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                {activeFolderItems.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">
+                    <p className="text-slate-200">No bookmarks in this folder yet.</p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      Assign a bookmark to this folder from the edit menu.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const label =
+                          activeFolderKey === "UNSTAGED" ? null : activeFolderLabel;
+                        setActiveFolderKey(null);
+                        handleAddLinkForFolder(label);
+                      }}
+                      className="mt-4 inline-flex items-center rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                    >
+                      + Add Link to this folder
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {groupedActiveFolderItems.map(([tag, tagItems]) => (
+                      <section
+                        key={tag}
+                        aria-label={`Bookmarks tagged ${tag}`}
+                        className="space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+                            {tag}
+                          </h3>
+                          <span className="text-xs text-slate-500">
+                            {tagItems.length} item{tagItems.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                          {tagItems.map((b) => (
+                            <BookmarkCard
+                              key={`${tag}-${b.id}`}
+                              bookmark={b}
+                              folders={orderedFolderList}
+                              onRequestNewFolder={(onCreated) => {
+                                openNewFolderModal((name) => {
+                                  onCreated(name);
+                                });
+                              }}
+                              onCreateFolder={(name) => {
+                                addLocalFolder(name);
+                              }}
+                              onUpdate={updateBookmark}
+                              onDelete={handleDelete}
+                              selectMode={bookmarkSelectMode}
+                              isSelected={selectedBookmarkIds.includes(b.id)}
+                              onToggleSelect={toggleBookmarkSelection}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2357,69 +2643,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
           </div>
         )}
 
-        <footer className="mt-12 mt-auto flex w-full flex-col items-center gap-2 text-sm text-slate-400">
-          <div className="flex w-full max-w-5xl items-center gap-3 text-[11px] text-slate-500">
-            <span className="h-px flex-1 bg-slate-800" />
-            <span className="shrink-0">Info</span>
-            <span className="h-px flex-1 bg-slate-800" />
-          </div>
-          <div className="flex items-center gap-4">
-            <Link className="hover:text-blue-300" href="/privacy">
-              Privacy
-            </Link>
-            <Link className="hover:text-blue-300" href="/terms">
-              Terms
-            </Link>
-            <Link className="hover:text-blue-300" href="/faq">
-              FAQ
-            </Link>
-          </div>
-          <div className="text-xs text-slate-500">
-            © {new Date().getFullYear()} Bookmark Deck. All rights reserved.
-          </div>
-        </footer>
-
-        {showScrollTop && (
-          <button
-            type="button"
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            aria-label="Scroll to top"
-            className="
-    fixed bottom-6 right-6 z-40
-    flex items-center justify-center
-    h-12 w-12
-    rounded-full
-    bg-white/5
-    backdrop-blur-md
-    border border-white/10
-    shadow-lg shadow-black/30
-    text-slate-200
-    transition-all
-    duration-300
-    hover:scale-110
-    hover:bg-white/10
-    hover:border-blue-400/40
-    hover:shadow-blue-500/20
-  "
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
-              className="h-6 w-6"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4l0 16M5 11l7-7 7 7"
-              />
-            </svg>
-          </button>
-        )}
-      </div>
-    </main>
+    </>
   );
 }
 

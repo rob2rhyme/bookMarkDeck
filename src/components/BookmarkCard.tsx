@@ -3,6 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect } from "react";
+import { Check, Note, Pencil, Star, StarFilled, Trash, X } from "@/components/icons";
+import { hapticTap } from "@/utils/haptics";
 
 function safeParseUrl(rawUrl: string): URL | null {
   try {
@@ -37,6 +39,9 @@ type Props = {
   folders: string[];
   onCreateFolder?: (name: string) => void;
   onRequestNewFolder?: (onCreated: (name: string) => void) => void;
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 };
 
 function firstLetterFromUrlOrTitle(url: string, title?: string): string {
@@ -65,6 +70,23 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
+function IconActionTooltip({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative group">
+      {children}
+      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900/95 px-2 py-1 text-xs text-slate-200 shadow-lg opacity-0 scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:scale-100">
+        {label}
+      </div>
+    </div>
+  );
+}
+
 export function BookmarkCard({
   bookmark,
   onUpdate,
@@ -73,6 +95,9 @@ export function BookmarkCard({
   folders,
   onCreateFolder,
   onRequestNewFolder,
+  selectMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: Props) {
   const [title, setTitle] = useState(bookmark.title ?? "");
   const [url, setUrl] = useState(bookmark.url ?? "");
@@ -285,161 +310,327 @@ export function BookmarkCard({
   };
 
   const currentFolderValue = folder.trim() || "__unstaged__";
+  const hostnameForDisplay = (() => {
+    const parsed = safeParseUrl(bookmark.url);
+    if (parsed?.hostname) return parsed.hostname.replace(/^www\./i, "");
+    return bookmark.url.replace(/^https?:\/\//i, "").split("/")[0];
+  })();
 
   return (
     <div
-      className="relative z-0 overflow-hidden rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-md dark:bg-slate-900/80"
+      className={`relative z-0 overflow-hidden rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl transition dark:bg-slate-900/80 ${
+        selectMode
+          ? "ring-2 ring-offset-0 " +
+            (isSelected ? "ring-blue-400" : "ring-transparent")
+          : "hover:-translate-y-0.5 hover:shadow-md"
+      }`}
       style={{
         border: `2px solid ${effectiveBorderColor}`,
       }}
     >
+      {selectMode && (
+        <>
+          <button
+            type="button"
+            onClick={() => onToggleSelect?.(bookmark.id)}
+            className="absolute inset-0 z-30"
+            aria-label={isSelected ? "Deselect bookmark" : "Select bookmark"}
+            aria-pressed={isSelected}
+          />
+          <div className="pointer-events-none absolute left-2 top-2 z-40 flex h-5 w-5 items-center justify-center rounded border border-slate-500 bg-slate-900/90 text-[11px] text-white">
+            {isSelected ? "✓" : ""}
+          </div>
+        </>
+      )}
       {usageLabel && (
         <span className="absolute right-2 top-2 z-20 rounded-full bg-blue-600/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
           {usageLabel}
         </span>
       )}
-      {/* MOBILE: compact icon-style card (4 per row) */}
-      <div className="flex h-full flex-col justify-between p-2 sm:hidden">
-        {/* row 1: actions (star far-left, delete on right) */}
-        <div className="mb-1 flex items-center justify-between px-1">
-          <div className="flex items-center">
-            {!isEditing && (
-              <button
-                onClick={handleTogglePinned}
-                className="
-                  rounded-full
-                  p-2
-                  text-sm
-                  text-slate-100
-                  hover:bg-slate-800 hover:text-amber-300
-                "
-                aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
-                aria-pressed={bookmark.pinned}
-              >
-                {bookmark.pinned ? "★" : "☆"}
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={() => onDelete(bookmark.id)}
-            className="
-              rounded-full
-              p-2
-              text-sm
-              text-slate-100
-              hover:bg-slate-800 hover:text-red-400
-            "
-            aria-label="Delete bookmark"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* main icon + title */}
-        <button
-          type="button"
-          onClick={handleOpen}
-          className="mt-1 flex flex-col items-center gap-1 rounded-xl bg-slate-950/10 px-2 py-3 text-center hover:bg-slate-950/20"
-        >
-          {isEditing ? (
-            shouldShowEditIconUrl ? (
-              <img
-                src={editIconUrl ?? ""}
-                alt=""
-                width={36}
-                height={36}
-                className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                onError={() => {
-                  if (editIconUrl) setEditIconImgFailedFor(editIconUrl);
-                }}
-              />
-            ) : shouldShowEditFavicon ? (
-              <img
-                src={editFavicon ?? ""}
-                alt=""
-                width={36}
-                height={36}
-                className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onError={() => {
-                setEditFaviconState((current) => {
-                  const urlKey = url ?? "";
-                  const baseIndex = current.url === urlKey ? current.index : 0;
-                  const nextIndex =
-                    baseIndex + 1 < editFaviconCandidates.length
-                      ? baseIndex + 1
-                      : baseIndex;
-                  return { url: urlKey, index: nextIndex };
-                });
-              }}
-            />
-            ) : shouldShowEditIconText ? (
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
-                {editIconValue}
-              </span>
-            ) : (
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
-                {editInitial}
-              </span>
-            )
-          ) : shouldShowIconUrl ? (
-            <img
-              src={viewIconUrl ?? ""}
-              alt=""
-              width={36}
-              height={36}
-              className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onError={() => {
-                if (viewIconUrl) setIconImgFailedFor(viewIconUrl);
-              }}
-            />
-          ) : shouldShowFavicon ? (
-            <img
-              src={favicon}
-              alt=""
-              width={36}
-              height={36}
-              className="h-9 w-9 rounded-xl border border-slate-700/40 bg-slate-900 object-contain"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onError={() => {
-                setFaviconState((current) => {
-                  const urlKey = bookmark.url ?? "";
-                  const baseIndex = current.url === urlKey ? current.index : 0;
-                  const nextIndex =
-                    baseIndex + 1 < faviconCandidates.length
-                      ? baseIndex + 1
-                      : baseIndex;
-                  return { url: urlKey, index: nextIndex };
-                });
-              }}
-            />
-          ) : shouldShowIconText ? (
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
-              {viewIconValue}
-            </span>
-          ) : (
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800 text-sm font-semibold uppercase text-slate-100">
-              {initial}
-            </span>
-          )}
-          <span className="line-clamp-2 text-[11px] font-medium text-slate-900 dark:text-slate-50">
-            {isEditing ? title || url : bookmark.title || bookmark.url}
-          </span>
-        </button>
-
-        {/* row 2: Open button full-width at bottom */}
-        {!isEditing && (
+      {/* MOBILE: premium compact layout */}
+      <div className="space-y-3 p-3 sm:hidden">
+        <div className="flex items-start gap-2.5 rounded-xl border border-slate-700/70 bg-gradient-to-b from-slate-900/70 to-slate-950/80 p-2.5 ring-1 ring-white/5">
           <button
             type="button"
             onClick={handleOpen}
-            className="mt-2 w-full rounded-full bg-blue-50 px-2.5 py-1.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
+            disabled={selectMode || isEditing}
+            className="shrink-0 rounded-lg border border-slate-700/70 bg-slate-900/60 p-1.5 disabled:cursor-default"
+            aria-label={`Open ${bookmark.title || bookmark.url}`}
+          >
+            {isEditing ? (
+              shouldShowEditIconUrl ? (
+                <img
+                  src={editIconUrl ?? ""}
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 rounded-md object-contain"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={() => {
+                    if (editIconUrl) setEditIconImgFailedFor(editIconUrl);
+                  }}
+                />
+              ) : shouldShowEditFavicon ? (
+                <img
+                  src={editFavicon ?? ""}
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 rounded-md object-contain"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={() => {
+                    setEditFaviconState((current) => {
+                      const urlKey = url ?? "";
+                      const baseIndex = current.url === urlKey ? current.index : 0;
+                      const nextIndex =
+                        baseIndex + 1 < editFaviconCandidates.length
+                          ? baseIndex + 1
+                          : baseIndex;
+                      return { url: urlKey, index: nextIndex };
+                    });
+                  }}
+                />
+              ) : shouldShowEditIconText ? (
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold uppercase text-slate-100">
+                  {editIconValue}
+                </span>
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold uppercase text-slate-100">
+                  {editInitial}
+                </span>
+              )
+            ) : shouldShowIconUrl ? (
+              <img
+                src={viewIconUrl ?? ""}
+                alt=""
+                width={32}
+                height={32}
+                className="h-8 w-8 rounded-md object-contain"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={() => {
+                  if (viewIconUrl) setIconImgFailedFor(viewIconUrl);
+                }}
+              />
+            ) : shouldShowFavicon ? (
+              <img
+                src={favicon}
+                alt=""
+                width={32}
+                height={32}
+                className="h-8 w-8 rounded-md object-contain"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={() => {
+                  setFaviconState((current) => {
+                    const urlKey = bookmark.url ?? "";
+                    const baseIndex = current.url === urlKey ? current.index : 0;
+                    const nextIndex =
+                      baseIndex + 1 < faviconCandidates.length
+                        ? baseIndex + 1
+                        : baseIndex;
+                    return { url: urlKey, index: nextIndex };
+                  });
+                }}
+              />
+            ) : shouldShowIconText ? (
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold uppercase text-slate-100">
+                {viewIconValue}
+              </span>
+            ) : (
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold uppercase text-slate-100">
+                {initial}
+              </span>
+            )}
+          </button>
+
+          <div className="min-w-0 flex-1">
+            {isEditing ? (
+              <div className="space-y-2">
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Title"
+                  className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            ) : (
+              <>
+                <p className="line-clamp-2 text-sm font-semibold text-slate-100">
+                  {bookmark.title || bookmark.url}
+                </p>
+                <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-400">
+                  {hostnameForDisplay}
+                </p>
+              </>
+            )}
+          </div>
+
+        </div>
+
+        {!selectMode && (
+          <div className="flex items-center justify-evenly border-t border-slate-800/70 pt-2">
+            <IconActionTooltip label={bookmark.pinned ? "Unpin" : "Pin"}>
+              <button
+                type="button"
+                onClick={() => {
+                  hapticTap();
+                  handleTogglePinned();
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 transition-transform duration-150 ease-out hover:border-amber-400 hover:bg-slate-800/60 hover:text-amber-300 active:scale-95"
+                aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
+                aria-pressed={bookmark.pinned}
+              >
+                {bookmark.pinned ? (
+                  <StarFilled className="h-4 w-4" />
+                ) : (
+                  <Star className="h-4 w-4" />
+                )}
+              </button>
+            </IconActionTooltip>
+            <IconActionTooltip label={showNote ? "Hide note" : "Show note"}>
+              <button
+                type="button"
+                onClick={() => {
+                  hapticTap();
+                  setShowNote((prev) => !prev);
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 transition-transform duration-150 ease-out hover:border-blue-400 hover:bg-slate-800/60 hover:text-white active:scale-95"
+                aria-label={showNote ? "Hide note" : "Show note"}
+              >
+                <Note className="h-4 w-4" />
+              </button>
+            </IconActionTooltip>
+            <IconActionTooltip label={isEditing ? "Save" : "Edit"}>
+              <button
+                type="button"
+                onClick={() => {
+                  hapticTap();
+                  handleEditClick();
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 transition-transform duration-150 ease-out hover:border-blue-400 hover:bg-slate-800/60 hover:text-white active:scale-95"
+                aria-label={isEditing ? "Save changes" : "Edit bookmark"}
+              >
+                {isEditing ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Pencil className="h-4 w-4" />
+                )}
+              </button>
+            </IconActionTooltip>
+            <IconActionTooltip label={isEditing ? "Cancel" : "Delete"}>
+              <button
+                type="button"
+                onClick={() => {
+                  hapticTap();
+                  if (isEditing) {
+                    handleCancel();
+                    return;
+                  }
+                  onDelete(bookmark.id);
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-300 transition-transform duration-150 ease-out hover:border-red-400 hover:bg-red-900/60 hover:text-white active:scale-95"
+                aria-label={isEditing ? "Cancel edit" : "Delete bookmark"}
+              >
+                {isEditing ? (
+                  <X className="h-4 w-4" />
+                ) : (
+                  <Trash className="h-4 w-4" />
+                )}
+              </button>
+            </IconActionTooltip>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {isEditing ? (
+            <>
+              <select
+                value={currentFolderValue}
+                onChange={(e) => handleFolderChange(e.target.value)}
+                className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[11px] font-medium text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                aria-label="Folder"
+              >
+                <option value="__unstaged__">Unstaged</option>
+                {folders.map((folderName) => (
+                  <option key={folderName} value={folderName}>
+                    {folderName}
+                  </option>
+                ))}
+                <option value="__new__">New folder…</option>
+              </select>
+              <input
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                placeholder="Tags (comma separated)"
+                className="min-w-[160px] flex-1 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[11px] text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            </>
+          ) : (
+            <>
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center rounded-full border border-blue-900/70 bg-blue-950/70 px-2 py-0.5 text-[10px] font-medium text-blue-200"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </>
+          )}
+        </div>
+
+        {isEditing ? (
+          <textarea
+            className="h-20 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 outline-none ring-0 transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-900/40"
+            placeholder="Add login hints, purpose, etc."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        ) : (
+          <div className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                Note
+              </span>
+              {!selectMode && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticTap();
+                    setShowNote((prev) => !prev);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2.5 py-0.5 text-[10px] font-semibold text-slate-300 ring-1 ring-white/5 transition hover:border-blue-400 hover:bg-slate-900 hover:text-white"
+                  aria-label={showNote ? "Hide note" : "Show note"}
+                >
+                  <Note className="h-3.5 w-3.5" />
+                  <span>{showNote ? "Hide" : "Show"}</span>
+                </button>
+              )}
+            </div>
+            <p className="line-clamp-3 leading-relaxed">
+              {showNote
+                ? bookmark.note || "Add login hints, purpose, etc."
+                : bookmark.note
+                ? "••••••••"
+                : "Add login hints, purpose, etc."}
+            </p>
+          </div>
+        )}
+
+        {!isEditing && !selectMode && (
+          <button
+            type="button"
+            onClick={handleOpen}
+            className="w-full rounded-full border border-blue-500/50 bg-blue-600/90 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
           >
             Open
           </button>
@@ -580,14 +771,20 @@ export function BookmarkCard({
                 </>
               ) : (
                 <>
-                  <a
-                    href={bookmark.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="line-clamp-2 break-words text-sm font-semibold text-slate-900 hover:text-blue-600 dark:text-slate-50 dark:hover:text-blue-400"
-                  >
-                    {bookmark.title}
-                  </a>
+                  {selectMode ? (
+                    <p className="line-clamp-2 break-words text-sm font-semibold text-slate-900 dark:text-slate-50">
+                      {bookmark.title}
+                    </p>
+                  ) : (
+                    <a
+                      href={bookmark.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="line-clamp-2 break-words text-sm font-semibold text-slate-900 hover:text-blue-600 dark:text-slate-50 dark:hover:text-blue-400"
+                    >
+                      {bookmark.title}
+                    </a>
+                  )}
                   <p className="mt-1 line-clamp-1 break-all text-xs text-slate-500 dark:text-slate-400">
                     {bookmark.url}
                   </p>
@@ -595,40 +792,76 @@ export function BookmarkCard({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              {!isEditing && (
-                <button
-                  onClick={handleTogglePinned}
-                  className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-amber-400 dark:hover:bg-slate-800"
-                  aria-label={
-                    bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"
-                  }
-                >
-                  {bookmark.pinned ? "★" : "☆"}
-                </button>
+              {!isEditing && !selectMode && (
+                <IconActionTooltip label={bookmark.pinned ? "Unpin" : "Pin"}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticTap();
+                      handleTogglePinned();
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-amber-400 active:scale-95"
+                    aria-label={
+                      bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"
+                    }
+                  >
+                    {bookmark.pinned ? (
+                      <StarFilled className="h-4 w-4" />
+                    ) : (
+                      <Star className="h-4 w-4" />
+                    )}
+                  </button>
+                </IconActionTooltip>
               )}
-              {isEditing && (
-                <button
-                  onClick={handleCancel}
-                  className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-                  aria-label="Cancel edit"
-                >
-                  ⟲
-                </button>
+              {isEditing && !selectMode && (
+                <IconActionTooltip label="Cancel">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticTap();
+                      handleCancel();
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-slate-200 active:scale-95"
+                    aria-label="Cancel edit"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </IconActionTooltip>
               )}
-              <button
-                onClick={handleEditClick}
-                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800"
-                aria-label={isEditing ? "Save changes" : "Edit bookmark"}
-              >
-                {isEditing ? "✔︎" : "✏️"}
-              </button>
-              <button
-                onClick={() => onDelete(bookmark.id)}
-                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800"
-                aria-label="Delete bookmark"
-              >
-                ✕
-              </button>
+              {!selectMode && (
+                <>
+                  <IconActionTooltip label={isEditing ? "Save" : "Edit"}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticTap();
+                        handleEditClick();
+                      }}
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-blue-400 active:scale-95"
+                      aria-label={isEditing ? "Save changes" : "Edit bookmark"}
+                    >
+                      {isEditing ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Pencil className="h-4 w-4" />
+                      )}
+                    </button>
+                  </IconActionTooltip>
+                  <IconActionTooltip label="Delete">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticTap();
+                        onDelete(bookmark.id);
+                      }}
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-red-400 active:scale-95"
+                      aria-label="Delete bookmark"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </button>
+                  </IconActionTooltip>
+                </>
+              )}
             </div>
           </div>
 
@@ -660,8 +893,8 @@ export function BookmarkCard({
                 )
               )}
 
-              {!isEditing && tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
+                {!isEditing && tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
                   {tags.map((tag) => (
                     <span
                       key={tag}
@@ -689,14 +922,17 @@ export function BookmarkCard({
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-2">
                 <span>Note</span>
-                {!isEditing && (
+                {!isEditing && !selectMode && (
                   <button
                     type="button"
-                    onClick={() => setShowNote((prev) => !prev)}
+                    onClick={() => {
+                      hapticTap();
+                      setShowNote((prev) => !prev);
+                    }}
                     className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     aria-label={showNote ? "Hide note" : "Show note"}
                   >
-                    {showNote ? "🙈 Hide" : "🔒 Show"}
+                    {showNote ? "Hide" : "Show"}
                   </button>
                 )}
               </span>
@@ -728,7 +964,7 @@ export function BookmarkCard({
               year: "numeric",
             })}
           </span>
-          {!isEditing && (
+          {!isEditing && !selectMode && (
             <button
               type="button"
               onClick={handleOpen}
