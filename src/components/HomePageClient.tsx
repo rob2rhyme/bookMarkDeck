@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 import { BookmarkCard } from "@/components/BookmarkCard";
-import { ShortcutCard } from "@/components/ShortcutCard";
+import { ShortcutIcon } from "@/components/ShortcutIcon";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
@@ -15,6 +15,7 @@ import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
+import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
 
 function getHostname(rawUrl: string) {
   try {
@@ -224,9 +225,12 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [activeFolderKey, setActiveFolderKey] = useState<string | null>(null);
   const [activeFolderLabel, setActiveFolderLabel] = useState<string>("Unstaged");
 const [showShortcutInfo, setShowShortcutInfo] = useState(false);
+const [activeShortcutId, setActiveShortcutId] = useState<string | null>(null);
+const [activeShortcutPinned, setActiveShortcutPinned] = useState(false);
 const [localFolders, setLocalFolders] = useState<string[]>([]);
 const [showNewFolderModal, setShowNewFolderModal] = useState(false);
 const [newFolderName, setNewFolderName] = useState("");
+const [newFolderError, setNewFolderError] = useState("");
 const [showRenameFolderModal, setShowRenameFolderModal] = useState(false);
 const [renameFolderInput, setRenameFolderInput] = useState("");
 const [renameFolderError, setRenameFolderError] = useState("");
@@ -297,20 +301,31 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
   }, [localOnlyFolders, folders]);
 
   const addLocalFolder = (name: string) => {
-    const normalized = normalizeFolderName(name);
-    if (!normalized) return null;
+    const normalized = cleanFolderLabel(name);
+    if (!normalized) {
+      setNewFolderError("Folder name is required.");
+      return null;
+    }
+    if (normalized.length > MAX_FOLDER_NAME) {
+      setNewFolderError(`Folder name must be ${MAX_FOLDER_NAME} characters or less.`);
+      return null;
+    }
     const existing = mergedFolders.find(
       (folderName) => folderName.toLowerCase() === normalized.toLowerCase()
     );
-    if (!existing) {
-      setLocalFolders((prev) => [...prev, normalized]);
+    if (existing) {
+      setNewFolderError("Folder name already exists.");
+      return null;
     }
-    return existing ?? normalized;
+    setNewFolderError("");
+    setLocalFolders((prev) => [...prev, normalized]);
+    return normalized;
   };
 
   const openNewFolderModal = (onCreated?: (name: string) => void) => {
     newFolderRequestRef.current = onCreated ?? null;
     setNewFolderName("");
+    setNewFolderError("");
     setShowNewFolderModal(true);
   };
 
@@ -365,9 +380,13 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     }
 
     const existingLabel = findExistingFolderLabelCI(cleanedNext);
-    const shouldMergeIntoExisting =
+    const isDuplicateOfAnotherFolder =
       !!existingLabel && folderKey(existingLabel) !== sourceKey;
-    const targetLabel = shouldMergeIntoExisting ? existingLabel : cleanedNext;
+    if (isDuplicateOfAnotherFolder) {
+      setRenameFolderError("Folder name already exists.");
+      return;
+    }
+    const targetLabel = cleanedNext;
     const targetKey = folderKey(targetLabel);
 
     updateBookmarksFolderLabel(oldLabel, targetLabel);
@@ -641,6 +660,71 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     isSyncing: isSyncingShortcuts,
   } = useShortcuts(userId);
 
+  useEffect(() => {
+    if (!activeShortcutId) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-shortcut-hover-root="true"]')) {
+        return;
+      }
+      setActiveShortcutId(null);
+      setActiveShortcutPinned(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setActiveShortcutId(null);
+      setActiveShortcutPinned(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeShortcutId]);
+
+  useEffect(() => {
+    if (!activeShortcutId) return;
+    if (shortcuts.some((shortcut) => shortcut.id === activeShortcutId)) return;
+    setActiveShortcutId(null);
+    setActiveShortcutPinned(false);
+  }, [activeShortcutId, shortcuts]);
+
+  const handleShortcutHoverOpen = (id: string) => {
+    if (activeShortcutId === id) return;
+    setActiveShortcutId(id);
+    setActiveShortcutPinned(false);
+  };
+
+  const handleShortcutTogglePinned = (
+    id: string,
+    keepOpenWhenUnpinned: boolean
+  ) => {
+    if (activeShortcutId !== id) {
+      setActiveShortcutId(id);
+      setActiveShortcutPinned(true);
+      return;
+    }
+
+    if (!activeShortcutPinned) {
+      setActiveShortcutPinned(true);
+      return;
+    }
+
+    setActiveShortcutPinned(false);
+    if (!keepOpenWhenUnpinned) {
+      setActiveShortcutId(null);
+    }
+  };
+
+  const handleShortcutRequestClose = (id: string) => {
+    if (activeShortcutId !== id || activeShortcutPinned) return;
+    setActiveShortcutId(null);
+  };
+
   const trending = useMemo(() => {
     const scored = filtered.map((b) => {
       const hits = b.hits ?? 0;
@@ -818,14 +902,14 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
       const shouldShowIconText =
         !shouldShowIconUrl && !shouldShowFavicon && iconValue.length > 0;
       return (
-        <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-slate-900 text-[12px] font-semibold uppercase text-slate-100 ring-1 ring-white/5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_25px_-18px_rgba(0,0,0,0.9)]">
+        <div className="flex aspect-square w-full max-w-[40px] items-center justify-center justify-self-start overflow-hidden rounded-lg bg-slate-900 text-[12px] font-semibold uppercase text-slate-100 ring-1 ring-white/5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_25px_-18px_rgba(0,0,0,0.9)]">
           {shouldShowIconUrl ? (
             <img
               src={iconUrl}
               alt=""
               width={32}
               height={32}
-              className="h-8 w-8 object-contain"
+              className="block h-8 w-8 object-contain"
               loading="lazy"
               referrerPolicy="no-referrer"
               onError={() => setIconFailed(true)}
@@ -836,7 +920,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
               alt=""
               width={32}
               height={32}
-              className="h-8 w-8 object-contain"
+              className="block h-8 w-8 object-contain"
               loading="lazy"
               referrerPolicy="no-referrer"
               onError={() => setFaviconFailed(true)}
@@ -891,7 +975,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
               No bookmarks yet
             </div>
           ) : (
-            <div className="relative grid h-full grid-cols-4 grid-rows-4 gap-2">
+            <div className="bd-mini-grid relative h-full [--mini-gap:8px] [--mini-min:34px] sm:[--mini-min:36px]">
               {previewCards.map((b, index) => (
                 <FolderPreviewTile key={`${b.id}-${index}`} bookmark={b} />
               ))}
@@ -990,6 +1074,35 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     if (shortcuts.length === 0) return;
     setShortcutUndoState({ snapshot: shortcuts });
     deleteShortcut(id);
+  };
+
+  const handleShortcutOpen = async (app: ShortcutApp) => {
+    const hasNativeTarget =
+      Boolean(app.localPath?.trim()) ||
+      Boolean(app.bundleId?.trim()) ||
+      Boolean(app.appUserModelId?.trim());
+
+    if (hasNativeTarget) {
+      const healthy = await launcherHealth();
+      if (!healthy) {
+        alert("Launcher not reachable. Start the local launcher and try again.");
+        return;
+      }
+      try {
+        await launcherOpen({
+          localPath: app.localPath?.trim() || undefined,
+          bundleId: app.bundleId?.trim() || undefined,
+          appUserModelId: app.appUserModelId?.trim() || undefined,
+        });
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "Failed to open native app.");
+      }
+      return;
+    }
+
+    const target = app.url.trim();
+    if (!target) return;
+    window.open(target, "_blank", "noopener,noreferrer");
   };
 
   const handleShortcutUpdate = (id: string, data: Partial<ShortcutApp>) => {
@@ -1474,13 +1587,21 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
               No shortcuts yet. Add one to jump into your favorite apps faster.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 min-[906px]:grid-cols-2">
+            <div className="bd-tile-grid w-full [--tile-gap:12px] [--tile-max:102px] [--tile-min:82px] sm:[--tile-gap:14px] sm:[--tile-min:88px] lg:[--tile-min:94px]">
               {shortcuts.map((app) => (
-                <ShortcutCard
+                <ShortcutIcon
                   key={app.id}
                   app={app}
-                  onDelete={handleShortcutDelete}
-                  onEdit={handleStartShortcutEdit}
+                  active={activeShortcutId === app.id}
+                  pinned={activeShortcutId === app.id && activeShortcutPinned}
+                  onRequestHoverOpen={() => handleShortcutHoverOpen(app.id)}
+                  onRequestTogglePinned={(keepOpenWhenUnpinned) =>
+                    handleShortcutTogglePinned(app.id, keepOpenWhenUnpinned)
+                  }
+                  onRequestClose={() => handleShortcutRequestClose(app.id)}
+                  onOpen={() => void handleShortcutOpen(app)}
+                  onDelete={() => handleShortcutDelete(app.id)}
+                  onEdit={() => handleStartShortcutEdit(app)}
                 />
               ))}
             </div>
@@ -1820,7 +1941,8 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                 isSelectable={false}
                 isSelected={false}
                 onOpen={() => {
-                  router.push("/folders/unstaged");
+                  setActiveFolderKey("UNSTAGED");
+                  setActiveFolderLabel("Unstaged");
                 }}
               />
             )}
@@ -1842,7 +1964,8 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   isSelectable
                   onToggleSelect={() => toggleFolderSelection(folderName)}
                   onOpen={() => {
-                    router.push(`/folders/${encodeURIComponent(key)}`);
+                    setActiveFolderKey(key);
+                    setActiveFolderLabel(folderName);
                   }}
                 />
               );
@@ -2477,7 +2600,10 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
         {showNewFolderModal && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-            onClick={() => setShowNewFolderModal(false)}
+            onClick={() => {
+              setShowNewFolderModal(false);
+              setNewFolderError("");
+            }}
           >
             <div
               className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
@@ -2490,7 +2616,10 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                 <h3 className="text-sm font-semibold text-slate-100">New folder</h3>
                 <button
                   type="button"
-                  onClick={() => setShowNewFolderModal(false)}
+                  onClick={() => {
+                    setShowNewFolderModal(false);
+                    setNewFolderError("");
+                  }}
                   className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
                 >
                   Close
@@ -2501,7 +2630,12 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   type="text"
                   placeholder="Folder name (e.g. Medical, Work)"
                   value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onChange={(e) => {
+                    setNewFolderName(e.target.value);
+                    if (newFolderError) {
+                      setNewFolderError("");
+                    }
+                  }}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   autoFocus
                   onKeyDown={(e) => {
@@ -2510,14 +2644,21 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                       if (!normalized) return;
                       newFolderRequestRef.current?.(normalized);
                       setShowNewFolderModal(false);
+                      setNewFolderError("");
                     }
                   }}
                 />
+                {newFolderError && (
+                  <p className="text-xs text-red-400">{newFolderError}</p>
+                )}
               </div>
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowNewFolderModal(false)}
+                  onClick={() => {
+                    setShowNewFolderModal(false);
+                    setNewFolderError("");
+                  }}
                   className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
                 >
                   Cancel
@@ -2529,6 +2670,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                     if (!normalized) return;
                     newFolderRequestRef.current?.(normalized);
                     setShowNewFolderModal(false);
+                    setNewFolderError("");
                   }}
                   className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
                 >

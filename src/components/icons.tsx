@@ -112,3 +112,13 @@ export function ChevronUp({ className }: IconProps) {
     </svg>
   );
 }
+
+export function ExternalLink({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M14 4h6v6" />
+      <path d="M10 14 20 4" />
+      <path d="M20 14v5a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1h5" />
+    </svg>
+  );
+}

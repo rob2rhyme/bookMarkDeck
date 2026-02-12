@@ -2,8 +2,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
-import { GlobalClientUI } from "./GlobalClientUI";
-import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Bookmark Deck",
@@ -18,10 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <Providers>
-          <AppShell>{children}</AppShell>
-          <GlobalClientUI />
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

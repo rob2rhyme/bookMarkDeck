@@ -1,4 +1,4 @@
-// src/app/login/page.tsx
+// src/app/(auth)/login/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -25,7 +25,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
+    <div className="relative min-h-screen text-slate-50">
       {/* Background subtle glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-40 top-10 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
@@ -199,6 +199,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

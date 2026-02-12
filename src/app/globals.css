@@ -63,3 +63,27 @@ body {
     font-size: 16px !important; /* override smaller utility classes */
   }
 }
+
+@layer utilities {
+  .bd-tile-grid {
+    display: grid;
+    grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(var(--tile-min, 84px), 100%), 1fr)
+    );
+    gap: var(--tile-gap, 12px);
+    justify-items: start;
+    align-items: start;
+    align-content: start;
+  }
+
+  .bd-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--mini-min, 34px));
+    gap: var(--mini-gap, 8px);
+    justify-content: start;
+    justify-items: start;
+    align-items: start;
+    align-content: start;
+  }
+}
