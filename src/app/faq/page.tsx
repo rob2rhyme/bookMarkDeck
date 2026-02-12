@@ -16,9 +16,8 @@ export default function FaqPage() {
         <div>
           <h2 className="text-lg font-semibold text-slate-50">What are the folder routes?</h2>
           <p>
-            Use <code>/folders/unstaged</code> for bookmarks without a folder label, and
-            <code> /folders/[folderKey]</code> for named folders. Home focuses on named folders, while unstaged
-            remains supported by route.
+            Use <code>/folders/unstaged</code> for bookmarks without a folder, and
+            <code> /folders/[folderKey]</code> for named folders.
           </p>
         </div>
 
@@ -50,14 +49,6 @@ export default function FaqPage() {
           <p>
             Cloud sync stores shortcut name/URL/icon. Native-only target fields are device-local by design and are
             not synced to Firestore.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Does Bookmark Deck support PWA/offline?</h2>
-          <p>
-            Yes. The app includes a web manifest, service worker registration, and an offline fallback page.
-            Cached assets help with offline navigation, but sync and cloud operations still require internet.
           </p>
         </div>
 

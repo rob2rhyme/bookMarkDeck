@@ -25,8 +25,7 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold text-slate-50">Data handling</h2>
           <p>
             Data is local-first in your browser. If you use sync, a cloud copy is stored in Firestore. Cloud
-            backup snapshots are retained in limited history for restore purposes. Offline/PWA cache may store
-            static app resources in your browser.
+            backup snapshots are retained in limited history for restore purposes.
           </p>
         </div>
 
@@ -50,15 +49,7 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold text-slate-50">Availability and changes</h2>
           <p>
             The service is provided as-is. Features, UI flows, and storage behavior may evolve over time,
-            including route-based folder navigation, sync tooling, and offline behavior.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Offline and launcher limitations</h2>
-          <p>
-            Offline mode provides limited cached access and may not include real-time cloud data. Native app
-            launch actions require the optional local launcher helper and matching launcher token configuration.
+            including route-based navigation and sync tooling.
           </p>
         </div>
 

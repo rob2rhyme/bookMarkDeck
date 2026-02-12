@@ -28,17 +28,6 @@ export default function PrivacyPage() {
             Optional Firestore cloud storage when you use sync. Bookmark backups keep recent snapshots
             (up to 7), including bookmark payloads and cloud-safe shortcut data.
           </li>
-          <li>
-            PWA/browser cache storage for static assets and offline navigation fallback pages when service
-            worker support is available.
-          </li>
-        </ul>
-
-        <h2 className="mt-6 text-lg font-semibold text-slate-50">Offline and PWA behavior</h2>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>The web app may cache static files for faster reload and basic offline access.</li>
-          <li>Cloud sync actions still require network availability.</li>
-          <li>Sensitive API routes are intentionally excluded from service-worker caching.</li>
         </ul>
 
         <h2 className="mt-6 text-lg font-semibold text-slate-50">Native launcher and device-local fields</h2>
@@ -70,7 +59,6 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-2 pl-5">
           <li>Local data remains until you delete entries, use clear actions, or clear browser site data.</li>
           <li>Cloud data remains until overwritten or removed through sync operations.</li>
-          <li>Offline cache data can be removed by clearing browser site data for Bookmark Deck.</li>
           <li>
             You can remove cloud bookmark data by deleting locally and syncing to cloud, then optionally
             revoking app access in your Google account.

@@ -1809,6 +1809,21 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
               </div>
             )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {(!search || folderBuckets.unstaged.length > 0) && (
+              <FolderCard
+                name="Unstaged"
+                count={folderBuckets.unstaged.length}
+                previews={folderBuckets.unstaged}
+                isUnstaged
+                isEmpty={folderBuckets.unstaged.length === 0}
+                selectMode={folderSelectMode}
+                isSelectable={false}
+                isSelected={false}
+                onOpen={() => {
+                  router.push("/folders/unstaged");
+                }}
+              />
+            )}
             {orderedFolderList.map((folderName) => {
               const key = folderKey(folderName);
               const items = folderBuckets.byKey.get(key) ?? [];

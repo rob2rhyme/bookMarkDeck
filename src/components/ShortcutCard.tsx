@@ -4,7 +4,6 @@
 
 import { useMemo, useState } from "react";
 import { ShortcutApp } from "@/types/shortcut";
-import { Pencil, Trash } from "@/components/icons";
 import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
 
 function getFaviconUrl(rawUrl: string): string | null {
@@ -67,12 +66,13 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
       return app.url;
     }
   }, [app.url]);
-  const hasNativeTarget =
-    Boolean(app.localPath?.trim()) ||
-    Boolean(app.bundleId?.trim()) ||
-    Boolean(app.appUserModelId?.trim());
 
   const handleOpen = async () => {
+    const hasNativeTarget =
+      Boolean(app.localPath?.trim()) ||
+      Boolean(app.bundleId?.trim()) ||
+      Boolean(app.appUserModelId?.trim());
+
     if (hasNativeTarget) {
       const healthy = await launcherHealth();
       if (!healthy) {
@@ -121,20 +121,12 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
           )}
         </div>
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-base font-semibold leading-tight text-slate-100">
+          <span className="truncate text-base font-semibold text-slate-100 leading-tight">
             {app.name}
           </span>
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="truncate text-[12px] text-slate-400">{hostname}</span>
-            <span className="rounded-full border border-slate-700/80 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-              {hasNativeTarget ? "Native" : "Web"}
-            </span>
-            {hasNativeTarget && (
-              <span className="rounded-full border border-amber-700/70 bg-amber-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
-                Launcher required
-              </span>
-            )}
-          </div>
+          <span className="truncate text-[12px] text-slate-400">
+            {hostname}
+          </span>
         </div>
       </div>
 
@@ -150,20 +142,20 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
           <button
             type="button"
             onClick={() => onEdit(app)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-slate-200 transition-transform duration-150 ease-out hover:border-blue-400 hover:text-white active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-200 transition hover:border-blue-400 hover:text-white"
             aria-label={`Edit ${app.name}`}
           >
-            <Pencil className="h-4 w-4" />
+            ✏️
           </button>
         )}
         {onDelete && (
           <button
             type="button"
             onClick={() => onDelete(app.id)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-slate-300 transition-transform duration-150 ease-out hover:border-red-400 hover:bg-red-900/60 hover:text-white active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white"
             aria-label={`Delete ${app.name}`}
           >
-            <Trash className="h-4 w-4" />
+            ✕
           </button>
         )}
       </div>
