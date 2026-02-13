@@ -10,7 +10,7 @@ Bookmark Deck is designed for fast, personal bookmark organization:
 
 - Primary storage is local browser storage.
 - Optional cloud sync uses your Google sign-in and Firebase Firestore.
-- Folders are label-based (`bookmark.folder`) rather than a separate database table.
+- Folders are first-class entities with adjacency-list hierarchy (`id`, `name`, `parentId`).
 - UI uses a shared app shell across pages (global header/footer/cursor + global scroll-to-top FAB).
 - PWA foundation is enabled (manifest + service worker registration + offline page).
 
@@ -19,7 +19,7 @@ Bookmark Deck is designed for fast, personal bookmark organization:
 ### Bookmarks
 
 - Add, edit, and delete bookmarks.
-- Bookmark fields: title, URL, icon, folder label, tags, note.
+- Bookmark fields: title, URL, icon, `folderId` (plus legacy `folder` during transition), tags, note.
 - Pin/unpin favorites.
 - Usage tracking (`hits`, `lastUsedAt`) for trending sorting.
 - Import browser bookmark HTML (Netscape format).
@@ -33,15 +33,20 @@ Bookmark Deck is designed for fast, personal bookmark organization:
 
 ### Folders
 
+- Nested folders support arbitrary depth.
 - Folder cards on Home route to dedicated folder pages.
-- Home emphasizes named folders; unstaged bookmarks still exist and remain route-accessible.
-- Local-only empty folders are supported via `localStorage`.
+- Home shows root folders (`parentId = null`); subfolders are shown on folder pages.
+- `Unstaged` remains a virtual/system bucket (`bookmark.folderId = null`).
 
 ### Folder Pages (Route-Based)
 
 - `/folders/unstaged` for bookmarks with no folder label.
-- `/folders/[folderKey]` for named folders.
-- Folder key normalization uses `trim().toLowerCase()`.
+- Canonical route is `/folders/[folderId]`.
+- Legacy name-key routes still resolve for root folders, then canonicalize to folder ID route.
+- Folder pages render:
+  - clickable breadcrumbs (ancestor segments link to `/folders/{id}`),
+  - child folders (`parentId == currentFolderId`),
+  - bookmarks assigned to current folder (`bookmark.folderId == currentFolderId`).
 
 ### Bulk Select (Bookmarks)
 
@@ -57,6 +62,7 @@ On folder pages (`/folders/*`):
 ### Cloud Sync and Backups
 
 - Optional sync via Firebase Firestore.
+- Firestore user doc now stores both `bookmarks` and `folders` arrays.
 - Bookmark snapshots are kept in cloud backups (up to 7 latest backups).
 - Backup payload can include both bookmarks and shortcuts.
 - Download backup JSON from the app.
@@ -89,24 +95,63 @@ On folder pages (`/folders/*`):
 
 ## Folder Navigation Model
 
-Folder labels are normalized for routing and matching by:
-
-```ts
-folderKey = value.trim().toLowerCase();
-```
-
-This means folder routing is case-insensitive. Display labels come from merged bookmark folders plus local-only folders.
+Folders are identified by stable `id` values.
 
 Canonical routes:
 
 - `/folders/unstaged`
-- `/folders/[folderKey]`
+- `/folders/[folderId]`
+
+Legacy compatibility:
+
+- If `/folders/[param]` does not match a folder ID, the app attempts legacy root-folder lookup by normalized name key.
+- On successful legacy lookup, route canonicalizes to `/folders/{folderId}`.
+
+Breadcrumbs are computed by walking parent pointers (`parentId`) to root with a cycle guard.
+
+Example:
+
+- Tree:
+  - `CODING`
+  - `CODING / BACK END`
+  - `CODING / BACK END / API`
+- Breadcrumb on API page:
+  - `CODING / BACK END / API`
 
 ## Deprecated Behavior
 
-- Legacy full-screen folder modal overlay in Home is deprecated.
-- Route-based folder pages are the canonical navigation experience.
+- Legacy label-key folder identity is deprecated.
+- Route-based folder pages with folder IDs are canonical.
 - Scroll-to-top is no longer Home-only; it is global.
+
+## Folder Storage Model
+
+Local storage v2 key:
+
+- `bookmarkdeck:v2[:userId]`
+
+Shape:
+
+```ts
+{
+  version: 2,
+  bookmarks: Bookmark[],
+  folders: Folder[]
+}
+```
+
+Bookmark-folder relation:
+
+- `bookmark.folderId` is authoritative.
+- `bookmark.folder` is retained temporarily for migration compatibility.
+- Folder rename updates `Folder.name` only; bookmarks stay linked by `folderId` (no bookmark rewrite).
+
+Migration summary:
+
+- Existing label folders are migrated into root folders.
+- Legacy folder labels from bookmarks and old empty-folder local storage are deduplicated by normalized label.
+- Bookmarks are mapped to new folder IDs.
+- Legacy empty-folder key is removed after successful v2 upgrade.
 
 ## Enhancement Roadmap (A→Z)
 
