@@ -12,6 +12,7 @@ import { ShortcutIcon } from "@/components/ShortcutIcon";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
+import { Folder } from "@/types/folder";
 import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
@@ -262,13 +263,47 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       .filter((folder) => folder.parentId === null)
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   }, [folderEntities]);
-  const parentIdsWithChildren = useMemo(() => {
-    const parentIds = new Set<string>();
+  const childrenByParentId = useMemo(() => {
+    const byParent = new Map<string, Folder[]>();
     folderEntities.forEach((folder) => {
-      if (folder.parentId) parentIds.add(folder.parentId);
+      if (!folder.parentId) return;
+      const group = byParent.get(folder.parentId);
+      if (group) {
+        group.push(folder);
+      } else {
+        byParent.set(folder.parentId, [folder]);
+      }
     });
-    return parentIds;
+    byParent.forEach((group) => {
+      group.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    });
+    return byParent;
   }, [folderEntities]);
+  const parentIdsWithChildren = useMemo(() => {
+    return new Set(childrenByParentId.keys());
+  }, [childrenByParentId]);
+  const bookmarkCountByFolderId = useMemo(() => {
+    const counts = new Map<string, number>();
+    bookmarks.forEach((bookmark) => {
+      if (!bookmark.folderId) return;
+      counts.set(bookmark.folderId, (counts.get(bookmark.folderId) ?? 0) + 1);
+    });
+    return counts;
+  }, [bookmarks]);
+  const childPreviewByParentId = useMemo(() => {
+    const previews = new Map<string, Array<{ id: string; name: string; bookmarkCount: number }>>();
+    childrenByParentId.forEach((children, parentId) => {
+      previews.set(
+        parentId,
+        children.map((child) => ({
+          id: child.id,
+          name: child.name,
+          bookmarkCount: bookmarkCountByFolderId.get(child.id) ?? 0,
+        }))
+      );
+    });
+    return previews;
+  }, [childrenByParentId, bookmarkCountByFolderId]);
 
   const folderById = useMemo(() => {
     return new Map(folderEntities.map((folder) => [folder.id, folder]));
@@ -1777,6 +1812,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   name={folder.name}
                   count={items.length}
                   previews={items}
+                  childFolders={childPreviewByParentId.get(folder.id)}
                   hasChildren={parentIdsWithChildren.has(folder.id)}
                   isEmpty={items.length === 0}
                   selectMode={folderSelectMode}

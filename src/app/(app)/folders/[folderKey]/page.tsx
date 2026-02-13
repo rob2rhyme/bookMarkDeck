@@ -7,6 +7,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 
 import { BookmarkCard } from "@/components/BookmarkCard";
+import { FolderCard } from "@/components/FolderCard";
 import { IconAction } from "@/components/IconAction";
 import {
   ArrowLeft,
@@ -149,6 +150,60 @@ export default function FolderPage() {
       folders.filter((folder) => folder.parentId === currentFolderId)
     );
   }, [folders, currentFolderId]);
+  const childrenByParentId = useMemo(() => {
+    const byParent = new Map<string, Folder[]>();
+    folders.forEach((folder) => {
+      if (!folder.parentId) return;
+      const group = byParent.get(folder.parentId);
+      if (group) {
+        group.push(folder);
+      } else {
+        byParent.set(folder.parentId, [folder]);
+      }
+    });
+    byParent.forEach((group) => {
+      group.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    });
+    return byParent;
+  }, [folders]);
+  const parentIdsWithChildren = useMemo(() => {
+    return new Set(childrenByParentId.keys());
+  }, [childrenByParentId]);
+  const bookmarkCountByFolderId = useMemo(() => {
+    const counts = new Map<string, number>();
+    bookmarks.forEach((bookmark) => {
+      if (!bookmark.folderId) return;
+      counts.set(bookmark.folderId, (counts.get(bookmark.folderId) ?? 0) + 1);
+    });
+    return counts;
+  }, [bookmarks]);
+  const bookmarksByFolderId = useMemo(() => {
+    const byFolder = new Map<string, Bookmark[]>();
+    bookmarks.forEach((bookmark) => {
+      if (!bookmark.folderId) return;
+      const group = byFolder.get(bookmark.folderId);
+      if (group) {
+        group.push(bookmark);
+      } else {
+        byFolder.set(bookmark.folderId, [bookmark]);
+      }
+    });
+    return byFolder;
+  }, [bookmarks]);
+  const childPreviewByParentId = useMemo(() => {
+    const previews = new Map<string, Array<{ id: string; name: string; bookmarkCount: number }>>();
+    childrenByParentId.forEach((children, parentId) => {
+      previews.set(
+        parentId,
+        children.map((child) => ({
+          id: child.id,
+          name: child.name,
+          bookmarkCount: bookmarkCountByFolderId.get(child.id) ?? 0,
+        }))
+      );
+    });
+    return previews;
+  }, [childrenByParentId, bookmarkCountByFolderId]);
 
   const folderItems = useMemo(() => {
     if (!currentFolder) return [];
@@ -462,21 +517,21 @@ export default function FolderPage() {
           <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
             Subfolders
           </h2>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {childFolders.map((folder) => {
-              const childCount = bookmarks.filter((bookmark) => bookmark.folderId === folder.id)
-                .length;
               return (
-                <Link
+                <FolderCard
                   key={folder.id}
-                  href={`/folders/${encodeURIComponent(folder.id)}`}
-                  className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3 transition hover:border-blue-500/60"
-                >
-                  <p className="text-sm font-semibold text-slate-100">{folder.name}</p>
-                  <p className="text-xs text-slate-400">
-                    {childCount} bookmark{childCount !== 1 ? "s" : ""}
-                  </p>
-                </Link>
+                  name={folder.name}
+                  count={bookmarkCountByFolderId.get(folder.id) ?? 0}
+                  previews={bookmarksByFolderId.get(folder.id) ?? []}
+                  childFolders={childPreviewByParentId.get(folder.id)}
+                  hasChildren={parentIdsWithChildren.has(folder.id)}
+                  isEmpty={(bookmarkCountByFolderId.get(folder.id) ?? 0) === 0}
+                  onOpen={() => {
+                    router.push(`/folders/${encodeURIComponent(folder.id)}`);
+                  }}
+                />
               );
             })}
           </div>

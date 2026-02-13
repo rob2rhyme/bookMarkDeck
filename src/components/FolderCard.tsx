@@ -9,7 +9,8 @@ import { Bookmark } from "@/types/bookmark";
 type FolderCardProps = {
   name: string;
   count: number;
-  previews: Bookmark[];
+  previews?: Bookmark[];
+  previewBookmarks?: Bookmark[];
   onOpen: () => void;
   isUnstaged?: boolean;
   isEmpty?: boolean;
@@ -18,6 +19,8 @@ type FolderCardProps = {
   isSelectable?: boolean;
   onToggleSelect?: () => void;
   hasChildren?: boolean;
+  childFolders?: Array<{ id: string; name: string; bookmarkCount: number }>;
+  showChildPreview?: boolean;
 };
 
 function getHostname(rawUrl: string) {
@@ -117,6 +120,7 @@ export function FolderCard({
   name,
   count,
   previews,
+  previewBookmarks,
   onOpen,
   isUnstaged,
   isEmpty,
@@ -125,8 +129,16 @@ export function FolderCard({
   isSelectable,
   onToggleSelect,
   hasChildren,
+  childFolders,
+  showChildPreview,
 }: FolderCardProps) {
-  const previewCards = previews.slice(0, 16);
+  const previewCards = (previewBookmarks ?? previews ?? []).slice(0, 16);
+  const sortedChildFolders = [...(childFolders ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+  const childPreviewItems = sortedChildFolders.slice(0, 3);
+  const remainingChildCount = Math.max(0, sortedChildFolders.length - childPreviewItems.length);
+  const shouldShowChildPreview = showChildPreview ?? sortedChildFolders.length > 0;
 
   return (
     <button
@@ -175,11 +187,7 @@ export function FolderCard({
         </div>
       </div>
       <div className="h-52 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3">
-        {previewCards.length === 0 ? (
-          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/50 text-xs text-slate-500">
-            No bookmarks yet
-          </div>
-        ) : (
+        {previewCards.length > 0 ? (
           <div className="bd-mini-grid relative h-full [--mini-gap:8px] [--mini-min:34px] sm:[--mini-min:36px]">
             {previewCards.map((bookmark, index) => (
               <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
@@ -189,6 +197,34 @@ export function FolderCard({
                 +{count - 16}
               </div>
             )}
+          </div>
+        ) : shouldShowChildPreview && childPreviewItems.length > 0 ? (
+          <div className="grid h-full content-start grid-cols-1 gap-2 sm:grid-cols-2">
+            {childPreviewItems.map((folder) => (
+              <div
+                key={folder.id}
+                className="flex items-center gap-2 rounded-xl border border-slate-800/70 bg-slate-950/30 px-2.5 py-2"
+              >
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/70 bg-slate-900/60 text-slate-200">
+                  <FolderTree className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-slate-100">{folder.name}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {folder.bookmarkCount} bookmark{folder.bookmarkCount !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {remainingChildCount > 0 && (
+              <div className="inline-flex items-center justify-center rounded-xl border border-slate-700/80 bg-slate-900/40 px-2.5 py-2 text-[11px] font-semibold text-slate-200">
+                +{remainingChildCount} more
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/50 text-xs text-slate-500">
+            No bookmarks yet
           </div>
         )}
       </div>
