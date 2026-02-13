@@ -291,6 +291,7 @@ function loadFromStorage(userId?: string | null): BookmarkDeckStorageV2 {
   };
 
   window.localStorage.setItem(storageKeyV2ForUser(userId), JSON.stringify(payload));
+  window.localStorage.removeItem(legacyLocalFoldersKey(userId));
   return payload;
 }
 
