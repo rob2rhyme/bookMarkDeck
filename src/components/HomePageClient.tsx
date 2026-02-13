@@ -2,7 +2,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -266,20 +266,23 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     return new Map(folderEntities.map((folder) => [folder.id, folder]));
   }, [folderEntities]);
 
-  const buildFolderPathLabel = (folderId: string) => {
-    const path: string[] = [];
-    const visited = new Set<string>();
-    let cursorId: string | null = folderId;
-    while (cursorId) {
-      if (visited.has(cursorId)) break;
-      visited.add(cursorId);
-      const node = folderById.get(cursorId);
-      if (!node) break;
-      path.push(node.name);
-      cursorId = node.parentId;
-    }
-    return path.reverse().join(" / ");
-  };
+  const buildFolderPathLabel = useCallback(
+    (folderId: string) => {
+      const path: string[] = [];
+      const visited = new Set<string>();
+      let cursorId: string | null = folderId;
+      while (cursorId) {
+        if (visited.has(cursorId)) break;
+        visited.add(cursorId);
+        const node = folderById.get(cursorId);
+        if (!node) break;
+        path.push(node.name);
+        cursorId = node.parentId;
+      }
+      return path.reverse().join(" / ");
+    },
+    [folderById]
+  );
 
   const folderOptions = useMemo(() => {
     return [...folderEntities]
@@ -289,11 +292,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         name: folder.name,
         label: buildFolderPathLabel(folder.id),
       }));
-  }, [folderEntities, folderById]);
-
-  const orderedFolderList = useMemo(() => {
-    return rootFolders.map((folder) => folder.name);
-  }, [rootFolders]);
+  }, [folderEntities, buildFolderPathLabel]);
 
   const addRootFolder = (name: string) => {
     const normalized = cleanFolderLabel(name);
@@ -566,20 +565,6 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     });
     return { byKey, unstaged };
   }, [filtered, rootFolders]);
-
-  const folderLabelByKey = useMemo(() => {
-    const map = new Map<string, string>();
-    rootFolders.forEach((folder) => {
-      map.set(folder.id, folder.name);
-    });
-    return map;
-  }, [rootFolders]);
-
-  const selectedFolderLabels = useMemo(() => {
-    return selectedFolderKeys
-      .map((key) => folderLabelByKey.get(key))
-      .filter((value): value is string => Boolean(value));
-  }, [selectedFolderKeys, folderLabelByKey]);
 
   const clearFolderSelection = () => {
     setSelectedFolderKeys([]);

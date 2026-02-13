@@ -18,7 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="mb-8 flex flex-col gap-4 sm:mb-10">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 sm:gap-3">
+              <Link href="/" className="flex items-center gap-2.5 sm:gap-3">
                 <Image
                   src="/logo.png"
                   alt="Bookmark Deck logo"
@@ -30,7 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <h1 className="text-xl font-semibold tracking-tight sm:text-4xl">
                   Bookmark Deck
                 </h1>
-              </div>
+              </Link>
               {session && (
                 <div className="flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-2 py-1 shadow-sm sm:gap-3 sm:px-3 sm:py-1.5">
                   <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-800 text-[11px] font-semibold text-slate-100 ring-1 ring-white/5 sm:h-9 sm:w-9 sm:text-sm">

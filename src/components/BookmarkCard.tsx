@@ -6,8 +6,9 @@ import { useState, useEffect } from "react";
 import { IconAction } from "@/components/IconAction";
 import {
   Check,
+  Eye,
+  EyeOff,
   ExternalLink,
-  Note,
   Pencil,
   Star,
   StarFilled,
@@ -490,98 +491,32 @@ export function BookmarkCard({
 
         </div>
 
-        {!selectMode && (
-          <div className="flex items-center justify-evenly border-t border-slate-800/70 pt-2">
-            <IconAction
-              label={bookmark.pinned ? "Unpin" : "Pin"}
-              onClick={() => {
-                hapticTap();
-                handleTogglePinned();
-              }}
-              active={!!bookmark.pinned}
-              icon={
-                bookmark.pinned ? (
-                  <StarFilled className="h-4 w-4" />
-                ) : (
-                  <Star className="h-4 w-4" />
-                )
-              }
-            />
-            <IconAction
-              label="Open link"
-              onClick={handleOpen}
-              disabled={selectMode || isEditing}
-              icon={<ExternalLink className="h-4 w-4" />}
-            />
-            <IconAction
-              label={showNote ? "Hide note" : "Show note"}
-              onClick={() => {
-                hapticTap();
-                setShowNote((prev) => !prev);
-              }}
-              active={showNote}
-              icon={<Note className="h-4 w-4" />}
-            />
-            <IconAction
-              label={isEditing ? "Save" : "Edit"}
-              onClick={() => {
-                hapticTap();
-                handleEditClick();
-              }}
-              icon={
-                isEditing ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Pencil className="h-4 w-4" />
-                )
-              }
-            />
-            <IconAction
-              label={isEditing ? "Cancel" : "Delete"}
-              onClick={() => {
-                hapticTap();
-                if (isEditing) {
-                  handleCancel();
-                  return;
-                }
-                onDelete(bookmark.id);
-              }}
-              variant={isEditing ? "default" : "danger"}
-              icon={
-                isEditing ? (
-                  <X className="h-4 w-4" />
-                ) : (
-                  <Trash className="h-4 w-4" />
-                )
-              }
-            />
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {isEditing ? (
-            <>
-              <select
-                value={currentFolderValue}
-                onChange={(e) => handleFolderChange(e.target.value)}
-                className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[11px] font-medium text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                aria-label="Folder"
-              >
-                <option value="__unstaged__">Unstaged</option>
-                {folderOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label ?? option.name}
-                  </option>
-                ))}
-                <option value="__new__">New folder…</option>
-              </select>
+            <div className="min-w-0 w-full space-y-2">
+              <div className="min-w-0 flex-1">
+                <select
+                  value={currentFolderValue}
+                  onChange={(e) => handleFolderChange(e.target.value)}
+                  className="w-full truncate overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  aria-label="Folder"
+                >
+                  <option value="__unstaged__">Unstaged</option>
+                  {folderOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label ?? option.name}
+                    </option>
+                  ))}
+                  <option value="__new__">New folder…</option>
+                </select>
+              </div>
               <input
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 placeholder="Tags (comma separated)"
-                className="min-w-[160px] flex-1 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[11px] text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
-            </>
+            </div>
           ) : (
             <>
               {tags.map((tag) => (
@@ -617,7 +552,13 @@ export function BookmarkCard({
                     setShowNote((prev) => !prev);
                   }}
                   active={showNote}
-                  icon={<Note className="h-3.5 w-3.5" />}
+                  icon={
+                    showNote ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )
+                  }
                   className="h-8 w-8"
                 />
               )}
@@ -631,6 +572,65 @@ export function BookmarkCard({
                 {bookmark.note ? "••••••••" : "Add login hints, purpose, etc."}
               </p>
             )}
+          </div>
+        )}
+
+        {!selectMode && (
+          <div className="mt-3 flex w-full items-center justify-evenly gap-2 border-t border-slate-800/70 pt-2">
+            <IconAction
+              label={bookmark.pinned ? "Unpin" : "Pin"}
+              onClick={() => {
+                hapticTap();
+                handleTogglePinned();
+              }}
+              active={!!bookmark.pinned}
+              icon={
+                bookmark.pinned ? (
+                  <StarFilled className="h-4 w-4" />
+                ) : (
+                  <Star className="h-4 w-4" />
+                )
+              }
+            />
+            <IconAction
+              label="Open link"
+              onClick={handleOpen}
+              disabled={selectMode || isEditing}
+              icon={<ExternalLink className="h-4 w-4" />}
+            />
+            <IconAction
+              label={isEditing ? "Save" : "Edit"}
+              onClick={() => {
+                hapticTap();
+                handleEditClick();
+              }}
+              icon={
+                isEditing ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Pencil className="h-4 w-4" />
+                )
+              }
+            />
+            <IconAction
+              label={isEditing ? "Cancel" : "Delete"}
+              onClick={() => {
+                hapticTap();
+                if (isEditing) {
+                  handleCancel();
+                  return;
+                }
+                onDelete(bookmark.id);
+              }}
+              variant={isEditing ? "default" : "danger"}
+              icon={
+                isEditing ? (
+                  <X className="h-4 w-4" />
+                ) : (
+                  <Trash className="h-4 w-4" />
+                )
+              }
+            />
           </div>
         )}
       </div>
@@ -789,90 +789,17 @@ export function BookmarkCard({
                 </>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              {!isEditing && !selectMode && (
-                <IconAction
-                  label={bookmark.pinned ? "Unpin" : "Pin"}
-                  onClick={() => {
-                    hapticTap();
-                    handleTogglePinned();
-                  }}
-                  active={!!bookmark.pinned}
-                  icon={
-                    bookmark.pinned ? (
-                      <StarFilled className="h-4 w-4" />
-                    ) : (
-                      <Star className="h-4 w-4" />
-                    )
-                  }
-                />
-              )}
-              <IconAction
-                label="Open link"
-                onClick={handleOpen}
-                disabled={selectMode || isEditing}
-                icon={<ExternalLink className="h-4 w-4" />}
-              />
-              {!selectMode && (
-                <IconAction
-                  label={showNote ? "Hide note" : "Show note"}
-                  onClick={() => {
-                    hapticTap();
-                    setShowNote((prev) => !prev);
-                  }}
-                  active={showNote}
-                  icon={<Note className="h-4 w-4" />}
-                />
-              )}
-              {isEditing && !selectMode && (
-                <IconAction
-                  label="Cancel"
-                  onClick={() => {
-                    hapticTap();
-                    handleCancel();
-                  }}
-                  icon={<X className="h-4 w-4" />}
-                />
-              )}
-              {!selectMode && (
-                <>
-                  <IconAction
-                    label={isEditing ? "Save" : "Edit"}
-                    onClick={() => {
-                      hapticTap();
-                      handleEditClick();
-                    }}
-                    icon={
-                      isEditing ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Pencil className="h-4 w-4" />
-                      )
-                    }
-                  />
-                  <IconAction
-                    label="Delete"
-                    variant="danger"
-                    onClick={() => {
-                      hapticTap();
-                      onDelete(bookmark.id);
-                    }}
-                    icon={<Trash className="h-4 w-4" />}
-                  />
-                </>
-              )}
-            </div>
           </div>
 
           {/* Folder + tags row */}
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               {isEditing ? (
-                <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
                   <select
                     value={currentFolderValue}
                     onChange={(e) => handleFolderChange(e.target.value)}
-                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    className="w-full truncate overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                     aria-label="Folder"
                   >
                     <option value="__unstaged__">Unstaged</option>
@@ -929,7 +856,13 @@ export function BookmarkCard({
                       setShowNote((prev) => !prev);
                     }}
                     active={showNote}
-                    icon={<Note className="h-3.5 w-3.5" />}
+                    icon={
+                      showNote ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )
+                    }
                     className="h-8 w-8"
                   />
                 )}
@@ -956,6 +889,65 @@ export function BookmarkCard({
               </div>
             )}
           </div>
+
+          {!selectMode && (
+            <div className="mt-3 flex w-full items-center justify-evenly gap-2 border-t border-slate-200/70 pt-2 dark:border-slate-700/70">
+              <IconAction
+                label={bookmark.pinned ? "Unpin" : "Pin"}
+                onClick={() => {
+                  hapticTap();
+                  handleTogglePinned();
+                }}
+                active={!!bookmark.pinned}
+                icon={
+                  bookmark.pinned ? (
+                    <StarFilled className="h-4 w-4" />
+                  ) : (
+                    <Star className="h-4 w-4" />
+                  )
+                }
+              />
+              <IconAction
+                label="Open link"
+                onClick={handleOpen}
+                disabled={selectMode || isEditing}
+                icon={<ExternalLink className="h-4 w-4" />}
+              />
+              <IconAction
+                label={isEditing ? "Save" : "Edit"}
+                onClick={() => {
+                  hapticTap();
+                  handleEditClick();
+                }}
+                icon={
+                  isEditing ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Pencil className="h-4 w-4" />
+                  )
+                }
+              />
+              <IconAction
+                label={isEditing ? "Cancel" : "Delete"}
+                onClick={() => {
+                  hapticTap();
+                  if (isEditing) {
+                    handleCancel();
+                    return;
+                  }
+                  onDelete(bookmark.id);
+                }}
+                variant={isEditing ? "default" : "danger"}
+                icon={
+                  isEditing ? (
+                    <X className="h-4 w-4" />
+                  ) : (
+                    <Trash className="h-4 w-4" />
+                  )
+                }
+              />
+            </div>
+          )}
         </div>
 
         <div className="relative z-10 flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">

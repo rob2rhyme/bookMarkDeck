@@ -129,6 +129,19 @@ export default function FolderPage() {
     if (!currentFolder) return [];
     return buildFolderPath(currentFolder, folderById);
   }, [currentFolder, folderById]);
+  const currentPathLabel = useMemo(() => {
+    const fromBreadcrumbs = breadcrumbs.map((segment) => segment.name).join(" / ");
+    if (fromBreadcrumbs) return fromBreadcrumbs;
+    return currentFolder?.name ?? "";
+  }, [breadcrumbs, currentFolder]);
+  const parentFolder =
+    breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2] : null;
+  const showInContentBreadcrumb =
+    currentFolder?.parentId !== null &&
+    breadcrumbs.length > 1;
+  const showHeaderBreadcrumb =
+    currentFolder?.parentId !== null &&
+    breadcrumbs.length > 1;
 
   const childFolders = useMemo(() => {
     if (!currentFolderId) return [];
@@ -320,26 +333,28 @@ export default function FolderPage() {
             <span>Home</span>
           </Link>
 
-          <nav className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-slate-400">
-            {breadcrumbs.map((segment, index) => {
-              const isLast = index === breadcrumbs.length - 1;
-              return (
-                <span key={segment.id} className="inline-flex items-center gap-1">
-                  {isLast ? (
-                    <span className="font-semibold text-slate-200">{segment.name}</span>
-                  ) : (
-                    <Link
-                      href={`/folders/${encodeURIComponent(segment.id)}`}
-                      className="text-slate-300 hover:text-white"
-                    >
-                      {segment.name}
-                    </Link>
-                  )}
-                  {!isLast && <span className="text-slate-500">/</span>}
-                </span>
-              );
-            })}
-          </nav>
+          {showHeaderBreadcrumb && (
+            <nav className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-slate-400">
+              {breadcrumbs.map((segment, index) => {
+                const isLast = index === breadcrumbs.length - 1;
+                return (
+                  <span key={segment.id} className="inline-flex items-center gap-1">
+                    {isLast ? (
+                      <span className="font-semibold text-slate-200">{segment.name}</span>
+                    ) : (
+                      <Link
+                        href={`/folders/${encodeURIComponent(segment.id)}`}
+                        className="text-slate-300 hover:text-white"
+                      >
+                        {segment.name}
+                      </Link>
+                    )}
+                    {!isLast && <span className="text-slate-500">/</span>}
+                  </span>
+                );
+              })}
+            </nav>
+          )}
 
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-semibold tracking-tight text-slate-100">
@@ -399,6 +414,47 @@ export default function FolderPage() {
         <div className="mb-3 rounded-xl border border-red-800/70 bg-red-950/30 px-3 py-2 text-xs text-red-200">
           {folderActionError}
         </div>
+      )}
+
+      {showInContentBreadcrumb && (
+        <section className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/50 px-3 py-2">
+          {parentFolder && (
+            <div className="shrink-0">
+              <IconAction
+                href={`/folders/${encodeURIComponent(parentFolder.id)}`}
+                label="Go to parent folder"
+                icon={<ArrowLeft className="h-4 w-4" />}
+              />
+            </div>
+          )}
+          <nav className="min-w-0 flex-1 text-right text-xs text-slate-300">
+            <span
+              className="inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-middle"
+              style={{ direction: "rtl" }}
+            >
+              <span style={{ direction: "ltr" }}>
+                {breadcrumbs.map((segment, index) => {
+                  const isLast = index === breadcrumbs.length - 1;
+                  return (
+                    <span key={`content-${segment.id}`} className="inline-flex items-center gap-1">
+                      {isLast ? (
+                        <span className="font-semibold text-slate-100">{segment.name}</span>
+                      ) : (
+                        <Link
+                          href={`/folders/${encodeURIComponent(segment.id)}`}
+                          className="text-slate-200 hover:text-white"
+                        >
+                          {segment.name}
+                        </Link>
+                      )}
+                      {!isLast && <span className="text-slate-500">/</span>}
+                    </span>
+                  );
+                })}
+              </span>
+            </span>
+          </nav>
+        </section>
       )}
 
       {childFolders.length > 0 && (
@@ -687,6 +743,14 @@ export default function FolderPage() {
               >
                 Close
               </button>
+            </div>
+            <div className="mb-3 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2">
+              <p className="text-xs text-slate-400">
+                You are in{" "}
+                <span className="font-semibold text-slate-200">
+                  {currentPathLabel || currentFolder.name}
+                </span>
+              </p>
             </div>
             <input
               type="text"

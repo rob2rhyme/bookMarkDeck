@@ -145,3 +145,23 @@ export function ExternalLink({ className }: IconProps) {
     </svg>
   );
 }
+
+export function Eye({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+      <circle cx="12" cy="12" r="2.75" />
+    </svg>
+  );
+}
+
+export function EyeOff({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M3 3l18 18" />
+      <path d="M10.7 5.2A11.2 11.2 0 0 1 12 5c6.5 0 10 7 10 7a16.5 16.5 0 0 1-4 4.8" />
+      <path d="M7.9 7.9A16.1 16.1 0 0 0 2 12s3.5 7 10 7c1 0 1.9-.2 2.8-.5" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  );
+}
