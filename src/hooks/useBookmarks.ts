@@ -220,6 +220,37 @@ function migrateLegacyData(
   return { bookmarks: migratedBookmarks, folders };
 }
 
+function backfillBookmarkFolderIds(
+  bookmarksInput: Bookmark[],
+  foldersInput: Folder[]
+): Bookmark[] {
+  const rootFoldersByNameKey = new Map<string, Folder>();
+  foldersInput.forEach((folder) => {
+    if (folder.parentId !== null) return;
+    const key = folderNameKey(folder.name);
+    if (!rootFoldersByNameKey.has(key)) {
+      rootFoldersByNameKey.set(key, folder);
+    }
+  });
+
+  return bookmarksInput.map((bookmark) => {
+    if (typeof bookmark.folderId === "string") {
+      const exists = foldersInput.some((folder) => folder.id === bookmark.folderId);
+      if (exists) return bookmark;
+    }
+    const legacyLabel = normalizeFolderName(bookmark.folder ?? "");
+    if (!legacyLabel) {
+      return { ...bookmark, folderId: null };
+    }
+    const folder = rootFoldersByNameKey.get(folderNameKey(legacyLabel));
+    return {
+      ...bookmark,
+      folder: legacyLabel,
+      folderId: folder?.id ?? null,
+    };
+  });
+}
+
 function loadFromStorage(userId?: string | null): BookmarkDeckStorageV2 {
   if (typeof window === "undefined") return { version: 2, bookmarks: [], folders: [] };
 
@@ -230,7 +261,11 @@ function loadFromStorage(userId?: string | null): BookmarkDeckStorageV2 {
       const bookmarks = normalizeBookmarks(parsed.bookmarks);
       const folders = normalizeFolders(parsed.folders);
       if (parsed.version === 2) {
-        return { version: 2, bookmarks, folders };
+        return {
+          version: 2,
+          bookmarks: backfillBookmarkFolderIds(bookmarks, folders),
+          folders,
+        };
       }
     }
   } catch {
@@ -507,11 +542,22 @@ export function useBookmarks(userId?: string | null) {
         setSyncError("No cloud backup found.");
         return;
       }
-      const normalized = normalizeBookmarks(remote.bookmarks);
-      const migrated = migrateLegacyData(normalized);
-      setBookmarks(migrated.bookmarks);
-      setFolders(migrated.folders);
-      saveToStorage(migrated.bookmarks, migrated.folders, userIdHint);
+      const normalizedBookmarks = normalizeBookmarks(remote.bookmarks);
+      const normalizedFolders = normalizeFolders(remote.folders);
+      const nextState =
+        normalizedFolders.length > 0
+          ? {
+              bookmarks: backfillBookmarkFolderIds(
+                normalizedBookmarks,
+                normalizedFolders
+              ),
+              folders: normalizedFolders,
+            }
+          : migrateLegacyData(normalizedBookmarks);
+
+      setBookmarks(nextState.bookmarks);
+      setFolders(nextState.folders);
+      saveToStorage(nextState.bookmarks, nextState.folders, userIdHint);
       setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
       await refreshBackups(userIdHint);
     } catch (err) {
@@ -534,7 +580,7 @@ export function useBookmarks(userId?: string | null) {
     setIsSyncing(true);
     setSyncError(null);
     try {
-      await saveBookmarks(userIdHint, bookmarks, shortcuts);
+      await saveBookmarks(userIdHint, bookmarks, folders, shortcuts);
       setLastSyncedAt(new Date().toISOString());
     } catch (err) {
       setSyncError(
