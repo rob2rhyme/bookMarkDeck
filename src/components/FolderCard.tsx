@@ -134,7 +134,9 @@ export function FolderCard({
   childFolders,
   showChildPreview,
 }: FolderCardProps) {
-  const previewCards = (previewBookmarks ?? previews ?? []).slice(0, 16);
+  const previewBookmarksToShow = (previewBookmarks ?? previews ?? []).slice(0, 16);
+  const previewCount = previewBookmarksToShow.length;
+  const useCompactPreviewLayout = previewCount <= 6;
   const sortedChildFolders = [...(childFolders ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
   );
@@ -191,17 +193,30 @@ export function FolderCard({
         </div>
       </div>
       <div className="h-52 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3">
-        {previewCards.length > 0 ? (
-          <div className="bd-tile-grid relative h-full content-start place-items-center [--tile-gap:8px] [--tile-max:40px] [--tile-min:34px] sm:[--tile-min:36px]">
-            {previewCards.map((bookmark, index) => (
-              <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
-            ))}
-            {count > 16 && (
-              <div className="pointer-events-none absolute bottom-1 right-1 rounded-full border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100 ring-1 ring-white/5">
-                +{count - 16}
-              </div>
-            )}
-          </div>
+        {previewCount > 0 ? (
+          useCompactPreviewLayout ? (
+            <div className="flex h-full flex-wrap content-start items-center justify-start gap-2">
+              {previewBookmarksToShow.map((bookmark, index) => (
+                <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
+              ))}
+              {count > 16 && (
+                <div className="inline-flex h-[40px] items-center justify-center rounded-full border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100 ring-1 ring-white/5">
+                  +{count - 16}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bd-tile-grid relative h-full content-start place-items-center [--tile-gap:8px] [--tile-max:40px] [--tile-min:34px] sm:[--tile-min:36px]">
+              {previewBookmarksToShow.map((bookmark, index) => (
+                <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
+              ))}
+              {count > 16 && (
+                <div className="pointer-events-none absolute bottom-1 right-1 rounded-full border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100 ring-1 ring-white/5">
+                  +{count - 16}
+                </div>
+              )}
+            </div>
+          )
         ) : shouldShowChildPreview && childPreviewItems.length > 0 ? (
           <div className="grid h-full content-start grid-cols-1 gap-2 sm:grid-cols-2">
             {childPreviewItems.map((folder) => (
