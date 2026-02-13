@@ -1,3 +1,4 @@
+//src/app/(app)/folders/[folderKey]/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -6,7 +7,15 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 
 import { BookmarkCard } from "@/components/BookmarkCard";
-import { ArrowLeft, X } from "@/components/icons";
+import { IconAction } from "@/components/IconAction";
+import {
+  ArrowLeft,
+  CheckSquare,
+  FolderPlus,
+  Pencil,
+  Trash2,
+  X,
+} from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
@@ -301,8 +310,8 @@ export default function FolderPage() {
 
   return (
     <>
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-2">
+      <header className="mb-6 flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-2">
           <Link
             href="/"
             className="inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/60 px-3 py-1.5 text-xs font-semibold text-slate-200 ring-1 ring-white/5 transition hover:border-blue-400 hover:text-white active:scale-[0.98]"
@@ -311,11 +320,11 @@ export default function FolderPage() {
             <span>Home</span>
           </Link>
 
-          <nav className="flex flex-wrap items-center gap-1 text-xs text-slate-400">
+          <nav className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-slate-400">
             {breadcrumbs.map((segment, index) => {
               const isLast = index === breadcrumbs.length - 1;
               return (
-                <div key={segment.id} className="inline-flex items-center gap-1">
+                <span key={segment.id} className="inline-flex items-center gap-1">
                   {isLast ? (
                     <span className="font-semibold text-slate-200">{segment.name}</span>
                   ) : (
@@ -327,13 +336,13 @@ export default function FolderPage() {
                     </Link>
                   )}
                   {!isLast && <span className="text-slate-500">/</span>}
-                </div>
+                </span>
               );
             })}
           </nav>
 
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-100">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-semibold tracking-tight text-slate-100">
               {currentFolder.name}
             </h1>
             <p className="text-xs text-slate-400">
@@ -341,55 +350,49 @@ export default function FolderPage() {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (bookmarkSelectMode) {
-              clearSelectionAndExit();
-              return;
-            }
-            setBookmarkSelectMode(true);
-            setSelectedBookmarkIds([]);
-          }}
-          className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
-        >
-          {bookmarkSelectMode ? "Done" : "Select"}
-        </button>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
+        <div className="flex shrink-0 items-center gap-1">
+          <IconAction
+            label={bookmarkSelectMode ? "Done selecting" : "Select"}
+            icon={<CheckSquare className="h-4 w-4" />}
+            active={bookmarkSelectMode}
+            onClick={() => {
+              if (bookmarkSelectMode) {
+                clearSelectionAndExit();
+                return;
+              }
+              setBookmarkSelectMode(true);
+              setSelectedBookmarkIds([]);
+            }}
+          />
+          <IconAction
+            label="New subfolder"
+            icon={<FolderPlus className="h-4 w-4" />}
             onClick={() => {
               setFolderActionError("");
               setNewSubfolderError("");
               setNewSubfolderName("");
               setShowNewSubfolderModal(true);
             }}
-            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
-          >
-            New subfolder
-          </button>
-          <button
-            type="button"
+          />
+          <IconAction
+            label="Rename"
+            icon={<Pencil className="h-4 w-4" />}
             onClick={() => {
               setFolderActionError("");
               setRenameFolderError("");
               setRenameFolderName(currentFolder.name);
               setShowRenameFolderModal(true);
             }}
-            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
-          >
-            Rename
-          </button>
-          <button
-            type="button"
+          />
+          <IconAction
+            label="Delete"
+            variant="danger"
+            icon={<Trash2 className="h-4 w-4" />}
             onClick={() => {
               setFolderActionError("");
               setShowDeleteFolderConfirm(true);
             }}
-            className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white"
-          >
-            Delete
-          </button>
+          />
         </div>
       </header>
       {folderActionError && (
