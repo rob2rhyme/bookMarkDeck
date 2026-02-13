@@ -9,6 +9,7 @@ import { Bookmark } from "@/types/bookmark";
 type FolderCardProps = {
   name: string;
   count: number;
+  subfolderCount?: number;
   previews?: Bookmark[];
   previewBookmarks?: Bookmark[];
   onOpen: () => void;
@@ -84,7 +85,7 @@ function FolderPreviewTile({ bookmark }: { bookmark: Bookmark }) {
   const shouldShowIconText = !shouldShowIconUrl && !shouldShowFavicon && iconValue.length > 0;
 
   return (
-    <div className="flex aspect-square w-full max-w-[40px] items-center justify-center justify-self-start overflow-hidden rounded-lg bg-slate-900 text-[12px] font-semibold uppercase text-slate-100 ring-1 ring-white/5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_25px_-18px_rgba(0,0,0,0.9)]">
+    <div className="flex aspect-square h-[40px] w-[40px] items-center justify-center overflow-hidden rounded-lg bg-slate-900 text-[12px] font-semibold uppercase text-slate-100 ring-1 ring-white/5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_25px_-18px_rgba(0,0,0,0.9)]">
       {shouldShowIconUrl ? (
         <img
           src={iconUrl}
@@ -119,6 +120,7 @@ function FolderPreviewTile({ bookmark }: { bookmark: Bookmark }) {
 export function FolderCard({
   name,
   count,
+  subfolderCount = 0,
   previews,
   previewBookmarks,
   onOpen,
@@ -167,6 +169,8 @@ export function FolderCard({
           <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
           <p className="text-[11px] text-slate-400">
             {count} bookmark{count !== 1 ? "s" : ""}
+            {" • "}
+            {subfolderCount} subfolder{subfolderCount !== 1 ? "s" : ""}
             {isUnstaged ? " · No folder yet" : ""}
             {isEmpty ? " · Empty" : ""}
           </p>
@@ -188,7 +192,7 @@ export function FolderCard({
       </div>
       <div className="h-52 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3">
         {previewCards.length > 0 ? (
-          <div className="bd-mini-grid relative h-full [--mini-gap:8px] [--mini-min:34px] sm:[--mini-min:36px]">
+          <div className="bd-tile-grid relative h-full content-start place-items-center [--tile-gap:8px] [--tile-max:40px] [--tile-min:34px] sm:[--tile-min:36px]">
             {previewCards.map((bookmark, index) => (
               <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
             ))}

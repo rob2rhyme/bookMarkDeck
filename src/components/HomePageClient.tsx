@@ -1790,6 +1790,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               <FolderCard
                 name="Unstaged"
                 count={folderBuckets.unstaged.length}
+                subfolderCount={0}
                 previews={folderBuckets.unstaged}
                 isUnstaged
                 isEmpty={folderBuckets.unstaged.length === 0}
@@ -1811,6 +1812,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   key={folder.id}
                   name={folder.name}
                   count={items.length}
+                  subfolderCount={childrenByParentId.get(folder.id)?.length ?? 0}
                   previews={items}
                   childFolders={childPreviewByParentId.get(folder.id)}
                   hasChildren={parentIdsWithChildren.has(folder.id)}

@@ -417,6 +417,8 @@ export default function FolderPage() {
             </h1>
             <p className="text-xs text-slate-400">
               {folderItems.length} bookmark{folderItems.length !== 1 ? "s" : ""}
+              {" • "}
+              {childFolders.length} subfolder{childFolders.length !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -524,6 +526,7 @@ export default function FolderPage() {
                   key={folder.id}
                   name={folder.name}
                   count={bookmarkCountByFolderId.get(folder.id) ?? 0}
+                  subfolderCount={childrenByParentId.get(folder.id)?.length ?? 0}
                   previews={bookmarksByFolderId.get(folder.id) ?? []}
                   childFolders={childPreviewByParentId.get(folder.id)}
                   hasChildren={parentIdsWithChildren.has(folder.id)}
