@@ -118,6 +118,20 @@ export function FolderPlus({ className }: IconProps) {
   );
 }
 
+export function FolderTree(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(props.className)} {...props}>
+      <path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2" />
+      <path d="M5 10v8a2 2 0 0 0 2 2h2" />
+      <path d="M9 18v-4" />
+      <path d="M9 14h4" />
+      <path d="M9 18h4" />
+      <path d="M17 13v2" />
+      <path d="M15 17h4" />
+    </svg>
+  );
+}
+
 export function DotsHorizontal({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...baseProps(className)}>
