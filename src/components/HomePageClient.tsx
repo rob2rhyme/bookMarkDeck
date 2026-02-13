@@ -175,7 +175,11 @@ export function HomePageClient() {
   const userId = session?.user?.email ?? null;
   const {
     bookmarks,
+    folders: folderEntities,
     addBookmark,
+    addFolder,
+    updateFolder: updateFolderEntity,
+    deleteFolder: deleteFolderEntity,
     updateBookmark,
     deleteBookmark,
     clearAll,
@@ -227,7 +231,6 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
 const [showShortcutInfo, setShowShortcutInfo] = useState(false);
 const [activeShortcutId, setActiveShortcutId] = useState<string | null>(null);
 const [activeShortcutPinned, setActiveShortcutPinned] = useState(false);
-const [localFolders, setLocalFolders] = useState<string[]>([]);
 const [showNewFolderModal, setShowNewFolderModal] = useState(false);
 const [newFolderName, setNewFolderName] = useState("");
 const [newFolderError, setNewFolderError] = useState("");
@@ -243,64 +246,56 @@ const [showBulkDeleteFoldersConfirm, setShowBulkDeleteFoldersConfirm] = useState
 const [showBulkMoveBookmarksModal, setShowBulkMoveBookmarksModal] = useState(false);
 const [bookmarkBulkTarget, setBookmarkBulkTarget] = useState("__unstaged__");
 const [showBulkDeleteBookmarksConfirm, setShowBulkDeleteBookmarksConfirm] = useState(false);
-const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
-  const localFoldersKey = userId
-    ? `bookmarkDeck.folders.local:${userId}`
-    : "bookmarkDeck.folders.local:guest";
-
-  const folderDisplayMap = useMemo(() => {
-    const map = new Map<string, string>();
-    bookmarks.forEach((b) => {
-      const raw = b.folder ?? "";
-      const trimmed = raw.trim();
-      if (!trimmed) return;
-      const key = trimmed.toLowerCase();
-      if (!map.has(key)) {
-        map.set(key, trimmed);
-      }
-    });
-    return map;
-  }, [bookmarks]);
+const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
   const normalizeFolderName = (value: string) => {
-    const trimmed = value.trim();
+    const trimmed = value.replace(/\s+/g, " ").trim();
     return trimmed ? trimmed : null;
   };
 
-  const folders = useMemo(() => {
-    return Array.from(folderDisplayMap.values()).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" })
-    );
-  }, [folderDisplayMap]);
+  const folderKey = (value: string) => value.trim().toLowerCase();
+  const cleanFolderLabel = (value: string) => value.replace(/\s+/g, " ").trim();
 
-  const mergedFolders = useMemo(() => {
-    const map = new Map<string, string>();
-    folders.forEach((name) => {
-      map.set(name.toLowerCase(), name);
-    });
-    localFolders.forEach((name) => {
-      const trimmed = normalizeFolderName(name);
-      if (!trimmed) return;
-      const key = trimmed.toLowerCase();
-      if (!map.has(key)) {
-        map.set(key, trimmed);
-      }
-    });
-    return Array.from(map.values()).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" })
-    );
-  }, [folders, localFolders]);
+  const rootFolders = useMemo(() => {
+    return [...folderEntities]
+      .filter((folder) => folder.parentId === null)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  }, [folderEntities]);
 
-  const localOnlyFolders = useMemo(() => {
-    const existingKeys = new Set(folders.map((name) => name.toLowerCase()));
-    return mergedFolders.filter((name) => !existingKeys.has(name.toLowerCase()));
-  }, [folders, mergedFolders]);
+  const folderById = useMemo(() => {
+    return new Map(folderEntities.map((folder) => [folder.id, folder]));
+  }, [folderEntities]);
+
+  const buildFolderPathLabel = (folderId: string) => {
+    const path: string[] = [];
+    const visited = new Set<string>();
+    let cursorId: string | null = folderId;
+    while (cursorId) {
+      if (visited.has(cursorId)) break;
+      visited.add(cursorId);
+      const node = folderById.get(cursorId);
+      if (!node) break;
+      path.push(node.name);
+      cursorId = node.parentId;
+    }
+    return path.reverse().join(" / ");
+  };
+
+  const folderOptions = useMemo(() => {
+    return [...folderEntities]
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+      .map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        label: buildFolderPathLabel(folder.id),
+      }));
+  }, [folderEntities, folderById]);
 
   const orderedFolderList = useMemo(() => {
-    return [...localOnlyFolders, ...folders];
-  }, [localOnlyFolders, folders]);
+    return rootFolders.map((folder) => folder.name);
+  }, [rootFolders]);
 
-  const addLocalFolder = (name: string) => {
+  const addRootFolder = (name: string) => {
     const normalized = cleanFolderLabel(name);
     if (!normalized) {
       setNewFolderError("Folder name is required.");
@@ -310,19 +305,23 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
       setNewFolderError(`Folder name must be ${MAX_FOLDER_NAME} characters or less.`);
       return null;
     }
-    const existing = mergedFolders.find(
-      (folderName) => folderName.toLowerCase() === normalized.toLowerCase()
+    const existing = rootFolders.find(
+      (folder) => folderKey(folder.name) === folderKey(normalized)
     );
     if (existing) {
-      setNewFolderError("Folder name already exists.");
+      setNewFolderError("Folder name already exists at root.");
+      return existing.id;
+    }
+    const created = addFolder({ name: normalized, parentId: null });
+    if (!created) {
+      setNewFolderError("Unable to create folder.");
       return null;
     }
     setNewFolderError("");
-    setLocalFolders((prev) => [...prev, normalized]);
-    return normalized;
+    return created.id;
   };
 
-  const openNewFolderModal = (onCreated?: (name: string) => void) => {
+  const openNewFolderModal = (onCreated?: (folderId: string) => void) => {
     newFolderRequestRef.current = onCreated ?? null;
     setNewFolderName("");
     setNewFolderError("");
@@ -331,26 +330,9 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
 
   const MAX_FOLDER_NAME = 60;
 
-  const folderKey = (value: string) => value.trim().toLowerCase();
-
-  const cleanFolderLabel = (value: string) => value.replace(/\s+/g, " ").trim();
-
-  const findExistingFolderLabelCI = (value: string) => {
-    const targetKey = folderKey(value);
-    if (!targetKey) return null;
-    return (
-      mergedFolders.find((folderName) => folderKey(folderName) === targetKey) ?? null
-    );
-  };
-
-  const updateBookmarksFolderLabel = (fromLabel: string, nextLabel?: string) => {
-    const sourceKey = folderKey(fromLabel);
-    if (!sourceKey) return;
-    bookmarks.forEach((bookmark) => {
-      const bookmarkKey = folderKey(bookmark.folder ?? "");
-      if (bookmarkKey !== sourceKey) return;
-      updateBookmark(bookmark.id, { folder: nextLabel });
-    });
+  const findFolderById = (folderId: string | null) => {
+    if (!folderId) return null;
+    return folderById.get(folderId) ?? null;
   };
 
   const openRenameForActiveFolder = () => {
@@ -365,10 +347,8 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     setShowDeleteFolderConfirm(true);
   };
 
-  const renameFolder = (oldLabel: string, nextLabel: string) => {
-    const sourceKey = folderKey(oldLabel);
-    if (!sourceKey) return;
-
+  const renameFolder = (_oldLabel: string, nextLabel: string) => {
+    if (!activeFolderKey || activeFolderKey === "UNSTAGED") return;
     const cleanedNext = cleanFolderLabel(nextLabel);
     if (!cleanedNext) {
       setRenameFolderError("Folder name is required.");
@@ -379,71 +359,31 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
       return;
     }
 
-    const existingLabel = findExistingFolderLabelCI(cleanedNext);
-    const isDuplicateOfAnotherFolder =
-      !!existingLabel && folderKey(existingLabel) !== sourceKey;
-    if (isDuplicateOfAnotherFolder) {
-      setRenameFolderError("Folder name already exists.");
+    const result = updateFolderEntity(activeFolderKey, { name: cleanedNext });
+    if (!result.ok) {
+      setRenameFolderError(result.reason);
       return;
     }
-    const targetLabel = cleanedNext;
-    const targetKey = folderKey(targetLabel);
-
-    updateBookmarksFolderLabel(oldLabel, targetLabel);
-    setLocalFolders((prev) => {
-      const withoutOld = prev.filter((name) => folderKey(name) !== sourceKey);
-      if (!targetKey) return withoutOld;
-      const hasTarget = withoutOld.some((name) => folderKey(name) === targetKey);
-      if (hasTarget) return withoutOld;
-      return [...withoutOld, targetLabel];
-    });
-
-    if (activeFolderKey === sourceKey) {
-      setActiveFolderKey(targetKey);
-      setActiveFolderLabel(targetLabel);
-    }
+    setActiveFolderLabel(cleanedNext);
 
     setShowRenameFolderModal(false);
     setRenameFolderError("");
   };
 
-  const deleteFolder = (label: string) => {
-    const sourceKey = folderKey(label);
-    if (!sourceKey) return;
-
-    updateBookmarksFolderLabel(label, undefined);
-    setLocalFolders((prev) => prev.filter((name) => folderKey(name) !== sourceKey));
-
-    if (activeFolderKey === sourceKey) {
+  const deleteFolder = (folderId: string) => {
+    if (!folderId || folderId === "UNSTAGED") return;
+    const result = deleteFolderEntity(folderId);
+    if (!result.ok) {
+      setRenameFolderError(result.reason);
+      return;
+    }
+    if (activeFolderKey === folderId) {
       setActiveFolderKey(null);
       setActiveFolderLabel("Unstaged");
     }
-
-    setSelectedFolderKeys((prev) => prev.filter((key) => key !== sourceKey));
+    setSelectedFolderKeys((prev) => prev.filter((key) => key !== folderId));
     setShowDeleteFolderConfirm(false);
   };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(localFoldersKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        const cleaned = parsed
-          .map((value) => (typeof value === "string" ? value.trim() : ""))
-          .filter(Boolean);
-        setLocalFolders(Array.from(new Set(cleaned)));
-      }
-    } catch {
-      // ignore local-only folder parse errors
-    }
-  }, [localFoldersKey]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(localFoldersKey, JSON.stringify(localFolders));
-  }, [localFolders, localFoldersKey]);
 
   useEffect(() => {
     if (!showShortcutInfo) return;
@@ -598,30 +538,42 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
   const folderBuckets = useMemo(() => {
     const byKey = new Map<string, Bookmark[]>();
     const unstaged: Bookmark[] = [];
+    const rootFolderByNameKey = new Map(
+      rootFolders.map((folder) => [folderKey(folder.name), folder.id])
+    );
     filtered.forEach((b) => {
-      const trimmed = (b.folder ?? "").trim();
-      if (!trimmed) {
+      const folderId = typeof b.folderId === "string" ? b.folderId : null;
+      if (!folderId) {
+        const legacyName = normalizeFolderName(b.folder ?? "");
+        if (legacyName) {
+          const mappedId = rootFolderByNameKey.get(folderKey(legacyName));
+          if (mappedId) {
+            const mappedBucket = byKey.get(mappedId);
+            if (mappedBucket) mappedBucket.push(b);
+            else byKey.set(mappedId, [b]);
+            return;
+          }
+        }
         unstaged.push(b);
         return;
       }
-      const key = trimmed.toLowerCase();
-      const bucket = byKey.get(key);
+      const bucket = byKey.get(folderId);
       if (bucket) {
         bucket.push(b);
       } else {
-        byKey.set(key, [b]);
+        byKey.set(folderId, [b]);
       }
     });
     return { byKey, unstaged };
-  }, [filtered]);
+  }, [filtered, rootFolders]);
 
   const folderLabelByKey = useMemo(() => {
     const map = new Map<string, string>();
-    orderedFolderList.forEach((name) => {
-      map.set(folderKey(name), name);
+    rootFolders.forEach((folder) => {
+      map.set(folder.id, folder.name);
     });
     return map;
-  }, [orderedFolderList]);
+  }, [rootFolders]);
 
   const selectedFolderLabels = useMemo(() => {
     return selectedFolderKeys
@@ -634,17 +586,18 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     setFolderSelectMode(false);
   };
 
-  const toggleFolderSelection = (name: string) => {
-    const key = folderKey(name);
-    if (!key) return;
+  const toggleFolderSelection = (folderId: string) => {
+    if (!folderId) return;
     setSelectedFolderKeys((prev) =>
-      prev.includes(key) ? prev.filter((value) => value !== key) : [...prev, key]
+      prev.includes(folderId)
+        ? prev.filter((value) => value !== folderId)
+        : [...prev, folderId]
     );
   };
 
   const applyBulkDeleteFolders = () => {
-    if (selectedFolderLabels.length === 0) return;
-    selectedFolderLabels.forEach((label) => deleteFolder(label));
+    if (selectedFolderKeys.length === 0) return;
+    selectedFolderKeys.forEach((folderId) => deleteFolder(folderId));
     setShowBulkDeleteFoldersConfirm(false);
     clearFolderSelection();
   };
@@ -994,10 +947,11 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
   const handleAddQuick = () => {
     if (!newUrl.trim()) return;
 
-    const folderName =
+    const folderId =
       newFolderSelection === "__unstaged__"
-        ? undefined
-        : newFolderSelection.trim() || undefined;
+        ? null
+        : newFolderSelection.trim() || null;
+    const folderName = folderId ? findFolderById(folderId)?.name : undefined;
     const tags = newTags
       .split(",")
       .map((t) => t.trim())
@@ -1007,6 +961,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
       title: newTitle.trim() || newUrl.trim(),
       url: newUrl.trim(),
       note: "",
+      folderId,
       folder: folderName,
       tags,
     });
@@ -1058,10 +1013,10 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     setUndoState(null);
   };
 
-  const handleAddLinkForFolder = (folderLabel: string | null) => {
+  const handleAddLinkForFolder = (folderId: string | null) => {
     setShowAddForm(true);
-    if (folderLabel) {
-      setNewFolderSelection(folderLabel);
+    if (folderId) {
+      setNewFolderSelection(folderId);
     } else {
       setNewFolderSelection("__unstaged__");
     }
@@ -1195,15 +1150,14 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     setSelectedBookmarkIds([]);
   };
 
-  const moveBookmarksToFolder = (targetFolderLabel?: string) => {
+  const moveBookmarksToFolder = (targetFolderId?: string) => {
     const target =
-      targetFolderLabel && targetFolderLabel.trim()
-        ? targetFolderLabel.trim()
-        : undefined;
+      targetFolderId && targetFolderId.trim() ? targetFolderId.trim() : null;
+    const targetName = target ? findFolderById(target)?.name : undefined;
     const uniqueIds = Array.from(new Set(selectedBookmarkIds));
     if (uniqueIds.length === 0) return;
     uniqueIds.forEach((id) => {
-      updateBookmark(id, { folder: target });
+      updateBookmark(id, { folderId: target, folder: targetName });
     });
     setSelectedBookmarkIds([]);
     setBookmarkSelectMode(false);
@@ -1214,15 +1168,12 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
     if (selectedBookmarkIds.length === 0) return;
     if (bookmarkBulkTarget === "__new__") {
       setShowBulkMoveBookmarksModal(false);
-      openNewFolderModal((name) => {
-        const normalized = addLocalFolder(name);
-        if (!normalized) return;
-        moveBookmarksToFolder(normalized);
+      openNewFolderModal((folderId) => {
+        moveBookmarksToFolder(folderId);
       });
       return;
     }
-    const target =
-      bookmarkBulkTarget === "__unstaged__" ? undefined : bookmarkBulkTarget;
+    const target = bookmarkBulkTarget === "__unstaged__" ? undefined : bookmarkBulkTarget;
     moveBookmarksToFolder(target);
   };
 
@@ -1268,6 +1219,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
               title: b.title,
               url: b.url,
               note: b.note,
+              folderId: b.folderId ?? null,
               folder: b.folder,
               tags: b.tags ?? [],
             })
@@ -1321,6 +1273,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
         title: b.title,
         url: b.url,
         note: b.note,
+        folderId: b.folderId ?? null,
         folder: b.folder,
         tags: b.tags ?? [],
       })
@@ -1439,8 +1392,8 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                     value={newFolderSelection}
                     onChange={(e) => {
                       if (e.target.value === "__new__") {
-                        openNewFolderModal((name) => {
-                          setNewFolderSelection(name);
+                        openNewFolderModal((folderId) => {
+                          setNewFolderSelection(folderId);
                         });
                         return;
                       }
@@ -1449,9 +1402,9 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                     className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:max-w-xs"
                   >
                     <option value="__unstaged__">Unstaged</option>
-                    {orderedFolderList.map((folderName) => (
-                      <option key={folderName} value={folderName}>
-                        {folderName}
+                    {folderOptions.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {folder.label}
                       </option>
                     ))}
                     <option value="__new__">New folder…</option>
@@ -1643,8 +1596,8 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
           <button
             type="button"
             onClick={() =>
-              openNewFolderModal((name) => {
-                router.push(`/folders/${encodeURIComponent(folderKey(name))}`);
+              openNewFolderModal((folderId) => {
+                router.push(`/folders/${encodeURIComponent(folderId)}`);
               })
             }
             className="inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-2.5 text-[10px] font-semibold text-slate-100 shadow-sm hover:border-blue-400 hover:text-white sm:h-10 sm:px-4 sm:text-xs"
@@ -1828,7 +1781,7 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
         </section>
 
         {/* Folders (wallet view) */}
-        {bookmarks.length === 0 && mergedFolders.length === 0 ? (
+        {bookmarks.length === 0 && rootFolders.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
             <div className="flex flex-col items-center gap-3">
               <p className="text-base text-slate-200">No bookmarks yet.</p>
@@ -1941,31 +1894,28 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                 isSelectable={false}
                 isSelected={false}
                 onOpen={() => {
-                  setActiveFolderKey("UNSTAGED");
-                  setActiveFolderLabel("Unstaged");
+                  router.push("/folders/unstaged");
                 }}
               />
             )}
-            {orderedFolderList.map((folderName) => {
-              const key = folderKey(folderName);
-              const items = folderBuckets.byKey.get(key) ?? [];
+            {rootFolders.map((folder) => {
+              const items = folderBuckets.byKey.get(folder.id) ?? [];
               if (search && items.length === 0) {
                 return null;
               }
               return (
                 <FolderCard
-                  key={folderName}
-                  name={folderName}
+                  key={folder.id}
+                  name={folder.name}
                   count={items.length}
                   previews={items}
                   isEmpty={items.length === 0}
                   selectMode={folderSelectMode}
-                  isSelected={selectedFolderKeys.includes(key)}
+                  isSelected={selectedFolderKeys.includes(folder.id)}
                   isSelectable
-                  onToggleSelect={() => toggleFolderSelection(folderName)}
+                  onToggleSelect={() => toggleFolderSelection(folder.id)}
                   onOpen={() => {
-                    setActiveFolderKey(key);
-                    setActiveFolderLabel(folderName);
+                    router.push(`/folders/${encodeURIComponent(folder.id)}`);
                   }}
                 />
               );
@@ -2204,9 +2154,9 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="__unstaged__">Unstaged</option>
-                  {orderedFolderList.map((folderName) => (
-                    <option key={folderName} value={folderName}>
-                      {folderName}
+                  {folderOptions.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.label}
                     </option>
                   ))}
                   <option value="__new__">New folder…</option>
@@ -2352,10 +2302,10 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   <button
                     type="button"
                     onClick={() => {
-                      const label =
-                        activeFolderKey === "UNSTAGED" ? null : activeFolderLabel;
+                      const targetFolderId =
+                        activeFolderKey === "UNSTAGED" ? null : activeFolderKey;
                       setActiveFolderKey(null);
-                      handleAddLinkForFolder(label);
+                      handleAddLinkForFolder(targetFolderId);
                     }}
                     className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
                   >
@@ -2432,10 +2382,10 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                     <button
                       type="button"
                       onClick={() => {
-                        const label =
-                          activeFolderKey === "UNSTAGED" ? null : activeFolderLabel;
+                        const targetFolderId =
+                          activeFolderKey === "UNSTAGED" ? null : activeFolderKey;
                         setActiveFolderKey(null);
-                        handleAddLinkForFolder(label);
+                        handleAddLinkForFolder(targetFolderId);
                       }}
                       className="mt-4 inline-flex items-center rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
                     >
@@ -2463,14 +2413,16 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                             <BookmarkCard
                               key={`${tag}-${b.id}`}
                               bookmark={b}
-                              folders={orderedFolderList}
+                              folderOptions={folderOptions}
+                              folderName={
+                                typeof b.folderId === "string"
+                                  ? findFolderById(b.folderId)?.name
+                                  : undefined
+                              }
                               onRequestNewFolder={(onCreated) => {
-                                openNewFolderModal((name) => {
-                                  onCreated(name);
+                                openNewFolderModal((folderId) => {
+                                  onCreated(folderId);
                                 });
-                              }}
-                              onCreateFolder={(name) => {
-                                addLocalFolder(name);
                               }}
                               onUpdate={updateBookmark}
                               onDelete={handleDelete}
@@ -2588,7 +2540,10 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                 </button>
                 <button
                   type="button"
-                  onClick={() => deleteFolder(activeFolderLabel)}
+                  onClick={() => {
+                    if (!activeFolderKey || activeFolderKey === "UNSTAGED") return;
+                    deleteFolder(activeFolderKey);
+                  }}
                   className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
                 >
                   Delete
@@ -2640,9 +2595,9 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
-                      const normalized = addLocalFolder(newFolderName);
-                      if (!normalized) return;
-                      newFolderRequestRef.current?.(normalized);
+                      const folderId = addRootFolder(newFolderName);
+                      if (!folderId) return;
+                      newFolderRequestRef.current?.(folderId);
                       setShowNewFolderModal(false);
                       setNewFolderError("");
                     }
@@ -2666,9 +2621,9 @@ const newFolderRequestRef = useRef<((name: string) => void) | null>(null);
                 <button
                   type="button"
                   onClick={() => {
-                    const normalized = addLocalFolder(newFolderName);
-                    if (!normalized) return;
-                    newFolderRequestRef.current?.(normalized);
+                    const folderId = addRootFolder(newFolderName);
+                    if (!folderId) return;
+                    newFolderRequestRef.current?.(folderId);
                     setShowNewFolderModal(false);
                     setNewFolderError("");
                   }}
