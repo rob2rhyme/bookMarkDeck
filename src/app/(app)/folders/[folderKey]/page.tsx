@@ -65,6 +65,8 @@ export default function FolderPage() {
     deleteBookmark,
     restoreFromSnapshot,
     addFolder,
+    updateFolder,
+    deleteFolder,
   } = useBookmarks(userId);
 
   const folderById = useMemo(() => {
@@ -101,6 +103,14 @@ export default function FolderPage() {
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
+  const [showNewSubfolderModal, setShowNewSubfolderModal] = useState(false);
+  const [newSubfolderName, setNewSubfolderName] = useState("");
+  const [newSubfolderError, setNewSubfolderError] = useState("");
+  const [showRenameFolderModal, setShowRenameFolderModal] = useState(false);
+  const [renameFolderName, setRenameFolderName] = useState("");
+  const [renameFolderError, setRenameFolderError] = useState("");
+  const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(false);
+  const [folderActionError, setFolderActionError] = useState("");
   const [undoState, setUndoState] = useState<{
     type: "delete" | "bulkDelete";
     snapshot: Bookmark[];
@@ -147,6 +157,53 @@ export default function FolderPage() {
     if (!normalized) return null;
     const created = addFolder({ name: normalized, parentId: null });
     return created?.id ?? null;
+  };
+
+  const createSubfolder = () => {
+    if (!currentFolderId) return;
+    const normalized = normalizeFolderName(newSubfolderName);
+    if (!normalized) {
+      setNewSubfolderError("Folder name is required.");
+      return;
+    }
+    const created = addFolder({ name: normalized, parentId: currentFolderId });
+    if (!created) {
+      setNewSubfolderError("A subfolder with this name already exists.");
+      return;
+    }
+    setNewSubfolderName("");
+    setNewSubfolderError("");
+    setShowNewSubfolderModal(false);
+    router.push(`/folders/${encodeURIComponent(created.id)}`);
+  };
+
+  const applyRenameFolder = () => {
+    if (!currentFolderId) return;
+    const normalized = normalizeFolderName(renameFolderName);
+    if (!normalized) {
+      setRenameFolderError("Folder name is required.");
+      return;
+    }
+    const result = updateFolder(currentFolderId, { name: normalized });
+    if (!result.ok) {
+      setRenameFolderError(result.reason);
+      return;
+    }
+    setRenameFolderError("");
+    setShowRenameFolderModal(false);
+  };
+
+  const applyDeleteFolder = () => {
+    if (!currentFolder) return;
+    const result = deleteFolder(currentFolder.id);
+    if (!result.ok) {
+      setFolderActionError(result.reason);
+      return;
+    }
+    const parentTarget = currentFolder.parentId
+      ? `/folders/${encodeURIComponent(currentFolder.parentId)}`
+      : "/";
+    router.push(parentTarget);
   };
 
   const openNewFolderModal = (onCreated?: (folderId: string) => void) => {
@@ -298,7 +355,48 @@ export default function FolderPage() {
         >
           {bookmarkSelectMode ? "Done" : "Select"}
         </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setFolderActionError("");
+              setNewSubfolderError("");
+              setNewSubfolderName("");
+              setShowNewSubfolderModal(true);
+            }}
+            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+          >
+            New subfolder
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFolderActionError("");
+              setRenameFolderError("");
+              setRenameFolderName(currentFolder.name);
+              setShowRenameFolderModal(true);
+            }}
+            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+          >
+            Rename
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFolderActionError("");
+              setShowDeleteFolderConfirm(true);
+            }}
+            className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white"
+          >
+            Delete
+          </button>
+        </div>
       </header>
+      {folderActionError && (
+        <div className="mb-3 rounded-xl border border-red-800/70 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+          {folderActionError}
+        </div>
+      )}
 
       {childFolders.length > 0 && (
         <section className="mb-5 space-y-2">
@@ -559,6 +657,162 @@ export default function FolderPage() {
                 className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
               >
                 Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewSubfolderModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          onClick={() => setShowNewSubfolderModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="New subfolder"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-100">New subfolder</h3>
+              <button
+                type="button"
+                onClick={() => setShowNewSubfolderModal(false)}
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Subfolder name"
+              value={newSubfolderName}
+              onChange={(e) => {
+                setNewSubfolderName(e.target.value);
+                if (newSubfolderError) setNewSubfolderError("");
+              }}
+              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                createSubfolder();
+              }}
+            />
+            {newSubfolderError && (
+              <p className="mt-2 text-xs text-red-400">{newSubfolderError}</p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowNewSubfolderModal(false)}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={createSubfolder}
+                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRenameFolderModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          onClick={() => setShowRenameFolderModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Rename folder"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-100">Rename folder</h3>
+              <button
+                type="button"
+                onClick={() => setShowRenameFolderModal(false)}
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Folder name"
+              value={renameFolderName}
+              onChange={(e) => {
+                setRenameFolderName(e.target.value);
+                if (renameFolderError) setRenameFolderError("");
+              }}
+              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                applyRenameFolder();
+              }}
+            />
+            {renameFolderError && (
+              <p className="mt-2 text-xs text-red-400">{renameFolderError}</p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRenameFolderModal(false)}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyRenameFolder}
+                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteFolderConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          onClick={() => setShowDeleteFolderConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete folder"
+          >
+            <h2 className="mb-2 text-base font-semibold text-slate-50">Delete folder?</h2>
+            <p className="mb-4 text-xs text-slate-400">
+              Subfolders block deletion. Bookmarks in this folder move to Unstaged.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteFolderConfirm(false)}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyDeleteFolder}
+                className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+              >
+                Delete
               </button>
             </div>
           </div>
