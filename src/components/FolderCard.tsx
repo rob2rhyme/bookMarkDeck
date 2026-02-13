@@ -195,7 +195,7 @@ export function FolderCard({
       <div className="h-52 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3">
         {previewCount > 0 ? (
           useCompactPreviewLayout ? (
-            <div className="mx-auto flex h-full w-fit max-w-full flex-wrap content-start items-center justify-center gap-2.5">
+            <div className="flex h-full flex-wrap content-start items-center justify-start gap-2.5">
               {previewBookmarksToShow.map((bookmark, index) => (
                 <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
               ))}
@@ -206,7 +206,7 @@ export function FolderCard({
               )}
             </div>
           ) : (
-            <div className="bd-tile-grid mx-auto h-full w-fit max-w-full place-content-center place-items-center [--tile-gap:10px] [--tile-max:56px] [--tile-min:56px]">
+            <div className="bd-tile-grid h-full content-start place-items-center [--tile-gap:10px] [--tile-max:56px] [--tile-min:56px]">
               {previewBookmarksToShow.map((bookmark, index) => (
                 <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
               ))}
