@@ -3,7 +3,17 @@
 /* eslint-disable @next/next/no-img-element */
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect } from "react";
-import { Check, Note, Pencil, Star, StarFilled, Trash, X } from "@/components/icons";
+import { IconAction } from "@/components/IconAction";
+import {
+  Check,
+  ExternalLink,
+  Note,
+  Pencil,
+  Star,
+  StarFilled,
+  Trash,
+  X,
+} from "@/components/icons";
 import { hapticTap } from "@/utils/haptics";
 
 function safeParseUrl(rawUrl: string): URL | null {
@@ -68,23 +78,6 @@ function isHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function IconActionTooltip({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="relative group">
-      {children}
-      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900/95 px-2 py-1 text-xs text-slate-200 shadow-lg opacity-0 scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:scale-100">
-        {label}
-      </div>
-    </div>
-  );
 }
 
 export function BookmarkCard({
@@ -499,75 +492,69 @@ export function BookmarkCard({
 
         {!selectMode && (
           <div className="flex items-center justify-evenly border-t border-slate-800/70 pt-2">
-            <IconActionTooltip label={bookmark.pinned ? "Unpin" : "Pin"}>
-              <button
-                type="button"
-                onClick={() => {
-                  hapticTap();
-                  handleTogglePinned();
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 transition-transform duration-150 ease-out hover:border-amber-400 hover:bg-slate-800/60 hover:text-amber-300 active:scale-95"
-                aria-label={bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"}
-                aria-pressed={bookmark.pinned}
-              >
-                {bookmark.pinned ? (
+            <IconAction
+              label={bookmark.pinned ? "Unpin" : "Pin"}
+              onClick={() => {
+                hapticTap();
+                handleTogglePinned();
+              }}
+              active={!!bookmark.pinned}
+              icon={
+                bookmark.pinned ? (
                   <StarFilled className="h-4 w-4" />
                 ) : (
                   <Star className="h-4 w-4" />
-                )}
-              </button>
-            </IconActionTooltip>
-            <IconActionTooltip label={showNote ? "Hide note" : "Show note"}>
-              <button
-                type="button"
-                onClick={() => {
-                  hapticTap();
-                  setShowNote((prev) => !prev);
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 transition-transform duration-150 ease-out hover:border-blue-400 hover:bg-slate-800/60 hover:text-white active:scale-95"
-                aria-label={showNote ? "Hide note" : "Show note"}
-              >
-                <Note className="h-4 w-4" />
-              </button>
-            </IconActionTooltip>
-            <IconActionTooltip label={isEditing ? "Save" : "Edit"}>
-              <button
-                type="button"
-                onClick={() => {
-                  hapticTap();
-                  handleEditClick();
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 transition-transform duration-150 ease-out hover:border-blue-400 hover:bg-slate-800/60 hover:text-white active:scale-95"
-                aria-label={isEditing ? "Save changes" : "Edit bookmark"}
-              >
-                {isEditing ? (
+                )
+              }
+            />
+            <IconAction
+              label="Open link"
+              onClick={handleOpen}
+              disabled={selectMode || isEditing}
+              icon={<ExternalLink className="h-4 w-4" />}
+            />
+            <IconAction
+              label={showNote ? "Hide note" : "Show note"}
+              onClick={() => {
+                hapticTap();
+                setShowNote((prev) => !prev);
+              }}
+              active={showNote}
+              icon={<Note className="h-4 w-4" />}
+            />
+            <IconAction
+              label={isEditing ? "Save" : "Edit"}
+              onClick={() => {
+                hapticTap();
+                handleEditClick();
+              }}
+              icon={
+                isEditing ? (
                   <Check className="h-4 w-4" />
                 ) : (
                   <Pencil className="h-4 w-4" />
-                )}
-              </button>
-            </IconActionTooltip>
-            <IconActionTooltip label={isEditing ? "Cancel" : "Delete"}>
-              <button
-                type="button"
-                onClick={() => {
-                  hapticTap();
-                  if (isEditing) {
-                    handleCancel();
-                    return;
-                  }
-                  onDelete(bookmark.id);
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-300 transition-transform duration-150 ease-out hover:border-red-400 hover:bg-red-900/60 hover:text-white active:scale-95"
-                aria-label={isEditing ? "Cancel edit" : "Delete bookmark"}
-              >
-                {isEditing ? (
+                )
+              }
+            />
+            <IconAction
+              label={isEditing ? "Cancel" : "Delete"}
+              onClick={() => {
+                hapticTap();
+                if (isEditing) {
+                  handleCancel();
+                  return;
+                }
+                onDelete(bookmark.id);
+              }}
+              variant={isEditing ? "default" : "danger"}
+              icon={
+                isEditing ? (
                   <X className="h-4 w-4" />
                 ) : (
                   <Trash className="h-4 w-4" />
-                )}
-              </button>
-            </IconActionTooltip>
+                )
+              }
+            />
           </div>
         )}
 
@@ -623,38 +610,28 @@ export function BookmarkCard({
                 Note
               </span>
               {!selectMode && (
-                <button
-                  type="button"
+                <IconAction
+                  label={showNote ? "Hide note" : "Show note"}
                   onClick={() => {
                     hapticTap();
                     setShowNote((prev) => !prev);
                   }}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2.5 py-0.5 text-[10px] font-semibold text-slate-300 ring-1 ring-white/5 transition hover:border-blue-400 hover:bg-slate-900 hover:text-white"
-                  aria-label={showNote ? "Hide note" : "Show note"}
-                >
-                  <Note className="h-3.5 w-3.5" />
-                  <span>{showNote ? "Hide" : "Show"}</span>
-                </button>
+                  active={showNote}
+                  icon={<Note className="h-3.5 w-3.5" />}
+                  className="h-8 w-8"
+                />
               )}
             </div>
-            <p className="line-clamp-3 leading-relaxed">
-              {showNote
-                ? bookmark.note || "Add login hints, purpose, etc."
-                : bookmark.note
-                ? "••••••••"
-                : "Add login hints, purpose, etc."}
-            </p>
+            {showNote ? (
+              <p className="max-h-24 overflow-auto whitespace-pre-wrap leading-relaxed">
+                {bookmark.note || "Add login hints, purpose, etc."}
+              </p>
+            ) : (
+              <p className="line-clamp-3 leading-relaxed">
+                {bookmark.note ? "••••••••" : "Add login hints, purpose, etc."}
+              </p>
+            )}
           </div>
-        )}
-
-        {!isEditing && !selectMode && (
-          <button
-            type="button"
-            onClick={handleOpen}
-            className="w-full rounded-full border border-blue-500/50 bg-blue-600/90 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-          >
-            Open
-          </button>
         )}
       </div>
 
@@ -814,73 +791,74 @@ export function BookmarkCard({
             </div>
             <div className="flex shrink-0 items-center gap-1">
               {!isEditing && !selectMode && (
-                <IconActionTooltip label={bookmark.pinned ? "Unpin" : "Pin"}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      hapticTap();
-                      handleTogglePinned();
-                    }}
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-amber-400 active:scale-95"
-                    aria-label={
-                      bookmark.pinned ? "Unpin bookmark" : "Pin bookmark"
-                    }
-                  >
-                    {bookmark.pinned ? (
+                <IconAction
+                  label={bookmark.pinned ? "Unpin" : "Pin"}
+                  onClick={() => {
+                    hapticTap();
+                    handleTogglePinned();
+                  }}
+                  active={!!bookmark.pinned}
+                  icon={
+                    bookmark.pinned ? (
                       <StarFilled className="h-4 w-4" />
                     ) : (
                       <Star className="h-4 w-4" />
-                    )}
-                  </button>
-                </IconActionTooltip>
+                    )
+                  }
+                />
+              )}
+              <IconAction
+                label="Open link"
+                onClick={handleOpen}
+                disabled={selectMode || isEditing}
+                icon={<ExternalLink className="h-4 w-4" />}
+              />
+              {!selectMode && (
+                <IconAction
+                  label={showNote ? "Hide note" : "Show note"}
+                  onClick={() => {
+                    hapticTap();
+                    setShowNote((prev) => !prev);
+                  }}
+                  active={showNote}
+                  icon={<Note className="h-4 w-4" />}
+                />
               )}
               {isEditing && !selectMode && (
-                <IconActionTooltip label="Cancel">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      hapticTap();
-                      handleCancel();
-                    }}
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-slate-200 active:scale-95"
-                    aria-label="Cancel edit"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </IconActionTooltip>
+                <IconAction
+                  label="Cancel"
+                  onClick={() => {
+                    hapticTap();
+                    handleCancel();
+                  }}
+                  icon={<X className="h-4 w-4" />}
+                />
               )}
               {!selectMode && (
                 <>
-                  <IconActionTooltip label={isEditing ? "Save" : "Edit"}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hapticTap();
-                        handleEditClick();
-                      }}
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-blue-400 active:scale-95"
-                      aria-label={isEditing ? "Save changes" : "Edit bookmark"}
-                    >
-                      {isEditing ? (
+                  <IconAction
+                    label={isEditing ? "Save" : "Edit"}
+                    onClick={() => {
+                      hapticTap();
+                      handleEditClick();
+                    }}
+                    icon={
+                      isEditing ? (
                         <Check className="h-4 w-4" />
                       ) : (
                         <Pencil className="h-4 w-4" />
-                      )}
-                    </button>
-                  </IconActionTooltip>
-                  <IconActionTooltip label="Delete">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hapticTap();
-                        onDelete(bookmark.id);
-                      }}
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-red-400 active:scale-95"
-                      aria-label="Delete bookmark"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </button>
-                  </IconActionTooltip>
+                      )
+                    }
+                  />
+                  <IconAction
+                    label="Delete"
+                    variant="danger"
+                    onClick={() => {
+                      hapticTap();
+                      onDelete(bookmark.id);
+                    }}
+                    icon={<Trash className="h-4 w-4" />}
+                  />
                 </>
               )}
             </div>
@@ -944,17 +922,16 @@ export function BookmarkCard({
               <span className="flex items-center gap-2">
                 <span>Note</span>
                 {!isEditing && !selectMode && (
-                  <button
-                    type="button"
+                  <IconAction
+                    label={showNote ? "Hide note" : "Show note"}
                     onClick={() => {
                       hapticTap();
                       setShowNote((prev) => !prev);
                     }}
-                    className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                    aria-label={showNote ? "Hide note" : "Show note"}
-                  >
-                    {showNote ? "Hide" : "Show"}
-                  </button>
+                    active={showNote}
+                    icon={<Note className="h-3.5 w-3.5" />}
+                    className="h-8 w-8"
+                  />
                 )}
               </span>
             </label>
@@ -967,11 +944,15 @@ export function BookmarkCard({
               />
             ) : (
               <div className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-400 dark:text-slate-300">
-                {showNote
-                  ? bookmark.note || "Add login hints, purpose, etc."
-                  : bookmark.note
-                  ? "••••••••"
-                  : "Add login hints, purpose, etc."}
+                {showNote ? (
+                  <span className="whitespace-pre-wrap">
+                    {bookmark.note || "Add login hints, purpose, etc."}
+                  </span>
+                ) : (
+                  <span>
+                    {bookmark.note ? "••••••••" : "Add login hints, purpose, etc."}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -985,15 +966,6 @@ export function BookmarkCard({
               year: "numeric",
             })}
           </span>
-          {!isEditing && !selectMode && (
-            <button
-              type="button"
-              onClick={handleOpen}
-              className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
-            >
-              Open
-            </button>
-          )}
         </div>
       </div>
     </div>
