@@ -37,6 +37,32 @@ export type FirestoreBookmarkBackup = {
   shortcuts?: ShortcutApp[];
 };
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Object.prototype.toString.call(value) === "[object Object]";
+}
+
+function sanitizeForFirestore<T>(value: T): T {
+  if (value === undefined) return value;
+
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      item === undefined ? null : sanitizeForFirestore(item)
+    ) as T;
+  }
+
+  if (isPlainObject(value)) {
+    const output: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (entry === undefined) continue;
+      const cleaned = sanitizeForFirestore(entry);
+      if (cleaned !== undefined) output[key] = cleaned;
+    }
+    return output as T;
+  }
+
+  return value;
+}
+
 function sanitizeBookmark(raw: Bookmark): Bookmark {
   const base: Bookmark = {
     id: typeof raw.id === "string" && raw.id.trim() ? raw.id : crypto.randomUUID(),
@@ -72,14 +98,16 @@ function sanitizeBookmark(raw: Bookmark): Bookmark {
 
 function sanitizeFolder(raw: Folder): Folder {
   const name = typeof raw.name === "string" ? raw.name.replace(/\s+/g, " ").trim() : "";
-  return {
+  const base: Folder = {
     id: typeof raw.id === "string" && raw.id.trim() ? raw.id : crypto.randomUUID(),
     name,
     parentId: typeof raw.parentId === "string" ? raw.parentId : null,
-    sortOrder: typeof raw.sortOrder === "number" ? raw.sortOrder : undefined,
-    createdAt: typeof raw.createdAt === "string" ? raw.createdAt : undefined,
-    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : undefined,
   };
+  const optional: Partial<Folder> = {};
+  if (typeof raw.sortOrder === "number") optional.sortOrder = raw.sortOrder;
+  if (typeof raw.createdAt === "string") optional.createdAt = raw.createdAt;
+  if (typeof raw.updatedAt === "string") optional.updatedAt = raw.updatedAt;
+  return { ...base, ...optional };
 }
 
 function sanitizeShortcut(raw: ShortcutApp): ShortcutApp {
@@ -125,12 +153,13 @@ async function createBackupSnapshot(
   shortcuts?: ShortcutApp[]
 ) {
   const createdAt = new Date();
-  await addDoc(userBackupsCollectionRef(uid), {
+  const payload = {
     bookmarks,
     folders,
     shortcuts: shortcuts?.map(sanitizeShortcut) ?? [],
     createdAt: Timestamp.fromDate(createdAt),
-  });
+  };
+  await addDoc(userBackupsCollectionRef(uid), sanitizeForFirestore(payload));
 
   const all = await getDocs(
     query(userBackupsCollectionRef(uid), orderBy("createdAt", "desc"))
@@ -192,10 +221,11 @@ export async function saveBookmarks(
     .map(sanitizeFolder)
     .filter((folder) => Boolean(folder.name));
   await createBackupSnapshot(user.uid, sanitizedBookmarks, sanitizedFolders, shortcuts);
-  await setDoc(userDocRef(user.uid), {
+  const payload = {
     bookmarks: sanitizedBookmarks,
     folders: sanitizedFolders,
     updatedAt: serverTimestamp(),
     version: 2,
-  });
+  };
+  await setDoc(userDocRef(user.uid), sanitizeForFirestore(payload));
 }
