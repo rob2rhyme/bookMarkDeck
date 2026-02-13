@@ -5,6 +5,7 @@ export type Bookmark = {
   url: string;
   icon?: string;
   note?: string;
+  folderId?: string | null;
   folder?: string;
   tags?: string[];
   createdAt: string;
