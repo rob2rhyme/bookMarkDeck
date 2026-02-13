@@ -85,14 +85,14 @@ function FolderPreviewTile({ bookmark }: { bookmark: Bookmark }) {
   const shouldShowIconText = !shouldShowIconUrl && !shouldShowFavicon && iconValue.length > 0;
 
   return (
-    <div className="flex aspect-square h-[40px] w-[40px] items-center justify-center overflow-hidden rounded-lg bg-slate-900 text-[12px] font-semibold uppercase text-slate-100 ring-1 ring-white/5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_25px_-18px_rgba(0,0,0,0.9)]">
+    <div className="flex aspect-square h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-slate-900 text-[12px] font-semibold uppercase text-slate-100 ring-1 ring-white/5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_25px_-18px_rgba(0,0,0,0.9)]">
       {shouldShowIconUrl ? (
         <img
           src={iconUrl}
           alt=""
           width={32}
           height={32}
-          className="block h-8 w-8 object-contain"
+          className="block h-11 w-11 object-contain"
           loading="lazy"
           referrerPolicy="no-referrer"
           onError={() => setIconFailed(true)}
@@ -103,7 +103,7 @@ function FolderPreviewTile({ bookmark }: { bookmark: Bookmark }) {
           alt=""
           width={32}
           height={32}
-          className="block h-8 w-8 object-contain"
+          className="block h-11 w-11 object-contain"
           loading="lazy"
           referrerPolicy="no-referrer"
           onError={() => setFaviconFailed(true)}
@@ -195,23 +195,23 @@ export function FolderCard({
       <div className="h-52 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3">
         {previewCount > 0 ? (
           useCompactPreviewLayout ? (
-            <div className="flex h-full flex-wrap content-start items-center justify-start gap-2">
+            <div className="flex h-full flex-wrap content-start items-center justify-start gap-2.5">
               {previewBookmarksToShow.map((bookmark, index) => (
                 <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
               ))}
               {count > 16 && (
-                <div className="inline-flex h-[40px] items-center justify-center rounded-full border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100 ring-1 ring-white/5">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100 ring-1 ring-white/5">
                   +{count - 16}
                 </div>
               )}
             </div>
           ) : (
-            <div className="bd-tile-grid relative h-full content-start place-items-center [--tile-gap:8px] [--tile-max:40px] [--tile-min:34px] sm:[--tile-min:36px]">
+            <div className="bd-tile-grid h-full content-start place-items-center [--tile-gap:10px] [--tile-max:56px] [--tile-min:56px]">
               {previewBookmarksToShow.map((bookmark, index) => (
                 <FolderPreviewTile key={`${bookmark.id}-${index}`} bookmark={bookmark} />
               ))}
               {count > 16 && (
-                <div className="pointer-events-none absolute bottom-1 right-1 rounded-full border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100 ring-1 ring-white/5">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100 ring-1 ring-white/5">
                   +{count - 16}
                 </div>
               )}
