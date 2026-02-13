@@ -124,9 +124,35 @@ export async function fetchBookmarks(
   userIdHint: string
 ): Promise<FirestoreBookmarkPayload> {
   const user = await ensureFirebaseGoogleAuth(userIdHint);
-  const snap = await getDoc(userDocRef(user.uid));
-  if (!snap.exists()) return { bookmarks: [], folders: [], updatedAt: undefined };
+  const ref = userDocRef(user.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    // Policy A (strict remote-first): initialize missing cloud doc as empty source-of-truth.
+    await setDoc(
+      ref,
+      {
+        bookmarks: [],
+        folders: [],
+        updatedAt: serverTimestamp(),
+        version: 2,
+      },
+      { merge: true }
+    );
+    return { bookmarks: [], folders: [], updatedAt: undefined };
+  }
   const data = snap.data();
+  if (!Array.isArray(data.bookmarks) || !Array.isArray(data.folders)) {
+    await setDoc(
+      ref,
+      {
+        bookmarks: Array.isArray(data.bookmarks) ? data.bookmarks : [],
+        folders: Array.isArray(data.folders) ? data.folders : [],
+        updatedAt: serverTimestamp(),
+        version: 2,
+      },
+      { merge: true }
+    );
+  }
   const updatedAt =
     data.updatedAt instanceof Timestamp
       ? data.updatedAt.toDate().toISOString()

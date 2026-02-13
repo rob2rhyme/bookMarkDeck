@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { FolderCard } from "@/components/FolderCard";
 import { ShortcutIcon } from "@/components/ShortcutIcon";
+import { useFirebaseAuthUser } from "@/hooks/useFirebaseAuthUser";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
@@ -18,6 +19,7 @@ import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
+import { ensureFirebaseGoogleAuth } from "@/lib/firebase";
 
 function getHostname(rawUrl: string) {
   try {
@@ -173,8 +175,20 @@ function CopyIconButton({ value, tooltip }: { value: string; tooltip: string }) 
 
 export function HomePageClient() {
   const router = useRouter();
-  const { data: session } = useSession();
-  const userId = session?.user?.email ?? null;
+  const { data: session, status } = useSession();
+  const sessionEmailLower = session?.user?.email?.toLowerCase() ?? null;
+  const { firebaseUser, firebaseAuthReady, firebaseEmailLower } =
+    useFirebaseAuthUser();
+  const isFirebaseMatched =
+    firebaseAuthReady && firebaseEmailLower === sessionEmailLower;
+  const canAutoSync =
+    status === "authenticated" &&
+    !!sessionEmailLower &&
+    isFirebaseMatched;
+  const emailHint = sessionEmailLower;
+  const userStorageKey = isFirebaseMatched
+    ? firebaseUser?.uid ?? emailHint
+    : emailHint;
   const {
     bookmarks,
     folders: folderEntities,
@@ -191,11 +205,14 @@ export function HomePageClient() {
     isSyncing,
     syncError,
     lastSyncedAt,
+    syncConflict,
+    resolveSyncConflictUseCloud,
+    resolveSyncConflictKeepLocal,
     refreshBackups,
     backups,
     areBackupsLoading,
     backupError,
-  } = useBookmarks(userId);
+  } = useBookmarks(emailHint, userStorageKey);
 
   const [search, setSearch] = useState("");
   // Default to "favorites" so only pinned bookmarks show initially
@@ -249,6 +266,9 @@ const [showBulkMoveBookmarksModal, setShowBulkMoveBookmarksModal] = useState(fal
 const [bookmarkBulkTarget, setBookmarkBulkTarget] = useState("__unstaged__");
 const [showBulkDeleteBookmarksConfirm, setShowBulkDeleteBookmarksConfirm] = useState(false);
 const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
+const hasAutoSyncedRef = useRef(false);
+const [autoSyncWarning, setAutoSyncWarning] = useState<string | null>(null);
+const [connectCloudError, setConnectCloudError] = useState<string | null>(null);
 
   const normalizeFolderName = (value: string) => {
     const trimmed = value.replace(/\s+/g, " ").trim();
@@ -639,7 +659,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     syncFromCloudShortcuts,
     syncToCloudShortcuts,
     isSyncing: isSyncingShortcuts,
-  } = useShortcuts(userId);
+  } = useShortcuts(emailHint, userStorageKey);
 
   useEffect(() => {
     if (!activeShortcutId) return;
@@ -1230,23 +1250,76 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
   };
 
   const handleRefreshBackups = async () => {
-    if (!userId) return;
-    await refreshBackups(userId);
+    if (!emailHint) return;
+    await refreshBackups(emailHint);
   };
 
-  const handleSyncDownload = async () => {
+  type SyncDownloadOptions = {
+    silent?: boolean;
+    reason?: "auto" | "manual";
+  };
+
+  const handleSyncDownload = async (options?: SyncDownloadOptions) => {
+    const silent = options?.silent ?? false;
+    const reason = options?.reason ?? "manual";
     if (isSyncing || isSyncingShortcuts) return;
-    await syncFromCloud(userId);
-    await syncFromCloudShortcuts(userId);
+    await syncFromCloud(emailHint, { silent, reason });
+    await syncFromCloudShortcuts(emailHint, { silent });
     await handleRefreshBackups();
+    setAutoSyncWarning(null);
   };
 
   const handleSyncUpload = async () => {
     if (isSyncing || isSyncingShortcuts) return;
-    await syncToCloud(userId, shortcuts);
-    await syncToCloudShortcuts(userId);
+    await syncToCloud(emailHint, shortcuts);
+    await syncToCloudShortcuts(emailHint);
     await handleRefreshBackups();
   };
+
+  const handleConflictUseCloud = async () => {
+    if (!emailHint) return;
+    await resolveSyncConflictUseCloud(emailHint);
+    await syncFromCloudShortcuts(emailHint, { silent: false });
+  };
+
+  const handleConflictKeepLocal = async () => {
+    if (!emailHint) return;
+    await resolveSyncConflictKeepLocal(emailHint, shortcuts);
+    await syncToCloudShortcuts(emailHint);
+    await handleRefreshBackups();
+  };
+
+  const handleConnectCloud = async () => {
+    if (!sessionEmailLower) return;
+    setConnectCloudError(null);
+    try {
+      await ensureFirebaseGoogleAuth(sessionEmailLower);
+      await handleSyncDownload({ silent: false, reason: "manual" });
+    } catch (error) {
+      setConnectCloudError(
+        error instanceof Error
+          ? error.message
+          : "Unable to connect Google for cloud sync."
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      hasAutoSyncedRef.current = false;
+      setAutoSyncWarning(null);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (!canAutoSync) return;
+    if (hasAutoSyncedRef.current) return;
+    hasAutoSyncedRef.current = true;
+    handleSyncDownload({ silent: true, reason: "auto" }).catch((error) => {
+      console.error(error);
+      setAutoSyncWarning("Cloud sync is temporarily unavailable. Using local data.");
+    });
+  }, [canAutoSync]);
 
   return (
     <>
@@ -1597,13 +1670,47 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex-1 space-y-1.5">
               <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
-                Cloud sync (signed in as {userId ?? "guest"})
+                Cloud sync (signed in as {emailHint ?? "guest"})
               </p>
               <p className="text-[12px] text-slate-500">
                 Sync bookmarks to Firebase so they follow your Google login across devices.
               </p>
               {syncError && (
                 <p className="text-[11px] text-red-400">{syncError}</p>
+              )}
+              {connectCloudError && (
+                <p className="text-[11px] text-red-400">{connectCloudError}</p>
+              )}
+              {autoSyncWarning && (
+                <p className="text-[11px] text-amber-300">{autoSyncWarning}</p>
+              )}
+              {syncConflict && (
+                <div className="space-y-2 rounded-xl border border-amber-700/50 bg-amber-950/25 px-3 py-2 text-[11px] text-amber-100">
+                  <p>
+                    Sync conflict detected. Cloud has newer data while local has unsynced
+                    changes.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleConflictUseCloud();
+                      }}
+                      className="rounded-full border border-amber-500/70 bg-amber-500/20 px-2.5 py-1 font-semibold text-amber-100 hover:bg-amber-500/30"
+                    >
+                      Use cloud
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleConflictKeepLocal();
+                      }}
+                      className="rounded-full border border-slate-600 bg-slate-800/70 px-2.5 py-1 font-semibold text-slate-100 hover:bg-slate-700"
+                    >
+                      Keep local
+                    </button>
+                  </div>
+                </div>
               )}
               {lastSyncedAt && (
                 <p className="text-[11px] text-emerald-300">
@@ -1615,10 +1722,25 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:w-56">
+              {status === "authenticated" &&
+                sessionEmailLower &&
+                !isFirebaseMatched && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleConnectCloud();
+                    }}
+                    className="w-full rounded-full border border-amber-500/70 bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/25"
+                  >
+                    Connect Google to enable cloud sync
+                  </button>
+                )}
               <button
                 type="button"
-                onClick={handleSyncDownload}
-                disabled={isSyncing || isSyncingShortcuts || !userId}
+                onClick={() => {
+                  void handleSyncDownload({ silent: false, reason: "manual" });
+                }}
+                disabled={isSyncing || isSyncingShortcuts || !emailHint}
                 className="w-full rounded-full bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSyncing || isSyncingShortcuts ? "Syncing..." : "Sync from cloud"}
@@ -1626,7 +1748,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               <button
                 type="button"
                 onClick={handleSyncUpload}
-                disabled={isSyncing || isSyncingShortcuts || !userId}
+                disabled={isSyncing || isSyncingShortcuts || !emailHint}
                 className="w-full rounded-full bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSyncing || isSyncingShortcuts ? "Syncing..." : "Sync to cloud"}
@@ -1639,7 +1761,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   if (!next) return;
                   handleRefreshBackups().catch(console.error);
                 }}
-                disabled={!userId || areBackupsLoading}
+                disabled={!emailHint || areBackupsLoading}
                 className="w-full rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {areBackupsLoading ? "Loading..." : showBackups ? "Hide backups" : "My Backups"}
@@ -1690,8 +1812,10 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               <p className="text-base text-slate-200">No bookmarks yet.</p>
               <button
                 type="button"
-                onClick={handleSyncDownload}
-                disabled={isSyncing || isSyncingShortcuts || !userId}
+                onClick={() => {
+                  void handleSyncDownload({ silent: false, reason: "manual" });
+                }}
+                disabled={isSyncing || isSyncingShortcuts || !emailHint}
                 className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-100 shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span>Sync from cloud</span>

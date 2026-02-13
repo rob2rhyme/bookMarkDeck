@@ -24,9 +24,33 @@ function sanitizeShortcut(raw: ShortcutApp): ShortcutApp {
 
 export async function fetchShortcuts(userIdHint: string): Promise<FirestoreShortcutsPayload> {
   const user = await ensureFirebaseGoogleAuth(userIdHint);
-  const snap = await getDoc(userDocRef(user.uid));
-  if (!snap.exists()) return { shortcuts: [], updatedAt: undefined };
+  const ref = userDocRef(user.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    // Policy A (strict remote-first): initialize missing cloud doc as empty source-of-truth.
+    await setDoc(
+      ref,
+      {
+        shortcuts: [],
+        shortcutsUpdatedAt: serverTimestamp(),
+        version: 1,
+      },
+      { merge: true }
+    );
+    return { shortcuts: [], updatedAt: undefined };
+  }
   const data = snap.data();
+  if (!Array.isArray(data.shortcuts)) {
+    await setDoc(
+      ref,
+      {
+        shortcuts: [],
+        shortcutsUpdatedAt: serverTimestamp(),
+        version: 1,
+      },
+      { merge: true }
+    );
+  }
   const updatedAt =
     data.shortcutsUpdatedAt instanceof Timestamp
       ? data.shortcutsUpdatedAt.toDate().toISOString()
