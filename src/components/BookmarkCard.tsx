@@ -36,9 +36,9 @@ type Props = {
   onUpdate: (id: string, data: Partial<Bookmark>) => void;
   onDelete: (id: string) => void;
   usageLabel?: string;
-  folders: string[];
-  onCreateFolder?: (name: string) => void;
-  onRequestNewFolder?: (onCreated: (name: string) => void) => void;
+  folderOptions: Array<{ id: string; name: string; label?: string }>;
+  folderName?: string;
+  onRequestNewFolder?: (onCreated: (folderId: string) => void) => void;
   selectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
@@ -92,8 +92,8 @@ export function BookmarkCard({
   onUpdate,
   onDelete,
   usageLabel,
-  folders,
-  onCreateFolder,
+  folderOptions,
+  folderName,
   onRequestNewFolder,
   selectMode = false,
   isSelected = false,
@@ -102,7 +102,9 @@ export function BookmarkCard({
   const [title, setTitle] = useState(bookmark.title ?? "");
   const [url, setUrl] = useState(bookmark.url ?? "");
   const [icon, setIcon] = useState(bookmark.icon ?? "");
-  const [folder, setFolder] = useState(bookmark.folder ?? "");
+  const [folderId, setFolderId] = useState<string>(
+    typeof bookmark.folderId === "string" ? bookmark.folderId : "__unstaged__"
+  );
   const [tagsInput, setTagsInput] = useState((bookmark.tags ?? []).join(", "));
   const [note, setNote] = useState(bookmark.note ?? "");
   const [isEditing, setIsEditing] = useState(false);
@@ -215,11 +217,19 @@ export function BookmarkCard({
       : DEFAULT_BORDER_COLOR
     : DEFAULT_BORDER_COLOR;
 
+  const folderNameById = new Map(
+    folderOptions.map((option) => [option.id, option.name])
+  );
+
   const persistChanges = () => {
     const nextTitle = (title || url || bookmark.title).trim();
     const nextUrl = (url || bookmark.url).trim();
     const nextIcon = icon.trim() || undefined;
-    const nextFolder = folder.trim() || undefined;
+    const nextFolderId = folderId === "__unstaged__" ? null : folderId;
+    const nextFolder =
+      nextFolderId && folderNameById.has(nextFolderId)
+        ? folderNameById.get(nextFolderId)
+        : undefined;
     const nextTags = tagsInput
       .split(",")
       .map((t) => t.trim())
@@ -229,6 +239,7 @@ export function BookmarkCard({
       nextTitle !== bookmark.title ||
       nextUrl !== bookmark.url ||
       nextIcon !== bookmark.icon ||
+      nextFolderId !== (bookmark.folderId ?? null) ||
       nextFolder !== bookmark.folder ||
       note !== (bookmark.note ?? "") ||
       JSON.stringify(nextTags) !== JSON.stringify(bookmark.tags ?? []);
@@ -239,6 +250,7 @@ export function BookmarkCard({
       title: nextTitle,
       url: nextUrl,
       icon: nextIcon,
+      folderId: nextFolderId,
       folder: nextFolder,
       note,
       tags: nextTags,
@@ -262,7 +274,9 @@ export function BookmarkCard({
       setTitle(bookmark.title ?? "");
       setUrl(bookmark.url ?? "");
       setIcon(bookmark.icon ?? "");
-      setFolder(bookmark.folder ?? "");
+      setFolderId(
+        typeof bookmark.folderId === "string" ? bookmark.folderId : "__unstaged__"
+      );
       setTagsInput((bookmark.tags ?? []).join(", "));
       setNote(bookmark.note ?? "");
       setIsEditing(true);
@@ -279,7 +293,9 @@ export function BookmarkCard({
     setTitle(bookmark.title ?? "");
     setUrl(bookmark.url ?? "");
     setIcon(bookmark.icon ?? "");
-    setFolder(bookmark.folder ?? "");
+    setFolderId(
+      typeof bookmark.folderId === "string" ? bookmark.folderId : "__unstaged__"
+    );
     setTagsInput((bookmark.tags ?? []).join(", "));
     setNote(bookmark.note ?? "");
     setShowNote(false);
@@ -294,22 +310,27 @@ export function BookmarkCard({
   const handleFolderChange = (value: string) => {
     if (value === "__new__") {
       if (onRequestNewFolder) {
-        onRequestNewFolder((name) => {
-          if (onCreateFolder) onCreateFolder(name);
-          setFolder(name);
+        onRequestNewFolder((createdFolderId) => {
+          setFolderId(createdFolderId);
         });
         return;
       }
       return;
     }
     if (value === "__unstaged__") {
-      setFolder("");
+      setFolderId("__unstaged__");
       return;
     }
-    setFolder(value);
+    setFolderId(value);
   };
 
-  const currentFolderValue = folder.trim() || "__unstaged__";
+  const currentFolderValue = folderId;
+  const displayFolderName =
+    folderName ??
+    (typeof bookmark.folderId === "string"
+      ? folderNameById.get(bookmark.folderId)
+      : undefined) ??
+    bookmark.folder;
   const hostnameForDisplay = (() => {
     const parsed = safeParseUrl(bookmark.url);
     if (parsed?.hostname) return parsed.hostname.replace(/^www\./i, "");
@@ -560,9 +581,9 @@ export function BookmarkCard({
                 aria-label="Folder"
               >
                 <option value="__unstaged__">Unstaged</option>
-                {folders.map((folderName) => (
-                  <option key={folderName} value={folderName}>
-                    {folderName}
+                {folderOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label ?? option.name}
                   </option>
                 ))}
                 <option value="__new__">New folder…</option>
@@ -877,18 +898,18 @@ export function BookmarkCard({
                     aria-label="Folder"
                   >
                     <option value="__unstaged__">Unstaged</option>
-                    {folders.map((folderName) => (
-                      <option key={folderName} value={folderName}>
-                        {folderName}
+                    {folderOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label ?? option.name}
                       </option>
                     ))}
                     <option value="__new__">New folder…</option>
                   </select>
                 </div>
               ) : (
-                bookmark.folder && (
+                displayFolderName && (
                   <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    {bookmark.folder}
+                    {displayFolderName}
                   </span>
                 )
               )}
