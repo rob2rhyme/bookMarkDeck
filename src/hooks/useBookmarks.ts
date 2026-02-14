@@ -25,23 +25,6 @@ type AddFolderInput = {
   name: string;
   parentId?: string | null;
 };
-type SyncReason = "auto" | "manual";
-type SyncOptions = {
-  silent?: boolean;
-  reason?: SyncReason;
-  ignoreConflict?: boolean;
-};
-type BookmarkDeckSyncMeta = {
-  lastSyncedAt: string | null;
-  localUpdatedAt: string | null;
-};
-type BookmarkSyncConflict = {
-  remoteBookmarks: Bookmark[];
-  remoteFolders: Folder[];
-  remoteUpdatedAt: string | null;
-  localUpdatedAt: string | null;
-  lastSyncedAt: string | null;
-};
 
 function normalizeFolderName(value: string): string | null {
   const normalized = value.replace(/\s+/g, " ").trim();
@@ -64,34 +47,6 @@ function legacyLocalFoldersKey(userId?: string | null): string {
   return userId
     ? `bookmarkDeck.folders.local:${userId}`
     : "bookmarkDeck.folders.local:guest";
-}
-
-function syncMetaKeyForUser(userId?: string | null): string {
-  return userId
-    ? `bookmarkDeck.sync.meta:${userId}`
-    : "bookmarkDeck.sync.meta:guest";
-}
-
-function localSnapshotKeyForUser(userId?: string | null): string {
-  return userId
-    ? `bookmarkDeck.local.snapshots:${userId}`
-    : "bookmarkDeck.local.snapshots:guest";
-}
-
-function migrateStorageKeyOnce(
-  toIdentity: string | null | undefined,
-  fromIdentity: string | null | undefined,
-  keyBuilder: (identity?: string | null) => string
-): void {
-  if (typeof window === "undefined") return;
-  if (!toIdentity || !fromIdentity || toIdentity === fromIdentity) return;
-  const toKey = keyBuilder(toIdentity);
-  const fromKey = keyBuilder(fromIdentity);
-  const hasTo = window.localStorage.getItem(toKey);
-  if (hasTo !== null) return;
-  const fromRaw = window.localStorage.getItem(fromKey);
-  if (fromRaw === null) return;
-  window.localStorage.setItem(toKey, fromRaw);
 }
 
 function normalizeBookmarks(raw: unknown): Bookmark[] {
@@ -354,72 +309,6 @@ function saveToStorage(
   window.localStorage.setItem(storageKeyV2ForUser(userId), JSON.stringify(payload));
 }
 
-function loadSyncMeta(userId?: string | null): BookmarkDeckSyncMeta {
-  if (typeof window === "undefined") {
-    return { lastSyncedAt: null, localUpdatedAt: null };
-  }
-  try {
-    const raw = window.localStorage.getItem(syncMetaKeyForUser(userId));
-    if (!raw) return { lastSyncedAt: null, localUpdatedAt: null };
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    return {
-      lastSyncedAt:
-        typeof parsed.lastSyncedAt === "string" ? parsed.lastSyncedAt : null,
-      localUpdatedAt:
-        typeof parsed.localUpdatedAt === "string" ? parsed.localUpdatedAt : null,
-    };
-  } catch {
-    return { lastSyncedAt: null, localUpdatedAt: null };
-  }
-}
-
-function saveSyncMeta(
-  userId: string | null | undefined,
-  meta: BookmarkDeckSyncMeta
-): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(syncMetaKeyForUser(userId), JSON.stringify(meta));
-}
-
-function toMillis(value?: string | null): number {
-  if (!value) return 0;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function signatureForState(bookmarks: Bookmark[], folders: Folder[]): string {
-  const bookmarkShape = [...bookmarks]
-    .map((bookmark) => ({
-      id: bookmark.id,
-      title: bookmark.title,
-      url: bookmark.url,
-      note: bookmark.note ?? "",
-      folderId:
-        typeof bookmark.folderId === "string"
-          ? bookmark.folderId
-          : bookmark.folderId === null
-            ? null
-            : undefined,
-      tags: [...(bookmark.tags ?? [])].sort(),
-      pinned: !!bookmark.pinned,
-      hits: bookmark.hits ?? 0,
-      lastUsedAt: bookmark.lastUsedAt ?? "",
-      createdAt: bookmark.createdAt,
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  const folderShape = [...folders]
-    .map((folder) => ({
-      id: folder.id,
-      name: folder.name,
-      parentId: folder.parentId,
-      sortOrder: folder.sortOrder ?? 0,
-      updatedAt: folder.updatedAt ?? "",
-      createdAt: folder.createdAt ?? "",
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  return JSON.stringify({ bookmarkShape, folderShape });
-}
-
 function wouldCreateCycle(
   folders: Folder[],
   folderId: string,
@@ -444,105 +333,33 @@ function wouldCreateCycle(
   return false;
 }
 
-export function useBookmarks(
-  userId?: string | null,
-  userStorageKey?: string | null
-) {
-  const storageIdentity = userStorageKey ?? userId;
+export function useBookmarks(userId?: string | null) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
-  const [localUpdatedAt, setLocalUpdatedAt] = useState<string | null>(null);
-  const [syncConflict, setSyncConflict] = useState<BookmarkSyncConflict | null>(null);
   const [backups, setBackups] = useState<FirestoreBookmarkBackup[]>([]);
   const [areBackupsLoading, setAreBackupsLoading] = useState(false);
   const [backupError, setBackupError] = useState<string | null>(null);
 
   useEffect(() => {
-    migrateStorageKeyOnce(storageIdentity, userId, storageKeyV2ForUser);
-    migrateStorageKeyOnce(storageIdentity, userId, storageKeyV1ForUser);
-    migrateStorageKeyOnce(storageIdentity, userId, legacyLocalFoldersKey);
-    migrateStorageKeyOnce(storageIdentity, userId, syncMetaKeyForUser);
-    migrateStorageKeyOnce(storageIdentity, userId, localSnapshotKeyForUser);
-    const stored = loadFromStorage(storageIdentity);
-    const syncMeta = loadSyncMeta(storageIdentity);
+    const stored = loadFromStorage(userId);
     setBookmarks(stored.bookmarks);
     setFolders(stored.folders);
-    setLastSyncedAt(syncMeta.lastSyncedAt);
-    setLocalUpdatedAt(syncMeta.localUpdatedAt);
-    setSyncConflict(null);
     setHydrated(true);
     return () => {
       setBookmarks([]);
       setFolders([]);
       setHydrated(false);
-      setLastSyncedAt(null);
-      setLocalUpdatedAt(null);
-      setSyncConflict(null);
     };
-  }, [storageIdentity, userId]);
+  }, [userId]);
 
   useEffect(() => {
     if (!hydrated) return;
-    saveToStorage(bookmarks, folders, storageIdentity);
-  }, [bookmarks, folders, hydrated, storageIdentity]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    saveSyncMeta(storageIdentity, { lastSyncedAt, localUpdatedAt });
-  }, [hydrated, lastSyncedAt, localUpdatedAt, storageIdentity]);
-
-  const markLocalUpdated = () => {
-    setLocalUpdatedAt(new Date().toISOString());
-  };
-
-  const recordLocalSnapshot = (
-    reason:
-      | "pre-sync-overwrite"
-      | "pre-sync-conflict-manual"
-      | "pre-push-overwrite"
-      | "pre-push-conflict-manual"
-      | "manual-resolution-use-cloud"
-      | "manual-resolution-keep-local"
-  ) => {
-    if (typeof window === "undefined") return;
-    const key = localSnapshotKeyForUser(storageIdentity);
-    const nextSnapshot = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      reason,
-      bookmarks,
-      folders,
-      lastSyncedAt,
-      localUpdatedAt,
-    };
-    try {
-      const raw = window.localStorage.getItem(key);
-      const parsed = raw ? JSON.parse(raw) : [];
-      const snapshots = Array.isArray(parsed) ? parsed : [];
-      const merged = [nextSnapshot, ...snapshots].slice(0, 8);
-      window.localStorage.setItem(key, JSON.stringify(merged));
-    } catch {
-      window.localStorage.setItem(key, JSON.stringify([nextSnapshot]));
-    }
-  };
-
-  const applyRemoteState = (
-    remoteBookmarks: Bookmark[],
-    remoteFolders: Folder[],
-    remoteUpdatedAt?: string
-  ) => {
-    setBookmarks(remoteBookmarks);
-    setFolders(remoteFolders);
-    saveToStorage(remoteBookmarks, remoteFolders, storageIdentity);
-    const syncedAt = remoteUpdatedAt ?? new Date().toISOString();
-    setLastSyncedAt(syncedAt);
-    setLocalUpdatedAt(syncedAt);
-    setSyncConflict(null);
-  };
+    saveToStorage(bookmarks, folders, userId);
+  }, [bookmarks, folders, hydrated, userId]);
 
   const refreshBackups = async (userIdHint: string | null | undefined) => {
     if (!userIdHint) {
@@ -582,7 +399,6 @@ export function useBookmarks(
       pinned: partial.pinned ?? false,
     };
     setBookmarks((prev) => [newBookmark, ...prev]);
-    markLocalUpdated();
   };
 
   const updateBookmark = (id: string, data: Partial<Bookmark>) => {
@@ -612,17 +428,14 @@ export function useBookmarks(
         return next;
       })
     );
-    markLocalUpdated();
   };
 
   const deleteBookmark = (id: string) => {
     setBookmarks((prev) => prev.filter((bookmark) => bookmark.id !== id));
-    markLocalUpdated();
   };
 
   const clearAll = () => {
     setBookmarks([]);
-    markLocalUpdated();
   };
 
   const addFolder = ({ name, parentId = null }: AddFolderInput): Folder | null => {
@@ -647,7 +460,6 @@ export function useBookmarks(
     };
 
     setFolders((prev) => [...prev, folder]);
-    markLocalUpdated();
     return folder;
   };
 
@@ -697,7 +509,6 @@ export function useBookmarks(
           : value
       )
     );
-    markLocalUpdated();
 
     return { ok: true };
   };
@@ -716,27 +527,20 @@ export function useBookmarks(
         bookmark.folderId === folderId ? { ...bookmark, folderId: null } : bookmark
       )
     );
-    markLocalUpdated();
     return { ok: true };
   };
 
-  const syncFromCloud = async (
-    userIdHint: string | null | undefined,
-    options?: SyncOptions
-  ) => {
-    const silent = options?.silent ?? false;
-    const reason = options?.reason ?? "manual";
-    const ignoreConflict = options?.ignoreConflict ?? false;
+  const syncFromCloud = async (userIdHint: string | null | undefined) => {
     if (!userIdHint) {
-      if (!silent) setSyncError("Sign in to sync your bookmarks.");
+      setSyncError("Sign in to sync your bookmarks.");
       return;
     }
     setIsSyncing(true);
-    if (!silent) setSyncError(null);
+    setSyncError(null);
     try {
       const remote = await fetchBookmarks(userIdHint);
       if (!remote || !Array.isArray(remote.bookmarks)) {
-        if (!silent) setSyncError("No cloud backup found.");
+        setSyncError("No cloud backup found.");
         return;
       }
       const normalizedBookmarks = normalizeBookmarks(remote.bookmarks);
@@ -751,46 +555,16 @@ export function useBookmarks(
               folders: normalizedFolders,
             }
           : migrateLegacyData(normalizedBookmarks);
-      const remoteIsEmpty =
-        nextState.bookmarks.length === 0 &&
-        (nextState.folders?.length ?? 0) === 0;
-      const localHasData = bookmarks.length > 0 || folders.length > 0;
 
-      const localHasUnsyncedChanges =
-        toMillis(localUpdatedAt) > toMillis(lastSyncedAt);
-      const remoteIsNewerThanLastSync =
-        toMillis(remote.updatedAt) > toMillis(lastSyncedAt);
-      const signaturesDiffer =
-        signatureForState(bookmarks, folders) !==
-        signatureForState(nextState.bookmarks, nextState.folders);
-      const hasConflict =
-        localHasUnsyncedChanges && remoteIsNewerThanLastSync && signaturesDiffer;
-      const hasEmptyRemoteConflict = remoteIsEmpty && localHasData;
-
-      if ((hasConflict || hasEmptyRemoteConflict) && !ignoreConflict) {
-        if (reason === "manual" && !silent) {
-          recordLocalSnapshot("pre-sync-conflict-manual");
-          setSyncConflict({
-            remoteBookmarks: nextState.bookmarks,
-            remoteFolders: nextState.folders,
-            remoteUpdatedAt: remote.updatedAt ?? null,
-            localUpdatedAt,
-            lastSyncedAt,
-          });
-          return;
-        }
-        // Auto mode is cloud-authoritative; keep a local safety snapshot first.
-        recordLocalSnapshot("pre-sync-overwrite");
-      }
-
-      applyRemoteState(nextState.bookmarks, nextState.folders, remote.updatedAt);
+      setBookmarks(nextState.bookmarks);
+      setFolders(nextState.folders);
+      saveToStorage(nextState.bookmarks, nextState.folders, userIdHint);
+      setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
       await refreshBackups(userIdHint);
     } catch (err) {
-      if (!silent) {
-        setSyncError(
-          err instanceof Error ? err.message : "Failed to sync from cloud."
-        );
-      }
+      setSyncError(
+        err instanceof Error ? err.message : "Failed to sync from cloud."
+      );
     } finally {
       setIsSyncing(false);
     }
@@ -798,96 +572,24 @@ export function useBookmarks(
 
   const syncToCloud = async (
     userIdHint: string | null | undefined,
-    shortcuts?: ShortcutApp[],
-    options?: SyncOptions
+    shortcuts?: ShortcutApp[]
   ) => {
-    const silent = options?.silent ?? false;
-    const ignoreConflict = options?.ignoreConflict ?? false;
     if (!userIdHint) {
-      if (!silent) setSyncError("Sign in to sync your bookmarks.");
+      setSyncError("Sign in to sync your bookmarks.");
       return;
     }
     setIsSyncing(true);
-    if (!silent) setSyncError(null);
+    setSyncError(null);
     try {
-      if (!ignoreConflict) {
-        const remote = await fetchBookmarks(userIdHint);
-        const normalizedBookmarks = normalizeBookmarks(remote.bookmarks);
-        const normalizedFolders = normalizeFolders(remote.folders);
-        const remoteState =
-          normalizedFolders.length > 0
-            ? {
-                bookmarks: backfillBookmarkFolderIds(
-                  normalizedBookmarks,
-                  normalizedFolders
-                ),
-                folders: normalizedFolders,
-              }
-            : migrateLegacyData(normalizedBookmarks);
-        const localHasUnsyncedChanges =
-          toMillis(localUpdatedAt) > toMillis(lastSyncedAt);
-        const remoteIsNewerThanLastSync =
-          toMillis(remote.updatedAt) > toMillis(lastSyncedAt);
-        const signaturesDiffer =
-          signatureForState(bookmarks, folders) !==
-          signatureForState(remoteState.bookmarks, remoteState.folders);
-        const hasConflict =
-          localHasUnsyncedChanges && remoteIsNewerThanLastSync && signaturesDiffer;
-        if (hasConflict && !silent) {
-          recordLocalSnapshot("pre-push-conflict-manual");
-          setSyncConflict({
-            remoteBookmarks: remoteState.bookmarks,
-            remoteFolders: remoteState.folders,
-            remoteUpdatedAt: remote.updatedAt ?? null,
-            localUpdatedAt,
-            lastSyncedAt,
-          });
-          return;
-        }
-      } else {
-        recordLocalSnapshot("pre-push-overwrite");
-      }
       await saveBookmarks(userIdHint, bookmarks, folders, shortcuts);
-      const syncedAt = new Date().toISOString();
-      setLastSyncedAt(syncedAt);
-      setLocalUpdatedAt(syncedAt);
-      setSyncConflict(null);
+      setLastSyncedAt(new Date().toISOString());
     } catch (err) {
-      if (!silent) {
-        setSyncError(
-          err instanceof Error ? err.message : "Failed to sync to cloud."
-        );
-      }
+      setSyncError(
+        err instanceof Error ? err.message : "Failed to sync to cloud."
+      );
     } finally {
       setIsSyncing(false);
     }
-  };
-
-  const resolveSyncConflictUseCloud = async (
-    userIdHint: string | null | undefined
-  ) => {
-    if (!syncConflict || !userIdHint) return;
-    recordLocalSnapshot("manual-resolution-use-cloud");
-    applyRemoteState(
-      syncConflict.remoteBookmarks,
-      syncConflict.remoteFolders,
-      syncConflict.remoteUpdatedAt ?? undefined
-    );
-    await refreshBackups(userIdHint);
-  };
-
-  const resolveSyncConflictKeepLocal = async (
-    userIdHint: string | null | undefined,
-    shortcuts?: ShortcutApp[]
-  ) => {
-    if (!syncConflict) return;
-    recordLocalSnapshot("manual-resolution-keep-local");
-    setSyncConflict(null);
-    await syncToCloud(userIdHint, shortcuts, {
-      reason: "manual",
-      silent: false,
-      ignoreConflict: true,
-    });
   };
 
   const restoreFromSnapshot = (snapshot: Bookmark[]) => {
@@ -899,7 +601,6 @@ export function useBookmarks(
         }))
       )
     );
-    markLocalUpdated();
   };
 
   return {
@@ -918,10 +619,6 @@ export function useBookmarks(
     isSyncing,
     syncError,
     lastSyncedAt,
-    localUpdatedAt,
-    syncConflict,
-    resolveSyncConflictUseCloud,
-    resolveSyncConflictKeepLocal,
     refreshBackups,
     backups,
     areBackupsLoading,

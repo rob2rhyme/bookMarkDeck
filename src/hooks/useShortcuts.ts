@@ -74,21 +74,6 @@ function storageKeyForUser(userId?: string | null) {
   return userId ? `${BASE_STORAGE_KEY}:${userId}` : BASE_STORAGE_KEY;
 }
 
-function migrateStorageKeyOnce(
-  toIdentity: string | null | undefined,
-  fromIdentity: string | null | undefined
-) {
-  if (typeof window === "undefined") return;
-  if (!toIdentity || !fromIdentity || toIdentity === fromIdentity) return;
-  const toKey = storageKeyForUser(toIdentity);
-  const fromKey = storageKeyForUser(fromIdentity);
-  const hasTo = window.localStorage.getItem(toKey);
-  if (hasTo !== null) return;
-  const fromRaw = window.localStorage.getItem(fromKey);
-  if (fromRaw === null) return;
-  window.localStorage.setItem(toKey, fromRaw);
-}
-
 function loadFromStorage(userId?: string | null): ShortcutApp[] {
   if (typeof window === "undefined") return [];
   try {
@@ -107,15 +92,8 @@ function saveToStorage(shortcuts: ShortcutApp[], userId?: string | null) {
 }
 
 type AddShortcutInput = Omit<ShortcutApp, "id">;
-type SyncOptions = {
-  silent?: boolean;
-};
 
-export function useShortcuts(
-  userId?: string | null,
-  userStorageKey?: string | null
-) {
-  const storageIdentity = userStorageKey ?? userId;
+export function useShortcuts(userId?: string | null) {
   const [shortcuts, setShortcuts] = useState<ShortcutApp[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -123,8 +101,7 @@ export function useShortcuts(
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    migrateStorageKeyOnce(storageIdentity, userId);
-    const stored = loadFromStorage(storageIdentity);
+    const stored = loadFromStorage(userId);
     if (stored.length > 0) {
       setShortcuts(stored);
     } else {
@@ -135,12 +112,12 @@ export function useShortcuts(
       setShortcuts([]);
       setHydrated(false);
     };
-  }, [storageIdentity, userId]);
+  }, [userId]);
 
   useEffect(() => {
     if (!hydrated) return;
-    saveToStorage(shortcuts, storageIdentity);
-  }, [shortcuts, hydrated, storageIdentity]);
+    saveToStorage(shortcuts, userId);
+  }, [shortcuts, hydrated, userId]);
 
   const addShortcut = (data: AddShortcutInput) => {
     const normalized = normalizeShortcut({ ...data, id: crypto.randomUUID() });
@@ -164,21 +141,17 @@ export function useShortcuts(
     setShortcuts(normalizeShortcuts(snapshot));
   };
 
-  const syncFromCloudShortcuts = async (
-    userIdHint: string | null | undefined,
-    options?: SyncOptions
-  ) => {
-    const silent = options?.silent ?? false;
+  const syncFromCloudShortcuts = async (userIdHint: string | null | undefined) => {
     if (!userIdHint) {
-      if (!silent) setSyncError("Sign in to sync your shortcuts.");
+      setSyncError("Sign in to sync your shortcuts.");
       return;
     }
     setIsSyncing(true);
-    if (!silent) setSyncError(null);
+    setSyncError(null);
     try {
       const remote: FirestoreShortcutsPayload = await fetchShortcuts(userIdHint);
       if (!remote || !Array.isArray(remote.shortcuts)) {
-        if (!silent) setSyncError("No cloud shortcuts found.");
+        setSyncError("No cloud shortcuts found.");
         return;
       }
       const normalized = normalizeShortcuts(remote.shortcuts);
@@ -209,14 +182,12 @@ export function useShortcuts(
         }
       });
       setShortcuts(merged);
-      saveToStorage(merged, storageIdentity);
+      saveToStorage(merged, userIdHint);
       setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
     } catch (err) {
-      if (!silent) {
-        setSyncError(
-          err instanceof Error ? err.message : "Failed to sync shortcuts from cloud."
-        );
-      }
+      setSyncError(
+        err instanceof Error ? err.message : "Failed to sync shortcuts from cloud."
+      );
     } finally {
       setIsSyncing(false);
     }
