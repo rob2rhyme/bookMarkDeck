@@ -182,13 +182,7 @@ export function BookmarkCard({
     img.onerror = () => {
       if (!isCancelled) {
         setBorderColorState(null);
-        setFaviconState((current) => {
-          const urlKey = bookmark.url ?? "";
-          const baseIndex = current.url === urlKey ? current.index : 0;
-          const nextIndex =
-            baseIndex + 1 < faviconCandidates.length ? baseIndex + 1 : baseIndex;
-          return { url: urlKey, index: nextIndex };
-        });
+        clearBookmarkFavicon();
       }
     };
 
@@ -210,6 +204,18 @@ export function BookmarkCard({
       ? borderColorState.color
       : DEFAULT_BORDER_COLOR
     : DEFAULT_BORDER_COLOR;
+  const hideBrokenFavicon = (img: HTMLImageElement) => {
+    img.onerror = null;
+    img.src = "";
+  };
+  const clearBookmarkFavicon = () => {
+    const urlKey = bookmark.url ?? "";
+    setFaviconState({ url: urlKey, index: faviconCandidates.length });
+  };
+  const clearEditFavicon = () => {
+    const urlKey = url ?? "";
+    setEditFaviconState({ url: urlKey, index: editFaviconCandidates.length });
+  };
 
   const folderNameById = new Map(
     folderOptions.map((option) => [option.id, option.name])
@@ -395,16 +401,9 @@ export function BookmarkCard({
                   className="h-8 w-8 rounded-md object-contain"
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  onError={() => {
-                    setEditFaviconState((current) => {
-                      const urlKey = url ?? "";
-                      const baseIndex = current.url === urlKey ? current.index : 0;
-                      const nextIndex =
-                        baseIndex + 1 < editFaviconCandidates.length
-                          ? baseIndex + 1
-                          : baseIndex;
-                      return { url: urlKey, index: nextIndex };
-                    });
+                  onError={(event) => {
+                    hideBrokenFavicon(event.currentTarget);
+                    clearEditFavicon();
                   }}
                 />
               ) : shouldShowEditIconText ? (
@@ -438,16 +437,9 @@ export function BookmarkCard({
                 className="h-8 w-8 rounded-md object-contain"
                 loading="lazy"
                 referrerPolicy="no-referrer"
-                onError={() => {
-                  setFaviconState((current) => {
-                    const urlKey = bookmark.url ?? "";
-                    const baseIndex = current.url === urlKey ? current.index : 0;
-                    const nextIndex =
-                      baseIndex + 1 < faviconCandidates.length
-                        ? baseIndex + 1
-                        : baseIndex;
-                    return { url: urlKey, index: nextIndex };
-                  });
+                onError={(event) => {
+                  hideBrokenFavicon(event.currentTarget);
+                  clearBookmarkFavicon();
                 }}
               />
             ) : shouldShowIconText ? (
@@ -663,16 +655,9 @@ export function BookmarkCard({
                   className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  onError={() => {
-                    setFaviconState((current) => {
-                      const urlKey = bookmark.url ?? "";
-                      const baseIndex = current.url === urlKey ? current.index : 0;
-                      const nextIndex =
-                        baseIndex + 1 < faviconCandidates.length
-                          ? baseIndex + 1
-                          : baseIndex;
-                      return { url: urlKey, index: nextIndex };
-                    });
+                  onError={(event) => {
+                    hideBrokenFavicon(event.currentTarget);
+                    clearBookmarkFavicon();
                   }}
                 />
               ) : shouldShowIconText ? (
@@ -712,16 +697,9 @@ export function BookmarkCard({
                   className="h-7 w-7 shrink-0 rounded-md border border-slate-700/60 bg-slate-900 object-contain"
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  onError={() => {
-                    setEditFaviconState((current) => {
-                      const urlKey = url ?? "";
-                      const baseIndex = current.url === urlKey ? current.index : 0;
-                      const nextIndex =
-                        baseIndex + 1 < editFaviconCandidates.length
-                          ? baseIndex + 1
-                          : baseIndex;
-                      return { url: urlKey, index: nextIndex };
-                    });
+                  onError={(event) => {
+                    hideBrokenFavicon(event.currentTarget);
+                    clearEditFavicon();
                   }}
                 />
               ) : shouldShowEditIconText ? (
