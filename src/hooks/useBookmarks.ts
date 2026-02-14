@@ -116,7 +116,9 @@ function normalizeFolders(raw: unknown): Folder[] {
       const parentId =
         typeof record.parentId === "string"
           ? record.parentId
-          : record.parentId === null
+          : typeof record.parentFolderKey === "string"
+            ? record.parentFolderKey
+            : record.parentId === null || record.parentFolderKey === null
             ? null
             : null;
 
@@ -124,6 +126,7 @@ function normalizeFolders(raw: unknown): Folder[] {
         id,
         name: normalizedName,
         parentId,
+        parentFolderKey: parentId,
       };
 
       if (typeof record.sortOrder === "number") folder.sortOrder = record.sortOrder;
@@ -178,6 +181,7 @@ function migrateLegacyData(
       id: crypto.randomUUID(),
       name,
       parentId: null,
+      parentFolderKey: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -455,6 +459,7 @@ export function useBookmarks(userId?: string | null) {
       id: crypto.randomUUID(),
       name: normalizedName,
       parentId: parentKey,
+      parentFolderKey: parentKey,
       createdAt: now,
       updatedAt: now,
     };
@@ -502,6 +507,7 @@ export function useBookmarks(userId?: string | null) {
               ...value,
               name: nextName,
               parentId: nextParentId,
+              parentFolderKey: nextParentId,
               sortOrder:
                 typeof data.sortOrder === "number" ? data.sortOrder : value.sortOrder,
               updatedAt: new Date().toISOString(),

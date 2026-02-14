@@ -98,10 +98,17 @@ function sanitizeBookmark(raw: Bookmark): Bookmark {
 
 function sanitizeFolder(raw: Folder): Folder {
   const name = typeof raw.name === "string" ? raw.name.replace(/\s+/g, " ").trim() : "";
+  const parentFolderKey =
+    typeof raw.parentId === "string"
+      ? raw.parentId
+      : typeof raw.parentFolderKey === "string"
+        ? raw.parentFolderKey
+        : null;
   const base: Folder = {
     id: typeof raw.id === "string" && raw.id.trim() ? raw.id : crypto.randomUUID(),
     name,
-    parentId: typeof raw.parentId === "string" ? raw.parentId : null,
+    parentId: parentFolderKey,
+    parentFolderKey,
   };
   const optional: Partial<Folder> = {};
   if (typeof raw.sortOrder === "number") optional.sortOrder = raw.sortOrder;

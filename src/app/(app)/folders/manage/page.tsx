@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { ExternalLink, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
+import { ArrowLeft, ExternalLink, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { makeFolderOptions } from "@/utils/folderOptions";
 
@@ -66,6 +66,27 @@ function Modal({ open, title, onClose, children }: ModalProps) {
   );
 }
 
+function collectDescendantFolderIds(
+  sourceId: string,
+  folders: Array<{ id: string; parentId: string | null }>
+): Set<string> {
+  const descendants = new Set<string>();
+  const queue: string[] = [sourceId];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+    folders.forEach((folder) => {
+      if (folder.parentId !== current) return;
+      if (descendants.has(folder.id)) return;
+      descendants.add(folder.id);
+      queue.push(folder.id);
+    });
+  }
+
+  return descendants;
+}
+
 export default function FolderManagementPage() {
   const { data: session } = useSession();
   const userId = session?.user?.email ?? null;
@@ -93,6 +114,9 @@ export default function FolderManagementPage() {
   const [mergeSourceId, setMergeSourceId] = useState<string>("");
   const [mergeTargetId, setMergeTargetId] = useState<string>("");
   const [mergeError, setMergeError] = useState("");
+  const [moveSourceId, setMoveSourceId] = useState<string | null>(null);
+  const [moveTargetId, setMoveTargetId] = useState("__top__");
+  const [moveError, setMoveError] = useState("");
 
   const folderOptions = useMemo(() => makeFolderOptions(folders), [folders]);
 
@@ -126,6 +150,9 @@ export default function FolderManagementPage() {
   const mergeSourceCount = mergeSourceId
     ? bookmarkCountByFolderId.get(mergeSourceId) ?? 0
     : 0;
+  const moveSourceLabel = moveSourceId
+    ? folderLabelById.get(moveSourceId) ?? "Folder"
+    : "Folder";
 
   const folderIdsWithChildren = useMemo(() => {
     const parentIds = new Set<string>();
@@ -141,6 +168,18 @@ export default function FolderManagementPage() {
   const firstMergeTargetFor = (sourceId: string): string => {
     return folderOptions.find((option) => option.id !== sourceId)?.id ?? "";
   };
+
+  const invalidMoveTargetIds = useMemo(() => {
+    if (!moveSourceId) return new Set<string>();
+    const descendants = collectDescendantFolderIds(moveSourceId, folders);
+    descendants.add(moveSourceId);
+    return descendants;
+  }, [moveSourceId, folders]);
+
+  const moveDestinationOptions = useMemo(() => {
+    if (!moveSourceId) return folderOptions;
+    return folderOptions.filter((option) => !invalidMoveTargetIds.has(option.id));
+  }, [folderOptions, moveSourceId, invalidMoveTargetIds]);
 
   useEffect(() => {
     if (!notice) return;
@@ -166,6 +205,12 @@ export default function FolderManagementPage() {
     setMergeError("");
   };
 
+  const closeMoveModal = () => {
+    setMoveSourceId(null);
+    setMoveTargetId("__top__");
+    setMoveError("");
+  };
+
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setCreateName("");
@@ -178,6 +223,9 @@ export default function FolderManagementPage() {
     setMergeSourceId("");
     setMergeTargetId("");
     setMergeError("");
+    setMoveSourceId(null);
+    setMoveTargetId("__top__");
+    setMoveError("");
     setRenameFolderId(folder.id);
     setRenameValue(folder.name);
     setRenameError("");
@@ -190,6 +238,9 @@ export default function FolderManagementPage() {
     setMergeSourceId("");
     setMergeTargetId("");
     setMergeError("");
+    setMoveSourceId(null);
+    setMoveTargetId("__top__");
+    setMoveError("");
     setDeleteSourceId(folder.id);
     setDeleteTarget("__unstaged__");
     setDeleteError("");
@@ -203,9 +254,27 @@ export default function FolderManagementPage() {
     setDeleteSourceId(null);
     setDeleteTarget("__unstaged__");
     setDeleteError("");
+    setMoveSourceId(null);
+    setMoveTargetId("__top__");
+    setMoveError("");
     setMergeSourceId(folder.id);
     setMergeTargetId(firstTarget);
     setMergeError("");
+  };
+
+  const handleOpenMove = (folder: FolderOption) => {
+    setRenameFolderId(null);
+    setRenameValue("");
+    setRenameError("");
+    setDeleteSourceId(null);
+    setDeleteTarget("__unstaged__");
+    setDeleteError("");
+    setMergeSourceId("");
+    setMergeTargetId("");
+    setMergeError("");
+    setMoveSourceId(folder.id);
+    setMoveTargetId("__top__");
+    setMoveError("");
   };
 
   const handleCreateFolder = () => {
@@ -309,6 +378,32 @@ export default function FolderManagementPage() {
       }.`,
     });
     closeMergeModal();
+  };
+
+  const handleConfirmMove = () => {
+    if (!moveSourceId) return;
+
+    const nextParentId = moveTargetId === "__top__" ? null : moveTargetId;
+    if (nextParentId && invalidMoveTargetIds.has(nextParentId)) {
+      setMoveError("Cannot move a folder into itself or its descendant.");
+      return;
+    }
+
+    const result = updateFolder(moveSourceId, { parentId: nextParentId });
+    if (!result.ok) {
+      setMoveError(result.reason);
+      setNotice({ type: "error", message: result.reason });
+      return;
+    }
+
+    const destinationLabel = nextParentId
+      ? folderLabelById.get(nextParentId) ?? "Selected folder"
+      : "Top level";
+    setNotice({
+      type: "success",
+      message: `Moved "${moveSourceLabel}" to ${destinationLabel}.`,
+    });
+    closeMoveModal();
   };
 
   return (
@@ -442,6 +537,16 @@ export default function FolderManagementPage() {
                       className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-slate-700/70 disabled:hover:bg-slate-900/70`}
                     >
                       <FolderTree className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      title="Move folder"
+                      aria-label="Move folder"
+                      onClick={() => handleOpenMove(folder)}
+                      className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60`}
+                    >
+                      <ArrowLeft className="h-4 w-4 rotate-180" />
                     </button>
                   </div>
                 </div>
@@ -580,6 +685,49 @@ export default function FolderManagementPage() {
               className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
             >
               Confirm merge
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={moveSourceId !== null} title="Move folder" onClose={closeMoveModal}>
+        <div className="space-y-3">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-300">
+            Moving: <span className="font-semibold text-slate-100">{moveSourceLabel}</span>
+          </div>
+
+          <select
+            value={moveTargetId}
+            onChange={(event) => {
+              setMoveTargetId(event.target.value);
+              if (moveError) setMoveError("");
+            }}
+            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="__top__">Top level</option>
+            {moveDestinationOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          {moveError && <p className="text-xs text-red-400">{moveError}</p>}
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeMoveModal}
+              className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmMove}
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            >
+              Move
             </button>
           </div>
         </div>
