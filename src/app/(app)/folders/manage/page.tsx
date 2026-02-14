@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { ArrowLeft, ExternalLink, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
+import { ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { makeFolderOptions } from "@/utils/folderOptions";
 
@@ -546,7 +546,7 @@ export default function FolderManagementPage() {
                       onClick={() => handleOpenMove(folder)}
                       className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60`}
                     >
-                      <ArrowLeft className="h-4 w-4 rotate-180" />
+                      <FolderMoveInto className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

@@ -1,3 +1,4 @@
+//src/components/icons.tsx
 import type { SVGProps } from "react";
 
 type IconProps = {
@@ -128,6 +129,16 @@ export function FolderTree(props: SVGProps<SVGSVGElement>) {
       <path d="M9 18h4" />
       <path d="M17 13v2" />
       <path d="M15 17h4" />
+    </svg>
+  );
+}
+
+export function FolderMoveInto({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+      <path d="M10 11h6" />
+      <path d="M14 9l3 3-3 3" />
     </svg>
   );
 }
