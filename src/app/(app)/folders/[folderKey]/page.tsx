@@ -20,6 +20,7 @@ import {
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
+import { makeFolderOptions } from "@/utils/folderOptions";
 
 function folderNameKey(value: string) {
   return value.trim().toLowerCase();
@@ -39,7 +40,7 @@ function sortFolders(items: Folder[]): Folder[] {
   );
 }
 
-function buildFolderPath(folder: Folder, folderById: Map<string, Folder>): Folder[] {
+function buildBreadcrumbPath(folder: Folder, folderById: Map<string, Folder>): Folder[] {
   const path: Folder[] = [];
   const visited = new Set<string>();
   let cursor: Folder | undefined = folder;
@@ -52,12 +53,6 @@ function buildFolderPath(folder: Folder, folderById: Map<string, Folder>): Folde
   }
 
   return path.reverse();
-}
-
-function buildFolderLabel(folder: Folder, folderById: Map<string, Folder>): string {
-  return buildFolderPath(folder, folderById)
-    .map((node) => node.name)
-    .join(" / ");
 }
 
 export default function FolderPage() {
@@ -128,7 +123,7 @@ export default function FolderPage() {
 
   const breadcrumbs = useMemo(() => {
     if (!currentFolder) return [];
-    return buildFolderPath(currentFolder, folderById);
+    return buildBreadcrumbPath(currentFolder, folderById);
   }, [currentFolder, folderById]);
   const currentPathLabel = useMemo(() => {
     const fromBreadcrumbs = breadcrumbs.map((segment) => segment.name).join(" / ");
@@ -222,12 +217,8 @@ export default function FolderPage() {
   }, [bookmarks, currentFolder]);
 
   const folderOptions = useMemo(() => {
-    return sortFolders(folders).map((folder) => ({
-      id: folder.id,
-      name: folder.name,
-      label: buildFolderLabel(folder, folderById),
-    }));
-  }, [folders, folderById]);
+    return makeFolderOptions(folders);
+  }, [folders]);
 
   const addFolderOption = (name: string) => {
     const normalized = normalizeFolderName(name);

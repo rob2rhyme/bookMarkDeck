@@ -274,13 +274,13 @@ export function DragonCursor() {
 
   return (
     // Keep cursor non-interactive and behind page content.
-    <div className="pointer-events-none fixed inset-0 z-0 select-none" aria-hidden="true">
+    <div className="pointer-events-none fixed inset-0 -z-10 select-none" aria-hidden="true">
       <svg
         ref={svgRef}
-        className="h-full w-full"
+        className="pointer-events-none h-full w-full"
         xmlns="http://www.w3.org/2000/svg"
         xmlnsXlink="http://www.w3.org/1999/xlink"
-        style={{ filter: "sepia(20%)" }}
+        style={{ filter: "sepia(20%)", pointerEvents: "none" }}
       >
         <defs>
           {/* Dragon head gradient */}

@@ -47,7 +47,7 @@ type Props = {
   onUpdate: (id: string, data: Partial<Bookmark>) => void;
   onDelete: (id: string) => void;
   usageLabel?: string;
-  folderOptions: Array<{ id: string; name: string; label?: string }>;
+  folderOptions: Array<{ id: string; name: string; label: string }>;
   folderName?: string;
   onRequestNewFolder?: (onCreated: (folderId: string) => void) => void;
   selectMode?: boolean;
@@ -496,7 +496,7 @@ export function BookmarkCard({
                   <option value="__unstaged__">Unstaged</option>
                   {folderOptions.map((option) => (
                     <option key={option.id} value={option.id}>
-                      {option.label ?? option.name}
+                      {option.label}
                     </option>
                   ))}
                   <option value="__new__">New folder…</option>
@@ -783,7 +783,7 @@ export function BookmarkCard({
                     <option value="__unstaged__">Unstaged</option>
                     {folderOptions.map((option) => (
                       <option key={option.id} value={option.id}>
-                        {option.label ?? option.name}
+                        {option.label}
                       </option>
                     ))}
                     <option value="__new__">New folder…</option>

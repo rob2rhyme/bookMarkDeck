@@ -8,34 +8,7 @@ import { BookmarkCard } from "@/components/BookmarkCard";
 import { ArrowLeft, X } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { Bookmark } from "@/types/bookmark";
-import { Folder } from "@/types/folder";
-
-function sortFolders(items: Folder[]): Folder[] {
-  return [...items].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-  );
-}
-
-function buildFolderPath(folder: Folder, folderById: Map<string, Folder>): Folder[] {
-  const path: Folder[] = [];
-  const visited = new Set<string>();
-  let cursor: Folder | undefined = folder;
-
-  while (cursor) {
-    if (visited.has(cursor.id)) break;
-    visited.add(cursor.id);
-    path.push(cursor);
-    cursor = cursor.parentId ? folderById.get(cursor.parentId) : undefined;
-  }
-
-  return path.reverse();
-}
-
-function buildFolderLabel(folder: Folder, folderById: Map<string, Folder>): string {
-  return buildFolderPath(folder, folderById)
-    .map((node) => node.name)
-    .join(" / ");
-}
+import { makeFolderOptions } from "@/utils/folderOptions";
 
 export default function UnstagedFolderPage() {
   const { data: session } = useSession();
@@ -64,18 +37,14 @@ export default function UnstagedFolderPage() {
     snapshot: Bookmark[];
   } | null>(null);
 
+  const folderOptions = useMemo(() => {
+    return makeFolderOptions(folders);
+  }, [folders]);
+
   const folderById = useMemo(
     () => new Map(folders.map((folder) => [folder.id, folder])),
     [folders]
   );
-
-  const folderOptions = useMemo(() => {
-    return sortFolders(folders).map((folder) => ({
-      id: folder.id,
-      name: folder.name,
-      label: buildFolderLabel(folder, folderById),
-    }));
-  }, [folders, folderById]);
 
   const unstagedItems = useMemo(() => {
     return bookmarks.filter(

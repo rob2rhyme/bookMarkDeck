@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const avatarLabel = session?.user?.name ?? session?.user?.email ?? "Account";
 
   return (
-    <main className="relative flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
+    <main className="relative isolate flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
       <DragonCursor />
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-12">
         <header className="mb-8 flex flex-col gap-4 sm:mb-10">

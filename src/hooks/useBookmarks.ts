@@ -524,9 +524,39 @@ export function useBookmarks(userId?: string | null) {
     setFolders((prev) => prev.filter((folder) => folder.id !== folderId));
     setBookmarks((prev) =>
       prev.map((bookmark) =>
-        bookmark.folderId === folderId ? { ...bookmark, folderId: null } : bookmark
+        bookmark.folderId === folderId
+          ? { ...bookmark, folderId: null, folder: undefined }
+          : bookmark
       )
     );
+    return { ok: true };
+  };
+
+  const mergeFolder = (
+    sourceFolderId: string,
+    targetFolderId: string
+  ): { ok: true } | { ok: false; reason: string } => {
+    const source = folders.find((folder) => folder.id === sourceFolderId);
+    if (!source) return { ok: false, reason: "Source folder not found." };
+    const target = folders.find((folder) => folder.id === targetFolderId);
+    if (!target) return { ok: false, reason: "Target folder not found." };
+    if (sourceFolderId === targetFolderId) {
+      return { ok: false, reason: "Pick a different target folder." };
+    }
+
+    const hasChildren = folders.some((folder) => folder.parentId === sourceFolderId);
+    if (hasChildren) {
+      return { ok: false, reason: "This folder has subfolders." };
+    }
+
+    setBookmarks((prev) =>
+      prev.map((bookmark) =>
+        bookmark.folderId === sourceFolderId
+          ? { ...bookmark, folderId: targetFolderId, folder: target.name }
+          : bookmark
+      )
+    );
+    setFolders((prev) => prev.filter((folder) => folder.id !== sourceFolderId));
     return { ok: true };
   };
 
@@ -614,6 +644,7 @@ export function useBookmarks(userId?: string | null) {
     addFolder,
     updateFolder,
     deleteFolder,
+    mergeFolder,
     syncFromCloud,
     syncToCloud,
     isSyncing,

@@ -2,7 +2,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useCallback, useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -15,6 +16,7 @@ import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
 import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
+import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
@@ -309,33 +311,9 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     return new Map(folderEntities.map((folder) => [folder.id, folder]));
   }, [folderEntities]);
 
-  const buildFolderPathLabel = useCallback(
-    (folderId: string) => {
-      const path: string[] = [];
-      const visited = new Set<string>();
-      let cursorId: string | null = folderId;
-      while (cursorId) {
-        if (visited.has(cursorId)) break;
-        visited.add(cursorId);
-        const node = folderById.get(cursorId);
-        if (!node) break;
-        path.push(node.name);
-        cursorId = node.parentId;
-      }
-      return path.reverse().join(" / ");
-    },
-    [folderById]
-  );
-
   const folderOptions = useMemo(() => {
-    return [...folderEntities]
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
-      .map((folder) => ({
-        id: folder.id,
-        name: folder.name,
-        label: buildFolderPathLabel(folder.id),
-      }));
-  }, [folderEntities, buildFolderPathLabel]);
+    return makeFolderOptions(folderEntities);
+  }, [folderEntities]);
 
   const addRootFolder = (name: string) => {
     const normalized = cleanFolderLabel(name);
@@ -1745,19 +1723,27 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   Group bookmarks into wallet-style folders.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (folderSelectMode) {
-                    clearFolderSelection();
-                    return;
-                  }
-                  setFolderSelectMode(true);
-                }}
-                className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
-              >
-                {folderSelectMode ? "Done" : "Select"}
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/folders/manage"
+                  className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+                >
+                  Manage
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (folderSelectMode) {
+                      clearFolderSelection();
+                      return;
+                    }
+                    setFolderSelectMode(true);
+                  }}
+                  className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+                >
+                  {folderSelectMode ? "Done" : "Select"}
+                </button>
+              </div>
             </div>
             {folderSelectMode && (
               <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
