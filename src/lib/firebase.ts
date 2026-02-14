@@ -73,9 +73,11 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
 
           if (!popupBlocked) throw err;
 
-          throw new Error(
+          const blockedError = new Error(
             "Google sign-in was blocked. Please allow popups and third-party cookies for Google, then try again."
           );
+          (blockedError as Error & { isUserActionRequired?: boolean }).isUserActionRequired = true;
+          throw blockedError;
         }
       })
       .then((user) => {

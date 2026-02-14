@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { FolderCard } from "@/components/FolderCard";
 import { ShortcutIcon } from "@/components/ShortcutIcon";
-import { useFirebaseAuthUser } from "@/hooks/useFirebaseAuthUser";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
@@ -19,7 +18,6 @@ import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
-import { ensureFirebaseGoogleAuth } from "@/lib/firebase";
 
 function getHostname(rawUrl: string) {
   try {
@@ -176,19 +174,8 @@ function CopyIconButton({ value, tooltip }: { value: string; tooltip: string }) 
 export function HomePageClient() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const sessionEmailLower = session?.user?.email?.toLowerCase() ?? null;
-  const { firebaseUser, firebaseAuthReady, firebaseEmailLower } =
-    useFirebaseAuthUser();
-  const isFirebaseMatched =
-    firebaseAuthReady && firebaseEmailLower === sessionEmailLower;
-  const canAutoSync =
-    status === "authenticated" &&
-    !!sessionEmailLower &&
-    isFirebaseMatched;
-  const emailHint = sessionEmailLower;
-  const userStorageKey = isFirebaseMatched
-    ? firebaseUser?.uid ?? emailHint
-    : emailHint;
+  const emailHint = session?.user?.email?.toLowerCase() ?? null;
+  const userStorageKey = emailHint;
   const {
     bookmarks,
     folders: folderEntities,
@@ -266,9 +253,6 @@ const [showBulkMoveBookmarksModal, setShowBulkMoveBookmarksModal] = useState(fal
 const [bookmarkBulkTarget, setBookmarkBulkTarget] = useState("__unstaged__");
 const [showBulkDeleteBookmarksConfirm, setShowBulkDeleteBookmarksConfirm] = useState(false);
 const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
-const hasAutoSyncedRef = useRef(false);
-const [autoSyncWarning, setAutoSyncWarning] = useState<string | null>(null);
-const [connectCloudError, setConnectCloudError] = useState<string | null>(null);
 
   const normalizeFolderName = (value: string) => {
     const trimmed = value.replace(/\s+/g, " ").trim();
@@ -1266,7 +1250,6 @@ const [connectCloudError, setConnectCloudError] = useState<string | null>(null);
     await syncFromCloud(emailHint, { silent, reason });
     await syncFromCloudShortcuts(emailHint, { silent });
     await handleRefreshBackups();
-    setAutoSyncWarning(null);
   };
 
   const handleSyncUpload = async () => {
@@ -1288,38 +1271,6 @@ const [connectCloudError, setConnectCloudError] = useState<string | null>(null);
     await syncToCloudShortcuts(emailHint);
     await handleRefreshBackups();
   };
-
-  const handleConnectCloud = async () => {
-    if (!sessionEmailLower) return;
-    setConnectCloudError(null);
-    try {
-      await ensureFirebaseGoogleAuth(sessionEmailLower);
-      await handleSyncDownload({ silent: false, reason: "manual" });
-    } catch (error) {
-      setConnectCloudError(
-        error instanceof Error
-          ? error.message
-          : "Unable to connect Google for cloud sync."
-      );
-    }
-  };
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      hasAutoSyncedRef.current = false;
-      setAutoSyncWarning(null);
-    }
-  }, [status]);
-
-  useEffect(() => {
-    if (!canAutoSync) return;
-    if (hasAutoSyncedRef.current) return;
-    hasAutoSyncedRef.current = true;
-    handleSyncDownload({ silent: true, reason: "auto" }).catch((error) => {
-      console.error(error);
-      setAutoSyncWarning("Cloud sync is temporarily unavailable. Using local data.");
-    });
-  }, [canAutoSync]);
 
   return (
     <>
@@ -1678,12 +1629,6 @@ const [connectCloudError, setConnectCloudError] = useState<string | null>(null);
               {syncError && (
                 <p className="text-[11px] text-red-400">{syncError}</p>
               )}
-              {connectCloudError && (
-                <p className="text-[11px] text-red-400">{connectCloudError}</p>
-              )}
-              {autoSyncWarning && (
-                <p className="text-[11px] text-amber-300">{autoSyncWarning}</p>
-              )}
               {syncConflict && (
                 <div className="space-y-2 rounded-xl border border-amber-700/50 bg-amber-950/25 px-3 py-2 text-[11px] text-amber-100">
                   <p>
@@ -1722,19 +1667,6 @@ const [connectCloudError, setConnectCloudError] = useState<string | null>(null);
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:w-56">
-              {status === "authenticated" &&
-                sessionEmailLower &&
-                !isFirebaseMatched && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void handleConnectCloud();
-                    }}
-                    className="w-full rounded-full border border-amber-500/70 bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/25"
-                  >
-                    Connect Google to enable cloud sync
-                  </button>
-                )}
               <button
                 type="button"
                 onClick={() => {
