@@ -2,7 +2,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { Bookmark } from "@/types/bookmark";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { IconAction } from "@/components/IconAction";
 import {
   Check,
@@ -135,6 +135,15 @@ export function BookmarkCard({
   const [editIconImgFailedFor, setEditIconImgFailedFor] = useState<string | null>(
     null
   );
+  const clearBookmarkFavicon = useCallback(() => {
+    const urlKey = bookmark.url ?? "";
+    setFaviconState({ url: urlKey, index: faviconCandidates.length });
+  }, [bookmark.url, faviconCandidates.length]);
+
+  const clearEditFavicon = useCallback(() => {
+    const urlKey = url ?? "";
+    setEditFaviconState({ url: urlKey, index: editFaviconCandidates.length });
+  }, [url, editFaviconCandidates.length]);
 
   useEffect(() => {
     if (!favicon) return;
@@ -189,7 +198,7 @@ export function BookmarkCard({
     return () => {
       isCancelled = true;
     };
-  }, [favicon, faviconCandidates.length, bookmark.url]);
+  }, [clearBookmarkFavicon, favicon, faviconCandidates.length, bookmark.url]);
 
   const shouldShowFavicon = Boolean(favicon);
   const shouldShowEditFavicon = Boolean(editFavicon);
@@ -207,14 +216,6 @@ export function BookmarkCard({
   const hideBrokenFavicon = (img: HTMLImageElement) => {
     img.onerror = null;
     img.src = "";
-  };
-  const clearBookmarkFavicon = () => {
-    const urlKey = bookmark.url ?? "";
-    setFaviconState({ url: urlKey, index: faviconCandidates.length });
-  };
-  const clearEditFavicon = () => {
-    const urlKey = url ?? "";
-    setEditFaviconState({ url: urlKey, index: editFaviconCandidates.length });
   };
 
   const folderNameById = new Map(

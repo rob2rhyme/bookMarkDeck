@@ -1,3 +1,4 @@
+/* src/app/globals.css */
 @import "tailwindcss";
 
 :root {
@@ -69,10 +70,11 @@ body {
     display: grid;
     grid-template-columns: repeat(
       auto-fit,
-      minmax(min(var(--tile-min, 84px), 100%), 1fr)
+      minmax(min(var(--tile-min, 84px), 100%), var(--tile-max, 84px))
     );
     gap: var(--tile-gap, 12px);
     justify-items: start;
+    justify-content: start;
     align-items: start;
     align-content: start;
   }
