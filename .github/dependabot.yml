@@ -5,3 +5,23 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+      production-patch:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/launcher-desktop"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+      production-patch:
+        dependency-type: "production"
+        update-types:
+          - "patch"
