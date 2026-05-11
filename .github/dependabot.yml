@@ -8,9 +8,13 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: "development"
-      production-patch:
+        update-types:
+          - "minor"
+          - "patch"
+      production-minor-patch:
         dependency-type: "production"
         update-types:
+          - "minor"
           - "patch"
 
   - package-ecosystem: "npm"
@@ -21,7 +25,11 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: "development"
-      production-patch:
+        update-types:
+          - "minor"
+          - "patch"
+      production-minor-patch:
         dependency-type: "production"
         update-types:
+          - "minor"
           - "patch"
