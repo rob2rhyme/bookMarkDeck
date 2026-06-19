@@ -78,15 +78,19 @@ export async function deleteTask(
 export async function logSession(
   emailHint: string,
   focusMin: number,
-  day: string
+  day: string,
+  linkedFolderId?: string | null
 ): Promise<void> {
   const uid = await uidFor(emailHint);
   const id = crypto.randomUUID();
-  await setDoc(doc(sessionsCol(uid), id), {
+  const payload: Record<string, unknown> = {
     focusMin,
     day,
     createdAt: serverTimestamp(),
-  });
+  };
+  // Firestore rejects undefined; only include the link when present.
+  if (linkedFolderId) payload.linkedFolderId = linkedFolderId;
+  await setDoc(doc(sessionsCol(uid), id), payload);
 }
 
 export async function countSessionsForDay(

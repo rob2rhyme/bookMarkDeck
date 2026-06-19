@@ -14,6 +14,7 @@ import {
   CheckSquare,
   FolderPlus,
   Pencil,
+  Timer,
   Trash2,
   X,
 } from "@/components/icons";
@@ -414,6 +415,11 @@ export default function FolderPage() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <IconAction
+            label="Start a focus session"
+            icon={<Timer className="h-4 w-4" />}
+            href={`/focus?collection=${encodeURIComponent(currentFolder.id)}`}
+          />
           <IconAction
             label={bookmarkSelectMode ? "Done selecting" : "Select"}
             icon={<CheckSquare className="h-4 w-4" />}

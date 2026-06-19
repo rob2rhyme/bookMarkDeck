@@ -34,7 +34,11 @@ const secondsFor = (mode: FocusMode) => MODE_MINUTES[mode] * 60;
  * When `connected` with an `email`, today's completed-block count is seeded from
  * Firestore and each finished focus block is logged (failures are non-blocking).
  */
-export function useFocusTimer(email?: string | null, connected = false) {
+export function useFocusTimer(
+  email?: string | null,
+  connected = false,
+  linkedFolderId?: string | null
+) {
   const [mode, setMode] = useState<FocusMode>("focus");
   const [secondsLeft, setSecondsLeft] = useState(() => secondsFor("focus"));
   const [running, setRunning] = useState(false);
@@ -100,7 +104,9 @@ export function useFocusTimer(email?: string | null, connected = false) {
     if (mode === "focus") {
       setCompletedFocus((count) => count + 1);
       if (canSync && email) {
-        logSession(email, MODE_MINUTES.focus, todayKey()).catch(() => {});
+        logSession(email, MODE_MINUTES.focus, todayKey(), linkedFolderId).catch(
+          () => {}
+        );
       }
       // Decide the next break from the just-incremented count.
       const nextMode: FocusMode =
@@ -111,7 +117,7 @@ export function useFocusTimer(email?: string | null, connected = false) {
       setMode("focus");
       setSecondsLeft(secondsFor("focus"));
     }
-  }, [secondsLeft, running, mode, completedFocus, canSync, email]);
+  }, [secondsLeft, running, mode, completedFocus, canSync, email, linkedFolderId]);
 
   const total = secondsFor(mode);
   const progress = total > 0 ? 1 - secondsLeft / total : 0;
