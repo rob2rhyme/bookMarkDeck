@@ -42,7 +42,12 @@ function formatTime(totalSeconds: number) {
   return `${minutes}:${seconds}`;
 }
 
-export function PomodoroTimer() {
+type PomodoroTimerProps = {
+  email?: string | null;
+  connected?: boolean;
+};
+
+export function PomodoroTimer({ email, connected }: PomodoroTimerProps) {
   const {
     mode,
     secondsLeft,
@@ -53,7 +58,7 @@ export function PomodoroTimer() {
     pause,
     reset,
     switchMode,
-  } = useFocusTimer();
+  } = useFocusTimer(email, connected);
 
   const accent = MODE_ACCENT[mode];
 

@@ -5,9 +5,16 @@ import { useState } from "react";
 import { Check, X } from "@/components/icons";
 import { useSessionTasks } from "@/features/focus/hooks/useSessionTasks";
 
-export function SessionTasks() {
-  const { tasks, doneCount, addTask, toggleTask, removeTask } =
-    useSessionTasks();
+type SessionTasksProps = {
+  email?: string | null;
+  connected?: boolean;
+};
+
+export function SessionTasks({ email, connected }: SessionTasksProps) {
+  const { tasks, doneCount, addTask, toggleTask, removeTask } = useSessionTasks(
+    email,
+    connected
+  );
   const [draft, setDraft] = useState("");
 
   const submit = (event: React.FormEvent) => {

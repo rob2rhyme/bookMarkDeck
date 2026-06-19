@@ -89,7 +89,7 @@ A folder view gets a "Start a focus session" action that deep-links to `/focus?c
 | 0b | Security headers + `audit` script + `.env.example` (optional, parallel) | ⏳ not started |
 | 1 | `feature/focus` branch + isolated auth-gated `/focus` shell + 1 nav entry | ✅ done (placeholder route + Focus nav pill in AppShell) |
 | 2 | Timer + tasks UI (in-memory, design-harmonized) | ✅ done (Pomodoro timer + session tasks, in-memory) |
-| 3 | Persist focus data via Firestore (+ console rules) | ⏳ |
+| 3 | Persist focus data via Firestore (+ console rules) | ✅ done (focusTasks + focusSessions subcollections; opt-in sync; rules in src/features/focus/FIRESTORE_RULES.md) |
 | 4 | ⭐ Focus-on-a-collection (bookmarks↔focus link) | ⏳ |
 | 5 | Review, smoke test, merge the core slice | ⏳ |
 | B1–B9 | Gated backlog (stats, settings, chimes, PWA, hydration, push, calendar, journal, suggestions) | gated |
