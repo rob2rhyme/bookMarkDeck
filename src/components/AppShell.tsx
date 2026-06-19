@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 
 import { DragonCursor } from "@/components/DragonCursor";
+import { Timer } from "@/components/icons";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -32,7 +33,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </h1>
               </Link>
               {session && (
-                <div className="flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-2 py-1 shadow-sm sm:gap-3 sm:px-3 sm:py-1.5">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <Link
+                    href="/focus"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:text-sm"
+                  >
+                    <Timer className="h-4 w-4" />
+                    Focus
+                  </Link>
+                  <div className="flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-2 py-1 shadow-sm sm:gap-3 sm:px-3 sm:py-1.5">
                   <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-800 text-[11px] font-semibold text-slate-100 ring-1 ring-white/5 sm:h-9 sm:w-9 sm:text-sm">
                     {avatarSrc ? (
                       <Image
@@ -72,6 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       </svg>
                     </span>
                   </button>
+                  </div>
                 </div>
               )}
             </div>
