@@ -103,6 +103,28 @@ next-auth set — the Firebase keys are omitted; see Phase 0b in `FOCUS-INTEGRAT
 caps without re-verifying firebase. uuid stays at v8 (next-auth@4 dependency); its advisory is
 dismissed as not-affected (v4-random only, no `buf`).
 
+## Focus feature (`/focus`)
+
+A self-contained "focused-work hub" (see `FOCUS-INTEGRATION.md`). Fully isolated
+under `src/features/focus/` + the `/focus` route; removable cleanly.
+
+- Route: `src/app/(app)/focus/page.tsx` — auth-gated like home; reads the
+  `?collection=<folderId>` deep-link via Next's async `searchParams`.
+- UI: `FocusDashboard` composes `PomodoroTimer`, `SessionTasks`, `CollectionPicker`,
+  `ResourcesPanel`. Hooks: `useFocusTimer`, `useSessionTasks`, `useFocusSync`.
+- Persistence (opt-in): `useFocusSync` reflects an existing Firebase session
+  silently (`onAuthStateChanged`) or connects on demand. Data layer
+  `features/focus/data/focusData.ts` writes per-user subcollections
+  `users/{uid}/focusTasks` and `users/{uid}/focusSessions`
+  (`{ focusMin, day, createdAt, linkedFolderId? }`). Writes are optimistic and
+  fail-safe. Security rules: `src/features/focus/FIRESTORE_RULES.md` (console).
+- Hub link: a session can link a bookmark **folder**; its bookmarks render in a
+  read-only `ResourcesPanel`, and `linkedFolderId` is stored on sessions. Folder
+  data is read via the existing `useBookmarks(email)` — never mutated.
+- Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill),
+  `icons.tsx` (`Timer` icon), `folders/[folderKey]/page.tsx` ("Start a focus
+  session" action).
+
 ## Conventions
 
 - File comments are sparse; match the surrounding density. `@/` is the `src/` alias.

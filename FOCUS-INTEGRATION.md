@@ -91,7 +91,7 @@ A folder view gets a "Start a focus session" action that deep-links to `/focus?c
 | 2 | Timer + tasks UI (in-memory, design-harmonized) | ✅ done (Pomodoro timer + session tasks, in-memory) |
 | 3 | Persist focus data via Firestore (+ console rules) | ✅ done (focusTasks + focusSessions subcollections; opt-in sync; rules in src/features/focus/FIRESTORE_RULES.md) |
 | 4 | ⭐ Focus-on-a-collection (bookmarks↔focus link) | ✅ done (collection picker + Resources panel; "Start a focus session" on folder page; linkedFolderId on sessions) |
-| 5 | Review, smoke test, merge the core slice | ⏳ |
+| 5 | Review, smoke test, merge the core slice | ✅ verification done; awaiting your merge decision |
 | B1–B9 | Gated backlog (stats, settings, chimes, PWA, hydration, push, calendar, journal, suggestions) | gated |
 
 **After Phase 5: stop and watch.** Real usage of the focus loop + collection link gates Part 2.
