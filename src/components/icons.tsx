@@ -190,3 +190,13 @@ export function EyeOff({ className }: IconProps) {
     </svg>
   );
 }
+
+export function Timer({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M10 2h4" />
+      <circle cx="12" cy="14" r="8" />
+      <path d="M12 14V9.5" />
+    </svg>
+  );
+}
