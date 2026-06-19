@@ -20,6 +20,7 @@
     "electron": "^40.8.5"
   },
   "overrides": {
-    "path-to-regexp": ">=8.4.0"
+    "path-to-regexp": ">=8.4.0",
+    "qs": ">=6.15.2"
   }
 }
