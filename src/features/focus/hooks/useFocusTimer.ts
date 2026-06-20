@@ -12,6 +12,7 @@ import {
   notify,
   requestNotificationPermission,
 } from "@/features/focus/lib/notify";
+import { cancelPush, schedulePush } from "@/features/focus/lib/push";
 import type { FocusSettings } from "@/features/focus/lib/settings";
 
 export type FocusMode = "focus" | "short" | "long";
@@ -76,6 +77,17 @@ export function useFocusTimer({
   const lastModeDurRef = useRef(settings.focus * 60);
   const handleCompleteRef = useRef<() => void>(() => {});
   const startWithRef = useRef<(seconds: number) => void>(() => {});
+  // Background push scheduling (server-fired at the block's end time).
+  const pushIdRef = useRef<string | null>(null);
+  const pushGenRef = useRef(0);
+
+  const stopPush = () => {
+    pushGenRef.current += 1;
+    if (pushIdRef.current) {
+      cancelPush(pushIdRef.current);
+      pushIdRef.current = null;
+    }
+  };
 
   useEffect(() => {
     modeRef.current = mode;
@@ -128,6 +140,8 @@ export function useFocusTimer({
   }, []);
 
   handleCompleteRef.current = () => {
+    // Foreground completion — we alert in-page below, so cancel the push.
+    stopPush();
     const completed = modeRef.current;
     const s = settingsRef.current;
     if (completed === "focus") {
@@ -155,6 +169,22 @@ export function useFocusTimer({
     endTimeRef.current = Date.now() + seconds * 1000;
     runningRef.current = true;
     setRunning(true);
+
+    // Schedule a server-fired push for this block's end, so the alert lands
+    // even if the tab is backgrounded. Cancelled on pause/reset/foreground end.
+    stopPush();
+    const gen = pushGenRef.current;
+    const m = modeRef.current;
+    schedulePush({
+      endTime: endTimeRef.current,
+      title: m === "focus" ? "Focus session complete" : "Break over",
+      body:
+        m === "focus" ? "Nice work — time for a break." : "Back to focus.",
+    }).then((id) => {
+      if (pushGenRef.current === gen) pushIdRef.current = id;
+      else cancelPush(id);
+    });
+
     intervalRef.current = setInterval(() => {
       const left = Math.max(
         0,
@@ -179,6 +209,7 @@ export function useFocusTimer({
 
   const pause = useCallback(() => {
     clearTick();
+    stopPush();
     const left = Math.max(
       0,
       Math.round((endTimeRef.current - Date.now()) / 1000)
@@ -196,6 +227,7 @@ export function useFocusTimer({
 
   const reset = useCallback(() => {
     clearTick();
+    stopPush();
     runningRef.current = false;
     setRunning(false);
     const dur = settingsRef.current[modeRef.current] * 60;
@@ -206,6 +238,7 @@ export function useFocusTimer({
 
   const switchMode = useCallback((next: FocusMode) => {
     clearTick();
+    stopPush();
     runningRef.current = false;
     setRunning(false);
     modeRef.current = next;
@@ -226,7 +259,13 @@ export function useFocusTimer({
     }
   }, [durationFor]);
 
-  useEffect(() => clearTick, []);
+  useEffect(
+    () => () => {
+      clearTick();
+      stopPush();
+    },
+    []
+  );
 
   const total = durationFor(mode);
   const progress = total > 0 ? 1 - secondsLeft / total : 0;
