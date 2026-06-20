@@ -2,15 +2,24 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
 import { DragonCursor } from "@/components/DragonCursor";
-import { Timer } from "@/components/icons";
+import { Bookmark, Timer } from "@/components/icons";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const avatarSrc = session?.user?.image ?? null;
   const avatarLabel = session?.user?.name ?? session?.user?.email ?? "Account";
+
+  // Show the "other" page's tab — hide the one you're already on. (When more
+  // tabs exist, the active page's tab hides and the rest show.)
+  const onFocus = pathname?.startsWith("/focus") ?? false;
+  const navTab = onFocus
+    ? { href: "/", label: "Bookmarks", Icon: Bookmark }
+    : { href: "/focus", label: "Focus", Icon: Timer };
 
   return (
     <main className="relative isolate flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
@@ -35,12 +44,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {session && (
                 <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                   <Link
-                    href="/focus"
-                    aria-label="Focus"
+                    href={navTab.href}
+                    aria-label={navTab.label}
                     className="inline-flex items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:px-3 sm:py-1.5 sm:text-sm"
                   >
-                    <Timer className="h-4 w-4" />
-                    <span className="hidden sm:inline">Focus</span>
+                    <navTab.Icon className="h-4 w-4" />
+                    <span className="hidden sm:inline">{navTab.label}</span>
                   </Link>
                   <div className="flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-2 py-1 shadow-sm sm:gap-3 sm:px-3 sm:py-1.5">
                   <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-800 text-[11px] font-semibold text-slate-100 ring-1 ring-white/5 sm:h-9 sm:w-9 sm:text-sm">
