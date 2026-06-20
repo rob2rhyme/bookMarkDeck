@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { MOOD_BY_KEY, MOODS, type MoodKey } from "@/features/focus/lib/mood";
 import type { JournalEntry } from "@/features/focus/lib/types";
@@ -38,10 +38,17 @@ export function JournalCard({
 }: JournalCardProps) {
   const [draft, setDraft] = useState(note);
   const [showHistory, setShowHistory] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const lastSyncedRef = useRef(note);
 
-  // Reset the editor when the saved note changes (e.g. day rollover, cloud pull).
+  // Reset the editor only on an external note change (day rollover, cloud pull)
+  // — not from our own save, which intentionally clears the field.
   useEffect(() => {
-    setDraft(note);
+    if (note !== lastSyncedRef.current) {
+      lastSyncedRef.current = note;
+      setDraft(note);
+      setJustSaved(false);
+    }
   }, [note]);
 
   const trimmed = draft.trim();
@@ -52,6 +59,9 @@ export function JournalCard({
   const save = () => {
     if (!canSave) return;
     onSaveNote(draft);
+    lastSyncedRef.current = draft;
+    setDraft("");
+    setJustSaved(true);
   };
 
   return (
@@ -99,7 +109,10 @@ export function JournalCard({
       {/* Note */}
       <textarea
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setJustSaved(false);
+        }}
         placeholder="What did you work on? Anything on your mind?"
         rows={4}
         maxLength={MAX_NOTE + 200}
@@ -113,18 +126,24 @@ export function JournalCard({
       <div className="mt-2 flex items-center justify-between gap-3">
         <span
           className={`text-xs ${
-            tooLong ? "text-red-400" : "text-slate-500"
+            tooLong
+              ? "text-red-400"
+              : justSaved
+                ? "text-emerald-300"
+                : "text-slate-500"
           }`}
         >
           {tooLong
             ? `${draft.length} / ${MAX_NOTE} — too long`
-            : dirty
-              ? trimmed.length === 0
-                ? "Add a note to save"
-                : "Unsaved changes"
-              : note.trim().length > 0
-                ? "Saved"
-                : ""}
+            : justSaved
+              ? "Saved ✓"
+              : dirty
+                ? trimmed.length === 0
+                  ? "Add a note to save"
+                  : "Unsaved changes"
+                : note.trim().length > 0
+                  ? "Saved"
+                  : ""}
         </span>
         <button
           type="button"
@@ -144,7 +163,7 @@ export function JournalCard({
             onClick={() => setShowHistory((v) => !v)}
             className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
           >
-            {showHistory ? "▾" : "▸"} Past entries ({history.length})
+            {showHistory ? "▾" : "▸"} Saved notes ({history.length})
           </button>
           {showHistory && (
             <ul className="mt-3 flex flex-col gap-3">

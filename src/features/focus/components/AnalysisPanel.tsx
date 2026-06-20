@@ -47,6 +47,7 @@ export function AnalysisPanel({
     () =>
       Object.entries(weekTaskMin)
         .map(([id, min]) => ({
+          id,
           name: taskNameById[id] ?? "Removed task",
           min,
         }))
@@ -167,7 +168,7 @@ export function AnalysisPanel({
             <ul className="mt-2 flex flex-col gap-1.5">
               {topWeekTasks.map((t) => (
                 <li
-                  key={t.name}
+                  key={t.id}
                   className="flex items-center justify-between text-sm"
                 >
                   <span className="truncate text-slate-300">{t.name}</span>

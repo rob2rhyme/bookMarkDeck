@@ -107,42 +107,45 @@ function ActivityChart({
   const STEP = 10;
   const H = 40;
   const W = bars.length * STEP;
+  const bw = STEP * 0.34; // thin bars
+  const bx = (STEP - bw) / 2; // centered within each slot
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
-      className="h-20 w-full"
+      className="h-16 w-full"
       role="img"
       aria-label="Activity per day"
     >
+      {/* baseline */}
+      <rect x={0} y={H - 0.5} width={W} height={0.5} className="fill-slate-800" />
       {bars.map((b, i) => {
-        const h = b.count > 0 ? Math.max(2, (b.count / max) * (H - 2)) : 0;
-        const x = i * STEP;
-        const bw = STEP * 0.68;
+        const h = b.count > 0 ? Math.max(1.5, (b.count / max) * (H - 3)) : 0;
+        const x = i * STEP + bx;
+        const title = `${b.label}: ${b.count} ${b.count === 1 ? "event" : "events"}`;
         return (
           <g key={b.key}>
-            <rect x={x} y={0} width={bw} height={H} className="fill-slate-800/40" />
             {h > 0 && (
               <rect
                 x={x}
                 y={H - h}
                 width={bw}
                 height={h}
-                className={b.isToday ? "fill-blue-400" : "fill-sky-500/70"}
+                className={b.isToday ? "fill-blue-400" : "fill-sky-500/60"}
               >
-                <title>{`${b.label}: ${b.count} ${b.count === 1 ? "event" : "events"}`}</title>
+                <title>{title}</title>
               </rect>
             )}
             {b.count > 0 && (
               <rect
-                x={x}
+                x={i * STEP}
                 y={0}
-                width={bw}
+                width={STEP}
                 height={H}
                 className="cursor-pointer fill-transparent"
                 onClick={() => onSelect(b.key)}
               >
-                <title>{`${b.label}: ${b.count} ${b.count === 1 ? "event" : "events"}`}</title>
+                <title>{title}</title>
               </rect>
             )}
           </g>

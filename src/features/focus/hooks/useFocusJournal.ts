@@ -134,13 +134,13 @@ export function useFocusJournal(
     return map;
   }, [entries]);
 
-  // Previous days that have a written note, newest first (for the history list).
+  // Saved notes (incl. today), newest first — for the journal history list.
   const history = useMemo(
     () =>
       entries
-        .filter((e) => e.day !== today && e.note.trim().length > 0)
+        .filter((e) => e.note.trim().length > 0)
         .sort((a, b) => b.day.localeCompare(a.day)),
-    [entries, today]
+    [entries]
   );
 
   const pullFromCloud = useCallback(async () => {
