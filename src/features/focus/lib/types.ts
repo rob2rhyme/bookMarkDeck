@@ -35,6 +35,7 @@ export type JournalNote = {
 export type Todo = {
   id: string;
   text: string;
+  note: string; // optional longer note/description ("" = none)
   done: boolean;
   dueAt: string | null; // ISO datetime, or null = no due date
   createdAt: string | null; // ISO timestamp

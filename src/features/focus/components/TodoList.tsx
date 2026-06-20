@@ -12,7 +12,10 @@ type TodoListProps = {
   done: Todo[];
   onAdd: (text: string, dueAt: string | null) => void;
   onToggle: (todo: Todo) => void;
-  onEdit: (id: string, patch: { text?: string; dueAt?: string | null }) => void;
+  onEdit: (
+    id: string,
+    patch: { text?: string; note?: string; dueAt?: string | null }
+  ) => void;
   onRemove: (todo: Todo) => void;
 };
 
@@ -82,6 +85,7 @@ export function TodoList({
   // Inline edit state.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [editNote, setEditNote] = useState("");
   const [editDue, setEditDue] = useState<string | null>(null);
 
   const hasDue = active.some((t) => t.dueAt);
@@ -113,12 +117,17 @@ export function TodoList({
   const startEdit = (todo: Todo) => {
     setEditingId(todo.id);
     setEditText(todo.text);
+    setEditNote(todo.note ?? "");
     setEditDue(todo.dueAt);
   };
   const cancelEdit = () => setEditingId(null);
   const saveEdit = () => {
     if (!editText.trim()) return;
-    onEdit(editingId!, { text: editText, dueAt: editDue });
+    onEdit(editingId!, {
+      text: editText,
+      note: editNote.trim(),
+      dueAt: editDue,
+    });
     setEditingId(null);
   };
 
@@ -175,6 +184,14 @@ export function TodoList({
                     autoFocus
                     className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none"
                   />
+                  <textarea
+                    value={editNote}
+                    onChange={(e) => setEditNote(e.target.value)}
+                    placeholder="Add a note (optional)"
+                    rows={2}
+                    aria-label="To-do note"
+                    className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+                  />
                   <DueField value={editDue} onChange={setEditDue} />
                   <div className="flex justify-end gap-2">
                     <button
@@ -211,6 +228,11 @@ export function TodoList({
                   <span className="block truncate text-sm text-slate-100">
                     {todo.text}
                   </span>
+                  {todo.note && (
+                    <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-slate-400">
+                      {todo.note}
+                    </p>
+                  )}
                   <span className="flex items-center gap-2">
                     <DueBadge todo={todo} now={now} />
                     {rolledOver && (

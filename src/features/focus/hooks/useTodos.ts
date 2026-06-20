@@ -32,6 +32,7 @@ function loadLocal(email?: string | null): Todo[] {
       .map((t) => ({
         id: t.id as string,
         text: typeof t.text === "string" ? t.text : "",
+        note: typeof t.note === "string" ? t.note : "",
         done: Boolean(t.done),
         dueAt: typeof t.dueAt === "string" ? t.dueAt : null,
         createdAt: typeof t.createdAt === "string" ? t.createdAt : null,
@@ -94,6 +95,7 @@ export function useTodos(
       const todo: Todo = {
         id: crypto.randomUUID(),
         text: trimmed,
+        note: "",
         done: false,
         dueAt: dueAt ?? null,
         createdAt: new Date().toISOString(),
@@ -122,7 +124,7 @@ export function useTodos(
   );
 
   const editTodo = useCallback(
-    (id: string, patch: { text?: string; dueAt?: string | null }) => {
+    (id: string, patch: { text?: string; note?: string; dueAt?: string | null }) => {
       setTodos((prev) => {
         const next = prev.map((t) =>
           t.id === id
