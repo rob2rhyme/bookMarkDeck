@@ -11,6 +11,7 @@ import {
 } from "@/features/focus/components/ActivityHistory";
 import { AnalysisPanel } from "@/features/focus/components/AnalysisPanel";
 import { FocusSettingsModal } from "@/features/focus/components/FocusSettingsModal";
+import { HydrationHistory } from "@/features/focus/components/HydrationHistory";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
 import { JournalCard } from "@/features/focus/components/JournalCard";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
@@ -25,8 +26,10 @@ import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
 import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
+import { useHydrationHistory } from "@/features/focus/hooks/useHydrationHistory";
 import { useTodos } from "@/features/focus/hooks/useTodos";
 import { useUndo } from "@/features/focus/hooks/useUndo";
+import { todayKey } from "@/features/focus/data/focusData";
 import type { FocusTask, JournalNote, Todo } from "@/features/focus/lib/types";
 
 export function FocusDashboard() {
@@ -54,6 +57,7 @@ export function FocusDashboard() {
     soundEnabled: settings.soundEnabled,
     onLog: activity.log,
   });
+  const hydrationHistory = useHydrationHistory(email, connected);
 
   const undo = useUndo();
 
@@ -102,6 +106,14 @@ export function FocusDashboard() {
     }
     return map;
   }, [tasks.activeTasks, tasks.doneTasks]);
+
+  // Today's drink events drive the intraday "Day" hydration chart.
+  const todayHydrationEvents = useMemo(() => {
+    const today = todayKey();
+    return activity.events.filter(
+      (e) => e.type === "hydration" && e.day === today
+    );
+  }, [activity.events]);
 
   const onFocusComplete = (_focusMin: number, taskId: string | null) => {
     setStatsKey((k) => k + 1);
@@ -300,6 +312,17 @@ export function FocusDashboard() {
         ) : null}
         <QuoteBox />
       </div>
+
+      {settings.hydrationEnabled && (
+        <div className="mt-5">
+          <HydrationHistory
+            available={connected}
+            history={hydrationHistory}
+            todayEvents={todayHydrationEvents}
+            goal={settings.waterGoal}
+          />
+        </div>
+      )}
 
       <div className="mt-6">
         <Link
