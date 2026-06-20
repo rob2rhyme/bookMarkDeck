@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Trash2, X } from "@/components/icons";
 import type { ActivityEvent, ActivityType } from "@/features/focus/data/focusData";
@@ -29,6 +29,7 @@ const MONTHS = [
 ];
 
 const UNDO_MS = 6000;
+const RANGES = [7, 14, 30];
 
 // Per-type timeline dot color + leading glyph.
 const TYPE_META: Record<ActivityType, { dot: string; glyph: string }> = {
@@ -48,6 +49,15 @@ type TimelineItem = {
   sort: number;
   focusMin: number;
   ref: ActivityRef;
+};
+
+type DayView = {
+  key: string;
+  label: string;
+  mood?: MoodKey;
+  itemCount: number;
+  focusMin: number;
+  items: TimelineItem[];
 };
 
 function dayKey(d: Date): string {
@@ -83,6 +93,65 @@ function hoursLabel(min: number) {
   return `${Math.round((min / 60) * 10) / 10}h`;
 }
 
+type Bar = { key: string; label: string; count: number; isToday: boolean };
+
+/** Per-day activity bar chart. Bars are clickable to open that day below. */
+function ActivityChart({
+  bars,
+  onSelect,
+}: {
+  bars: Bar[];
+  onSelect: (key: string) => void;
+}) {
+  const max = Math.max(1, ...bars.map((b) => b.count));
+  const STEP = 10;
+  const H = 40;
+  const W = bars.length * STEP;
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="h-20 w-full"
+      role="img"
+      aria-label="Activity per day"
+    >
+      {bars.map((b, i) => {
+        const h = b.count > 0 ? Math.max(2, (b.count / max) * (H - 2)) : 0;
+        const x = i * STEP;
+        const bw = STEP * 0.68;
+        return (
+          <g key={b.key}>
+            <rect x={x} y={0} width={bw} height={H} className="fill-slate-800/40" />
+            {h > 0 && (
+              <rect
+                x={x}
+                y={H - h}
+                width={bw}
+                height={h}
+                className={b.isToday ? "fill-blue-400" : "fill-sky-500/70"}
+              >
+                <title>{`${b.label}: ${b.count} ${b.count === 1 ? "event" : "events"}`}</title>
+              </rect>
+            )}
+            {b.count > 0 && (
+              <rect
+                x={x}
+                y={0}
+                width={bw}
+                height={H}
+                className="cursor-pointer fill-transparent"
+                onClick={() => onSelect(b.key)}
+              >
+                <title>{`${b.label}: ${b.count} ${b.count === 1 ? "event" : "events"}`}</title>
+              </rect>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export function ActivityHistory({
   available,
   sessions,
@@ -92,10 +161,13 @@ export function ActivityHistory({
   onDelete,
   onRestore,
 }: ActivityHistoryProps) {
+  const [rangeDays, setRangeDays] = useState(7);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<TimelineItem | null>(null);
   const [deleted, setDeleted] = useState<TimelineItem[]>([]);
   const [undoId, setUndoId] = useState<string | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
+  const didAutoExpand = useRef(false);
 
   // The undo toast surfaces the most recent deletion, then auto-dismisses
   // (the item stays in "recently deleted" until reload or restore).
@@ -114,9 +186,8 @@ export function ActivityHistory({
     return () => window.removeEventListener("keydown", onKey);
   }, [pendingDelete]);
 
-  // Merge focus sessions + logged events into one timeline, grouped by day
-  // (newest first), items within a day newest first.
-  const days = useMemo(() => {
+  // Bucket every session + event by day (no range cap — the filter slices it).
+  const buckets = useMemo(() => {
     const byDay = new Map<string, TimelineItem[]>();
     const push = (day: string, item: TimelineItem) => {
       const bucket = byDay.get(day);
@@ -151,18 +222,67 @@ export function ActivityHistory({
       });
     }
 
-    return [...byDay.entries()]
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .slice(0, 14) // most recent two weeks of activity
-      .map(([key, list]) => ({
-        key,
-        label: dayLabel(key),
-        mood: moodByDay[key],
-        itemCount: list.length,
-        focusMin: list.reduce((sum, it) => sum + it.focusMin, 0),
-        items: [...list].sort((a, b) => b.sort - a.sort),
-      }));
-  }, [sessions, events, taskNameById, moodByDay]);
+    return byDay;
+  }, [sessions, events, taskNameById]);
+
+  // The last `rangeDays` calendar days, oldest → newest (for the chart).
+  const rangeKeys = useMemo(() => {
+    const keys: string[] = [];
+    const now = new Date();
+    for (let i = rangeDays - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      keys.push(dayKey(d));
+    }
+    return keys;
+  }, [rangeDays]);
+
+  const bars: Bar[] = useMemo(() => {
+    const todayK = dayKey(new Date());
+    return rangeKeys.map((k) => ({
+      key: k,
+      label: dayLabel(k),
+      count: buckets.get(k)?.length ?? 0,
+      isToday: k === todayK,
+    }));
+  }, [rangeKeys, buckets]);
+
+  // Days with activity inside the range, newest first (for the accordion list).
+  const listDays: DayView[] = useMemo(() => {
+    return [...rangeKeys]
+      .reverse()
+      .filter((k) => buckets.has(k))
+      .map((k) => {
+        const items = buckets.get(k)!;
+        return {
+          key: k,
+          label: dayLabel(k),
+          mood: moodByDay[k],
+          itemCount: items.length,
+          focusMin: items.reduce((sum, it) => sum + it.focusMin, 0),
+          items: [...items].sort((a, b) => b.sort - a.sort),
+        };
+      });
+  }, [rangeKeys, buckets, moodByDay]);
+
+  // Auto-expand the most recent day with activity, once.
+  useEffect(() => {
+    if (!didAutoExpand.current && listDays.length) {
+      didAutoExpand.current = true;
+      setExpanded(new Set([listDays[0].key]));
+    }
+  }, [listDays]);
+
+  const toggleDay = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const openDay = (key: string) =>
+    setExpanded((prev) => new Set(prev).add(key));
 
   const confirmDelete = () => {
     if (!pendingDelete) return;
@@ -182,79 +302,156 @@ export function ActivityHistory({
     ? deleted.find((d) => d.id === undoId) ?? null
     : null;
 
+  const hasActivity = buckets.size > 0;
+  const totalInRange = listDays.reduce((sum, d) => sum + d.itemCount, 0);
+
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
-      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-300">
-        Activity history
-      </h3>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+          Activity history
+        </h3>
+        {available && hasActivity && (
+          <div className="flex rounded-full border border-slate-800 bg-slate-950/60 p-0.5">
+            {RANGES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRangeDays(r)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  rangeDays === r
+                    ? "bg-slate-700 text-slate-100"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {r}d
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {!available ? (
         <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
           Sign in to sync to see your activity timeline.
         </p>
-      ) : days.length === 0 ? (
+      ) : !hasActivity ? (
         <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
           No activity yet. Focus, add tasks, log your mood or hydration and
           it’ll show up here.
         </p>
       ) : (
-        <div className="flex flex-col gap-6">
-          {days.map((day) => (
-            <div key={day.key}>
-              <div className="mb-3 flex items-baseline justify-between">
-                <h4 className="text-sm font-medium text-slate-200">
-                  {day.label}
-                  {day.mood && (
-                    <span className="ml-2" title={MOOD_BY_KEY[day.mood].label}>
-                      {MOOD_BY_KEY[day.mood].emoji}
-                    </span>
-                  )}
-                </h4>
-                <span className="text-xs tabular-nums text-slate-500">
-                  {day.focusMin > 0 && `${hoursLabel(day.focusMin)} focus · `}
-                  {day.itemCount} {day.itemCount === 1 ? "event" : "events"}
-                </span>
+        <>
+          {/* Per-day activity chart */}
+          <div className="mb-5">
+            <ActivityChart bars={bars} onSelect={openDay} />
+            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+              <span>{rangeKeys[0] && dayLabel(rangeKeys[0])}</span>
+              <span>Today</span>
+            </div>
+          </div>
+
+          {totalInRange === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
+              No activity in the last {rangeDays} days. Try a wider range.
+            </p>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center justify-end gap-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpanded(new Set(listDays.map((d) => d.key)))
+                  }
+                  className="font-medium text-slate-500 transition hover:text-slate-300"
+                >
+                  Expand all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(new Set())}
+                  className="font-medium text-slate-500 transition hover:text-slate-300"
+                >
+                  Collapse all
+                </button>
               </div>
 
-              {/* Timeline */}
-              <ol className="relative ml-1 border-l border-slate-800 pl-5">
-                {day.items.map((item) => (
-                  <li
-                    key={item.id}
-                    className="group relative pb-4 last:pb-0"
-                  >
-                    <span
-                      className={`absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 bg-slate-950 ${TYPE_META[item.type].dot}`}
-                    />
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-sm text-slate-200">
-                        <span className="mr-1.5" aria-hidden="true">
-                          {TYPE_META[item.type].glyph}
-                        </span>
-                        {item.text}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        {item.createdAt && (
-                          <span className="text-xs tabular-nums text-slate-500">
-                            {timeOf(item.createdAt)}
+              <div className="flex flex-col gap-2">
+                {listDays.map((day) => {
+                  const isOpen = expanded.has(day.key);
+                  return (
+                    <div
+                      key={day.key}
+                      className="rounded-xl border border-slate-800/70 bg-slate-950/30"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleDay(day.key)}
+                        aria-expanded={isOpen}
+                        className="flex w-full items-baseline justify-between gap-3 px-4 py-3 text-left"
+                      >
+                        <span className="flex items-baseline gap-2 text-sm font-medium text-slate-200">
+                          <span className="text-slate-500">
+                            {isOpen ? "▾" : "▸"}
                           </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setPendingDelete(item)}
-                          aria-label="Delete activity"
-                          className="text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </span>
+                          {day.label}
+                          {day.mood && (
+                            <span title={MOOD_BY_KEY[day.mood].label}>
+                              {MOOD_BY_KEY[day.mood].emoji}
+                            </span>
+                          )}
+                        </span>
+                        <span className="shrink-0 text-xs tabular-nums text-slate-500">
+                          {day.focusMin > 0 && `${hoursLabel(day.focusMin)} focus · `}
+                          {day.itemCount}{" "}
+                          {day.itemCount === 1 ? "event" : "events"}
+                        </span>
+                      </button>
+
+                      {isOpen && (
+                        <ol className="relative ml-5 border-l border-slate-800 pl-5 pr-4 pb-3">
+                          {day.items.map((item) => (
+                            <li
+                              key={item.id}
+                              className="group relative pb-4 last:pb-0"
+                            >
+                              <span
+                                className={`absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 bg-slate-950 ${TYPE_META[item.type].dot}`}
+                              />
+                              <div className="flex items-baseline justify-between gap-3">
+                                <span className="text-sm text-slate-200">
+                                  <span className="mr-1.5" aria-hidden="true">
+                                    {TYPE_META[item.type].glyph}
+                                  </span>
+                                  {item.text}
+                                </span>
+                                <span className="flex shrink-0 items-center gap-2">
+                                  {item.createdAt && (
+                                    <span className="text-xs tabular-nums text-slate-500">
+                                      {timeOf(item.createdAt)}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingDelete(item)}
+                                    aria-label="Delete activity"
+                                    className="text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </span>
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
                     </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ))}
-        </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </>
       )}
 
       {/* Recently deleted */}
