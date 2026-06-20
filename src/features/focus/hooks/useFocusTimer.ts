@@ -79,8 +79,12 @@ export function useFocusTimer({
   const settingsRef = useRef(settings);
   const taskRef = useRef<string | null | undefined>(activeTaskId);
   const lastModeDurRef = useRef(settings.focus * 60);
-  const handleCompleteRef = useRef<() => void>(() => {});
-  const startWithRef = useRef<(seconds: number) => void>(() => {});
+  const handleCompleteRef = useRef<(opts?: { skipNotify?: boolean }) => void>(
+    () => {}
+  );
+  const startWithRef = useRef<(seconds: number, schedule?: boolean) => void>(
+    () => {}
+  );
   // Background push scheduling (server-fired at the block's end time).
   const pushIdRef = useRef<string | null>(null);
   const pushGenRef = useRef(0);
@@ -126,6 +130,7 @@ export function useFocusTimer({
           running: runningRef.current,
           endTime: endTimeRef.current,
           secondsLeft: secondsLeftRef.current,
+          pushId: pushIdRef.current,
         })
       );
     } catch {}
@@ -159,14 +164,16 @@ export function useFocusTimer({
     else persistTimer();
   }, []);
 
-  handleCompleteRef.current = () => {
-    // Foreground completion — we alert in-page below, so cancel the push.
+  handleCompleteRef.current = (opts) => {
+    // Cancel the push: either we're alerting in-page (foreground), or it has
+    // already fired (catch-up on return) so cancelling is a harmless no-op.
     stopPush();
     const completed = modeRef.current;
     const s = settingsRef.current;
     // Surface the on-screen modal (it owns the repeating chime). The system
     // notification stays loud + persistent for a backgrounded/closed tab.
     setAlert(completed);
+    const skipNotify = opts?.skipNotify ?? false;
     if (completed === "focus") {
       const newCount = completedRef.current + 1;
       completedRef.current = newCount;
@@ -176,43 +183,56 @@ export function useFocusTimer({
         logSession(email, s.focus, todayKey(), taskId).catch(() => {});
       }
       onFocusComplete?.(s.focus, taskId);
-      notify("Focus session complete", "Nice work — time for a break.", {
-        requireInteraction: true,
-        vibrate: [200, 100, 200],
-        tag: "bmd-focus-timer",
-      });
+      if (!skipNotify) {
+        notify("Focus session complete", "Nice work — time for a break.", {
+          requireInteraction: true,
+          vibrate: [200, 100, 200],
+          tag: "bmd-focus-timer",
+        });
+      }
       const isLong = newCount % s.sessionsUntilLong === 0;
       transitionTo(isLong ? "long" : "short", s.autoStartBreaks);
     } else {
-      notify("Break over", "Back to focus.", {
-        requireInteraction: true,
-        vibrate: [200, 100, 200],
-        tag: "bmd-focus-timer",
-      });
+      if (!skipNotify) {
+        notify("Break over", "Back to focus.", {
+          requireInteraction: true,
+          vibrate: [200, 100, 200],
+          tag: "bmd-focus-timer",
+        });
+      }
       transitionTo("focus", s.autoStartFocus);
     }
   };
 
-  startWithRef.current = (seconds: number) => {
+  // `schedule` defaults to true (a fresh start). Resuming a restored block
+  // passes false to reuse the push that's already scheduled server-side.
+  startWithRef.current = (seconds: number, schedule = true) => {
     clearTick();
     endTimeRef.current = Date.now() + seconds * 1000;
     runningRef.current = true;
     setRunning(true);
 
-    // Schedule a server-fired push for this block's end, so the alert lands
-    // even if the tab is backgrounded. Cancelled on pause/reset/foreground end.
-    stopPush();
-    const gen = pushGenRef.current;
-    const m = modeRef.current;
-    schedulePush({
-      endTime: endTimeRef.current,
-      title: m === "focus" ? "Focus session complete" : "Break over",
-      body:
-        m === "focus" ? "Nice work — time for a break." : "Back to focus.",
-    }).then((id) => {
-      if (pushGenRef.current === gen) pushIdRef.current = id;
-      else cancelPush(id);
-    });
+    if (schedule) {
+      // Schedule a server-fired push for this block's end, so the alert lands
+      // even if the tab is backgrounded, minimized, or navigated away from.
+      // Cancelled only on pause/reset/foreground completion — NOT on unmount.
+      stopPush();
+      const gen = pushGenRef.current;
+      const m = modeRef.current;
+      schedulePush({
+        endTime: endTimeRef.current,
+        title: m === "focus" ? "Focus session complete" : "Break over",
+        body:
+          m === "focus" ? "Nice work — time for a break." : "Back to focus.",
+      }).then((id) => {
+        if (pushGenRef.current === gen) {
+          pushIdRef.current = id;
+          persistTimer(); // save the id so a later mount can cancel/reuse it
+        } else {
+          cancelPush(id);
+        }
+      });
+    }
 
     intervalRef.current = setInterval(() => {
       const left = Math.max(
@@ -294,13 +314,20 @@ export function useFocusTimer({
       const savedMode = saved.mode as FocusMode;
       modeRef.current = savedMode;
       setMode(savedMode);
-      if (
-        saved.running &&
-        typeof saved.endTime === "number" &&
-        saved.endTime > Date.now()
-      ) {
-        const remaining = Math.round((saved.endTime - Date.now()) / 1000);
-        startWithRef.current(remaining);
+      if (saved.running && typeof saved.endTime === "number") {
+        // Adopt the push scheduled before we navigated away so it can be
+        // cancelled/reused rather than orphaned (which would double-notify).
+        pushIdRef.current =
+          typeof saved.pushId === "string" ? saved.pushId : null;
+        if (saved.endTime > Date.now()) {
+          const remaining = Math.round((saved.endTime - Date.now()) / 1000);
+          startWithRef.current(remaining, false); // reuse existing push
+        } else {
+          // The block ended while we were away — its push already fired the
+          // system notification; complete it now (logs the session, shows the
+          // modal) so returning to /focus reflects it.
+          handleCompleteRef.current({ skipNotify: true });
+        }
       } else {
         const dur = settingsRef.current[savedMode] * 60;
         const secs =
@@ -329,13 +356,10 @@ export function useFocusTimer({
     }
   }, [durationFor]);
 
-  useEffect(
-    () => () => {
-      clearTick();
-      stopPush();
-    },
-    []
-  );
+  // On unmount (e.g. navigating to the bookmarks page) stop ticking but LEAVE
+  // the scheduled push in place — that server-fired notification is the only
+  // thing that can alert the user when /focus isn't the active window.
+  useEffect(() => () => clearTick(), []);
 
   const total = durationFor(mode);
   const progress = total > 0 ? 1 - secondsLeft / total : 0;
