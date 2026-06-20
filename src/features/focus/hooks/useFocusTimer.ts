@@ -17,6 +17,8 @@ import type { FocusSettings } from "@/features/focus/lib/settings";
 
 export type FocusMode = "focus" | "short" | "long";
 
+const TIMER_KEY = "bookmarkdeck:focus:timer:v1";
+
 export const MODE_LABELS: Record<FocusMode, string> = {
   focus: "Focus",
   short: "Short break",
@@ -112,6 +114,21 @@ export function useFocusTimer({
     }
   };
 
+  // Persist the live timer so it survives navigation away from /focus and back.
+  const persistTimer = () => {
+    try {
+      window.localStorage.setItem(
+        TIMER_KEY,
+        JSON.stringify({
+          mode: modeRef.current,
+          running: runningRef.current,
+          endTime: endTimeRef.current,
+          secondsLeft: secondsLeftRef.current,
+        })
+      );
+    } catch {}
+  };
+
   // Seed today's completed-block count from Firestore once connected.
   useEffect(() => {
     if (!canSync || !email) return;
@@ -137,6 +154,7 @@ export function useFocusTimer({
     secondsLeftRef.current = dur;
     setSecondsLeft(dur);
     if (auto) startWithRef.current(dur);
+    else persistTimer();
   }, []);
 
   handleCompleteRef.current = () => {
@@ -199,6 +217,7 @@ export function useFocusTimer({
         handleCompleteRef.current();
       }
     }, 250);
+    persistTimer();
   };
 
   const start = useCallback(() => {
@@ -218,6 +237,7 @@ export function useFocusTimer({
     setSecondsLeft(left);
     runningRef.current = false;
     setRunning(false);
+    persistTimer();
   }, []);
 
   const toggle = useCallback(() => {
@@ -234,6 +254,7 @@ export function useFocusTimer({
     lastModeDurRef.current = dur;
     secondsLeftRef.current = dur;
     setSecondsLeft(dur);
+    persistTimer();
   }, []);
 
   const switchMode = useCallback((next: FocusMode) => {
@@ -247,15 +268,54 @@ export function useFocusTimer({
     lastModeDurRef.current = dur;
     secondsLeftRef.current = dur;
     setSecondsLeft(dur);
+    persistTimer();
   }, []);
 
-  // When durations change in settings and we're idle, snap to the new value.
+  // Restore a running/paused timer when returning to /focus (runs once).
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(TIMER_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!saved || typeof saved.mode !== "string") return;
+      const savedMode = saved.mode as FocusMode;
+      modeRef.current = savedMode;
+      setMode(savedMode);
+      if (
+        saved.running &&
+        typeof saved.endTime === "number" &&
+        saved.endTime > Date.now()
+      ) {
+        const remaining = Math.round((saved.endTime - Date.now()) / 1000);
+        startWithRef.current(remaining);
+      } else {
+        const dur = settingsRef.current[savedMode] * 60;
+        const secs =
+          !saved.running && typeof saved.secondsLeft === "number"
+            ? saved.secondsLeft
+            : dur;
+        secondsLeftRef.current = secs;
+        setSecondsLeft(secs);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When durations change in settings and we're idle, snap to the new value —
+  // but only if the timer was sitting at the old full duration (untouched), so
+  // a paused/restored mid-block time isn't reset.
   useEffect(() => {
     const dur = durationFor(modeRef.current);
     if (!runningRef.current && dur !== lastModeDurRef.current) {
+      const wasUntouched = secondsLeftRef.current === lastModeDurRef.current;
       lastModeDurRef.current = dur;
-      secondsLeftRef.current = dur;
-      setSecondsLeft(dur);
+      if (wasUntouched) {
+        secondsLeftRef.current = dur;
+        setSecondsLeft(dur);
+      }
     }
   }, [durationFor]);
 
