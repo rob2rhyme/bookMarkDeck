@@ -271,11 +271,10 @@ export function useFocusTimer({
     persistTimer();
   }, []);
 
-  // Restore a running/paused timer when returning to /focus (runs once).
-  const restoredRef = useRef(false);
+  // Restore a running/paused timer when returning to /focus. No one-time guard:
+  // startWithRef clears any prior tick, so re-running (e.g. under StrictMode's
+  // double-invoke) is safe and keeps a resumed timer actually ticking.
   useEffect(() => {
-    if (restoredRef.current) return;
-    restoredRef.current = true;
     try {
       const raw = window.localStorage.getItem(TIMER_KEY);
       if (!raw) return;
