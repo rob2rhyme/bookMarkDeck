@@ -13,6 +13,7 @@ import { JournalCard } from "@/features/focus/components/JournalCard";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
 import { TaskTracker } from "@/features/focus/components/TaskTracker";
+import { useFocusActivity } from "@/features/focus/hooks/useFocusActivity";
 import { useFocusJournal } from "@/features/focus/hooks/useFocusJournal";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
 import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
@@ -32,8 +33,9 @@ export function FocusDashboard() {
     pullFromCloud: pullSettings,
     pushToCloud: pushSettings,
   } = useFocusSettings(email, connected);
-  const tasks = useFocusTasks(email, connected);
-  const journal = useFocusJournal(email, connected);
+  const activity = useFocusActivity(email, connected);
+  const tasks = useFocusTasks(email, connected, activity.log);
+  const journal = useFocusJournal(email, connected, activity.log);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsKey, setStatsKey] = useState(0);
@@ -74,6 +76,7 @@ export function FocusDashboard() {
     intervalMin: settings.hydrationIntervalMin,
     goal: settings.waterGoal,
     soundEnabled: settings.soundEnabled,
+    onLog: activity.log,
   });
 
   const taskNameById = useMemo(() => {
@@ -213,6 +216,7 @@ export function FocusDashboard() {
         <ActivityHistory
           available={stats.available}
           sessions={stats.sessions}
+          events={activity.events}
           taskNameById={taskNameById}
           moodByDay={journal.moodByDay}
         />
@@ -221,11 +225,13 @@ export function FocusDashboard() {
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {settings.hydrationEnabled ? (
           <HydrationTracker
-            glasses={hydration.glasses}
+            cups={hydration.cups}
+            oz={hydration.oz}
             goal={hydration.goal}
+            goalOz={hydration.goalOz}
             reminding={hydration.reminding}
             onDrink={hydration.drink}
-            onRemove={hydration.removeGlass}
+            onRemove={hydration.removeCup}
             onDismiss={hydration.dismiss}
           />
         ) : null}

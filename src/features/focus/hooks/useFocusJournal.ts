@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  type ActivityType,
   fetchJournal,
   saveJournal,
   todayKey,
 } from "@/features/focus/data/focusData";
-import { isMoodKey, type MoodKey } from "@/features/focus/lib/mood";
+import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
 import type { JournalEntry } from "@/features/focus/lib/types";
+
+type LogActivity = (type: ActivityType, summary: string) => void;
 
 const BASE_KEY = "bookmarkdeck:focus:journal:v1";
 
@@ -38,7 +41,11 @@ function loadLocal(email?: string | null): JournalEntry[] {
 /**
  * Per-day journal: one note + mood per calendar day. localStorage + Firestore.
  */
-export function useFocusJournal(email?: string | null, connected = false) {
+export function useFocusJournal(
+  email?: string | null,
+  connected = false,
+  onLog?: LogActivity
+) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const canSync = connected && Boolean(email);
@@ -102,8 +109,11 @@ export function useFocusJournal(email?: string | null, connected = false) {
 
   const setNote = useCallback((note: string) => upsert({ note }, true), [upsert]);
   const setMood = useCallback(
-    (mood: MoodKey | null) => upsert({ mood }, false),
-    [upsert]
+    (mood: MoodKey | null) => {
+      upsert({ mood }, false);
+      if (mood) onLog?.("mood", `Felt ${MOOD_BY_KEY[mood].label.toLowerCase()}`);
+    },
+    [upsert, onLog]
   );
 
   const todayEntry = useMemo(

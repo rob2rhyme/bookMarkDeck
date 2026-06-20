@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { type ActivityType } from "@/features/focus/data/focusData";
 import { playChime } from "@/features/focus/lib/sound";
 import { notify } from "@/features/focus/lib/notify";
+
+type LogActivity = (type: ActivityType, summary: string) => void;
 
 type HydrationArgs = {
   email?: string | null;
@@ -11,7 +14,11 @@ type HydrationArgs = {
   intervalMin: number;
   goal: number;
   soundEnabled: boolean;
+  onLog?: LogActivity;
 };
+
+/** Ounces in one cup of water. */
+export const OZ_PER_CUP = 8;
 
 const BASE_KEY = "bookmarkdeck:focus:hydration:v1";
 
@@ -20,8 +27,9 @@ function todayStr(): string {
 }
 
 /**
- * Per-day hydration tracker (localStorage, keyed per user). Orthogonal to the
- * synced focus data, so it intentionally stays local-only.
+ * Per-day hydration tracker (localStorage, keyed per user). Counts whole cups;
+ * ounces are derived (1 cup = 8 oz). Orthogonal to the synced focus data, so it
+ * intentionally stays local-only — but each cup is mirrored to the activity log.
  */
 export function useHydration({
   email,
@@ -29,8 +37,9 @@ export function useHydration({
   intervalMin,
   goal,
   soundEnabled,
+  onLog,
 }: HydrationArgs) {
-  const [glasses, setGlasses] = useState(0);
+  const [cups, setCups] = useState(0);
   const [reminding, setReminding] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -47,11 +56,18 @@ export function useHydration({
       if (raw) {
         const d = JSON.parse(raw);
         if (d.date === todayStr()) {
-          setGlasses(typeof d.glasses === "number" ? d.glasses : 0);
+          // `cups` is the current field; `glasses` is the legacy field name.
+          const stored =
+            typeof d.cups === "number"
+              ? d.cups
+              : typeof d.glasses === "number"
+                ? d.glasses
+                : 0;
+          setCups(stored);
           lastDrinkRef.current =
             typeof d.lastDrink === "number" ? d.lastDrink : Date.now();
         } else {
-          setGlasses(0);
+          setCups(0);
         }
       }
     } catch {}
@@ -66,12 +82,12 @@ export function useHydration({
         key,
         JSON.stringify({
           date: todayStr(),
-          glasses,
+          cups,
           lastDrink: lastDrinkRef.current,
         })
       );
     } catch {}
-  }, [glasses, hydrated, key]);
+  }, [cups, hydrated, key]);
 
   // Reminder loop.
   useEffect(() => {
@@ -83,7 +99,7 @@ export function useHydration({
       const t = todayStr();
       if (t !== dayRef.current) {
         dayRef.current = t;
-        setGlasses(0);
+        setCups(0);
         lastDrinkRef.current = Date.now();
         setReminding(false);
         return;
@@ -98,19 +114,26 @@ export function useHydration({
   // Fire a notification/chime when a reminder appears.
   useEffect(() => {
     if (reminding && enabled) {
-      notify("Time to hydrate", "Take a sip of water.");
+      notify("Time to drink a cup", "Pour yourself a cup of water.");
       if (soundEnabled) playChime("hydration");
     }
   }, [reminding, enabled, soundEnabled]);
 
   const drink = useCallback(() => {
-    setGlasses((g) => g + 1);
+    setCups((c) => {
+      const next = c + 1;
+      onLog?.(
+        "hydration",
+        `Drank a cup of water (${next} ${next === 1 ? "cup" : "cups"} today)`
+      );
+      return next;
+    });
     lastDrinkRef.current = Date.now();
     setReminding(false);
-  }, []);
+  }, [onLog]);
 
-  const removeGlass = useCallback(() => {
-    setGlasses((g) => Math.max(0, g - 1));
+  const removeCup = useCallback(() => {
+    setCups((c) => Math.max(0, c - 1));
   }, []);
 
   const dismiss = useCallback(() => {
@@ -118,5 +141,15 @@ export function useHydration({
     setReminding(false);
   }, []);
 
-  return { hydrated, glasses, goal, reminding, drink, removeGlass, dismiss };
+  return {
+    hydrated,
+    cups,
+    oz: cups * OZ_PER_CUP,
+    goal,
+    goalOz: goal * OZ_PER_CUP,
+    reminding,
+    drink,
+    removeCup,
+    dismiss,
+  };
 }

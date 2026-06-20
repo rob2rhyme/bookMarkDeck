@@ -1,45 +1,97 @@
 "use client";
 
 type HydrationTrackerProps = {
-  glasses: number;
+  cups: number;
+  oz: number;
   goal: number;
+  goalOz: number;
   reminding: boolean;
   onDrink: () => void;
   onRemove: () => void;
   onDismiss: () => void;
 };
 
-function GlassIcon({ filled }: { filled: boolean }) {
+/**
+ * A glass-shaped container whose water level reflects cups / goal. The surface
+ * rides up as cups are added (transition on the group's transform) and ripples
+ * via two looping SMIL wave layers. Empty glass when fill is 0.
+ */
+function WaterGlass({ fill }: { fill: number }) {
+  // Surface sits at y=18 when full, y=146 when empty (128px of travel).
+  const offset = (1 - Math.min(1, Math.max(0, fill))) * 128;
+
   return (
-    <svg viewBox="0 0 24 24" className="h-8 w-7" aria-hidden="true">
-      {/* water fill (lower portion) */}
-      {filled && (
-        <path
-          d="M6.5 11 L17.5 11 L16.5 20.5 L7.5 20.5 Z"
-          className="fill-sky-500/80"
-        />
-      )}
+    <svg
+      viewBox="0 0 120 160"
+      className="h-40 w-32"
+      role="img"
+      aria-label={`Glass ${Math.round(fill * 100)}% full`}
+    >
+      <defs>
+        <clipPath id="hydration-glass-clip">
+          <path d="M30 18 L90 18 L82 142 Q81 148 75 148 L45 148 Q39 148 38 142 Z" />
+        </clipPath>
+      </defs>
+
+      {/* water (clipped to the glass interior) */}
+      <g clipPath="url(#hydration-glass-clip)">
+        <g
+          className="transition-transform duration-700 ease-out"
+          transform={`translate(0 ${offset})`}
+        >
+          <path
+            d="M-40 22 q 20 -6 40 0 q 20 6 40 0 q 20 -6 40 0 q 20 6 40 0 q 20 -6 40 0 L 200 200 L -40 200 Z"
+            className="fill-sky-500/40"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              from="0 0"
+              to="-80 0"
+              dur="3.4s"
+              repeatCount="indefinite"
+            />
+          </path>
+          <path
+            d="M-40 18 q 20 -5 40 0 q 20 5 40 0 q 20 -5 40 0 q 20 5 40 0 q 20 -5 40 0 L 200 200 L -40 200 Z"
+            className="fill-sky-500/80"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              from="-80 0"
+              to="0 0"
+              dur="2.4s"
+              repeatCount="indefinite"
+            />
+          </path>
+        </g>
+      </g>
+
       {/* glass outline */}
       <path
-        d="M5 3.6 L19 3.6 L16.5 20.6 L7.5 20.6 Z"
+        d="M30 18 L90 18 L82 142 Q81 148 75 148 L45 148 Q39 148 38 142 Z"
         fill="none"
-        strokeWidth="1.6"
+        strokeWidth="2"
         strokeLinejoin="round"
-        className={filled ? "stroke-sky-400" : "stroke-slate-600"}
+        className={fill > 0 ? "stroke-sky-300/80" : "stroke-slate-600"}
       />
     </svg>
   );
 }
 
 export function HydrationTracker({
-  glasses,
+  cups,
+  oz,
   goal,
+  goalOz,
   reminding,
   onDrink,
   onRemove,
   onDismiss,
 }: HydrationTrackerProps) {
-  const reached = glasses >= goal;
+  const reached = cups >= goal;
+  const fill = goal > 0 ? cups / goal : 0;
 
   return (
     <section
@@ -58,13 +110,13 @@ export function HydrationTracker({
             reached ? "text-emerald-300" : "text-slate-400"
           }`}
         >
-          {glasses} / {goal} glasses
+          {cups} / {goal} cups
         </span>
       </div>
 
       {reminding && (
         <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-slate-950/50 px-3 py-2">
-          <span className="text-sm text-sky-300">💧 Time for a sip of water</span>
+          <span className="text-sm text-sky-300">💧 Time to drink a cup</span>
           <button
             type="button"
             onClick={onDismiss}
@@ -75,12 +127,16 @@ export function HydrationTracker({
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-1.5">
-        {Array.from({ length: goal }, (_, i) => (
-          <span key={i} title={`Glass ${i + 1}`} className="transition">
-            <GlassIcon filled={i < glasses} />
-          </span>
-        ))}
+      <div className="mt-4 flex flex-col items-center gap-1">
+        <WaterGlass fill={fill} />
+        <p className="text-sm tabular-nums text-slate-300">
+          <span className="font-semibold text-sky-300">{cups}</span>{" "}
+          {cups === 1 ? "cup" : "cups"}
+          <span className="text-slate-500"> · {oz} oz</span>
+        </p>
+        <p className="text-xs tabular-nums text-slate-500">
+          Goal: {goal} cups · {goalOz} oz
+        </p>
       </div>
 
       <div className="mt-4 flex gap-2">
@@ -89,13 +145,13 @@ export function HydrationTracker({
           onClick={onDrink}
           className="flex-1 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-500"
         >
-          + Add a glass
+          + Drink a cup
         </button>
-        {glasses > 0 && (
+        {cups > 0 && (
           <button
             type="button"
             onClick={onRemove}
-            aria-label="Remove a glass"
+            aria-label="Remove a cup"
             className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500"
           >
             −

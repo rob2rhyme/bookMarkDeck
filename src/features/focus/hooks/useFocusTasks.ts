@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  type ActivityType,
   deleteTask,
   fetchTasks,
   saveTask,
   touchTask,
 } from "@/features/focus/data/focusData";
 import type { FocusTask } from "@/features/focus/lib/types";
+
+type LogActivity = (type: ActivityType, summary: string) => void;
 
 const BASE_KEY = "bookmarkdeck:focus:tasks:v1";
 
@@ -41,7 +44,11 @@ function loadLocal(email?: string | null): FocusTask[] {
  * Firestore. Tracks an active task that the timer attributes focus minutes to,
  * and auto-resumes the most recently used task.
  */
-export function useFocusTasks(email?: string | null, connected = false) {
+export function useFocusTasks(
+  email?: string | null,
+  connected = false,
+  onLog?: LogActivity
+) {
   const [tasks, setTasks] = useState<FocusTask[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -111,8 +118,9 @@ export function useFocusTasks(email?: string | null, connected = false) {
       setTasks((prev) => [...prev, task]);
       setActiveTaskId(task.id);
       if (canSync && email) saveTask(email, task).catch(() => {});
+      onLog?.("task_added", `Added task: ${trimmed}`);
     },
-    [canSync, email]
+    [canSync, email, onLog]
   );
 
   const toggleDone = useCallback(
@@ -123,10 +131,11 @@ export function useFocusTasks(email?: string | null, connected = false) {
         );
         const updated = next.find((t) => t.id === id);
         if (canSync && email && updated) saveTask(email, updated).catch(() => {});
+        if (updated?.done) onLog?.("task_done", `Completed: ${updated.text}`);
         return next;
       });
     },
-    [canSync, email]
+    [canSync, email, onLog]
   );
 
   const removeTask = useCallback(

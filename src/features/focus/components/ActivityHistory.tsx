@@ -2,12 +2,14 @@
 
 import { useMemo } from "react";
 
+import type { ActivityEvent, ActivityType } from "@/features/focus/data/focusData";
 import { MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
 
 type ActivityHistoryProps = {
   available: boolean;
   sessions: FocusSessionRecord[];
+  events: ActivityEvent[];
   taskNameById: Record<string, string>;
   moodByDay: Record<string, MoodKey>;
 };
@@ -17,6 +19,25 @@ const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
+
+// Per-type timeline dot color + leading glyph.
+const TYPE_META: Record<ActivityType, { dot: string; glyph: string }> = {
+  focus: { dot: "border-blue-500", glyph: "🎯" },
+  task_added: { dot: "border-violet-500", glyph: "➕" },
+  task_done: { dot: "border-emerald-500", glyph: "✓" },
+  mood: { dot: "border-amber-500", glyph: "🙂" },
+  journal: { dot: "border-slate-400", glyph: "📝" },
+  hydration: { dot: "border-sky-500", glyph: "💧" },
+};
+
+type TimelineItem = {
+  id: string;
+  type: ActivityType;
+  text: string;
+  createdAt: string | null;
+  sort: number;
+  focusMin: number;
+};
 
 function dayKey(d: Date): string {
   const y = d.getFullYear();
@@ -54,31 +75,60 @@ function hoursLabel(min: number) {
 export function ActivityHistory({
   available,
   sessions,
+  events,
   taskNameById,
   moodByDay,
 }: ActivityHistoryProps) {
-  // Group sessions by day, newest first; sessions within a day newest first.
+  // Merge focus sessions + logged events into one timeline, grouped by day
+  // (newest first), items within a day newest first.
   const days = useMemo(() => {
-    const byDay = new Map<string, FocusSessionRecord[]>();
-    for (const s of sessions) {
-      if (!s.day) continue;
-      const bucket = byDay.get(s.day);
-      if (bucket) bucket.push(s);
-      else byDay.set(s.day, [s]);
+    const byDay = new Map<string, TimelineItem[]>();
+    const push = (day: string, item: TimelineItem) => {
+      const bucket = byDay.get(day);
+      if (bucket) bucket.push(item);
+      else byDay.set(day, [item]);
+    };
+
+    sessions.forEach((s, i) => {
+      if (!s.day) return;
+      const taskName = s.taskId ? taskNameById[s.taskId] : null;
+      push(s.day, {
+        id: `focus-${i}-${s.createdAt ?? ""}`,
+        type: "focus",
+        text: `Focused ${hoursLabel(s.focusMin)}${taskName ? ` on ${taskName}` : ""}`,
+        createdAt: s.createdAt,
+        sort: s.createdAt ? new Date(s.createdAt).getTime() : 0,
+        focusMin: s.focusMin,
+      });
+    });
+
+    for (const e of events) {
+      if (!e.day) continue;
+      push(e.day, {
+        id: e.id,
+        type: e.type,
+        text: e.summary,
+        createdAt: e.createdAt,
+        sort: e.createdAt ? new Date(e.createdAt).getTime() : 0,
+        focusMin: 0,
+      });
     }
-    const sortTime = (r: FocusSessionRecord) =>
-      r.createdAt ? new Date(r.createdAt).getTime() : 0;
+
     return [...byDay.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
       .slice(0, 14) // most recent two weeks of activity
-      .map(([key, list]) => ({
-        key,
-        label: dayLabel(key),
-        mood: moodByDay[key],
-        totalMin: list.reduce((sum, s) => sum + s.focusMin, 0),
-        sessions: [...list].sort((a, b) => sortTime(b) - sortTime(a)),
-      }));
-  }, [sessions, moodByDay]);
+      .map(([key, list]) => {
+        const focusMin = list.reduce((sum, it) => sum + it.focusMin, 0);
+        return {
+          key,
+          label: dayLabel(key),
+          mood: moodByDay[key],
+          itemCount: list.length,
+          focusMin,
+          items: [...list].sort((a, b) => b.sort - a.sort),
+        };
+      });
+  }, [sessions, events, taskNameById, moodByDay]);
 
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
@@ -88,11 +138,12 @@ export function ActivityHistory({
 
       {!available ? (
         <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
-          Sign in to sync to see your focus timeline.
+          Sign in to sync to see your activity timeline.
         </p>
       ) : days.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
-          No focus blocks logged yet. Finish a session and it’ll show up here.
+          No activity yet. Focus, add tasks, log your mood or hydration and
+          it’ll show up here.
         </p>
       ) : (
         <div className="flex flex-col gap-6">
@@ -108,34 +159,28 @@ export function ActivityHistory({
                   )}
                 </h4>
                 <span className="text-xs tabular-nums text-slate-500">
-                  {hoursLabel(day.totalMin)} · {day.sessions.length}{" "}
-                  {day.sessions.length === 1 ? "session" : "sessions"}
+                  {day.focusMin > 0 && `${hoursLabel(day.focusMin)} focus · `}
+                  {day.itemCount} {day.itemCount === 1 ? "event" : "events"}
                 </span>
               </div>
 
               {/* Timeline */}
               <ol className="relative ml-1 border-l border-slate-800 pl-5">
-                {day.sessions.map((s, i) => (
-                  <li key={i} className="relative pb-4 last:pb-0">
-                    <span className="absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 border-blue-500 bg-slate-950" />
+                {day.items.map((item) => (
+                  <li key={item.id} className="relative pb-4 last:pb-0">
+                    <span
+                      className={`absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 bg-slate-950 ${TYPE_META[item.type].dot}`}
+                    />
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="text-sm text-slate-200">
-                        Focused{" "}
-                        <span className="font-medium">
-                          {hoursLabel(s.focusMin)}
+                        <span className="mr-1.5" aria-hidden="true">
+                          {TYPE_META[item.type].glyph}
                         </span>
-                        {s.taskId && taskNameById[s.taskId] && (
-                          <>
-                            {" on "}
-                            <span className="text-slate-300">
-                              {taskNameById[s.taskId]}
-                            </span>
-                          </>
-                        )}
+                        {item.text}
                       </span>
-                      {s.createdAt && (
+                      {item.createdAt && (
                         <span className="shrink-0 text-xs tabular-nums text-slate-500">
-                          {timeOf(s.createdAt)}
+                          {timeOf(item.createdAt)}
                         </span>
                       )}
                     </div>
