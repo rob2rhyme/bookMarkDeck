@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Check, Pencil, Trash2, X } from "@/components/icons";
 import { DueField } from "@/features/focus/components/DueField";
+import { RichText } from "@/features/focus/components/RichText";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { Todo } from "@/features/focus/lib/types";
 
@@ -225,13 +226,15 @@ export function TodoList({
                   className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 transition hover:border-emerald-400"
                 />
                 <div className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-slate-100">
-                    {todo.text}
-                  </span>
+                  <RichText
+                    text={todo.text}
+                    className="block truncate text-sm text-slate-100"
+                  />
                   {todo.note && (
-                    <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-slate-400">
-                      {todo.note}
-                    </p>
+                    <RichText
+                      text={todo.note}
+                      className="mt-0.5 block whitespace-pre-wrap break-words text-xs text-slate-400"
+                    />
                   )}
                   <span className="flex items-center gap-2">
                     <DueBadge todo={todo} now={now} />
@@ -289,9 +292,10 @@ export function TodoList({
                   >
                     <Check className="h-3 w-3" />
                   </button>
-                  <span className="min-w-0 flex-1 truncate text-sm text-slate-500 line-through">
-                    {todo.text}
-                  </span>
+                  <RichText
+                    text={todo.text}
+                    className="min-w-0 flex-1 truncate text-sm text-slate-500 line-through"
+                  />
                   <button
                     type="button"
                     onClick={() => onToggle(todo)}
