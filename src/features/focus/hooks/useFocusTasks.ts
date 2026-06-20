@@ -64,13 +64,26 @@ export function useFocusTasks(email?: string | null, connected = false) {
     let cancelled = false;
     fetchTasks(email)
       .then((remote) => {
-        if (!cancelled) setTasks(remote);
+        // On connect, only adopt remote when it has data — never wipe
+        // local-only tasks the user added before connecting.
+        if (!cancelled && remote.length) setTasks(remote);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [canSync, email]);
+
+  const pullFromCloud = useCallback(async () => {
+    if (!canSync || !email) return;
+    const remote = await fetchTasks(email);
+    setTasks(remote);
+  }, [canSync, email]);
+
+  const pushToCloud = useCallback(async () => {
+    if (!canSync || !email) return;
+    await Promise.all(tasks.map((t) => saveTask(email, t)));
+  }, [canSync, email, tasks]);
 
   // Resume the most recently used active task (or keep a still-valid one).
   useEffect(() => {
@@ -151,5 +164,7 @@ export function useFocusTasks(email?: string | null, connected = false) {
     toggleDone,
     removeTask,
     markUsed,
+    pullFromCloud,
+    pushToCloud,
   };
 }

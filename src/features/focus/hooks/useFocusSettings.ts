@@ -94,5 +94,16 @@ export function useFocusSettings(email?: string | null, connected = false) {
     persistRemote(DEFAULT_SETTINGS);
   }, [persistRemote]);
 
-  return { settings, update, reset, hydrated };
+  const pullFromCloud = useCallback(async () => {
+    if (!canSync || !email) return;
+    const remote = await fetchSettings(email);
+    if (remote) setSettings(remote);
+  }, [canSync, email]);
+
+  const pushToCloud = useCallback(async () => {
+    if (!canSync || !email) return;
+    await saveSettings(email, settings);
+  }, [canSync, email, settings]);
+
+  return { settings, update, reset, hydrated, pullFromCloud, pushToCloud };
 }
