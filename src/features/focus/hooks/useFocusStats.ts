@@ -147,6 +147,7 @@ export function useFocusStats(
   return {
     available: canSync,
     loaded,
+    sessions,
     todaySessions: today.sessions,
     todayFocusMin: today.focusMin,
     last7,
