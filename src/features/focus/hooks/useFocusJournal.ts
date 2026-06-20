@@ -10,6 +10,8 @@ import {
   fetchJournal,
   fetchNotes,
   saveMood,
+  subscribeJournal,
+  subscribeNotes,
   todayKey,
 } from "@/features/focus/data/focusData";
 import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
@@ -102,17 +104,16 @@ export function useFocusJournal(
 
   useEffect(() => {
     if (!canSync || !email) return;
-    let cancelled = false;
-    Promise.all([fetchJournal(email), fetchNotes(email)])
-      .then(([remoteEntries, remoteNotes]) => {
-        if (cancelled) return;
-        if (remoteEntries.length) setEntries(remoteEntries);
-        if (remoteNotes.length) setNotes(remoteNotes);
-      })
-      .catch(() => {});
+    // Seed the cloud with anything created before connecting so the live
+    // snapshots don't drop local-only entries, then subscribe for real-time.
+    pushToCloud().catch(() => {});
+    const unsubJournal = subscribeJournal(email, setEntries);
+    const unsubNotes = subscribeNotes(email, setNotes);
     return () => {
-      cancelled = true;
+      unsubJournal();
+      unsubNotes();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
   // Mood (one per day) — merge-written so it never wipes notes.

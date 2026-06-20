@@ -15,6 +15,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -397,4 +398,174 @@ export async function fetchActivity(
       createdAt: timestampToIso(data.createdAt),
     };
   });
+}
+
+/* --------------------------------------------------- realtime listeners --- */
+//
+// Each subscribe* attaches an onSnapshot listener and returns an unsubscribe.
+// uid resolution is async, so the returned function also cancels a pending
+// resolve. Errors are swallowed — listeners are best-effort, like the fetches.
+
+type Unsub = () => void;
+
+function listen(
+  emailHint: string,
+  attach: (uid: string) => Unsub
+): Unsub {
+  let unsub: Unsub = () => {};
+  let cancelled = false;
+  uidFor(emailHint)
+    .then((uid) => {
+      if (!cancelled) unsub = attach(uid);
+    })
+    .catch(() => {});
+  return () => {
+    cancelled = true;
+    unsub();
+  };
+}
+
+export function subscribeTasks(
+  emailHint: string,
+  cb: (tasks: FocusTask[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      tasksCol(uid),
+      (snap) =>
+        cb(
+          snap.docs
+            .map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                text: typeof data.text === "string" ? data.text : "",
+                done: Boolean(data.done),
+                lastUsedAt:
+                  typeof data.lastUsedAt === "string" ? data.lastUsedAt : null,
+              };
+            })
+            .filter((t) => t.text.trim().length > 0)
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeSessions(
+  emailHint: string,
+  cb: (sessions: FocusSessionRecord[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      sessionsCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              focusMin: typeof data.focusMin === "number" ? data.focusMin : 0,
+              day: typeof data.day === "string" ? data.day : "",
+              taskId: typeof data.taskId === "string" ? data.taskId : null,
+              createdAt: timestampToIso(data.createdAt),
+            };
+          })
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeJournal(
+  emailHint: string,
+  cb: (entries: JournalEntry[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      journalCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              day: d.id,
+              note: typeof data.note === "string" ? data.note : "",
+              mood: isMoodKey(data.mood) ? data.mood : null,
+            };
+          })
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeNotes(
+  emailHint: string,
+  cb: (notes: JournalNote[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      notesCol(uid),
+      (snap) =>
+        cb(
+          snap.docs
+            .map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                day: typeof data.day === "string" ? data.day : "",
+                text: typeof data.text === "string" ? data.text : "",
+                createdAt: timestampToIso(data.createdAt),
+              };
+            })
+            .filter((n) => n.text.trim().length > 0)
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeActivity(
+  emailHint: string,
+  cb: (events: ActivityEvent[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      activityCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              type: (typeof data.type === "string"
+                ? data.type
+                : "focus") as ActivityType,
+              summary: typeof data.summary === "string" ? data.summary : "",
+              day: typeof data.day === "string" ? data.day : "",
+              createdAt: timestampToIso(data.createdAt),
+            };
+          })
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeHydration(
+  emailHint: string,
+  day: string,
+  cb: (cups: number | null) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      doc(hydrationCol(uid), day),
+      (snap) => {
+        const cups = snap.exists() ? snap.data().cups : null;
+        cb(typeof cups === "number" ? cups : null);
+      },
+      () => {}
+    )
+  );
 }

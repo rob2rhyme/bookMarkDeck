@@ -6,6 +6,7 @@ import {
   type ActivityType,
   fetchHydration,
   saveHydration,
+  subscribeHydration,
   todayKey,
 } from "@/features/focus/data/focusData";
 import { playChime } from "@/features/focus/lib/sound";
@@ -110,23 +111,30 @@ export function useHydration({
     } catch {}
   }, [cups, hydrated, key]);
 
-  // On connect, reconcile today's count with Firestore. Take the higher of
-  // local vs remote so neither a cross-browser bump nor an offline one is lost,
-  // then write the resolved value back so both ends converge.
+  // Subscribe to today's count for live cross-browser updates. The first
+  // snapshot reconciles via max-merge (so neither a cross-device nor an offline
+  // bump is lost); later snapshots adopt the remote value.
   useEffect(() => {
     if (!canSync || !email) return;
-    let cancelled = false;
-    fetchHydration(email, todayKey())
-      .then((remote) => {
-        if (cancelled || remote == null) return;
+    const day = todayKey();
+    let first = true;
+    return subscribeHydration(email, day, (remote) => {
+      if (remote == null) {
+        if (first && cupsRef.current > 0) {
+          saveHydration(email, day, cupsRef.current).catch(() => {});
+        }
+        first = false;
+        return;
+      }
+      if (first) {
         const resolved = Math.max(cupsRef.current, remote);
         setCups(resolved);
-        if (resolved !== remote) saveHydration(email, todayKey(), resolved).catch(() => {});
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+        if (resolved !== remote) saveHydration(email, day, resolved).catch(() => {});
+        first = false;
+      } else {
+        setCups(remote);
+      }
+    });
   }, [canSync, email]);
 
   // Reminder loop.

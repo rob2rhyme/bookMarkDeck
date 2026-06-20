@@ -7,6 +7,7 @@ import {
   deleteTask,
   fetchTasks,
   saveTask,
+  subscribeTasks,
   touchTask,
 } from "@/features/focus/data/focusData";
 import type { FocusTask } from "@/features/focus/lib/types";
@@ -68,17 +69,11 @@ export function useFocusTasks(
 
   useEffect(() => {
     if (!canSync || !email) return;
-    let cancelled = false;
-    fetchTasks(email)
-      .then((remote) => {
-        // On connect, only adopt remote when it has data — never wipe
-        // local-only tasks the user added before connecting.
-        if (!cancelled && remote.length) setTasks(remote);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    // Seed the cloud with local-only tasks added before connecting so the live
+    // snapshot won't drop them, then subscribe for real-time updates.
+    pushToCloud().catch(() => {});
+    return subscribeTasks(email, setTasks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
   const pullFromCloud = useCallback(async () => {

@@ -6,9 +6,9 @@ import {
   type ActivityEvent,
   type ActivityType,
   deleteActivity,
-  fetchActivity,
   logActivity,
   restoreActivity,
+  subscribeActivity,
   todayKey,
 } from "@/features/focus/data/focusData";
 
@@ -27,15 +27,8 @@ export function useFocusActivity(email?: string | null, connected = false) {
       setEvents([]);
       return;
     }
-    let cancelled = false;
-    fetchActivity(email)
-      .then((remote) => {
-        if (!cancelled) setEvents(remote);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    // Live updates — reflects this and other devices in real time.
+    return subscribeActivity(email, setEvents);
   }, [canSync, email]);
 
   const log = useCallback(

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   deleteSession,
-  fetchSessions,
   restoreSession as restoreSessionRemote,
+  subscribeSessions,
 } from "@/features/focus/data/focusData";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
 
@@ -38,21 +38,12 @@ export function useFocusStats(
       setLoaded(false);
       return;
     }
-    let cancelled = false;
-    fetchSessions(email)
-      .then((records) => {
-        if (!cancelled) {
-          setSessions(records);
-          setLoaded(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canSync, email, refreshKey]);
+    // Live updates — new sessions (incl. from other devices) stream in.
+    return subscribeSessions(email, (records) => {
+      setSessions(records);
+      setLoaded(true);
+    });
+  }, [canSync, email]);
 
   const removeSession = useCallback(
     (id: string) => {
