@@ -89,7 +89,7 @@ export function AgendaCard({
         </p>
       ) : days.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
-          {loading ? "Loading your agenda…" : "No upcoming events in the next 2 weeks."}
+          {loading ? "Loading your agenda…" : "No upcoming events in the next 90 days."}
         </p>
       ) : (
         <div className="flex flex-col gap-5">

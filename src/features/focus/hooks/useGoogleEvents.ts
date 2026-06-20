@@ -7,7 +7,7 @@ import type { AgendaEvent } from "@/app/api/google/events/route";
 export type { AgendaEvent };
 
 /**
- * Read side of Google Calendar: pulls upcoming events (next ~14 days) across
+ * Read side of Google Calendar: pulls upcoming events (next ~90 days) across
  * all calendars from /api/google/events. Inert unless `enabled`; exposes a
  * manual `refresh` and a `loading`/`error` state.
  */

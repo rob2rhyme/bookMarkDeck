@@ -25,7 +25,9 @@ export type AgendaEvent = {
   htmlLink: string | null;
 };
 
-/** Upcoming events across all the user's calendars (next ~14 days). */
+const WINDOW_DAYS = 90;
+
+/** Upcoming events across all the user's calendars (next ~90 days). */
 export async function GET() {
   const session = await getServerSession(authConfig);
   const token = session?.accessToken;
@@ -35,7 +37,7 @@ export async function GET() {
 
   const now = new Date();
   const timeMin = now.toISOString();
-  const timeMax = new Date(now.getTime() + 14 * 86400000).toISOString();
+  const timeMax = new Date(now.getTime() + WINDOW_DAYS * 86400000).toISOString();
 
   try {
     const list = (await gget(token, CAL_LIST)) as {
@@ -50,7 +52,7 @@ export async function GET() {
           timeMax,
           singleEvents: "true",
           orderBy: "startTime",
-          maxResults: "50",
+          maxResults: "250",
         });
         const url =
           `https://www.googleapis.com/calendar/v3/calendars/` +
@@ -86,7 +88,7 @@ export async function GET() {
       .flat()
       .filter((e) => e.start)
       .sort((a, b) => (a.start! < b.start! ? -1 : 1))
-      .slice(0, 100);
+      .slice(0, 250);
 
     return NextResponse.json({ events });
   } catch {
