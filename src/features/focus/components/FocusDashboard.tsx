@@ -16,6 +16,7 @@ import { JournalCard } from "@/features/focus/components/JournalCard";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
 import { TaskTracker } from "@/features/focus/components/TaskTracker";
+import { TodoList } from "@/features/focus/components/TodoList";
 import { UndoToast } from "@/features/focus/components/UndoToast";
 import { useFocusActivity } from "@/features/focus/hooks/useFocusActivity";
 import { useFocusJournal } from "@/features/focus/hooks/useFocusJournal";
@@ -24,8 +25,9 @@ import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
 import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
+import { useTodos } from "@/features/focus/hooks/useTodos";
 import { useUndo } from "@/features/focus/hooks/useUndo";
-import type { FocusTask, JournalNote } from "@/features/focus/lib/types";
+import type { FocusTask, JournalNote, Todo } from "@/features/focus/lib/types";
 
 export function FocusDashboard() {
   const { data: session } = useSession();
@@ -42,6 +44,7 @@ export function FocusDashboard() {
   const activity = useFocusActivity(email, connected);
   const tasks = useFocusTasks(email, connected, activity.log);
   const journal = useFocusJournal(email, connected, activity.log);
+  const todos = useTodos(email, connected, activity.log);
   const hydration = useHydration({
     email,
     connected,
@@ -68,6 +71,7 @@ export function FocusDashboard() {
       pushSettings(),
       journal.pushToCloud(),
       hydration.pushToCloud(),
+      todos.pushToCloud(),
     ]);
     setStatsKey((k) => k + 1);
     setSyncing(false);
@@ -82,6 +86,7 @@ export function FocusDashboard() {
       pullSettings(),
       journal.pullFromCloud(),
       hydration.pullFromCloud(),
+      todos.pullFromCloud(),
     ]);
     setStatsKey((k) => k + 1);
     setSyncing(false);
@@ -122,6 +127,11 @@ export function FocusDashboard() {
   const removeNoteWithUndo = (note: JournalNote) => {
     journal.removeNote(note.id);
     undo.offer("Journal note deleted", () => journal.restoreNote(note));
+  };
+
+  const removeTodoWithUndo = (todo: Todo) => {
+    todos.removeTodo(todo.id);
+    undo.offer(`To-do “${todo.text}” deleted`, () => todos.restoreTodo(todo));
   };
 
   const removeNotesWithUndo = (notes: JournalNote[]) => {
@@ -220,6 +230,16 @@ export function FocusDashboard() {
           onAdd={tasks.addTask}
           onToggleDone={tasks.toggleDone}
           onRemove={removeTaskWithUndo}
+        />
+      </div>
+
+      <div className="mt-5">
+        <TodoList
+          active={todos.active}
+          done={todos.done}
+          onAdd={todos.addTodo}
+          onToggle={todos.toggleTodo}
+          onRemove={removeTodoWithUndo}
         />
       </div>
 

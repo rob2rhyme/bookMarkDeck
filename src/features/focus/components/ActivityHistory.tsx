@@ -40,6 +40,8 @@ const TYPE_META: Record<ActivityType, { dot: string; glyph: string }> = {
   mood: { dot: "border-amber-500", glyph: "🙂" },
   journal: { dot: "border-slate-400", glyph: "📝" },
   hydration: { dot: "border-sky-500", glyph: "💧" },
+  todo_added: { dot: "border-fuchsia-500", glyph: "🗒️" },
+  todo_done: { dot: "border-teal-500", glyph: "☑️" },
 };
 
 type TimelineItem = {
