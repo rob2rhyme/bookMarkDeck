@@ -168,27 +168,33 @@ export function ActivityHistory({
   const [rangeDays, setRangeDays] = useState(7);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<TimelineItem | null>(null);
+  const [pendingBulk, setPendingBulk] = useState<TimelineItem[] | null>(null);
   const [deleted, setDeleted] = useState<TimelineItem[]>([]);
-  const [undoId, setUndoId] = useState<string | null>(null);
+  const [undoIds, setUndoIds] = useState<string[]>([]);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const didAutoExpand = useRef(false);
 
-  // The undo toast surfaces the most recent deletion, then auto-dismisses
-  // (the item stays in "recently deleted" until reload or restore).
+  // The undo toast surfaces the most recent deletion(s), then auto-dismisses
+  // (items stay in "recently deleted" until reload or restore).
   useEffect(() => {
-    if (!undoId) return;
-    const t = setTimeout(() => setUndoId(null), UNDO_MS);
+    if (undoIds.length === 0) return;
+    const t = setTimeout(() => setUndoIds([]), UNDO_MS);
     return () => clearTimeout(t);
-  }, [undoId]);
+  }, [undoIds]);
 
   useEffect(() => {
-    if (!pendingDelete) return;
+    if (!pendingDelete && !pendingBulk) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPendingDelete(null);
+      if (e.key === "Escape") {
+        setPendingDelete(null);
+        setPendingBulk(null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pendingDelete]);
+  }, [pendingDelete, pendingBulk]);
 
   // Bucket every session + event by day (no range cap — the filter slices it).
   const buckets = useMemo(() => {
@@ -288,26 +294,76 @@ export function ActivityHistory({
   const openDay = (key: string) =>
     setExpanded((prev) => new Set(prev).add(key));
 
+  const commitDelete = (items: TimelineItem[]) => {
+    for (const item of items) onDelete(item.ref);
+    setDeleted((prev) => [...items, ...prev]);
+    setUndoIds(items.map((i) => i.id));
+  };
+
   const confirmDelete = () => {
     if (!pendingDelete) return;
-    onDelete(pendingDelete.ref);
-    setDeleted((prev) => [pendingDelete, ...prev]);
-    setUndoId(pendingDelete.id);
+    commitDelete([pendingDelete]);
     setPendingDelete(null);
+  };
+
+  const confirmBulk = () => {
+    if (!pendingBulk) return;
+    commitDelete(pendingBulk);
+    setPendingBulk(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
   };
 
   const restore = (item: TimelineItem) => {
     onRestore(item.ref);
     setDeleted((prev) => prev.filter((d) => d.id !== item.id));
-    setUndoId((cur) => (cur === item.id ? null : cur));
+    setUndoIds((cur) => cur.filter((id) => id !== item.id));
   };
 
-  const undoItem = undoId
-    ? deleted.find((d) => d.id === undoId) ?? null
-    : null;
+  const undoItems = deleted.filter((d) => undoIds.includes(d.id));
+  const undoBatch = () => {
+    for (const item of undoItems) onRestore(item.ref);
+    const ids = new Set(undoIds);
+    setDeleted((prev) => prev.filter((d) => !ids.has(d.id)));
+    setUndoIds([]);
+  };
 
   const hasActivity = buckets.size > 0;
   const totalInRange = listDays.reduce((sum, d) => sum + d.itemCount, 0);
+  const visibleIds = listDays.flatMap((d) => d.items.map((i) => i.id));
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleSelectDay = (day: DayView) => {
+    const ids = day.items.map((i) => i.id);
+    const allOn = ids.every((id) => selectedIds.has(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (allOn ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  };
+
+  const enterSelect = () => {
+    setSelectMode(true);
+    setExpanded(new Set(listDays.map((d) => d.key))); // reveal items to pick
+  };
+  const exitSelect = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const selectedItems = () =>
+    listDays.flatMap((d) => d.items.filter((i) => selectedIds.has(i.id)));
+
+  // One modal handles single + bulk confirmation.
+  const confirmItems = pendingBulk ?? (pendingDelete ? [pendingDelete] : null);
 
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
@@ -316,21 +372,36 @@ export function ActivityHistory({
           Activity history
         </h3>
         {available && hasActivity && (
-          <div className="flex rounded-full border border-slate-800 bg-slate-950/60 p-0.5">
-            {RANGES.map((r) => (
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-full border border-slate-800 bg-slate-950/60 p-0.5">
+              {RANGES.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRangeDays(r)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                    rangeDays === r
+                      ? "bg-slate-700 text-slate-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {r}d
+                </button>
+              ))}
+            </div>
+            {totalInRange > 0 && (
               <button
-                key={r}
                 type="button"
-                onClick={() => setRangeDays(r)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                  rangeDays === r
-                    ? "bg-slate-700 text-slate-100"
-                    : "text-slate-400 hover:text-slate-200"
+                onClick={() => (selectMode ? exitSelect() : enterSelect())}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  selectMode
+                    ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                    : "border-slate-800 bg-slate-950/60 text-slate-400 hover:text-slate-200"
                 }`}
               >
-                {r}d
+                {selectMode ? "Cancel" : "Select"}
               </button>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -361,24 +432,56 @@ export function ActivityHistory({
             </p>
           ) : (
             <>
-              <div className="mb-3 flex items-center justify-end gap-3 text-xs">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpanded(new Set(listDays.map((d) => d.key)))
-                  }
-                  className="font-medium text-slate-500 transition hover:text-slate-300"
-                >
-                  Expand all
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setExpanded(new Set())}
-                  className="font-medium text-slate-500 transition hover:text-slate-300"
-                >
-                  Collapse all
-                </button>
-              </div>
+              {selectMode ? (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                  <span className="text-xs tabular-nums text-slate-400">
+                    {selectedIds.size} selected
+                  </span>
+                  <div className="flex items-center gap-3 text-xs font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIds(new Set(visibleIds))}
+                      className="text-slate-400 transition hover:text-slate-200"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIds(new Set())}
+                      className="text-slate-400 transition hover:text-slate-200"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      disabled={selectedIds.size === 0}
+                      onClick={() => setPendingBulk(selectedItems())}
+                      className="rounded-md bg-red-600/90 px-2.5 py-1 text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Delete ({selectedIds.size})
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-3 flex items-center justify-end gap-3 text-xs">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpanded(new Set(listDays.map((d) => d.key)))
+                    }
+                    className="font-medium text-slate-500 transition hover:text-slate-300"
+                  >
+                    Expand all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(new Set())}
+                    className="font-medium text-slate-500 transition hover:text-slate-300"
+                  >
+                    Collapse all
+                  </button>
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 {listDays.map((day) => {
@@ -388,13 +491,23 @@ export function ActivityHistory({
                       key={day.key}
                       className="rounded-xl border border-slate-800/70 bg-slate-950/30"
                     >
-                      <button
-                        type="button"
-                        onClick={() => toggleDay(day.key)}
-                        aria-expanded={isOpen}
-                        className="flex w-full items-baseline justify-between gap-3 px-4 py-3 text-left"
-                      >
-                        <span className="flex items-baseline gap-2 text-sm font-medium text-slate-200">
+                      <div className="flex items-center">
+                        {selectMode && (
+                          <input
+                            type="checkbox"
+                            checked={day.items.every((i) => selectedIds.has(i.id))}
+                            onChange={() => toggleSelectDay(day)}
+                            aria-label={`Select all in ${day.label}`}
+                            className="ml-4 h-4 w-4 shrink-0 accent-blue-500"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => toggleDay(day.key)}
+                          aria-expanded={isOpen}
+                          className="flex w-full items-baseline justify-between gap-3 px-4 py-3 text-left"
+                        >
+                          <span className="flex items-baseline gap-2 text-sm font-medium text-slate-200">
                           <span className="text-slate-500">
                             {isOpen ? "▾" : "▸"}
                           </span>
@@ -411,7 +524,8 @@ export function ActivityHistory({
                           {day.itemCount}{" "}
                           {day.itemCount === 1 ? "event" : "events"}
                         </span>
-                      </button>
+                        </button>
+                      </div>
 
                       {isOpen && (
                         <ol className="relative ml-5 border-l border-slate-800 pl-5 pr-4 pb-3">
@@ -436,14 +550,24 @@ export function ActivityHistory({
                                       {timeOf(item.createdAt)}
                                     </span>
                                   )}
-                                  <button
-                                    type="button"
-                                    onClick={() => setPendingDelete(item)}
-                                    aria-label="Delete activity"
-                                    className="text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
+                                  {selectMode ? (
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedIds.has(item.id)}
+                                      onChange={() => toggleSelect(item.id)}
+                                      aria-label="Select activity"
+                                      className="h-4 w-4 accent-blue-500"
+                                    />
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPendingDelete(item)}
+                                      aria-label="Delete activity"
+                                      className="text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
                                 </span>
                               </div>
                             </li>
@@ -497,14 +621,16 @@ export function ActivityHistory({
       )}
 
       {/* Undo toast */}
-      {undoItem && (
+      {undoItems.length > 0 && (
         <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2">
           <span className="min-w-0 truncate text-sm text-slate-300">
-            Deleted “{undoItem.text}”
+            {undoItems.length === 1
+              ? `Deleted “${undoItems[0].text}”`
+              : `${undoItems.length} activities deleted`}
           </span>
           <button
             type="button"
-            onClick={() => restore(undoItem)}
+            onClick={undoBatch}
             className="shrink-0 text-sm font-medium text-blue-300 transition hover:text-blue-200"
           >
             Undo
@@ -512,10 +638,13 @@ export function ActivityHistory({
         </div>
       )}
 
-      {/* Confirm-delete modal */}
-      {pendingDelete && (
+      {/* Confirm-delete modal (single + bulk) */}
+      {confirmItems && (
         <div
-          onClick={() => setPendingDelete(null)}
+          onClick={() => {
+            setPendingDelete(null);
+            setPendingBulk(null);
+          }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
         >
           <div
@@ -526,41 +655,54 @@ export function ActivityHistory({
           >
             <div className="flex items-start justify-between">
               <h2 className="text-base font-semibold text-slate-50">
-                Delete this activity?
+                {confirmItems.length === 1
+                  ? "Delete this activity?"
+                  : `Delete ${confirmItems.length} activities?`}
               </h2>
               <button
                 type="button"
-                onClick={() => setPendingDelete(null)}
+                onClick={() => {
+                  setPendingDelete(null);
+                  setPendingBulk(null);
+                }}
                 aria-label="Cancel"
                 className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-slate-300 transition hover:text-slate-100"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="mt-3 truncate text-sm text-slate-300">
-              {TYPE_META[pendingDelete.type].glyph} {pendingDelete.text}
-            </p>
-            {pendingDelete.ref.source === "session" && (
+            {confirmItems.length === 1 ? (
+              <p className="mt-3 truncate text-sm text-slate-300">
+                {TYPE_META[confirmItems[0].type].glyph} {confirmItems[0].text}
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-slate-300">
+                {confirmItems.length} selected items will be removed.
+              </p>
+            )}
+            {confirmItems.some((i) => i.ref.source === "session") && (
               <p className="mt-2 text-xs text-amber-300/90">
-                This focus block also counts toward your stats and streak —
-                deleting it removes it from those too.
+                Some of these are focus blocks — deleting them also removes them
+                from your stats and streak.
               </p>
             )}
             <p className="mt-2 text-xs text-slate-500">
-              You can undo this right after, or restore it from “Recently
-              deleted”.
+              You can undo right after, or restore from “Recently deleted”.
             </p>
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
-                onClick={() => setPendingDelete(null)}
+                onClick={() => {
+                  setPendingDelete(null);
+                  setPendingBulk(null);
+                }}
                 className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={confirmDelete}
+                onClick={pendingBulk ? confirmBulk : confirmDelete}
                 className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500"
               >
                 Delete
