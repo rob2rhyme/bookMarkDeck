@@ -1,6 +1,8 @@
 // Focus settings shape + defaults. Kept framework-free so both the data layer
 // and hooks can import it without cycles.
 
+import { isSoundId, type SoundId } from "@/features/focus/lib/sound";
+
 export type FocusSettings = {
   // Timer durations (minutes)
   focus: number;
@@ -11,6 +13,7 @@ export type FocusSettings = {
   autoStartBreaks: boolean;
   autoStartFocus: boolean;
   soundEnabled: boolean;
+  chimeSound: SoundId;
   // Hydration
   hydrationEnabled: boolean;
   hydrationIntervalMin: number;
@@ -27,6 +30,7 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   autoStartBreaks: false,
   autoStartFocus: false,
   soundEnabled: true,
+  chimeSound: "classic",
   hydrationEnabled: true,
   hydrationIntervalMin: 30,
   waterGoal: 8,
@@ -50,6 +54,7 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     autoStartBreaks: bool(r.autoStartBreaks, DEFAULT_SETTINGS.autoStartBreaks),
     autoStartFocus: bool(r.autoStartFocus, DEFAULT_SETTINGS.autoStartFocus),
     soundEnabled: bool(r.soundEnabled, DEFAULT_SETTINGS.soundEnabled),
+    chimeSound: isSoundId(r.chimeSound) ? r.chimeSound : DEFAULT_SETTINGS.chimeSound,
     hydrationEnabled: bool(r.hydrationEnabled, DEFAULT_SETTINGS.hydrationEnabled),
     hydrationIntervalMin: num(r.hydrationIntervalMin, DEFAULT_SETTINGS.hydrationIntervalMin, 5, 180),
     waterGoal: num(r.waterGoal, DEFAULT_SETTINGS.waterGoal, 1, 20),

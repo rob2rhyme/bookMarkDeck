@@ -4,7 +4,12 @@ import { useEffect } from "react";
 
 import { X } from "@/components/icons";
 import type { FocusSettings } from "@/features/focus/lib/settings";
-import { initAudio, playChime } from "@/features/focus/lib/sound";
+import {
+  initAudio,
+  playChime,
+  SOUND_OPTIONS,
+  type SoundId,
+} from "@/features/focus/lib/sound";
 
 type FocusSettingsModalProps = {
   open: boolean;
@@ -152,7 +157,7 @@ export function FocusSettingsModal({
               type="button"
               onClick={() => {
                 initAudio();
-                playChime("session");
+                playChime("session", settings.chimeSound);
               }}
               className="text-xs text-blue-300 transition hover:text-blue-200"
             >
@@ -175,6 +180,25 @@ export function FocusSettingsModal({
               />
             </button>
           </div>
+        </div>
+        <div className="flex items-center justify-between border-b border-slate-800/60 py-2.5">
+          <label className="text-sm text-slate-200">Sound</label>
+          <select
+            value={settings.chimeSound}
+            onChange={(e) => {
+              const id = e.target.value as SoundId;
+              onUpdate({ chimeSound: id });
+              initAudio();
+              playChime("session", id);
+            }}
+            className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 focus:border-blue-400 focus:outline-none"
+          >
+            {SOUND_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <SectionLabel>Hydration</SectionLabel>

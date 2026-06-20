@@ -139,12 +139,12 @@ export function useFocusTimer({
         logSession(email, s.focus, todayKey(), taskId).catch(() => {});
       }
       onFocusComplete?.(s.focus, taskId);
-      if (s.soundEnabled) playChime("session");
+      if (s.soundEnabled) playChime("session", s.chimeSound);
       notify("Focus session complete", "Nice work — time for a break.");
       const isLong = newCount % s.sessionsUntilLong === 0;
       transitionTo(isLong ? "long" : "short", s.autoStartBreaks);
     } else {
-      if (s.soundEnabled) playChime("break");
+      if (s.soundEnabled) playChime("break", s.chimeSound);
       notify("Break over", "Back to focus.");
       transitionTo("focus", s.autoStartFocus);
     }
