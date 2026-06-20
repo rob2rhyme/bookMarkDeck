@@ -5,37 +5,32 @@ import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { Settings, Timer } from "@/components/icons";
-import { useBookmarks } from "@/hooks/useBookmarks";
-import { CollectionPicker } from "@/features/focus/components/CollectionPicker";
+import { AnalysisPanel } from "@/features/focus/components/AnalysisPanel";
 import { FocusSettingsModal } from "@/features/focus/components/FocusSettingsModal";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
+import { JournalCard } from "@/features/focus/components/JournalCard";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
-import { ResourcesPanel } from "@/features/focus/components/ResourcesPanel";
-import { SessionTasks } from "@/features/focus/components/SessionTasks";
-import { StatsPanel } from "@/features/focus/components/StatsPanel";
+import { TaskTracker } from "@/features/focus/components/TaskTracker";
+import { useFocusJournal } from "@/features/focus/hooks/useFocusJournal";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
 import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
 import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
+import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
 
-type FocusDashboardProps = {
-  initialCollectionId?: string | null;
-};
-
-export function FocusDashboard({ initialCollectionId }: FocusDashboardProps) {
+export function FocusDashboard() {
   const { data: session } = useSession();
   const email = session?.user?.email ?? null;
   const { connected, connecting, error, connect } = useFocusSync(email);
 
   const { settings, update, reset } = useFocusSettings(email, connected);
-  const { bookmarks, folders } = useBookmarks(email);
+  const tasks = useFocusTasks(email, connected);
+  const journal = useFocusJournal(email, connected);
 
-  const [collectionId, setCollectionId] = useState<string | null>(
-    initialCollectionId ?? null
-  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsKey, setStatsKey] = useState(0);
+  const [journalPrompt, setJournalPrompt] = useState(false);
 
   const stats = useFocusStats(email, connected, statsKey);
   const hydration = useHydration({
@@ -46,51 +41,44 @@ export function FocusDashboard({ initialCollectionId }: FocusDashboardProps) {
     soundEnabled: settings.soundEnabled,
   });
 
-  const selectedFolder = useMemo(
-    () => folders.find((folder) => folder.id === collectionId) ?? null,
-    [folders, collectionId]
-  );
-  const linkedFolderId = selectedFolder?.id ?? null;
+  const taskNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const t of [...tasks.activeTasks, ...tasks.doneTasks]) {
+      map[t.id] = t.text;
+    }
+    return map;
+  }, [tasks.activeTasks, tasks.doneTasks]);
 
-  const collectionBookmarks = useMemo(
-    () =>
-      linkedFolderId
-        ? bookmarks.filter((bookmark) => bookmark.folderId === linkedFolderId)
-        : [],
-    [bookmarks, linkedFolderId]
-  );
+  const onFocusComplete = (_focusMin: number, taskId: string | null) => {
+    setStatsKey((k) => k + 1);
+    if (taskId) tasks.markUsed(taskId, new Date().toISOString());
+    setJournalPrompt(true);
+  };
 
   return (
     <section className="flex flex-1 flex-col">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 text-blue-400">
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 text-blue-400">
             <Timer className="h-6 w-6" />
           </span>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight text-slate-50 sm:text-2xl">
               Focus
             </h2>
-            <p className="text-sm text-slate-400">
-              A calm space to do the work, with your resources close by.
+            <p className="truncate text-sm text-slate-400">
+              Track your work, one focused block at a time.
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <CollectionPicker
-            folders={folders}
-            value={linkedFolderId}
-            onChange={setCollectionId}
-          />
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Focus settings"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-300 transition hover:border-blue-400 hover:text-blue-300"
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Focus settings"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-300 transition hover:border-blue-400 hover:text-blue-300"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
       </div>
 
       {!connected && (
@@ -116,33 +104,51 @@ export function FocusDashboard({ initialCollectionId }: FocusDashboardProps) {
           settings={settings}
           email={email}
           connected={connected}
-          linkedFolderId={linkedFolderId}
-          onFocusComplete={() => setStatsKey((k) => k + 1)}
+          activeTaskId={tasks.activeTaskId}
+          activeTaskName={tasks.activeTask?.text ?? null}
+          onFocusComplete={onFocusComplete}
         />
-        <SessionTasks email={email} connected={connected} />
+        <TaskTracker
+          activeTasks={tasks.activeTasks}
+          doneTasks={tasks.doneTasks}
+          activeTaskId={tasks.activeTaskId}
+          byTask={stats.byTask}
+          onSelect={tasks.setActiveTaskId}
+          onAdd={tasks.addTask}
+          onToggleDone={tasks.toggleDone}
+          onRemove={tasks.removeTask}
+        />
       </div>
 
-      {selectedFolder && (
-        <div className="mt-5">
-          <ResourcesPanel
-            folderName={selectedFolder.name}
-            bookmarks={collectionBookmarks}
-          />
-        </div>
-      )}
-
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <StatsPanel
+        <AnalysisPanel
           available={stats.available}
-          todaySessions={stats.todaySessions}
           todayFocusMin={stats.todayFocusMin}
+          todaySessions={stats.todaySessions}
+          dailyGoalHours={settings.dailyGoalHours}
           streak={stats.streak}
           totalSessions={stats.totalSessions}
           totalFocusMin={stats.totalFocusMin}
           last7={stats.last7}
-          byCollection={stats.byCollection}
-          folders={folders}
+          weekFocusMin={stats.weekFocusMin}
+          weekSessions={stats.weekSessions}
+          weekTaskMin={stats.weekTaskMin}
+          taskNameById={taskNameById}
+          moodByDay={journal.moodByDay}
         />
+        <JournalCard
+          note={journal.todayNote}
+          mood={journal.todayMood}
+          onNoteChange={journal.setNote}
+          onMoodChange={(m) => {
+            journal.setMood(m);
+            setJournalPrompt(false);
+          }}
+          highlight={journalPrompt}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {settings.hydrationEnabled ? (
           <HydrationTracker
             glasses={hydration.glasses}
@@ -152,16 +158,9 @@ export function FocusDashboard({ initialCollectionId }: FocusDashboardProps) {
             onRemove={hydration.removeGlass}
             onDismiss={hydration.dismiss}
           />
-        ) : (
-          <QuoteBox />
-        )}
+        ) : null}
+        <QuoteBox />
       </div>
-
-      {settings.hydrationEnabled && (
-        <div className="mt-5">
-          <QuoteBox />
-        </div>
-      )}
 
       <div className="mt-6">
         <Link

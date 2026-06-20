@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { X } from "@/components/icons";
 import type { FocusSettings } from "@/features/focus/lib/settings";
+import { initAudio, playChime } from "@/features/focus/lib/sound";
 
 type FocusSettingsModalProps = {
   open: boolean;
@@ -138,10 +139,43 @@ export function FocusSettingsModal({
         <NumberField label="Long break" value={settings.long} min={1} max={60} suffix="min" onChange={(v) => onUpdate({ long: v })} />
         <NumberField label="Sessions until long break" value={settings.sessionsUntilLong} min={2} max={12} onChange={(v) => onUpdate({ sessionsUntilLong: v })} />
 
+        <SectionLabel>Goal</SectionLabel>
+        <NumberField label="Daily focus goal" value={settings.dailyGoalHours} min={1} max={16} suffix="hr" onChange={(v) => onUpdate({ dailyGoalHours: v })} />
+
         <SectionLabel>Automation</SectionLabel>
         <Toggle label="Auto-start breaks" checked={settings.autoStartBreaks} onChange={(v) => onUpdate({ autoStartBreaks: v })} />
         <Toggle label="Auto-start next focus" checked={settings.autoStartFocus} onChange={(v) => onUpdate({ autoStartFocus: v })} />
-        <Toggle label="Sound when timer ends" checked={settings.soundEnabled} onChange={(v) => onUpdate({ soundEnabled: v })} />
+        <div className="flex items-center justify-between border-b border-slate-800/60 py-2.5">
+          <label className="text-sm text-slate-200">Sound when timer ends</label>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                initAudio();
+                playChime("session");
+              }}
+              className="text-xs text-blue-300 transition hover:text-blue-200"
+            >
+              Test
+            </button>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings.soundEnabled}
+              aria-label="Sound when timer ends"
+              onClick={() => onUpdate({ soundEnabled: !settings.soundEnabled })}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+                settings.soundEnabled ? "bg-blue-600" : "bg-slate-700"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+                  settings.soundEnabled ? "left-[22px]" : "left-0.5"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
 
         <SectionLabel>Hydration</SectionLabel>
         <Toggle label="Hydration reminders" checked={settings.hydrationEnabled} onChange={(v) => onUpdate({ hydrationEnabled: v })} />

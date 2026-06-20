@@ -15,6 +15,8 @@ export type FocusSettings = {
   hydrationEnabled: boolean;
   hydrationIntervalMin: number;
   waterGoal: number;
+  // Daily focus goal (hours)
+  dailyGoalHours: number;
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   hydrationEnabled: true,
   hydrationIntervalMin: 30,
   waterGoal: 8,
+  dailyGoalHours: 4,
 };
 
 /** Coerce arbitrary stored/remote data into a valid, clamped settings object. */
@@ -50,5 +53,6 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     hydrationEnabled: bool(r.hydrationEnabled, DEFAULT_SETTINGS.hydrationEnabled),
     hydrationIntervalMin: num(r.hydrationIntervalMin, DEFAULT_SETTINGS.hydrationIntervalMin, 5, 180),
     waterGoal: num(r.waterGoal, DEFAULT_SETTINGS.waterGoal, 1, 20),
+    dailyGoalHours: num(r.dailyGoalHours, DEFAULT_SETTINGS.dailyGoalHours, 1, 16),
   };
 }

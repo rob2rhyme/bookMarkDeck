@@ -39,15 +39,17 @@ type PomodoroTimerProps = {
   settings: FocusSettings;
   email?: string | null;
   connected?: boolean;
-  linkedFolderId?: string | null;
-  onFocusComplete?: () => void;
+  activeTaskId?: string | null;
+  activeTaskName?: string | null;
+  onFocusComplete?: (focusMin: number, taskId: string | null) => void;
 };
 
 export function PomodoroTimer({
   settings,
   email,
   connected,
-  linkedFolderId,
+  activeTaskId,
+  activeTaskName,
   onFocusComplete,
 }: PomodoroTimerProps) {
   const {
@@ -64,7 +66,7 @@ export function PomodoroTimer({
     settings,
     email,
     connected,
-    linkedFolderId,
+    activeTaskId,
     onFocusComplete,
   });
 
@@ -94,8 +96,20 @@ export function PomodoroTimer({
         })}
       </div>
 
+      {/* Active task */}
+      <p className="mt-4 max-w-full truncate px-2 text-center text-sm text-slate-400">
+        {activeTaskName ? (
+          <>
+            Working on{" "}
+            <span className="font-medium text-slate-200">{activeTaskName}</span>
+          </>
+        ) : (
+          "No task selected — pick one to track time."
+        )}
+      </p>
+
       {/* Circular progress */}
-      <div className="relative mt-6 flex items-center justify-center">
+      <div className="relative mt-4 flex items-center justify-center">
         <svg
           width={SIZE}
           height={SIZE}

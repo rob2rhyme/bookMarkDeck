@@ -2,10 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  fetchSessions,
-  type FocusSessionRecord,
-} from "@/features/focus/data/focusData";
+import { fetchSessions } from "@/features/focus/data/focusData";
+import type { FocusSessionRecord } from "@/features/focus/lib/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -68,14 +66,21 @@ export function useFocusStats(
   const today = byDay[dayKey(new Date())] ?? { sessions: 0, focusMin: 0 };
 
   const last7 = useMemo(() => {
-    const out: { label: string; sessions: number; isToday: boolean }[] = [];
+    const out: {
+      key: string;
+      label: string;
+      sessions: number;
+      isToday: boolean;
+    }[] = [];
     const now = new Date();
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
+      const k = dayKey(d);
       out.push({
+        key: k,
         label: WEEKDAYS[d.getDay()],
-        sessions: byDay[dayKey(d)]?.sessions ?? 0,
+        sessions: byDay[k]?.sessions ?? 0,
         isToday: i === 0,
       });
     }
@@ -105,17 +110,38 @@ export function useFocusStats(
     return { sessions: s, focusMin: m };
   }, [sessions]);
 
-  const byCollection = useMemo(() => {
+  const byTask = useMemo(() => {
     const map: Record<string, DayBucket> = {};
     for (const s of sessions) {
-      if (!s.linkedFolderId) continue;
-      const cur = map[s.linkedFolderId] ?? { sessions: 0, focusMin: 0 };
-      map[s.linkedFolderId] = {
+      if (!s.taskId) continue;
+      const cur = map[s.taskId] ?? { sessions: 0, focusMin: 0 };
+      map[s.taskId] = {
         sessions: cur.sessions + 1,
         focusMin: cur.focusMin + s.focusMin,
       };
     }
     return map;
+  }, [sessions]);
+
+  // Last 7 calendar days (inclusive of today) — for the weekly summary.
+  const week = useMemo(() => {
+    const days = new Set<string>();
+    const now = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      days.add(dayKey(d));
+    }
+    let sessionsCount = 0;
+    let focusMin = 0;
+    const taskMin: Record<string, number> = {};
+    for (const s of sessions) {
+      if (!days.has(s.day)) continue;
+      sessionsCount += 1;
+      focusMin += s.focusMin;
+      if (s.taskId) taskMin[s.taskId] = (taskMin[s.taskId] ?? 0) + s.focusMin;
+    }
+    return { sessions: sessionsCount, focusMin, taskMin };
   }, [sessions]);
 
   return {
@@ -127,6 +153,9 @@ export function useFocusStats(
     streak,
     totalSessions: totals.sessions,
     totalFocusMin: totals.focusMin,
-    byCollection,
+    byTask,
+    weekSessions: week.sessions,
+    weekFocusMin: week.focusMin,
+    weekTaskMin: week.taskMin,
   };
 }

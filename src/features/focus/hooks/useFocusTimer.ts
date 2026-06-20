@@ -26,9 +26,9 @@ type UseFocusTimerArgs = {
   settings: FocusSettings;
   email?: string | null;
   connected?: boolean;
-  linkedFolderId?: string | null;
-  /** Called after a focus block is logged, so stats can refresh. */
-  onFocusComplete?: () => void;
+  activeTaskId?: string | null;
+  /** Called after a focus block is logged (focusMin, taskId at completion). */
+  onFocusComplete?: (focusMin: number, taskId: string | null) => void;
 };
 
 function format(totalSeconds: number) {
@@ -49,7 +49,7 @@ export function useFocusTimer({
   settings,
   email,
   connected = false,
-  linkedFolderId,
+  activeTaskId,
   onFocusComplete,
 }: UseFocusTimerArgs) {
   const durationFor = useCallback(
@@ -72,7 +72,7 @@ export function useFocusTimer({
   const secondsLeftRef = useRef(settings.focus * 60);
   const completedRef = useRef(0);
   const settingsRef = useRef(settings);
-  const linkedRef = useRef<string | null | undefined>(linkedFolderId);
+  const taskRef = useRef<string | null | undefined>(activeTaskId);
   const lastModeDurRef = useRef(settings.focus * 60);
   const handleCompleteRef = useRef<() => void>(() => {});
   const startWithRef = useRef<(seconds: number) => void>(() => {});
@@ -90,8 +90,8 @@ export function useFocusTimer({
     settingsRef.current = settings;
   }, [settings]);
   useEffect(() => {
-    linkedRef.current = linkedFolderId;
-  }, [linkedFolderId]);
+    taskRef.current = activeTaskId;
+  }, [activeTaskId]);
 
   const clearTick = () => {
     if (intervalRef.current) {
@@ -134,12 +134,11 @@ export function useFocusTimer({
       const newCount = completedRef.current + 1;
       completedRef.current = newCount;
       setCompletedToday(newCount);
+      const taskId = taskRef.current ?? null;
       if (canSync && email) {
-        logSession(email, s.focus, todayKey(), linkedRef.current).catch(
-          () => {}
-        );
+        logSession(email, s.focus, todayKey(), taskId).catch(() => {});
       }
-      onFocusComplete?.();
+      onFocusComplete?.(s.focus, taskId);
       if (s.soundEnabled) playChime("session");
       notify("Focus session complete", "Nice work — time for a break.");
       const isLong = newCount % s.sessionsUntilLong === 0;
