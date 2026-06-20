@@ -89,13 +89,13 @@ export function useTodos(
   }, [canSync, email]);
 
   const addTodo = useCallback(
-    (text: string, dueAt: string | null) => {
+    (text: string, dueAt: string | null, note = "") => {
       const trimmed = text.trim();
       if (!trimmed) return;
       const todo: Todo = {
         id: crypto.randomUUID(),
         text: trimmed,
-        note: "",
+        note: note.trim(),
         done: false,
         dueAt: dueAt ?? null,
         createdAt: new Date().toISOString(),

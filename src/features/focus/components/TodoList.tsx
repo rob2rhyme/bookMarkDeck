@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Check, Pencil, Trash2, X } from "@/components/icons";
+import { Check, CheckSquare, Pencil, Trash2, X } from "@/components/icons";
 import { DueField } from "@/features/focus/components/DueField";
 import { RichText } from "@/features/focus/components/RichText";
 import { todayKey } from "@/features/focus/data/focusData";
@@ -11,7 +11,7 @@ import type { Todo } from "@/features/focus/lib/types";
 type TodoListProps = {
   active: Todo[];
   done: Todo[];
-  onAdd: (text: string, dueAt: string | null) => void;
+  onAdd: (text: string, dueAt: string | null, note: string) => void;
   onToggle: (todo: Todo) => void;
   onEdit: (
     id: string,
@@ -79,6 +79,7 @@ export function TodoList({
   onRemove,
 }: TodoListProps) {
   const [draft, setDraft] = useState("");
+  const [draftNote, setDraftNote] = useState("");
   const [draftDue, setDraftDue] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -110,8 +111,9 @@ export function TodoList({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
-    onAdd(draft, draftDue);
+    onAdd(draft, draftDue, draftNote);
     setDraft("");
+    setDraftNote("");
     setDraftDue(null);
   };
 
@@ -135,12 +137,15 @@ export function TodoList({
   const today = todayKey();
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+    <div className="flex flex-col rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-950/50 via-slate-900/90 to-indigo-950/40 p-6 shadow-lg shadow-blue-950/40 sm:p-8">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-blue-200">
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-500/15 text-blue-300">
+            <CheckSquare className="h-4 w-4" />
+          </span>
           To-do list
         </h3>
-        <span className="text-xs text-slate-500">Unfinished items roll over</span>
+        <span className="text-xs text-slate-400">Unfinished items roll over</span>
       </div>
 
       {/* Add */}
@@ -161,6 +166,14 @@ export function TodoList({
             Add
           </button>
         </div>
+        <textarea
+          value={draftNote}
+          onChange={(e) => setDraftNote(e.target.value)}
+          placeholder="Add a note or link (optional)"
+          rows={2}
+          aria-label="To-do note"
+          className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+        />
         <DueField value={draftDue} onChange={setDraftDue} />
       </form>
 
@@ -249,7 +262,7 @@ export function TodoList({
                   type="button"
                   onClick={() => startEdit(todo)}
                   aria-label="Edit to-do"
-                  className="shrink-0 text-slate-600 opacity-0 transition hover:text-blue-300 focus:opacity-100 group-hover:opacity-100"
+                  className="shrink-0 text-slate-600 opacity-100 transition sm:opacity-0 hover:text-blue-300 focus:opacity-100 sm:group-hover:opacity-100"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -257,7 +270,7 @@ export function TodoList({
                   type="button"
                   onClick={() => onRemove(todo)}
                   aria-label="Delete to-do"
-                  className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+                  className="shrink-0 text-slate-600 opacity-100 transition sm:opacity-0 hover:text-red-300 focus:opacity-100 sm:group-hover:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -299,7 +312,7 @@ export function TodoList({
                   <button
                     type="button"
                     onClick={() => onToggle(todo)}
-                    className="shrink-0 text-[11px] font-medium text-slate-500 opacity-0 transition hover:text-slate-200 focus:opacity-100 group-hover:opacity-100"
+                    className="shrink-0 text-[11px] font-medium text-slate-500 opacity-100 transition sm:opacity-0 hover:text-slate-200 focus:opacity-100 sm:group-hover:opacity-100"
                   >
                     Undo
                   </button>
@@ -307,7 +320,7 @@ export function TodoList({
                     type="button"
                     onClick={() => onRemove(todo)}
                     aria-label="Delete to-do"
-                    className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+                    className="shrink-0 text-slate-600 opacity-100 transition sm:opacity-0 hover:text-red-300 focus:opacity-100 sm:group-hover:opacity-100"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
