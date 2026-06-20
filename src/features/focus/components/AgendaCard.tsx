@@ -9,8 +9,10 @@ type AgendaCardProps = {
   error: boolean;
   days: number;
   canExpand: boolean;
+  canCollapse: boolean;
   onRefresh: () => void;
   onExpand: () => void;
+  onCollapse: () => void;
 };
 
 // Secondary line: prefer the event's own description/location; fall back to the
@@ -58,8 +60,10 @@ export function AgendaCard({
   error,
   days,
   canExpand,
+  canCollapse,
   onRefresh,
   onExpand,
+  onCollapse,
 }: AgendaCardProps) {
   const grouped = (() => {
     const map = new Map<string, AgendaEvent[]>();
@@ -144,19 +148,33 @@ export function AgendaCard({
         </div>
       )}
 
-      {enabled && !error && canExpand && grouped.length > 0 && (
+      {enabled && !error && grouped.length > 0 && (canExpand || canCollapse) && (
         <div className="mt-4 flex items-center justify-between gap-3">
           <span className="text-[11px] text-slate-500">
             Showing the next {days} days
           </span>
-          <button
-            type="button"
-            onClick={onExpand}
-            disabled={loading}
-            className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs font-medium text-violet-300 transition hover:border-violet-400 hover:text-violet-200 disabled:opacity-50"
-          >
-            {loading ? "Loading…" : "Show 90 more days"}
-          </button>
+          <div className="flex gap-2">
+            {canCollapse && (
+              <button
+                type="button"
+                onClick={onCollapse}
+                disabled={loading}
+                className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-slate-100 disabled:opacity-50"
+              >
+                Show less
+              </button>
+            )}
+            {canExpand && (
+              <button
+                type="button"
+                onClick={onExpand}
+                disabled={loading}
+                className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs font-medium text-violet-300 transition hover:border-violet-400 hover:text-violet-200 disabled:opacity-50"
+              >
+                {loading ? "Loading…" : "Show 90 more days"}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </section>

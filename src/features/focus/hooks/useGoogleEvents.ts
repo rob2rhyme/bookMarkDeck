@@ -49,7 +49,22 @@ export function useGoogleEvents(enabled: boolean) {
     () => setDays((d) => Math.min(MAX_DAYS, d + STEP_DAYS)),
     []
   );
+  const collapse = useCallback(
+    () => setDays((d) => Math.max(DEFAULT_DAYS, d - STEP_DAYS)),
+    []
+  );
   const canExpand = days < MAX_DAYS;
+  const canCollapse = days > DEFAULT_DAYS;
 
-  return { events, loading, error, refresh, days, expand, canExpand };
+  return {
+    events,
+    loading,
+    error,
+    refresh,
+    days,
+    expand,
+    collapse,
+    canExpand,
+    canCollapse,
+  };
 }
