@@ -318,7 +318,10 @@ export function FocusDashboard() {
             events={gevents.events}
             loading={gevents.loading}
             error={gevents.error}
+            days={gevents.days}
+            canExpand={gevents.canExpand}
             onRefresh={gevents.refresh}
+            onExpand={gevents.expand}
           />
         ) : (
           <TodoHistory available={connected} events={todoEvents} />

@@ -7,8 +7,18 @@ type AgendaCardProps = {
   events: AgendaEvent[];
   loading: boolean;
   error: boolean;
+  days: number;
+  canExpand: boolean;
   onRefresh: () => void;
+  onExpand: () => void;
 };
+
+// Secondary line: prefer the event's own description/location; fall back to the
+// calendar name — but never the user's primary calendar (its name is the email).
+function subtitle(e: AgendaEvent): string {
+  if (e.description) return e.description;
+  return e.primary ? "" : e.calendarName;
+}
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -46,9 +56,12 @@ export function AgendaCard({
   events,
   loading,
   error,
+  days,
+  canExpand,
   onRefresh,
+  onExpand,
 }: AgendaCardProps) {
-  const days = (() => {
+  const grouped = (() => {
     const map = new Map<string, AgendaEvent[]>();
     for (const e of events) {
       if (!e.start) continue;
@@ -87,13 +100,15 @@ export function AgendaCard({
           Couldn’t reach Google Calendar. Sign out and back in to grant access,
           then Refresh.
         </p>
-      ) : days.length === 0 ? (
+      ) : grouped.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
-          {loading ? "Loading your agenda…" : "No upcoming events in the next 90 days."}
+          {loading
+            ? "Loading your agenda…"
+            : `No upcoming events in the next ${days} days.`}
         </p>
       ) : (
         <div className="flex flex-col gap-5">
-          {days.map(([key, list]) => (
+          {grouped.map(([key, list]) => (
             <div key={key}>
               <h4 className="mb-2 text-xs font-medium text-slate-300">
                 {dayLabel(key)}
@@ -114,9 +129,11 @@ export function AgendaCard({
                         <span className="block truncate text-sm text-slate-100">
                           {e.title}
                         </span>
-                        <span className="truncate text-[11px] text-slate-500">
-                          {e.calendarName}
-                        </span>
+                        {subtitle(e) && (
+                          <span className="block truncate text-[11px] text-slate-500">
+                            {subtitle(e)}
+                          </span>
+                        )}
                       </span>
                     </a>
                   </li>
@@ -124,6 +141,22 @@ export function AgendaCard({
               </ul>
             </div>
           ))}
+        </div>
+      )}
+
+      {enabled && !error && canExpand && grouped.length > 0 && (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <span className="text-[11px] text-slate-500">
+            Showing the next {days} days
+          </span>
+          <button
+            type="button"
+            onClick={onExpand}
+            disabled={loading}
+            className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs font-medium text-violet-300 transition hover:border-violet-400 hover:text-violet-200 disabled:opacity-50"
+          >
+            {loading ? "Loading…" : "Show 90 more days"}
+          </button>
         </div>
       )}
     </section>
