@@ -34,6 +34,14 @@ export function useFocusSettings(email?: string | null, connected = false) {
   const [hydrated, setHydrated] = useState(false);
   const canSync = connected && Boolean(email);
 
+  // Track latest settings + whether the user changed them before connecting,
+  // so connecting never clobbers a fresh local change with stale remote.
+  const settingsRef = useRef(settings);
+  const dirtyRef = useRef(false);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
   // Load localStorage after mount.
   useEffect(() => {
     setSettings(loadLocal(email));
@@ -51,13 +59,18 @@ export function useFocusSettings(email?: string | null, connected = false) {
     } catch {}
   }, [settings, hydrated, email]);
 
-  // When connected, remote settings (if any) take precedence over local.
+  // On connect: if the user already changed settings locally this session, push
+  // those up (local wins) instead of pulling — otherwise adopt remote.
   useEffect(() => {
     if (!canSync || !email) return;
     let cancelled = false;
+    if (dirtyRef.current) {
+      saveSettings(email, settingsRef.current).catch(() => {});
+      return;
+    }
     fetchSettings(email)
       .then((remote) => {
-        if (!cancelled && remote) setSettings(remote);
+        if (!cancelled && remote && !dirtyRef.current) setSettings(remote);
       })
       .catch(() => {});
     return () => {
@@ -80,6 +93,7 @@ export function useFocusSettings(email?: string | null, connected = false) {
 
   const update = useCallback(
     (patch: Partial<FocusSettings>) => {
+      dirtyRef.current = true;
       setSettings((prev) => {
         const next = normalizeSettings({ ...prev, ...patch });
         persistRemote(next);
@@ -90,6 +104,7 @@ export function useFocusSettings(email?: string | null, connected = false) {
   );
 
   const reset = useCallback(() => {
+    dirtyRef.current = true;
     setSettings(DEFAULT_SETTINGS);
     persistRemote(DEFAULT_SETTINGS);
   }, [persistRemote]);

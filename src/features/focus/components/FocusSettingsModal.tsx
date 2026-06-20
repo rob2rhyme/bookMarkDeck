@@ -206,13 +206,25 @@ export function FocusSettingsModal({
         <NumberField label="Remind every" value={settings.hydrationIntervalMin} min={5} max={180} suffix="min" onChange={(v) => onUpdate({ hydrationIntervalMin: v })} />
         <NumberField label="Daily goal" value={settings.waterGoal} min={1} max={20} suffix="🥛" onChange={(v) => onUpdate({ waterGoal: v })} />
 
-        <button
-          type="button"
-          onClick={onReset}
-          className="mt-6 w-full rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
-        >
-          Reset to defaults
-        </button>
+        <p className="mt-6 text-center text-[11px] text-slate-500">
+          Changes are saved automatically.
+        </p>
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            onClick={onReset}
+            className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+          >
+            Reset to defaults
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+          >
+            Save &amp; close
+          </button>
+        </div>
       </div>
     </div>
   );
