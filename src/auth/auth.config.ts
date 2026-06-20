@@ -17,6 +17,8 @@ const GOOGLE_SCOPES = [
   "profile",
   "https://www.googleapis.com/auth/tasks",
   "https://www.googleapis.com/auth/calendar.events",
+  // Read events across all the user's calendars (for the agenda / events-in-list).
+  "https://www.googleapis.com/auth/calendar.readonly",
 ].join(" ");
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";

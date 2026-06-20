@@ -6,11 +6,13 @@ import { Check, CheckSquare, Pencil, Trash2, X } from "@/components/icons";
 import { DueField } from "@/features/focus/components/DueField";
 import { RichText } from "@/features/focus/components/RichText";
 import { todayKey } from "@/features/focus/data/focusData";
+import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
 import type { Todo } from "@/features/focus/lib/types";
 
 type TodoListProps = {
   active: Todo[];
   done: Todo[];
+  todayEvents?: AgendaEvent[]; // read-only Google Calendar events for today
   onAdd: (text: string, dueAt: string | null, note: string) => void;
   onToggle: (todo: Todo) => void;
   onEdit: (
@@ -73,6 +75,7 @@ function DueBadge({ todo, now }: { todo: Todo; now: number }) {
 export function TodoList({
   active,
   done,
+  todayEvents = [],
   onAdd,
   onToggle,
   onEdit,
@@ -176,6 +179,36 @@ export function TodoList({
         />
         <DueField value={draftDue} onChange={setDraftDue} />
       </form>
+
+      {todayEvents.length > 0 && (
+        <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-950/20 px-3 py-2.5">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-violet-300/80">
+            📅 On your calendar today
+          </p>
+          <ul className="flex flex-col gap-1">
+            {todayEvents.map((e) => (
+              <li key={`${e.calendarId}-${e.id}`}>
+                <a
+                  href={e.htmlLink ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-baseline gap-3 text-sm text-slate-200 transition hover:text-violet-200"
+                >
+                  <span className="w-16 shrink-0 text-xs tabular-nums text-violet-300/90">
+                    {e.allDay || !e.start
+                      ? "All day"
+                      : new Date(e.start).toLocaleTimeString(undefined, {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                  </span>
+                  <span className="min-w-0 truncate">{e.title}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <ul className="mt-4 flex flex-col gap-2">
         {sortedActive.length === 0 ? (
