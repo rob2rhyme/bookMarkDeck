@@ -208,13 +208,14 @@ export function FocusSettingsModal({
 
         <SectionLabel>Google sync</SectionLabel>
         <Toggle
-          label="Mirror to-dos to Google Tasks"
+          label="Sync with Google (Tasks + Calendar)"
           checked={settings.todoGoogleSync}
           onChange={(v) => onUpdate({ todoGoogleSync: v })}
         />
         <p className="mt-1 text-[11px] text-slate-500">
-          New & changed to-dos sync to your Google Tasks (and a Calendar event
-          for timed ones). Sign out and back in once to grant access.
+          Pushes your to-dos to Google Tasks (timed ones also get a Calendar
+          event), and shows your Google Calendar agenda + today’s events here.
+          Sign out and back in once to grant access.
         </p>
 
         <p className="mt-6 text-center text-[11px] text-slate-500">
