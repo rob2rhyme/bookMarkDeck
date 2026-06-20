@@ -44,6 +44,8 @@ const journalCol = (uid: string) =>
   collection(db, "users", uid, "focusJournal");
 const notesCol = (uid: string) => collection(db, "users", uid, "focusNotes");
 const activityCol = (uid: string) => collection(db, "users", uid, "activity");
+const hydrationCol = (uid: string) =>
+  collection(db, "users", uid, "focusHydration");
 
 export type ActivityType =
   | "focus"
@@ -311,6 +313,33 @@ export async function deleteNote(
 ): Promise<void> {
   const uid = await uidFor(emailHint);
   await deleteDoc(doc(notesCol(uid), id));
+}
+
+/* ------------------------------------------------------------ hydration --- */
+
+/** Cups drunk on a given day, or null if no record exists yet. */
+export async function fetchHydration(
+  emailHint: string,
+  day: string
+): Promise<number | null> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDoc(doc(hydrationCol(uid), day));
+  if (!snap.exists()) return null;
+  const cups = snap.data().cups;
+  return typeof cups === "number" ? cups : null;
+}
+
+export async function saveHydration(
+  emailHint: string,
+  day: string,
+  cups: number
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(hydrationCol(uid), day),
+    { cups, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
 }
 
 /* ------------------------------------------------------------- activity --- */

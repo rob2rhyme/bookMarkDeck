@@ -39,6 +39,15 @@ export function FocusDashboard() {
   const activity = useFocusActivity(email, connected);
   const tasks = useFocusTasks(email, connected, activity.log);
   const journal = useFocusJournal(email, connected, activity.log);
+  const hydration = useHydration({
+    email,
+    connected,
+    enabled: settings.hydrationEnabled,
+    intervalMin: settings.hydrationIntervalMin,
+    goal: settings.waterGoal,
+    soundEnabled: settings.soundEnabled,
+    onLog: activity.log,
+  });
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsKey, setStatsKey] = useState(0);
@@ -53,6 +62,7 @@ export function FocusDashboard() {
       tasks.pushToCloud(),
       pushSettings(),
       journal.pushToCloud(),
+      hydration.pushToCloud(),
     ]);
     setStatsKey((k) => k + 1);
     setSyncing(false);
@@ -66,6 +76,7 @@ export function FocusDashboard() {
       tasks.pullFromCloud(),
       pullSettings(),
       journal.pullFromCloud(),
+      hydration.pullFromCloud(),
     ]);
     setStatsKey((k) => k + 1);
     setSyncing(false);
@@ -73,14 +84,6 @@ export function FocusDashboard() {
   };
 
   const stats = useFocusStats(email, connected, statsKey);
-  const hydration = useHydration({
-    email,
-    enabled: settings.hydrationEnabled,
-    intervalMin: settings.hydrationIntervalMin,
-    goal: settings.waterGoal,
-    soundEnabled: settings.soundEnabled,
-    onLog: activity.log,
-  });
 
   const taskNameById = useMemo(() => {
     const map: Record<string, string> = {};

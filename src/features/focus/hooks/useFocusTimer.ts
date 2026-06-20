@@ -7,7 +7,7 @@ import {
   logSession,
   todayKey,
 } from "@/features/focus/data/focusData";
-import { initAudio, playChime } from "@/features/focus/lib/sound";
+import { initAudio } from "@/features/focus/lib/sound";
 import {
   notify,
   requestNotificationPermission,
@@ -64,6 +64,8 @@ export function useFocusTimer({
   const [secondsLeft, setSecondsLeft] = useState(() => settings.focus * 60);
   const [running, setRunning] = useState(false);
   const [completedToday, setCompletedToday] = useState(0);
+  // The mode that just finished — drives the on-screen "time's up" modal.
+  const [alert, setAlert] = useState<FocusMode | null>(null);
 
   const canSync = connected && Boolean(email);
 
@@ -162,6 +164,9 @@ export function useFocusTimer({
     stopPush();
     const completed = modeRef.current;
     const s = settingsRef.current;
+    // Surface the on-screen modal (it owns the repeating chime). The system
+    // notification stays loud + persistent for a backgrounded/closed tab.
+    setAlert(completed);
     if (completed === "focus") {
       const newCount = completedRef.current + 1;
       completedRef.current = newCount;
@@ -171,13 +176,19 @@ export function useFocusTimer({
         logSession(email, s.focus, todayKey(), taskId).catch(() => {});
       }
       onFocusComplete?.(s.focus, taskId);
-      if (s.soundEnabled) playChime("session", s.chimeSound);
-      notify("Focus session complete", "Nice work — time for a break.");
+      notify("Focus session complete", "Nice work — time for a break.", {
+        requireInteraction: true,
+        vibrate: [200, 100, 200],
+        tag: "bmd-focus-timer",
+      });
       const isLong = newCount % s.sessionsUntilLong === 0;
       transitionTo(isLong ? "long" : "short", s.autoStartBreaks);
     } else {
-      if (s.soundEnabled) playChime("break", s.chimeSound);
-      notify("Break over", "Back to focus.");
+      notify("Break over", "Back to focus.", {
+        requireInteraction: true,
+        vibrate: [200, 100, 200],
+        tag: "bmd-focus-timer",
+      });
       transitionTo("focus", s.autoStartFocus);
     }
   };
@@ -339,6 +350,8 @@ export function useFocusTimer({
     progress,
     completedToday,
     untilLongBreak,
+    alert,
+    dismissAlert: useCallback(() => setAlert(null), []),
     toggle,
     reset,
     switchMode,

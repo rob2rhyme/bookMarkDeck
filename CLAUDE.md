@@ -117,9 +117,11 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   silently (`onAuthStateChanged`) or connects on demand. Data layer
   `features/focus/data/focusData.ts` writes per-user subcollections:
   `focusTasks` (reusable, time-tracked), `focusSessions`
-  (`{ focusMin, day, createdAt, taskId? }`), `focusSettings/settings`, and
-  `focusJournal/{YYYY-MM-DD}` (`{ note, mood }`). Optimistic + fail-safe.
-  Rules: `src/features/focus/FIRESTORE_RULES.md` (console).
+  (`{ focusMin, day, createdAt, taskId? }`), `focusSettings/settings`,
+  `focusJournal/{YYYY-MM-DD}` (`{ mood }` + legacy `note`),
+  `focusNotes/{id}` (multiple timestamped notes/day), `focusHydration/{day}`
+  (`{ cups }`), and `activity/{id}` (unified log). Optimistic + fail-safe.
+  Rules: `src/features/focus/FIRESTORE_RULES.md` (deployable `firestore.rules`).
 - Tasks (`useFocusTasks`): reusable across days; an **active task** receives the
   timer's focus minutes (via `taskId` on sessions); auto-resumes the most recent;
   mark done / archive. Per-task time is derived from `focusSessions` (not stored).
@@ -128,11 +130,16 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   auto-start; attributes blocks to the active task.
 - Analysis (`useFocusStats` + `AnalysisPanel`): daily goal progress, streak,
   7-day chart + mood trend, weekly top tasks — from `focusSessions` + journal.
-- Journal (`useFocusJournal` + `JournalCard`): per-day note + mood
-  (`lib/mood.ts`), prompted after a focus block.
+- Journal (`useFocusJournal` + `JournalCard`): per-day mood (`lib/mood.ts`,
+  rendered via `MoodIcon`) + **multiple timestamped notes/day** (`focusNotes`);
+  prompted after a focus block.
+- Timer alert: `useFocusTimer` exposes `alert`/`dismissAlert`; `PomodoroTimer`
+  shows a full-screen `TimeUpModal` (repeating chime) on end, plus a persistent
+  system notification via the background push (`sw.js`) for backgrounded/closed.
 - Settings (`useFocusSettings`): durations, sessions-until-long, auto-start,
   sound (+ test), hydration prefs, daily goal — localStorage + Firestore.
-- Hydration (`useHydration`, localStorage-only) + `QuoteBox`.
+- Hydration (`useHydration`): cups/day (oz derived), localStorage cache +
+  Firestore sync (`focusHydration/{day}`, load-on-connect max-merge) + `QuoteBox`.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 

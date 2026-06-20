@@ -1,5 +1,6 @@
 "use client";
 
+import { TimeUpModal } from "@/features/focus/components/TimeUpModal";
 import {
   FocusMode,
   MODE_LABELS,
@@ -59,6 +60,8 @@ export function PomodoroTimer({
     completedToday,
     untilLongBreak,
     progress,
+    alert,
+    dismissAlert,
     toggle,
     reset,
     switchMode,
@@ -175,6 +178,12 @@ export function PomodoroTimer({
           ? "Long break next."
           : `${untilLongBreak} until a long break.`}
       </p>
+
+      <TimeUpModal
+        completedMode={alert}
+        settings={settings}
+        onClose={dismissAlert}
+      />
     </div>
   );
 }
