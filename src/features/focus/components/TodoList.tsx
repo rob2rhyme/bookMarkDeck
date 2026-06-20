@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Check, Pencil, Trash2, X } from "@/components/icons";
+import { Check, CheckSquare, Pencil, Trash2, X } from "@/components/icons";
 import { DueField } from "@/features/focus/components/DueField";
 import { RichText } from "@/features/focus/components/RichText";
 import { todayKey } from "@/features/focus/data/focusData";
@@ -137,12 +137,15 @@ export function TodoList({
   const today = todayKey();
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+    <div className="flex flex-col rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-950/50 via-slate-900/90 to-indigo-950/40 p-6 shadow-lg shadow-blue-950/40 sm:p-8">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-blue-200">
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-500/15 text-blue-300">
+            <CheckSquare className="h-4 w-4" />
+          </span>
           To-do list
         </h3>
-        <span className="text-xs text-slate-500">Unfinished items roll over</span>
+        <span className="text-xs text-slate-400">Unfinished items roll over</span>
       </div>
 
       {/* Add */}
