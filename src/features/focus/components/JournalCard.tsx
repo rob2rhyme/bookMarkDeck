@@ -22,7 +22,7 @@ export function JournalCard({
       className={`rounded-2xl border p-6 shadow-sm transition sm:p-8 ${
         highlight
           ? "border-blue-500/50 bg-blue-950/20"
-          : "border-slate-800/70 bg-slate-900/60"
+          : "border-slate-800/70 bg-slate-900/85"
       }`}
     >
       <div className="flex items-baseline justify-between">
