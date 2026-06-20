@@ -1,40 +1,17 @@
 # Focus feature — Firestore security rules
 
-This repo has **no `firestore.rules` file**; rules are managed in the Firebase
-console (Firestore Database → Rules). The focus feature stores data in two
-per-user subcollections:
+Security rules now live in a version-controlled, deployable file at the repo
+root: **`/firestore.rules`** (with `firebase.json` + `.firebaserc`). That single
+file is the source of truth — do not hand-edit rules only in the console.
+
+The focus feature stores data in per-user subcollections:
 
 - `users/{uid}/focusTasks/{taskId}`
 - `users/{uid}/focusSessions/{sessionId}`
 - `users/{uid}/focusSettings/{docId}` (single `settings` doc)
 - `users/{uid}/focusJournal/{day}` (one doc per `YYYY-MM-DD`)
 
-## What to add (additive — do NOT remove existing rules)
-
-Inside your existing `match /databases/{database}/documents { … }` block, add:
-
-```
-// Focus feature — owner-only access to per-user focus data.
-match /users/{uid}/focusTasks/{taskId} {
-  allow read, write: if request.auth != null && request.auth.uid == uid;
-}
-match /users/{uid}/focusSessions/{sessionId} {
-  allow read, write: if request.auth != null && request.auth.uid == uid;
-}
-match /users/{uid}/focusSettings/{docId} {
-  allow read, write: if request.auth != null && request.auth.uid == uid;
-}
-match /users/{uid}/focusJournal/{day} {
-  allow read, write: if request.auth != null && request.auth.uid == uid;
-}
-```
-
-Then **Publish** in the console.
-
-## Note
-
-If your existing rule for `users` already uses a recursive owner-scoped
-wildcard, e.g.
+These are all covered by the one owner-scoped recursive rule in `firestore.rules`:
 
 ```
 match /users/{uid}/{document=**} {
@@ -42,6 +19,21 @@ match /users/{uid}/{document=**} {
 }
 ```
 
-then these subcollections are **already covered** and no change is needed —
-adding the explicit blocks above is harmless and just makes the focus data
-access intent clear. Never loosen the existing condition.
+It also covers bookmarks/shortcuts (`users/{uid}` + `users/{uid}/bookmarkBackups`).
+
+## Deploy
+
+```
+# one-time
+npx firebase login
+
+# deploy just the rules (and indexes)
+npx firebase deploy --only firestore:rules
+```
+
+Or paste the contents of `firestore.rules` into the Firebase console
+(Firestore Database → Rules → Publish).
+
+> Deploying **replaces** the entire console ruleset. All Bookmark Deck data
+> lives under `users/{uid}`, so this owner rule is complete — but if you have
+> other collections, add their rules to `firestore.rules` first.
