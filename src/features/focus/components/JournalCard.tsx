@@ -1,11 +1,29 @@
 "use client";
 
-import { MOODS, type MoodKey } from "@/features/focus/lib/mood";
+import { useEffect, useState } from "react";
+
+import { MOOD_BY_KEY, MOODS, type MoodKey } from "@/features/focus/lib/mood";
+import type { JournalEntry } from "@/features/focus/lib/types";
+
+const MAX_NOTE = 2000;
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function dayLabel(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${WEEKDAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${d}`;
+}
 
 type JournalCardProps = {
   note: string;
   mood: MoodKey | null;
-  onNoteChange: (note: string) => void;
+  history: JournalEntry[];
+  onSaveNote: (note: string) => void;
   onMoodChange: (mood: MoodKey | null) => void;
   highlight?: boolean;
 };
@@ -13,10 +31,29 @@ type JournalCardProps = {
 export function JournalCard({
   note,
   mood,
-  onNoteChange,
+  history,
+  onSaveNote,
   onMoodChange,
   highlight,
 }: JournalCardProps) {
+  const [draft, setDraft] = useState(note);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Reset the editor when the saved note changes (e.g. day rollover, cloud pull).
+  useEffect(() => {
+    setDraft(note);
+  }, [note]);
+
+  const trimmed = draft.trim();
+  const tooLong = draft.length > MAX_NOTE;
+  const dirty = draft !== note;
+  const canSave = dirty && trimmed.length > 0 && !tooLong;
+
+  const save = () => {
+    if (!canSave) return;
+    onSaveNote(draft);
+  };
+
   return (
     <section
       className={`rounded-2xl border p-6 shadow-sm transition sm:p-8 ${
@@ -61,12 +98,80 @@ export function JournalCard({
 
       {/* Note */}
       <textarea
-        value={note}
-        onChange={(e) => onNoteChange(e.target.value)}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
         placeholder="What did you work on? Anything on your mind?"
         rows={4}
-        className="mt-4 w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+        maxLength={MAX_NOTE + 200}
+        className={`mt-4 w-full resize-y rounded-lg border bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none ${
+          tooLong
+            ? "border-red-500/70 focus:border-red-400"
+            : "border-slate-700 focus:border-blue-400"
+        }`}
       />
+
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span
+          className={`text-xs ${
+            tooLong ? "text-red-400" : "text-slate-500"
+          }`}
+        >
+          {tooLong
+            ? `${draft.length} / ${MAX_NOTE} — too long`
+            : dirty
+              ? trimmed.length === 0
+                ? "Add a note to save"
+                : "Unsaved changes"
+              : note.trim().length > 0
+                ? "Saved"
+                : ""}
+        </span>
+        <button
+          type="button"
+          onClick={save}
+          disabled={!canSave}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save
+        </button>
+      </div>
+
+      {/* History */}
+      {history.length > 0 && (
+        <div className="mt-5 border-t border-slate-800/60 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowHistory((v) => !v)}
+            className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
+          >
+            {showHistory ? "▾" : "▸"} Past entries ({history.length})
+          </button>
+          {showHistory && (
+            <ul className="mt-3 flex flex-col gap-3">
+              {history.slice(0, 14).map((e) => (
+                <li
+                  key={e.day}
+                  className="rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
+                >
+                  <div className="mb-1 flex items-baseline justify-between">
+                    <span className="text-xs font-medium text-slate-400">
+                      {dayLabel(e.day)}
+                    </span>
+                    {e.mood && (
+                      <span title={MOOD_BY_KEY[e.mood].label}>
+                        {MOOD_BY_KEY[e.mood].emoji}
+                      </span>
+                    )}
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm text-slate-300">
+                    {e.note}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </section>
   );
 }

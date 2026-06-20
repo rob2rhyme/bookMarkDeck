@@ -5,7 +5,10 @@ import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { Settings, Timer } from "@/components/icons";
-import { ActivityHistory } from "@/features/focus/components/ActivityHistory";
+import {
+  ActivityHistory,
+  type ActivityRef,
+} from "@/features/focus/components/ActivityHistory";
 import { AnalysisPanel } from "@/features/focus/components/AnalysisPanel";
 import { FocusSettingsModal } from "@/features/focus/components/FocusSettingsModal";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
@@ -91,6 +94,16 @@ export function FocusDashboard() {
     setStatsKey((k) => k + 1);
     if (taskId) tasks.markUsed(taskId, new Date().toISOString());
     setJournalPrompt(true);
+  };
+
+  const deleteActivityItem = (ref: ActivityRef) => {
+    if (ref.source === "session") stats.removeSession(ref.record.id);
+    else activity.remove(ref.record.id);
+  };
+
+  const restoreActivityItem = (ref: ActivityRef) => {
+    if (ref.source === "session") stats.restoreSession(ref.record);
+    else activity.restore(ref.record);
   };
 
   return (
@@ -203,7 +216,8 @@ export function FocusDashboard() {
         <JournalCard
           note={journal.todayNote}
           mood={journal.todayMood}
-          onNoteChange={journal.setNote}
+          history={journal.history}
+          onSaveNote={journal.saveNote}
           onMoodChange={(m) => {
             journal.setMood(m);
             setJournalPrompt(false);
@@ -219,6 +233,8 @@ export function FocusDashboard() {
           events={activity.events}
           taskNameById={taskNameById}
           moodByDay={journal.moodByDay}
+          onDelete={deleteActivityItem}
+          onRestore={restoreActivityItem}
         />
       </div>
 

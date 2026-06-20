@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchSessions } from "@/features/focus/data/focusData";
+import {
+  deleteSession,
+  fetchSessions,
+  restoreSession as restoreSessionRemote,
+} from "@/features/focus/data/focusData";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -49,6 +53,26 @@ export function useFocusStats(
       cancelled = true;
     };
   }, [canSync, email, refreshKey]);
+
+  const removeSession = useCallback(
+    (id: string) => {
+      if (!canSync || !email) return;
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      deleteSession(email, id).catch(() => {});
+    },
+    [canSync, email]
+  );
+
+  const restoreSession = useCallback(
+    (record: FocusSessionRecord) => {
+      if (!canSync || !email) return;
+      setSessions((prev) =>
+        prev.some((s) => s.id === record.id) ? prev : [...prev, record]
+      );
+      restoreSessionRemote(email, record).catch(() => {});
+    },
+    [canSync, email]
+  );
 
   const byDay = useMemo(() => {
     const map: Record<string, DayBucket> = {};
@@ -148,6 +172,8 @@ export function useFocusStats(
     available: canSync,
     loaded,
     sessions,
+    removeSession,
+    restoreSession,
     todaySessions: today.sessions,
     todayFocusMin: today.focusMin,
     last7,

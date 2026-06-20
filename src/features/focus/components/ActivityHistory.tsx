@@ -1,10 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { Trash2, X } from "@/components/icons";
 import type { ActivityEvent, ActivityType } from "@/features/focus/data/focusData";
 import { MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
+
+// A handle to the underlying record so a deleted item can be removed/restored.
+export type ActivityRef =
+  | { source: "session"; record: FocusSessionRecord }
+  | { source: "event"; record: ActivityEvent };
 
 type ActivityHistoryProps = {
   available: boolean;
@@ -12,6 +18,8 @@ type ActivityHistoryProps = {
   events: ActivityEvent[];
   taskNameById: Record<string, string>;
   moodByDay: Record<string, MoodKey>;
+  onDelete: (ref: ActivityRef) => void;
+  onRestore: (ref: ActivityRef) => void;
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -19,6 +27,8 @@ const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
+
+const UNDO_MS = 6000;
 
 // Per-type timeline dot color + leading glyph.
 const TYPE_META: Record<ActivityType, { dot: string; glyph: string }> = {
@@ -37,6 +47,7 @@ type TimelineItem = {
   createdAt: string | null;
   sort: number;
   focusMin: number;
+  ref: ActivityRef;
 };
 
 function dayKey(d: Date): string {
@@ -78,7 +89,31 @@ export function ActivityHistory({
   events,
   taskNameById,
   moodByDay,
+  onDelete,
+  onRestore,
 }: ActivityHistoryProps) {
+  const [pendingDelete, setPendingDelete] = useState<TimelineItem | null>(null);
+  const [deleted, setDeleted] = useState<TimelineItem[]>([]);
+  const [undoId, setUndoId] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  // The undo toast surfaces the most recent deletion, then auto-dismisses
+  // (the item stays in "recently deleted" until reload or restore).
+  useEffect(() => {
+    if (!undoId) return;
+    const t = setTimeout(() => setUndoId(null), UNDO_MS);
+    return () => clearTimeout(t);
+  }, [undoId]);
+
+  useEffect(() => {
+    if (!pendingDelete) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPendingDelete(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pendingDelete]);
+
   // Merge focus sessions + logged events into one timeline, grouped by day
   // (newest first), items within a day newest first.
   const days = useMemo(() => {
@@ -89,18 +124,19 @@ export function ActivityHistory({
       else byDay.set(day, [item]);
     };
 
-    sessions.forEach((s, i) => {
-      if (!s.day) return;
+    for (const s of sessions) {
+      if (!s.day) continue;
       const taskName = s.taskId ? taskNameById[s.taskId] : null;
       push(s.day, {
-        id: `focus-${i}-${s.createdAt ?? ""}`,
+        id: `session-${s.id}`,
         type: "focus",
         text: `Focused ${hoursLabel(s.focusMin)}${taskName ? ` on ${taskName}` : ""}`,
         createdAt: s.createdAt,
         sort: s.createdAt ? new Date(s.createdAt).getTime() : 0,
         focusMin: s.focusMin,
+        ref: { source: "session", record: s },
       });
-    });
+    }
 
     for (const e of events) {
       if (!e.day) continue;
@@ -111,24 +147,40 @@ export function ActivityHistory({
         createdAt: e.createdAt,
         sort: e.createdAt ? new Date(e.createdAt).getTime() : 0,
         focusMin: 0,
+        ref: { source: "event", record: e },
       });
     }
 
     return [...byDay.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
       .slice(0, 14) // most recent two weeks of activity
-      .map(([key, list]) => {
-        const focusMin = list.reduce((sum, it) => sum + it.focusMin, 0);
-        return {
-          key,
-          label: dayLabel(key),
-          mood: moodByDay[key],
-          itemCount: list.length,
-          focusMin,
-          items: [...list].sort((a, b) => b.sort - a.sort),
-        };
-      });
+      .map(([key, list]) => ({
+        key,
+        label: dayLabel(key),
+        mood: moodByDay[key],
+        itemCount: list.length,
+        focusMin: list.reduce((sum, it) => sum + it.focusMin, 0),
+        items: [...list].sort((a, b) => b.sort - a.sort),
+      }));
   }, [sessions, events, taskNameById, moodByDay]);
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    onDelete(pendingDelete.ref);
+    setDeleted((prev) => [pendingDelete, ...prev]);
+    setUndoId(pendingDelete.id);
+    setPendingDelete(null);
+  };
+
+  const restore = (item: TimelineItem) => {
+    onRestore(item.ref);
+    setDeleted((prev) => prev.filter((d) => d.id !== item.id));
+    setUndoId((cur) => (cur === item.id ? null : cur));
+  };
+
+  const undoItem = undoId
+    ? deleted.find((d) => d.id === undoId) ?? null
+    : null;
 
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
@@ -167,7 +219,10 @@ export function ActivityHistory({
               {/* Timeline */}
               <ol className="relative ml-1 border-l border-slate-800 pl-5">
                 {day.items.map((item) => (
-                  <li key={item.id} className="relative pb-4 last:pb-0">
+                  <li
+                    key={item.id}
+                    className="group relative pb-4 last:pb-0"
+                  >
                     <span
                       className={`absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 bg-slate-950 ${TYPE_META[item.type].dot}`}
                     />
@@ -178,17 +233,138 @@ export function ActivityHistory({
                         </span>
                         {item.text}
                       </span>
-                      {item.createdAt && (
-                        <span className="shrink-0 text-xs tabular-nums text-slate-500">
-                          {timeOf(item.createdAt)}
-                        </span>
-                      )}
+                      <span className="flex shrink-0 items-center gap-2">
+                        {item.createdAt && (
+                          <span className="text-xs tabular-nums text-slate-500">
+                            {timeOf(item.createdAt)}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPendingDelete(item)}
+                          aria-label="Delete activity"
+                          className="text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
                     </div>
                   </li>
                 ))}
               </ol>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Recently deleted */}
+      {deleted.length > 0 && (
+        <div className="mt-6 border-t border-slate-800/60 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowDeleted((v) => !v)}
+            className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
+          >
+            {showDeleted ? "▾" : "▸"} Recently deleted ({deleted.length})
+          </button>
+          {showDeleted && (
+            <ul className="mt-3 flex flex-col gap-2">
+              {deleted.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
+                >
+                  <span className="min-w-0 truncate text-sm text-slate-400">
+                    <span className="mr-1.5" aria-hidden="true">
+                      {TYPE_META[item.type].glyph}
+                    </span>
+                    {item.text}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => restore(item)}
+                    className="shrink-0 text-xs font-medium text-blue-300 transition hover:text-blue-200"
+                  >
+                    Restore
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Undo toast */}
+      {undoItem && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2">
+          <span className="min-w-0 truncate text-sm text-slate-300">
+            Deleted “{undoItem.text}”
+          </span>
+          <button
+            type="button"
+            onClick={() => restore(undoItem)}
+            className="shrink-0 text-sm font-medium text-blue-300 transition hover:text-blue-200"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      {/* Confirm-delete modal */}
+      {pendingDelete && (
+        <div
+          onClick={() => setPendingDelete(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Confirm delete"
+            className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
+          >
+            <div className="flex items-start justify-between">
+              <h2 className="text-base font-semibold text-slate-50">
+                Delete this activity?
+              </h2>
+              <button
+                type="button"
+                onClick={() => setPendingDelete(null)}
+                aria-label="Cancel"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-slate-300 transition hover:text-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-3 truncate text-sm text-slate-300">
+              {TYPE_META[pendingDelete.type].glyph} {pendingDelete.text}
+            </p>
+            {pendingDelete.ref.source === "session" && (
+              <p className="mt-2 text-xs text-amber-300/90">
+                This focus block also counts toward your stats and streak —
+                deleting it removes it from those too.
+              </p>
+            )}
+            <p className="mt-2 text-xs text-slate-500">
+              You can undo this right after, or restore it from “Recently
+              deleted”.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDelete(null)}
+                className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>

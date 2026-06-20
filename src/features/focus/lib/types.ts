@@ -12,6 +12,7 @@ export type FocusTask = {
 };
 
 export type FocusSessionRecord = {
+  id: string; // Firestore doc id (for deletion / restore)
   focusMin: number;
   day: string; // YYYY-MM-DD
   taskId: string | null;

@@ -5,8 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   type ActivityEvent,
   type ActivityType,
+  deleteActivity,
   fetchActivity,
   logActivity,
+  restoreActivity,
   todayKey,
 } from "@/features/focus/data/focusData";
 
@@ -52,5 +54,25 @@ export function useFocusActivity(email?: string | null, connected = false) {
     [canSync, email]
   );
 
-  return { events, log };
+  const remove = useCallback(
+    (id: string) => {
+      if (!canSync || !email) return;
+      setEvents((prev) => prev.filter((e) => e.id !== id));
+      deleteActivity(email, id).catch(() => {});
+    },
+    [canSync, email]
+  );
+
+  const restore = useCallback(
+    (event: ActivityEvent) => {
+      if (!canSync || !email) return;
+      setEvents((prev) =>
+        prev.some((e) => e.id === event.id) ? prev : [event, ...prev]
+      );
+      restoreActivity(email, event).catch(() => {});
+    },
+    [canSync, email]
+  );
+
+  return { events, log, remove, restore };
 }

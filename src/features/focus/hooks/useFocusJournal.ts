@@ -108,6 +108,13 @@ export function useFocusJournal(
   );
 
   const setNote = useCallback((note: string) => upsert({ note }, true), [upsert]);
+  const saveNote = useCallback(
+    (note: string) => {
+      upsert({ note }, false);
+      onLog?.("journal", "Saved a journal note");
+    },
+    [upsert, onLog]
+  );
   const setMood = useCallback(
     (mood: MoodKey | null) => {
       upsert({ mood }, false);
@@ -127,6 +134,15 @@ export function useFocusJournal(
     return map;
   }, [entries]);
 
+  // Previous days that have a written note, newest first (for the history list).
+  const history = useMemo(
+    () =>
+      entries
+        .filter((e) => e.day !== today && e.note.trim().length > 0)
+        .sort((a, b) => b.day.localeCompare(a.day)),
+    [entries, today]
+  );
+
   const pullFromCloud = useCallback(async () => {
     if (!canSync || !email) return;
     const remote = await fetchJournal(email);
@@ -143,8 +159,10 @@ export function useFocusJournal(
     todayNote: todayEntry.note,
     todayMood: todayEntry.mood,
     setNote,
+    saveNote,
     setMood,
     moodByDay,
+    history,
     pullFromCloud,
     pushToCloud,
   };

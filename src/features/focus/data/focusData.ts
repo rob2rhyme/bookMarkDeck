@@ -177,12 +177,37 @@ export async function fetchSessions(
       createdAt = created;
     }
     return {
+      id: d.id,
       focusMin: typeof data.focusMin === "number" ? data.focusMin : 0,
       day: typeof data.day === "string" ? data.day : "",
       taskId: typeof data.taskId === "string" ? data.taskId : null,
       createdAt,
     };
   });
+}
+
+/** Delete a single focus session (also removes it from analysis + streak). */
+export async function deleteSession(
+  emailHint: string,
+  id: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(sessionsCol(uid), id));
+}
+
+/** Re-create a previously deleted session, preserving its id and timestamp. */
+export async function restoreSession(
+  emailHint: string,
+  record: FocusSessionRecord
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const payload: Record<string, unknown> = {
+    focusMin: record.focusMin,
+    day: record.day,
+    createdAt: record.createdAt ?? serverTimestamp(),
+  };
+  if (record.taskId) payload.taskId = record.taskId;
+  await setDoc(doc(sessionsCol(uid), record.id), payload);
 }
 
 /* ------------------------------------------------------------- settings --- */
@@ -251,6 +276,28 @@ export async function logActivity(
     summary,
     day,
     createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteActivity(
+  emailHint: string,
+  id: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(activityCol(uid), id));
+}
+
+/** Re-create a previously deleted activity event, preserving its id. */
+export async function restoreActivity(
+  emailHint: string,
+  event: ActivityEvent
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(activityCol(uid), event.id), {
+    type: event.type,
+    summary: event.summary,
+    day: event.day,
+    createdAt: event.createdAt ?? serverTimestamp(),
   });
 }
 
