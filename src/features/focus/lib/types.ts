@@ -15,6 +15,7 @@ export type FocusSessionRecord = {
   focusMin: number;
   day: string; // YYYY-MM-DD
   taskId: string | null;
+  createdAt: string | null; // ISO timestamp of completion (for the timeline)
 };
 
 export type JournalEntry = {

@@ -145,10 +145,18 @@ export async function fetchSessions(
   const snap = await getDocs(sessionsCol(uid));
   return snap.docs.map((d) => {
     const data = d.data();
+    const created = data.createdAt as { toDate?: () => Date } | string | null;
+    let createdAt: string | null = null;
+    if (created && typeof (created as { toDate?: unknown }).toDate === "function") {
+      createdAt = (created as { toDate: () => Date }).toDate().toISOString();
+    } else if (typeof created === "string") {
+      createdAt = created;
+    }
     return {
       focusMin: typeof data.focusMin === "number" ? data.focusMin : 0,
       day: typeof data.day === "string" ? data.day : "",
       taskId: typeof data.taskId === "string" ? data.taskId : null,
+      createdAt,
     };
   });
 }

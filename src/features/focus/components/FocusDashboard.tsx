@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { Settings, Timer } from "@/components/icons";
+import { ActivityHistory } from "@/features/focus/components/ActivityHistory";
 import { AnalysisPanel } from "@/features/focus/components/AnalysisPanel";
 import { FocusSettingsModal } from "@/features/focus/components/FocusSettingsModal";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
@@ -205,6 +206,15 @@ export function FocusDashboard() {
             setJournalPrompt(false);
           }}
           highlight={journalPrompt}
+        />
+      </div>
+
+      <div className="mt-5">
+        <ActivityHistory
+          available={stats.available}
+          sessions={stats.sessions}
+          taskNameById={taskNameById}
+          moodByDay={journal.moodByDay}
         />
       </div>
 
