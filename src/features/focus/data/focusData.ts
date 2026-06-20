@@ -576,6 +576,28 @@ export function subscribeHydration(
   );
 }
 
+/** Live full hydration history — every day's cup total, for the history chart. */
+export function subscribeHydrationHistory(
+  emailHint: string,
+  cb: (rows: { day: string; cups: number }[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      hydrationCol(uid),
+      (snap) =>
+        cb(
+          snap.docs
+            .map((d) => ({
+              day: d.id,
+              cups: typeof d.data().cups === "number" ? d.data().cups : 0,
+            }))
+            .filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.day) && r.cups > 0)
+        ),
+      () => {}
+    )
+  );
+}
+
 /* ----------------------------------------------------------------- todos --- */
 //
 // users/{uid}/todos/{id} — checklist items with an optional due date. Incomplete
