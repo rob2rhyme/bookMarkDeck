@@ -108,22 +108,33 @@ dismissed as not-affected (v4-random only, no `buf`).
 A self-contained "focused-work hub" (see `FOCUS-INTEGRATION.md`). Fully isolated
 under `src/features/focus/` + the `/focus` route; removable cleanly.
 
-- Route: `src/app/(app)/focus/page.tsx` — auth-gated like home; reads the
-  `?collection=<folderId>` deep-link via Next's async `searchParams`.
-- UI: `FocusDashboard` composes `PomodoroTimer`, `SessionTasks`, `CollectionPicker`,
-  `ResourcesPanel`. Hooks: `useFocusTimer`, `useSessionTasks`, `useFocusSync`.
+A **task-centric work tracker + journal** (not coupled to bookmarks).
+
+- Route: `src/app/(app)/focus/page.tsx` — auth-gated like home.
+- UI: `FocusDashboard` composes `PomodoroTimer`, `TaskTracker`, `AnalysisPanel`,
+  `JournalCard`, `HydrationTracker`, `QuoteBox`, `FocusSettingsModal`.
 - Persistence (opt-in): `useFocusSync` reflects an existing Firebase session
   silently (`onAuthStateChanged`) or connects on demand. Data layer
-  `features/focus/data/focusData.ts` writes per-user subcollections
-  `users/{uid}/focusTasks` and `users/{uid}/focusSessions`
-  (`{ focusMin, day, createdAt, linkedFolderId? }`). Writes are optimistic and
-  fail-safe. Security rules: `src/features/focus/FIRESTORE_RULES.md` (console).
-- Hub link: a session can link a bookmark **folder**; its bookmarks render in a
-  read-only `ResourcesPanel`, and `linkedFolderId` is stored on sessions. Folder
-  data is read via the existing `useBookmarks(email)` — never mutated.
-- Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill),
-  `icons.tsx` (`Timer` icon), `folders/[folderKey]/page.tsx` ("Start a focus
-  session" action).
+  `features/focus/data/focusData.ts` writes per-user subcollections:
+  `focusTasks` (reusable, time-tracked), `focusSessions`
+  (`{ focusMin, day, createdAt, taskId? }`), `focusSettings/settings`, and
+  `focusJournal/{YYYY-MM-DD}` (`{ note, mood }`). Optimistic + fail-safe.
+  Rules: `src/features/focus/FIRESTORE_RULES.md` (console).
+- Tasks (`useFocusTasks`): reusable across days; an **active task** receives the
+  timer's focus minutes (via `taskId` on sessions); auto-resumes the most recent;
+  mark done / archive. Per-task time is derived from `focusSessions` (not stored).
+- Timer (`useFocusTimer`): settings-driven, timestamp-based (accurate when
+  backgrounded), Web Audio chimes (`lib/sound.ts`) + notifications (`lib/notify.ts`),
+  auto-start; attributes blocks to the active task.
+- Analysis (`useFocusStats` + `AnalysisPanel`): daily goal progress, streak,
+  7-day chart + mood trend, weekly top tasks — from `focusSessions` + journal.
+- Journal (`useFocusJournal` + `JournalCard`): per-day note + mood
+  (`lib/mood.ts`), prompted after a focus block.
+- Settings (`useFocusSettings`): durations, sessions-until-long, auto-start,
+  sound (+ test), hydration prefs, daily goal — localStorage + Firestore.
+- Hydration (`useHydration`, localStorage-only) + `QuoteBox`.
+- Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
+  `icons.tsx` (`Timer`, `Settings`).
 
 ## Conventions
 

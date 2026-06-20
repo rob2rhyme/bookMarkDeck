@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="mb-8 flex flex-col gap-4 sm:mb-10">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
-              <Link href="/" className="flex items-center gap-2.5 sm:gap-3">
+              <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
                 <Image
                   src="/logo.png"
                   alt="Bookmark Deck logo"
@@ -33,13 +33,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </h1>
               </Link>
               {session && (
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                   <Link
                     href="/focus"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:text-sm"
+                    aria-label="Focus"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:px-3 sm:py-1.5 sm:text-sm"
                   >
                     <Timer className="h-4 w-4" />
-                    Focus
+                    <span className="hidden sm:inline">Focus</span>
                   </Link>
                   <div className="flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-2 py-1 shadow-sm sm:gap-3 sm:px-3 sm:py-1.5">
                   <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-800 text-[11px] font-semibold text-slate-100 ring-1 ring-white/5 sm:h-9 sm:w-9 sm:text-sm">
@@ -55,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <span>{avatarLabel.charAt(0).toUpperCase()}</span>
                     )}
                   </div>
-                  <span className="max-w-[100px] truncate text-[10px] font-medium text-slate-200 sm:max-w-[180px] sm:text-xs">
+                  <span className="hidden max-w-[100px] truncate text-[10px] font-medium text-slate-200 sm:inline sm:max-w-[180px] sm:text-xs">
                     {avatarLabel}
                   </span>
                   <button

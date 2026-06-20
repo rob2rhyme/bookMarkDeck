@@ -4,14 +4,16 @@
 // firestoreShortcuts/firestoreBookmarks pattern: authenticate with
 // ensureFirebaseGoogleAuth(emailHint), then scope all data under users/{uid}.
 //
-// Focus data lives in queryable subcollections (like users/{uid}/bookmarkBackups):
-//   users/{uid}/focusTasks/{taskId}      -> current-session tasks
+//   users/{uid}/focusTasks/{taskId}      -> reusable, time-tracked tasks
 //   users/{uid}/focusSessions/{id}       -> one doc per completed focus block
+//   users/{uid}/focusSettings/settings   -> settings doc
+//   users/{uid}/focusJournal/{YYYY-MM-DD} -> daily note + mood
 
 import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -20,11 +22,24 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
-import type { SessionTask } from "@/features/focus/hooks/useSessionTasks";
+import {
+  type FocusSettings,
+  normalizeSettings,
+} from "@/features/focus/lib/settings";
+import { isMoodKey } from "@/features/focus/lib/mood";
+import type {
+  FocusSessionRecord,
+  FocusTask,
+  JournalEntry,
+} from "@/features/focus/lib/types";
 
 const tasksCol = (uid: string) => collection(db, "users", uid, "focusTasks");
 const sessionsCol = (uid: string) =>
   collection(db, "users", uid, "focusSessions");
+const settingsDoc = (uid: string) =>
+  doc(db, "users", uid, "focusSettings", "settings");
+const journalCol = (uid: string) =>
+  collection(db, "users", uid, "focusJournal");
 
 async function uidFor(emailHint: string): Promise<string> {
   const user = await ensureFirebaseGoogleAuth(emailHint);
@@ -40,7 +55,9 @@ export function todayKey(): string {
   return `${y}-${m}-${d}`;
 }
 
-export async function fetchTasks(emailHint: string): Promise<SessionTask[]> {
+/* ---------------------------------------------------------------- tasks --- */
+
+export async function fetchTasks(emailHint: string): Promise<FocusTask[]> {
   const uid = await uidFor(emailHint);
   const snap = await getDocs(tasksCol(uid));
   return snap.docs
@@ -50,6 +67,8 @@ export async function fetchTasks(emailHint: string): Promise<SessionTask[]> {
         id: d.id,
         text: typeof data.text === "string" ? data.text : "",
         done: Boolean(data.done),
+        lastUsedAt:
+          typeof data.lastUsedAt === "string" ? data.lastUsedAt : null,
       };
     })
     .filter((task) => task.text.trim().length > 0);
@@ -57,14 +76,19 @@ export async function fetchTasks(emailHint: string): Promise<SessionTask[]> {
 
 export async function saveTask(
   emailHint: string,
-  task: SessionTask
+  task: FocusTask
 ): Promise<void> {
   const uid = await uidFor(emailHint);
-  await setDoc(doc(tasksCol(uid), task.id), {
-    text: task.text,
-    done: task.done,
-    updatedAt: serverTimestamp(),
-  });
+  await setDoc(
+    doc(tasksCol(uid), task.id),
+    {
+      text: task.text,
+      done: task.done,
+      lastUsedAt: task.lastUsedAt ?? null,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 }
 
 export async function deleteTask(
@@ -75,11 +99,23 @@ export async function deleteTask(
   await deleteDoc(doc(tasksCol(uid), id));
 }
 
+/** Stamp a task as just-used (for "resume last task"). */
+export async function touchTask(
+  emailHint: string,
+  id: string,
+  isoTime: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(tasksCol(uid), id), { lastUsedAt: isoTime }, { merge: true });
+}
+
+/* ------------------------------------------------------------- sessions --- */
+
 export async function logSession(
   emailHint: string,
   focusMin: number,
   day: string,
-  linkedFolderId?: string | null
+  taskId?: string | null
 ): Promise<void> {
   const uid = await uidFor(emailHint);
   const id = crypto.randomUUID();
@@ -88,8 +124,7 @@ export async function logSession(
     day,
     createdAt: serverTimestamp(),
   };
-  // Firestore rejects undefined; only include the link when present.
-  if (linkedFolderId) payload.linkedFolderId = linkedFolderId;
+  if (taskId) payload.taskId = taskId;
   await setDoc(doc(sessionsCol(uid), id), payload);
 }
 
@@ -100,4 +135,71 @@ export async function countSessionsForDay(
   const uid = await uidFor(emailHint);
   const snap = await getDocs(query(sessionsCol(uid), where("day", "==", day)));
   return snap.size;
+}
+
+/** All completed focus sessions for the user — input for the analysis panel. */
+export async function fetchSessions(
+  emailHint: string
+): Promise<FocusSessionRecord[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(sessionsCol(uid));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      focusMin: typeof data.focusMin === "number" ? data.focusMin : 0,
+      day: typeof data.day === "string" ? data.day : "",
+      taskId: typeof data.taskId === "string" ? data.taskId : null,
+    };
+  });
+}
+
+/* ------------------------------------------------------------- settings --- */
+
+export async function fetchSettings(
+  emailHint: string
+): Promise<FocusSettings | null> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDoc(settingsDoc(uid));
+  if (!snap.exists()) return null;
+  return normalizeSettings(snap.data());
+}
+
+export async function saveSettings(
+  emailHint: string,
+  settings: FocusSettings
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(settingsDoc(uid), {
+    ...settings,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/* -------------------------------------------------------------- journal --- */
+
+export async function fetchJournal(
+  emailHint: string
+): Promise<JournalEntry[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(journalCol(uid));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      day: d.id,
+      note: typeof data.note === "string" ? data.note : "",
+      mood: isMoodKey(data.mood) ? data.mood : null,
+    };
+  });
+}
+
+export async function saveJournal(
+  emailHint: string,
+  entry: JournalEntry
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(journalCol(uid), entry.day), {
+    note: entry.note,
+    mood: entry.mood,
+    updatedAt: serverTimestamp(),
+  });
 }
