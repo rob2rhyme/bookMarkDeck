@@ -33,6 +33,7 @@ import type {
   FocusTask,
   JournalEntry,
   JournalNote,
+  Todo,
 } from "@/features/focus/lib/types";
 import { type MoodKey } from "@/features/focus/lib/mood";
 
@@ -47,6 +48,7 @@ const notesCol = (uid: string) => collection(db, "users", uid, "focusNotes");
 const activityCol = (uid: string) => collection(db, "users", uid, "activity");
 const hydrationCol = (uid: string) =>
   collection(db, "users", uid, "focusHydration");
+const todosCol = (uid: string) => collection(db, "users", uid, "todos");
 
 export type ActivityType =
   | "focus"
@@ -54,7 +56,9 @@ export type ActivityType =
   | "task_done"
   | "mood"
   | "journal"
-  | "hydration";
+  | "hydration"
+  | "todo_added"
+  | "todo_done";
 
 export type ActivityEvent = {
   id: string;
@@ -567,6 +571,63 @@ export function subscribeHydration(
         const cups = snap.exists() ? snap.data().cups : null;
         cb(typeof cups === "number" ? cups : null);
       },
+      () => {}
+    )
+  );
+}
+
+/* ----------------------------------------------------------------- todos --- */
+//
+// users/{uid}/todos/{id} — checklist items with an optional due date. Incomplete
+// items persist (roll over) across days; `day` marks the day they were created.
+
+function mapTodo(d: { id: string; data: () => Record<string, unknown> }): Todo {
+  const data = d.data();
+  return {
+    id: d.id,
+    text: typeof data.text === "string" ? data.text : "",
+    done: Boolean(data.done),
+    dueAt: typeof data.dueAt === "string" ? data.dueAt : null,
+    createdAt: timestampToIso(data.createdAt),
+    day: typeof data.day === "string" ? data.day : "",
+  };
+}
+
+export async function fetchTodos(emailHint: string): Promise<Todo[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(todosCol(uid));
+  return snap.docs.map(mapTodo).filter((t) => t.text.trim().length > 0);
+}
+
+export async function saveTodo(emailHint: string, todo: Todo): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(todosCol(uid), todo.id),
+    {
+      text: todo.text,
+      done: todo.done,
+      dueAt: todo.dueAt ?? null,
+      day: todo.day,
+      createdAt: todo.createdAt ?? serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export async function deleteTodo(emailHint: string, id: string): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(todosCol(uid), id));
+}
+
+export function subscribeTodos(
+  emailHint: string,
+  cb: (todos: Todo[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      todosCol(uid),
+      (snap) => cb(snap.docs.map(mapTodo).filter((t) => t.text.trim().length > 0)),
       () => {}
     )
   );

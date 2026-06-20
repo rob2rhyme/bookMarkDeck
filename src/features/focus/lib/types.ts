@@ -31,3 +31,12 @@ export type JournalNote = {
   text: string;
   createdAt: string | null; // ISO timestamp (null for migrated legacy notes)
 };
+
+export type Todo = {
+  id: string;
+  text: string;
+  done: boolean;
+  dueAt: string | null; // ISO datetime, or null = no due date
+  createdAt: string | null; // ISO timestamp
+  day: string; // YYYY-MM-DD created — used to flag rolled-over items
+};
