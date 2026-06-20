@@ -39,7 +39,7 @@ type JournalCardProps = {
   mood: MoodKey | null;
   notesByDay: DayNotes[];
   onAddNote: (text: string) => void;
-  onRemoveNote: (id: string) => void;
+  onRemoveNote: (note: JournalNote) => void;
   onMoodChange: (mood: MoodKey | null) => void;
   highlight?: boolean;
 };
@@ -49,9 +49,8 @@ function NoteRow({
   onRemove,
 }: {
   note: JournalNote;
-  onRemove: (id: string) => void;
+  onRemove: (note: JournalNote) => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
   return (
     <li className="group flex items-start justify-between gap-3 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2">
       <div className="min-w-0">
@@ -64,33 +63,14 @@ function NoteRow({
           {note.text}
         </p>
       </div>
-      {confirming ? (
-        <span className="flex shrink-0 items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => onRemove(note.id)}
-            className="font-medium text-red-300 transition hover:text-red-200"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirming(false)}
-            className="text-slate-400 transition hover:text-slate-200"
-          >
-            Cancel
-          </button>
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          aria-label="Delete note"
-          className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => onRemove(note)}
+        aria-label="Delete note"
+        className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </li>
   );
 }

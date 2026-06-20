@@ -141,6 +141,14 @@ export function useFocusTasks(
     [canSync, email]
   );
 
+  const restoreTask = useCallback(
+    (task: FocusTask) => {
+      setTasks((prev) => (prev.some((t) => t.id === task.id) ? prev : [...prev, task]));
+      if (canSync && email) saveTask(email, task).catch(() => {});
+    },
+    [canSync, email]
+  );
+
   const markUsed = useCallback(
     (id: string, isoTime: string) => {
       setTasks((prev) =>
@@ -167,6 +175,7 @@ export function useFocusTasks(
     addTask,
     toggleDone,
     removeTask,
+    restoreTask,
     markUsed,
     pullFromCloud,
     pushToCloud,

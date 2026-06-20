@@ -269,13 +269,15 @@ export async function saveMood(
   );
 }
 
-/** Clear a migrated legacy single-note on a day doc (keeps the mood). */
-export async function clearJournalNote(
+/** Set (or clear, with "") a migrated legacy single-note on a day doc. Merge so
+ *  the day's mood is preserved. */
+export async function setJournalNote(
   emailHint: string,
-  day: string
+  day: string,
+  text: string
 ): Promise<void> {
   const uid = await uidFor(emailHint);
-  await setDoc(doc(journalCol(uid), day), { note: "" }, { merge: true });
+  await setDoc(doc(journalCol(uid), day), { note: text }, { merge: true });
 }
 
 /* ---------------------------------------------------------------- notes --- */

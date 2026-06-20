@@ -16,6 +16,7 @@ import { JournalCard } from "@/features/focus/components/JournalCard";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
 import { TaskTracker } from "@/features/focus/components/TaskTracker";
+import { UndoToast } from "@/features/focus/components/UndoToast";
 import { useFocusActivity } from "@/features/focus/hooks/useFocusActivity";
 import { useFocusJournal } from "@/features/focus/hooks/useFocusJournal";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
@@ -23,6 +24,8 @@ import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
 import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
+import { useUndo } from "@/features/focus/hooks/useUndo";
+import type { FocusTask, JournalNote } from "@/features/focus/lib/types";
 
 export function FocusDashboard() {
   const { data: session } = useSession();
@@ -48,6 +51,8 @@ export function FocusDashboard() {
     soundEnabled: settings.soundEnabled,
     onLog: activity.log,
   });
+
+  const undo = useUndo();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsKey, setStatsKey] = useState(0);
@@ -107,6 +112,16 @@ export function FocusDashboard() {
   const restoreActivityItem = (ref: ActivityRef) => {
     if (ref.source === "session") stats.restoreSession(ref.record);
     else activity.restore(ref.record);
+  };
+
+  const removeTaskWithUndo = (task: FocusTask) => {
+    tasks.removeTask(task.id);
+    undo.offer(`Task “${task.text}” deleted`, () => tasks.restoreTask(task));
+  };
+
+  const removeNoteWithUndo = (note: JournalNote) => {
+    journal.removeNote(note.id);
+    undo.offer("Journal note deleted", () => journal.restoreNote(note));
   };
 
   return (
@@ -196,7 +211,7 @@ export function FocusDashboard() {
           onSelect={tasks.setActiveTaskId}
           onAdd={tasks.addTask}
           onToggleDone={tasks.toggleDone}
-          onRemove={tasks.removeTask}
+          onRemove={removeTaskWithUndo}
         />
       </div>
 
@@ -220,7 +235,7 @@ export function FocusDashboard() {
           mood={journal.todayMood}
           notesByDay={journal.notesByDay}
           onAddNote={journal.addNote}
-          onRemoveNote={journal.removeNote}
+          onRemoveNote={removeNoteWithUndo}
           onMoodChange={(m) => {
             journal.setMood(m);
             setJournalPrompt(false);
@@ -273,6 +288,8 @@ export function FocusDashboard() {
         onReset={reset}
         onClose={() => setSettingsOpen(false)}
       />
+
+      <UndoToast state={undo.state} onUndo={undo.undo} onDismiss={undo.dismiss} />
     </section>
   );
 }

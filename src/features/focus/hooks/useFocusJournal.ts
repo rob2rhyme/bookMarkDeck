@@ -5,11 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type ActivityType,
   addNote as addNoteRemote,
-  clearJournalNote,
   deleteNote as deleteNoteRemote,
   fetchJournal,
   fetchNotes,
   saveMood,
+  setJournalNote,
   subscribeJournal,
   subscribeNotes,
   todayKey,
@@ -158,11 +158,29 @@ export function useFocusJournal(
         setEntries((prev) =>
           prev.map((e) => (e.day === day ? { ...e, note: "" } : e))
         );
-        if (canSync && email) clearJournalNote(email, day).catch(() => {});
+        if (canSync && email) setJournalNote(email, day, "").catch(() => {});
         return;
       }
       setNotes((prev) => prev.filter((n) => n.id !== id));
       if (canSync && email) deleteNoteRemote(email, id).catch(() => {});
+    },
+    [canSync, email]
+  );
+
+  const restoreNote = useCallback(
+    (note: JournalNote) => {
+      if (note.id.startsWith(LEGACY_PREFIX)) {
+        const day = note.id.slice(LEGACY_PREFIX.length);
+        setEntries((prev) =>
+          prev.map((e) => (e.day === day ? { ...e, note: note.text } : e))
+        );
+        if (canSync && email) setJournalNote(email, day, note.text).catch(() => {});
+        return;
+      }
+      setNotes((prev) =>
+        prev.some((n) => n.id === note.id) ? prev : [note, ...prev]
+      );
+      if (canSync && email) addNoteRemote(email, note).catch(() => {});
     },
     [canSync, email]
   );
@@ -235,6 +253,7 @@ export function useFocusJournal(
     notesByDay,
     addNote,
     removeNote,
+    restoreNote,
     pullFromCloud,
     pushToCloud,
   };
