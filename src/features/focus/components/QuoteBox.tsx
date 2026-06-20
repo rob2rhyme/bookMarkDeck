@@ -54,7 +54,7 @@ export function QuoteBox() {
   const quote = QUOTES[idx];
 
   return (
-    <section className="rounded-2xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-sm sm:p-8">
+    <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
       <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-300">
         Need a push?
       </h3>

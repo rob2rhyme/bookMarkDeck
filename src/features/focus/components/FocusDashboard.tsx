@@ -116,7 +116,7 @@ export function FocusDashboard() {
       </div>
 
       {!connected ? (
-        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-400">
             Your focus data stays on this device.{" "}
             <span className="text-slate-300">Sync to save it to your account.</span>
@@ -132,7 +132,7 @@ export function FocusDashboard() {
           </button>
         </div>
       ) : (
-        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-400">
             <span className="text-emerald-400">●</span> Synced to your account —
             changes save automatically.

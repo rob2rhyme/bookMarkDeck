@@ -73,7 +73,7 @@ export function PomodoroTimer({
   const accent = MODE_ACCENT[mode];
 
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-sm sm:p-8">
+    <div className="flex flex-col items-center rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
       {/* Mode switcher */}
       <div className="inline-flex rounded-full border border-slate-800 bg-slate-950/60 p-1">
         {MODES.map((m) => {
