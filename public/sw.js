@@ -5,7 +5,7 @@
 // - Navigations: network-first, falling back to /offline.html when offline.
 // - Static assets (_next/static, icons, logo): stale-while-revalidate.
 
-const CACHE = "bmarkdeck-v1";
+const CACHE = "bmarkdeck-v2";
 const OFFLINE_URL = "/offline.html";
 
 const STATIC_PREFIXES = ["/_next/static/", "/icons/"];
@@ -95,6 +95,12 @@ self.addEventListener("push", (event) => {
     body: data.body || "",
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
+    // Stay on screen until dismissed, buzz, and collapse repeats so a missed
+    // timer end is hard to overlook even with the app closed.
+    requireInteraction: true,
+    renotify: true,
+    tag: data.tag || "bmd-focus-timer",
+    vibrate: [200, 100, 200],
     data: { url: data.url || "/focus" },
   };
   event.waitUntil(self.registration.showNotification(title, options));

@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 
-import { MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
+import { MoodIcon } from "@/features/focus/components/MoodIcon";
+import { type MoodKey } from "@/features/focus/lib/mood";
 
 type AnalysisPanelProps = {
   available: boolean;
@@ -47,6 +48,7 @@ export function AnalysisPanel({
     () =>
       Object.entries(weekTaskMin)
         .map(([id, min]) => ({
+          id,
           name: taskNameById[id] ?? "Removed task",
           min,
         }))
@@ -138,8 +140,8 @@ export function AnalysisPanel({
                       }}
                     />
                   </div>
-                  <span className="h-4 text-sm leading-none" title={mood ? MOOD_BY_KEY[mood].label : undefined}>
-                    {mood ? MOOD_BY_KEY[mood].emoji : ""}
+                  <span className="flex h-4 items-center justify-center leading-none">
+                    {mood && <MoodIcon mood={mood} className="h-4 w-4" />}
                   </span>
                   <span
                     className={`text-[11px] ${
@@ -167,7 +169,7 @@ export function AnalysisPanel({
             <ul className="mt-2 flex flex-col gap-1.5">
               {topWeekTasks.map((t) => (
                 <li
-                  key={t.name}
+                  key={t.id}
                   className="flex items-center justify-between text-sm"
                 >
                   <span className="truncate text-slate-300">{t.name}</span>

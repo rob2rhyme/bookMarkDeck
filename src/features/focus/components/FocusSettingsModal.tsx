@@ -50,7 +50,7 @@ function NumberField({
           className="w-16 rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-right text-sm text-slate-100 focus:border-blue-400 focus:outline-none"
         />
         {suffix && (
-          <span className="w-7 text-xs text-slate-500">{suffix}</span>
+          <span className="w-9 text-xs text-slate-500">{suffix}</span>
         )}
       </div>
     </div>
@@ -204,7 +204,7 @@ export function FocusSettingsModal({
         <SectionLabel>Hydration</SectionLabel>
         <Toggle label="Hydration reminders" checked={settings.hydrationEnabled} onChange={(v) => onUpdate({ hydrationEnabled: v })} />
         <NumberField label="Remind every" value={settings.hydrationIntervalMin} min={5} max={180} suffix="min" onChange={(v) => onUpdate({ hydrationIntervalMin: v })} />
-        <NumberField label="Daily goal" value={settings.waterGoal} min={1} max={20} suffix="🥛" onChange={(v) => onUpdate({ waterGoal: v })} />
+        <NumberField label="Daily goal" value={settings.waterGoal} min={1} max={20} suffix="cups" onChange={(v) => onUpdate({ waterGoal: v })} />
 
         <p className="mt-6 text-center text-[11px] text-slate-500">
           Changes are saved automatically.

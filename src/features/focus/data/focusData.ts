@@ -15,6 +15,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -31,7 +32,9 @@ import type {
   FocusSessionRecord,
   FocusTask,
   JournalEntry,
+  JournalNote,
 } from "@/features/focus/lib/types";
+import { type MoodKey } from "@/features/focus/lib/mood";
 
 const tasksCol = (uid: string) => collection(db, "users", uid, "focusTasks");
 const sessionsCol = (uid: string) =>
@@ -40,6 +43,33 @@ const settingsDoc = (uid: string) =>
   doc(db, "users", uid, "focusSettings", "settings");
 const journalCol = (uid: string) =>
   collection(db, "users", uid, "focusJournal");
+const notesCol = (uid: string) => collection(db, "users", uid, "focusNotes");
+const activityCol = (uid: string) => collection(db, "users", uid, "activity");
+const hydrationCol = (uid: string) =>
+  collection(db, "users", uid, "focusHydration");
+
+export type ActivityType =
+  | "focus"
+  | "task_added"
+  | "task_done"
+  | "mood"
+  | "journal"
+  | "hydration";
+
+export type ActivityEvent = {
+  id: string;
+  type: ActivityType;
+  summary: string;
+  day: string;
+  createdAt: string | null;
+};
+
+function timestampToIso(value: unknown): string | null {
+  if (value && typeof (value as { toDate?: unknown }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return typeof value === "string" ? value : null;
+}
 
 async function uidFor(emailHint: string): Promise<string> {
   const user = await ensureFirebaseGoogleAuth(emailHint);
@@ -153,12 +183,37 @@ export async function fetchSessions(
       createdAt = created;
     }
     return {
+      id: d.id,
       focusMin: typeof data.focusMin === "number" ? data.focusMin : 0,
       day: typeof data.day === "string" ? data.day : "",
       taskId: typeof data.taskId === "string" ? data.taskId : null,
       createdAt,
     };
   });
+}
+
+/** Delete a single focus session (also removes it from analysis + streak). */
+export async function deleteSession(
+  emailHint: string,
+  id: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(sessionsCol(uid), id));
+}
+
+/** Re-create a previously deleted session, preserving its id and timestamp. */
+export async function restoreSession(
+  emailHint: string,
+  record: FocusSessionRecord
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const payload: Record<string, unknown> = {
+    focusMin: record.focusMin,
+    day: record.day,
+    createdAt: record.createdAt ?? serverTimestamp(),
+  };
+  if (record.taskId) payload.taskId = record.taskId;
+  await setDoc(doc(sessionsCol(uid), record.id), payload);
 }
 
 /* ------------------------------------------------------------- settings --- */
@@ -200,14 +255,319 @@ export async function fetchJournal(
   });
 }
 
-export async function saveJournal(
+/** Persist the mood for a day. Merge so it never clobbers the legacy note. */
+export async function saveMood(
   emailHint: string,
-  entry: JournalEntry
+  day: string,
+  mood: MoodKey | null
 ): Promise<void> {
   const uid = await uidFor(emailHint);
-  await setDoc(doc(journalCol(uid), entry.day), {
-    note: entry.note,
-    mood: entry.mood,
-    updatedAt: serverTimestamp(),
+  await setDoc(
+    doc(journalCol(uid), day),
+    { mood, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+/** Set (or clear, with "") a migrated legacy single-note on a day doc. Merge so
+ *  the day's mood is preserved. */
+export async function setJournalNote(
+  emailHint: string,
+  day: string,
+  text: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(journalCol(uid), day), { note: text }, { merge: true });
+}
+
+/* ---------------------------------------------------------------- notes --- */
+
+export async function fetchNotes(emailHint: string): Promise<JournalNote[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(notesCol(uid));
+  return snap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        day: typeof data.day === "string" ? data.day : "",
+        text: typeof data.text === "string" ? data.text : "",
+        createdAt: timestampToIso(data.createdAt),
+      };
+    })
+    .filter((n) => n.text.trim().length > 0);
+}
+
+export async function addNote(
+  emailHint: string,
+  note: JournalNote
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(notesCol(uid), note.id), {
+    day: note.day,
+    text: note.text,
+    createdAt: note.createdAt ?? serverTimestamp(),
   });
+}
+
+export async function deleteNote(
+  emailHint: string,
+  id: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(notesCol(uid), id));
+}
+
+/* ------------------------------------------------------------ hydration --- */
+
+/** Cups drunk on a given day, or null if no record exists yet. */
+export async function fetchHydration(
+  emailHint: string,
+  day: string
+): Promise<number | null> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDoc(doc(hydrationCol(uid), day));
+  if (!snap.exists()) return null;
+  const cups = snap.data().cups;
+  return typeof cups === "number" ? cups : null;
+}
+
+export async function saveHydration(
+  emailHint: string,
+  day: string,
+  cups: number
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(hydrationCol(uid), day),
+    { cups, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+/* ------------------------------------------------------------- activity --- */
+
+export async function logActivity(
+  emailHint: string,
+  type: ActivityType,
+  summary: string,
+  day: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const id = crypto.randomUUID();
+  await setDoc(doc(activityCol(uid), id), {
+    type,
+    summary,
+    day,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteActivity(
+  emailHint: string,
+  id: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(activityCol(uid), id));
+}
+
+/** Re-create a previously deleted activity event, preserving its id. */
+export async function restoreActivity(
+  emailHint: string,
+  event: ActivityEvent
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(activityCol(uid), event.id), {
+    type: event.type,
+    summary: event.summary,
+    day: event.day,
+    createdAt: event.createdAt ?? serverTimestamp(),
+  });
+}
+
+export async function fetchActivity(
+  emailHint: string
+): Promise<ActivityEvent[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(activityCol(uid));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      type: (typeof data.type === "string" ? data.type : "focus") as ActivityType,
+      summary: typeof data.summary === "string" ? data.summary : "",
+      day: typeof data.day === "string" ? data.day : "",
+      createdAt: timestampToIso(data.createdAt),
+    };
+  });
+}
+
+/* --------------------------------------------------- realtime listeners --- */
+//
+// Each subscribe* attaches an onSnapshot listener and returns an unsubscribe.
+// uid resolution is async, so the returned function also cancels a pending
+// resolve. Errors are swallowed — listeners are best-effort, like the fetches.
+
+type Unsub = () => void;
+
+function listen(
+  emailHint: string,
+  attach: (uid: string) => Unsub
+): Unsub {
+  let unsub: Unsub = () => {};
+  let cancelled = false;
+  uidFor(emailHint)
+    .then((uid) => {
+      if (!cancelled) unsub = attach(uid);
+    })
+    .catch(() => {});
+  return () => {
+    cancelled = true;
+    unsub();
+  };
+}
+
+export function subscribeTasks(
+  emailHint: string,
+  cb: (tasks: FocusTask[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      tasksCol(uid),
+      (snap) =>
+        cb(
+          snap.docs
+            .map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                text: typeof data.text === "string" ? data.text : "",
+                done: Boolean(data.done),
+                lastUsedAt:
+                  typeof data.lastUsedAt === "string" ? data.lastUsedAt : null,
+              };
+            })
+            .filter((t) => t.text.trim().length > 0)
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeSessions(
+  emailHint: string,
+  cb: (sessions: FocusSessionRecord[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      sessionsCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              focusMin: typeof data.focusMin === "number" ? data.focusMin : 0,
+              day: typeof data.day === "string" ? data.day : "",
+              taskId: typeof data.taskId === "string" ? data.taskId : null,
+              createdAt: timestampToIso(data.createdAt),
+            };
+          })
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeJournal(
+  emailHint: string,
+  cb: (entries: JournalEntry[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      journalCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              day: d.id,
+              note: typeof data.note === "string" ? data.note : "",
+              mood: isMoodKey(data.mood) ? data.mood : null,
+            };
+          })
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeNotes(
+  emailHint: string,
+  cb: (notes: JournalNote[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      notesCol(uid),
+      (snap) =>
+        cb(
+          snap.docs
+            .map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                day: typeof data.day === "string" ? data.day : "",
+                text: typeof data.text === "string" ? data.text : "",
+                createdAt: timestampToIso(data.createdAt),
+              };
+            })
+            .filter((n) => n.text.trim().length > 0)
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeActivity(
+  emailHint: string,
+  cb: (events: ActivityEvent[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      activityCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              type: (typeof data.type === "string"
+                ? data.type
+                : "focus") as ActivityType,
+              summary: typeof data.summary === "string" ? data.summary : "",
+              day: typeof data.day === "string" ? data.day : "",
+              createdAt: timestampToIso(data.createdAt),
+            };
+          })
+        ),
+      () => {}
+    )
+  );
+}
+
+export function subscribeHydration(
+  emailHint: string,
+  day: string,
+  cb: (cups: number | null) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      doc(hydrationCol(uid), day),
+      (snap) => {
+        const cups = snap.exists() ? snap.data().cups : null;
+        cb(typeof cups === "number" ? cups : null);
+      },
+      () => {}
+    )
+  );
 }

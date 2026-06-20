@@ -1,25 +1,38 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  type ActivityType,
+  addNote as addNoteRemote,
+  deleteNote as deleteNoteRemote,
   fetchJournal,
-  saveJournal,
+  fetchNotes,
+  saveMood,
+  setJournalNote,
+  subscribeJournal,
+  subscribeNotes,
   todayKey,
 } from "@/features/focus/data/focusData";
-import { isMoodKey, type MoodKey } from "@/features/focus/lib/mood";
-import type { JournalEntry } from "@/features/focus/lib/types";
+import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
+import type { JournalEntry, JournalNote } from "@/features/focus/lib/types";
 
-const BASE_KEY = "bookmarkdeck:focus:journal:v1";
+type LogActivity = (type: ActivityType, summary: string) => void;
 
-function keyFor(email?: string | null) {
-  return email ? `${BASE_KEY}:${email}` : BASE_KEY;
+const MOOD_KEY = "bookmarkdeck:focus:journal:v1"; // mood + legacy notes
+const NOTES_KEY = "bookmarkdeck:focus:notes:v1";
+
+function moodKeyFor(email?: string | null) {
+  return email ? `${MOOD_KEY}:${email}` : MOOD_KEY;
+}
+function notesKeyFor(email?: string | null) {
+  return email ? `${NOTES_KEY}:${email}` : NOTES_KEY;
 }
 
-function loadLocal(email?: string | null): JournalEntry[] {
+function loadEntries(email?: string | null): JournalEntry[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(keyFor(email));
+    const raw = window.localStorage.getItem(moodKeyFor(email));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -35,79 +48,145 @@ function loadLocal(email?: string | null): JournalEntry[] {
   }
 }
 
+function loadNotes(email?: string | null): JournalNote[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(notesKeyFor(email));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((n) => n && typeof n.id === "string")
+      .map((n) => ({
+        id: n.id as string,
+        day: typeof n.day === "string" ? n.day : "",
+        text: typeof n.text === "string" ? n.text : "",
+        createdAt: typeof n.createdAt === "string" ? n.createdAt : null,
+      }))
+      .filter((n) => n.text.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+const LEGACY_PREFIX = "legacy-";
+
 /**
- * Per-day journal: one note + mood per calendar day. localStorage + Firestore.
+ * Per-day mood + multiple timestamped notes per day. Mood lives in
+ * focusJournal/{day} (merge-written so notes never clobber it); notes live in
+ * the focusNotes collection. Legacy single-notes stored on day docs are
+ * surfaced (and deletable) so older data isn't lost.
  */
-export function useFocusJournal(email?: string | null, connected = false) {
+export function useFocusJournal(
+  email?: string | null,
+  connected = false,
+  onLog?: LogActivity
+) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [notes, setNotes] = useState<JournalNote[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const canSync = connected && Boolean(email);
   const today = todayKey();
 
   useEffect(() => {
-    setEntries(loadLocal(email));
+    setEntries(loadEntries(email));
+    setNotes(loadNotes(email));
     setHydrated(true);
   }, [email]);
 
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(keyFor(email), JSON.stringify(entries));
+      window.localStorage.setItem(moodKeyFor(email), JSON.stringify(entries));
+      window.localStorage.setItem(notesKeyFor(email), JSON.stringify(notes));
     } catch {}
-  }, [entries, hydrated, email]);
+  }, [entries, notes, hydrated, email]);
 
   useEffect(() => {
     if (!canSync || !email) return;
-    let cancelled = false;
-    fetchJournal(email)
-      .then((remote) => {
-        if (!cancelled && remote.length) setEntries(remote);
-      })
-      .catch(() => {});
+    // Seed the cloud with anything created before connecting so the live
+    // snapshots don't drop local-only entries, then subscribe for real-time.
+    pushToCloud().catch(() => {});
+    const unsubJournal = subscribeJournal(email, setEntries);
+    const unsubNotes = subscribeNotes(email, setNotes);
     return () => {
-      cancelled = true;
+      unsubJournal();
+      unsubNotes();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
-  const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const persist = useCallback(
-    (entry: JournalEntry, debounce: boolean) => {
-      if (!canSync || !email) return;
-      if (writeTimer.current) clearTimeout(writeTimer.current);
-      const run = () => saveJournal(email, entry).catch(() => {});
-      if (debounce) writeTimer.current = setTimeout(run, 700);
-      else run();
+  // Mood (one per day) — merge-written so it never wipes notes.
+  const setMood = useCallback(
+    (mood: MoodKey | null) => {
+      setEntries((prev) => {
+        const existing = prev.find((e) => e.day === today);
+        const updated: JournalEntry = existing
+          ? { ...existing, mood }
+          : { day: today, note: "", mood };
+        return existing
+          ? prev.map((e) => (e.day === today ? updated : e))
+          : [...prev, updated];
+      });
+      if (canSync && email) saveMood(email, today, mood).catch(() => {});
+      if (mood) onLog?.("mood", `Felt ${MOOD_BY_KEY[mood].label.toLowerCase()}`);
+    },
+    [today, canSync, email, onLog]
+  );
+
+  const addNote = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const note: JournalNote = {
+        id: crypto.randomUUID(),
+        day: today,
+        text: trimmed,
+        createdAt: new Date().toISOString(),
+      };
+      setNotes((prev) => [note, ...prev]);
+      if (canSync && email) addNoteRemote(email, note).catch(() => {});
+      onLog?.("journal", "Added a journal note");
+    },
+    [today, canSync, email, onLog]
+  );
+
+  const removeNote = useCallback(
+    (id: string) => {
+      if (id.startsWith(LEGACY_PREFIX)) {
+        const day = id.slice(LEGACY_PREFIX.length);
+        setEntries((prev) =>
+          prev.map((e) => (e.day === day ? { ...e, note: "" } : e))
+        );
+        if (canSync && email) setJournalNote(email, day, "").catch(() => {});
+        return;
+      }
+      setNotes((prev) => prev.filter((n) => n.id !== id));
+      if (canSync && email) deleteNoteRemote(email, id).catch(() => {});
     },
     [canSync, email]
   );
 
-  const upsert = useCallback(
-    (patch: Partial<Pick<JournalEntry, "note" | "mood">>, debounce: boolean) => {
-      setEntries((prev) => {
-        const existing = prev.find((e) => e.day === today) ?? {
-          day: today,
-          note: "",
-          mood: null,
-        };
-        const updated: JournalEntry = { ...existing, ...patch };
-        persist(updated, debounce);
-        const has = prev.some((e) => e.day === today);
-        return has
-          ? prev.map((e) => (e.day === today ? updated : e))
-          : [...prev, updated];
-      });
+  const restoreNote = useCallback(
+    (note: JournalNote) => {
+      if (note.id.startsWith(LEGACY_PREFIX)) {
+        const day = note.id.slice(LEGACY_PREFIX.length);
+        setEntries((prev) =>
+          prev.map((e) => (e.day === day ? { ...e, note: note.text } : e))
+        );
+        if (canSync && email) setJournalNote(email, day, note.text).catch(() => {});
+        return;
+      }
+      setNotes((prev) =>
+        prev.some((n) => n.id === note.id) ? prev : [note, ...prev]
+      );
+      if (canSync && email) addNoteRemote(email, note).catch(() => {});
     },
-    [today, persist]
+    [canSync, email]
   );
 
-  const setNote = useCallback((note: string) => upsert({ note }, true), [upsert]);
-  const setMood = useCallback(
-    (mood: MoodKey | null) => upsert({ mood }, false),
-    [upsert]
-  );
-
-  const todayEntry = useMemo(
-    () => entries.find((e) => e.day === today) ?? { day: today, note: "", mood: null },
+  const todayMood = useMemo(
+    () => entries.find((e) => e.day === today)?.mood ?? null,
     [entries, today]
   );
 
@@ -117,24 +196,64 @@ export function useFocusJournal(email?: string | null, connected = false) {
     return map;
   }, [entries]);
 
+  // All notes (collection + migrated legacy day-notes) grouped by day, newest
+  // first; notes within a day newest first.
+  const notesByDay = useMemo(() => {
+    const legacy: JournalNote[] = entries
+      .filter((e) => e.note.trim().length > 0)
+      .map((e) => ({
+        id: `${LEGACY_PREFIX}${e.day}`,
+        day: e.day,
+        text: e.note,
+        createdAt: null,
+      }));
+    const all = [...notes, ...legacy];
+    const byDay = new Map<string, JournalNote[]>();
+    for (const n of all) {
+      if (!n.day) continue;
+      const bucket = byDay.get(n.day);
+      if (bucket) bucket.push(n);
+      else byDay.set(n.day, [n]);
+    }
+    const time = (n: JournalNote) =>
+      n.createdAt ? new Date(n.createdAt).getTime() : 0;
+    return [...byDay.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([day, list]) => ({
+        day,
+        notes: [...list].sort((a, b) => time(b) - time(a)),
+      }));
+  }, [notes, entries]);
+
   const pullFromCloud = useCallback(async () => {
     if (!canSync || !email) return;
-    const remote = await fetchJournal(email);
-    setEntries(remote);
+    const [remoteEntries, remoteNotes] = await Promise.all([
+      fetchJournal(email),
+      fetchNotes(email),
+    ]);
+    setEntries(remoteEntries);
+    setNotes(remoteNotes);
   }, [canSync, email]);
 
   const pushToCloud = useCallback(async () => {
     if (!canSync || !email) return;
-    await Promise.all(entries.map((e) => saveJournal(email, e)));
-  }, [canSync, email, entries]);
+    await Promise.all([
+      ...entries
+        .filter((e) => e.mood)
+        .map((e) => saveMood(email, e.day, e.mood)),
+      ...notes.map((n) => addNoteRemote(email, n)),
+    ]);
+  }, [canSync, email, entries, notes]);
 
   return {
     hydrated,
-    todayNote: todayEntry.note,
-    todayMood: todayEntry.mood,
-    setNote,
+    todayMood,
     setMood,
     moodByDay,
+    notesByDay,
+    addNote,
+    removeNote,
+    restoreNote,
     pullFromCloud,
     pushToCloud,
   };

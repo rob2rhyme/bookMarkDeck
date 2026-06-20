@@ -15,7 +15,7 @@ type TaskTrackerProps = {
   onSelect: (id: string) => void;
   onAdd: (text: string) => void;
   onToggleDone: (id: string) => void;
-  onRemove: (id: string) => void;
+  onRemove: (task: FocusTask) => void;
 };
 
 function fmtTime(focusMin: number): string {
@@ -127,7 +127,7 @@ export function TaskTracker({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onRemove(task.id)}
+                  onClick={() => onRemove(task)}
                   aria-label="Remove task"
                   className="shrink-0 text-slate-600 opacity-0 transition hover:text-slate-300 focus:opacity-100 group-hover:opacity-100"
                 >
@@ -175,7 +175,7 @@ export function TaskTracker({
                     )}
                     <button
                       type="button"
-                      onClick={() => onRemove(task.id)}
+                      onClick={() => onRemove(task)}
                       aria-label="Remove task"
                       className="shrink-0 text-slate-600 opacity-0 transition hover:text-slate-300 focus:opacity-100 group-hover:opacity-100"
                     >

@@ -5,7 +5,10 @@ import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { Settings, Timer } from "@/components/icons";
-import { ActivityHistory } from "@/features/focus/components/ActivityHistory";
+import {
+  ActivityHistory,
+  type ActivityRef,
+} from "@/features/focus/components/ActivityHistory";
 import { AnalysisPanel } from "@/features/focus/components/AnalysisPanel";
 import { FocusSettingsModal } from "@/features/focus/components/FocusSettingsModal";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
@@ -13,12 +16,16 @@ import { JournalCard } from "@/features/focus/components/JournalCard";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
 import { TaskTracker } from "@/features/focus/components/TaskTracker";
+import { UndoToast } from "@/features/focus/components/UndoToast";
+import { useFocusActivity } from "@/features/focus/hooks/useFocusActivity";
 import { useFocusJournal } from "@/features/focus/hooks/useFocusJournal";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
 import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
 import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
+import { useUndo } from "@/features/focus/hooks/useUndo";
+import type { FocusTask, JournalNote } from "@/features/focus/lib/types";
 
 export function FocusDashboard() {
   const { data: session } = useSession();
@@ -32,8 +39,20 @@ export function FocusDashboard() {
     pullFromCloud: pullSettings,
     pushToCloud: pushSettings,
   } = useFocusSettings(email, connected);
-  const tasks = useFocusTasks(email, connected);
-  const journal = useFocusJournal(email, connected);
+  const activity = useFocusActivity(email, connected);
+  const tasks = useFocusTasks(email, connected, activity.log);
+  const journal = useFocusJournal(email, connected, activity.log);
+  const hydration = useHydration({
+    email,
+    connected,
+    enabled: settings.hydrationEnabled,
+    intervalMin: settings.hydrationIntervalMin,
+    goal: settings.waterGoal,
+    soundEnabled: settings.soundEnabled,
+    onLog: activity.log,
+  });
+
+  const undo = useUndo();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsKey, setStatsKey] = useState(0);
@@ -48,6 +67,7 @@ export function FocusDashboard() {
       tasks.pushToCloud(),
       pushSettings(),
       journal.pushToCloud(),
+      hydration.pushToCloud(),
     ]);
     setStatsKey((k) => k + 1);
     setSyncing(false);
@@ -61,6 +81,7 @@ export function FocusDashboard() {
       tasks.pullFromCloud(),
       pullSettings(),
       journal.pullFromCloud(),
+      hydration.pullFromCloud(),
     ]);
     setStatsKey((k) => k + 1);
     setSyncing(false);
@@ -68,13 +89,6 @@ export function FocusDashboard() {
   };
 
   const stats = useFocusStats(email, connected, statsKey);
-  const hydration = useHydration({
-    email,
-    enabled: settings.hydrationEnabled,
-    intervalMin: settings.hydrationIntervalMin,
-    goal: settings.waterGoal,
-    soundEnabled: settings.soundEnabled,
-  });
 
   const taskNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -88,6 +102,34 @@ export function FocusDashboard() {
     setStatsKey((k) => k + 1);
     if (taskId) tasks.markUsed(taskId, new Date().toISOString());
     setJournalPrompt(true);
+  };
+
+  const deleteActivityItem = (ref: ActivityRef) => {
+    if (ref.source === "session") stats.removeSession(ref.record.id);
+    else activity.remove(ref.record.id);
+  };
+
+  const restoreActivityItem = (ref: ActivityRef) => {
+    if (ref.source === "session") stats.restoreSession(ref.record);
+    else activity.restore(ref.record);
+  };
+
+  const removeTaskWithUndo = (task: FocusTask) => {
+    tasks.removeTask(task.id);
+    undo.offer(`Task “${task.text}” deleted`, () => tasks.restoreTask(task));
+  };
+
+  const removeNoteWithUndo = (note: JournalNote) => {
+    journal.removeNote(note.id);
+    undo.offer("Journal note deleted", () => journal.restoreNote(note));
+  };
+
+  const removeNotesWithUndo = (notes: JournalNote[]) => {
+    notes.forEach((n) => journal.removeNote(n.id));
+    undo.offer(
+      notes.length === 1 ? "Journal note deleted" : `${notes.length} notes deleted`,
+      () => notes.forEach((n) => journal.restoreNote(n))
+    );
   };
 
   return (
@@ -177,7 +219,7 @@ export function FocusDashboard() {
           onSelect={tasks.setActiveTaskId}
           onAdd={tasks.addTask}
           onToggleDone={tasks.toggleDone}
-          onRemove={tasks.removeTask}
+          onRemove={removeTaskWithUndo}
         />
       </div>
 
@@ -198,9 +240,11 @@ export function FocusDashboard() {
           moodByDay={journal.moodByDay}
         />
         <JournalCard
-          note={journal.todayNote}
           mood={journal.todayMood}
-          onNoteChange={journal.setNote}
+          notesByDay={journal.notesByDay}
+          onAddNote={journal.addNote}
+          onRemoveNote={removeNoteWithUndo}
+          onRemoveNotes={removeNotesWithUndo}
           onMoodChange={(m) => {
             journal.setMood(m);
             setJournalPrompt(false);
@@ -213,19 +257,24 @@ export function FocusDashboard() {
         <ActivityHistory
           available={stats.available}
           sessions={stats.sessions}
+          events={activity.events}
           taskNameById={taskNameById}
           moodByDay={journal.moodByDay}
+          onDelete={deleteActivityItem}
+          onRestore={restoreActivityItem}
         />
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {settings.hydrationEnabled ? (
           <HydrationTracker
-            glasses={hydration.glasses}
+            cups={hydration.cups}
+            oz={hydration.oz}
             goal={hydration.goal}
+            goalOz={hydration.goalOz}
             reminding={hydration.reminding}
             onDrink={hydration.drink}
-            onRemove={hydration.removeGlass}
+            onRemove={hydration.removeCup}
             onDismiss={hydration.dismiss}
           />
         ) : null}
@@ -248,6 +297,8 @@ export function FocusDashboard() {
         onReset={reset}
         onClose={() => setSettingsOpen(false)}
       />
+
+      <UndoToast state={undo.state} onUndo={undo.undo} onDismiss={undo.dismiss} />
     </section>
   );
 }

@@ -2,16 +2,30 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import {
+  type ActivityType,
+  fetchHydration,
+  saveHydration,
+  subscribeHydration,
+  todayKey,
+} from "@/features/focus/data/focusData";
 import { playChime } from "@/features/focus/lib/sound";
 import { notify } from "@/features/focus/lib/notify";
 
+type LogActivity = (type: ActivityType, summary: string) => void;
+
 type HydrationArgs = {
   email?: string | null;
+  connected?: boolean;
   enabled: boolean;
   intervalMin: number;
   goal: number;
   soundEnabled: boolean;
+  onLog?: LogActivity;
 };
+
+/** Ounces in one cup of water. */
+export const OZ_PER_CUP = 8;
 
 const BASE_KEY = "bookmarkdeck:focus:hydration:v1";
 
@@ -20,23 +34,40 @@ function todayStr(): string {
 }
 
 /**
- * Per-day hydration tracker (localStorage, keyed per user). Orthogonal to the
- * synced focus data, so it intentionally stays local-only.
+ * Per-day hydration tracker. Counts whole cups; ounces are derived (1 cup =
+ * 8 oz). Cached in localStorage and, when connected, synced to Firestore
+ * (focusHydration/{YYYY-MM-DD}) so the count follows the account across
+ * browsers. Each cup is also mirrored to the activity log.
  */
 export function useHydration({
   email,
+  connected = false,
   enabled,
   intervalMin,
   goal,
   soundEnabled,
+  onLog,
 }: HydrationArgs) {
-  const [glasses, setGlasses] = useState(0);
+  const [cups, setCups] = useState(0);
   const [reminding, setReminding] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   const lastDrinkRef = useRef<number>(0);
   const dayRef = useRef<string>("");
+  const cupsRef = useRef(0);
   const key = email ? `${BASE_KEY}:${email}` : BASE_KEY;
+  const canSync = connected && Boolean(email);
+
+  useEffect(() => {
+    cupsRef.current = cups;
+  }, [cups]);
+
+  const persistRemote = useCallback(
+    (value: number) => {
+      if (canSync && email) saveHydration(email, todayKey(), value).catch(() => {});
+    },
+    [canSync, email]
+  );
 
   // Load today's progress after mount.
   useEffect(() => {
@@ -47,18 +78,25 @@ export function useHydration({
       if (raw) {
         const d = JSON.parse(raw);
         if (d.date === todayStr()) {
-          setGlasses(typeof d.glasses === "number" ? d.glasses : 0);
+          // `cups` is the current field; `glasses` is the legacy field name.
+          const stored =
+            typeof d.cups === "number"
+              ? d.cups
+              : typeof d.glasses === "number"
+                ? d.glasses
+                : 0;
+          setCups(stored);
           lastDrinkRef.current =
             typeof d.lastDrink === "number" ? d.lastDrink : Date.now();
         } else {
-          setGlasses(0);
+          setCups(0);
         }
       }
     } catch {}
     setHydrated(true);
   }, [key]);
 
-  // Persist.
+  // Persist locally.
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -66,12 +104,38 @@ export function useHydration({
         key,
         JSON.stringify({
           date: todayStr(),
-          glasses,
+          cups,
           lastDrink: lastDrinkRef.current,
         })
       );
     } catch {}
-  }, [glasses, hydrated, key]);
+  }, [cups, hydrated, key]);
+
+  // Subscribe to today's count for live cross-browser updates. The first
+  // snapshot reconciles via max-merge (so neither a cross-device nor an offline
+  // bump is lost); later snapshots adopt the remote value.
+  useEffect(() => {
+    if (!canSync || !email) return;
+    const day = todayKey();
+    let first = true;
+    return subscribeHydration(email, day, (remote) => {
+      if (remote == null) {
+        if (first && cupsRef.current > 0) {
+          saveHydration(email, day, cupsRef.current).catch(() => {});
+        }
+        first = false;
+        return;
+      }
+      if (first) {
+        const resolved = Math.max(cupsRef.current, remote);
+        setCups(resolved);
+        if (resolved !== remote) saveHydration(email, day, resolved).catch(() => {});
+        first = false;
+      } else {
+        setCups(remote);
+      }
+    });
+  }, [canSync, email]);
 
   // Reminder loop.
   useEffect(() => {
@@ -83,7 +147,8 @@ export function useHydration({
       const t = todayStr();
       if (t !== dayRef.current) {
         dayRef.current = t;
-        setGlasses(0);
+        setCups(0);
+        persistRemote(0);
         lastDrinkRef.current = Date.now();
         setReminding(false);
         return;
@@ -93,30 +158,65 @@ export function useHydration({
       }
     }, 15000);
     return () => clearInterval(id);
-  }, [enabled, intervalMin]);
+  }, [enabled, intervalMin, persistRemote]);
 
   // Fire a notification/chime when a reminder appears.
   useEffect(() => {
     if (reminding && enabled) {
-      notify("Time to hydrate", "Take a sip of water.");
+      notify("Time to drink a cup", "Pour yourself a cup of water.");
       if (soundEnabled) playChime("hydration");
     }
   }, [reminding, enabled, soundEnabled]);
 
   const drink = useCallback(() => {
-    setGlasses((g) => g + 1);
+    setCups((c) => {
+      const next = c + 1;
+      persistRemote(next);
+      onLog?.(
+        "hydration",
+        `Drank a cup of water (${next} ${next === 1 ? "cup" : "cups"} today)`
+      );
+      return next;
+    });
     lastDrinkRef.current = Date.now();
     setReminding(false);
-  }, []);
+  }, [onLog, persistRemote]);
 
-  const removeGlass = useCallback(() => {
-    setGlasses((g) => Math.max(0, g - 1));
-  }, []);
+  const removeCup = useCallback(() => {
+    setCups((c) => {
+      const next = Math.max(0, c - 1);
+      persistRemote(next);
+      return next;
+    });
+  }, [persistRemote]);
 
   const dismiss = useCallback(() => {
     lastDrinkRef.current = Date.now();
     setReminding(false);
   }, []);
 
-  return { hydrated, glasses, goal, reminding, drink, removeGlass, dismiss };
+  const pullFromCloud = useCallback(async () => {
+    if (!canSync || !email) return;
+    const remote = await fetchHydration(email, todayKey());
+    setCups(remote ?? 0);
+  }, [canSync, email]);
+
+  const pushToCloud = useCallback(async () => {
+    if (!canSync || !email) return;
+    await saveHydration(email, todayKey(), cupsRef.current);
+  }, [canSync, email]);
+
+  return {
+    hydrated,
+    cups,
+    oz: cups * OZ_PER_CUP,
+    goal,
+    goalOz: goal * OZ_PER_CUP,
+    reminding,
+    drink,
+    removeCup,
+    dismiss,
+    pullFromCloud,
+    pushToCloud,
+  };
 }
