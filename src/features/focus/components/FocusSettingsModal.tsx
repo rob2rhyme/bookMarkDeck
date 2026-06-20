@@ -206,6 +206,17 @@ export function FocusSettingsModal({
         <NumberField label="Remind every" value={settings.hydrationIntervalMin} min={5} max={180} suffix="min" onChange={(v) => onUpdate({ hydrationIntervalMin: v })} />
         <NumberField label="Daily goal" value={settings.waterGoal} min={1} max={20} suffix="cups" onChange={(v) => onUpdate({ waterGoal: v })} />
 
+        <SectionLabel>Google sync</SectionLabel>
+        <Toggle
+          label="Mirror to-dos to Google Tasks"
+          checked={settings.todoGoogleSync}
+          onChange={(v) => onUpdate({ todoGoogleSync: v })}
+        />
+        <p className="mt-1 text-[11px] text-slate-500">
+          New & changed to-dos sync to your Google Tasks (and a Calendar event
+          for timed ones). Sign out and back in once to grant access.
+        </p>
+
         <p className="mt-6 text-center text-[11px] text-slate-500">
           Changes are saved automatically.
         </p>

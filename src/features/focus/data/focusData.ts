@@ -613,6 +613,10 @@ function mapTodo(d: { id: string; data: () => Record<string, unknown> }): Todo {
     dueAt: typeof data.dueAt === "string" ? data.dueAt : null,
     createdAt: timestampToIso(data.createdAt),
     day: typeof data.day === "string" ? data.day : "",
+    googleTaskId:
+      typeof data.googleTaskId === "string" ? data.googleTaskId : null,
+    googleEventId:
+      typeof data.googleEventId === "string" ? data.googleEventId : null,
   };
 }
 
@@ -632,6 +636,8 @@ export async function saveTodo(emailHint: string, todo: Todo): Promise<void> {
       done: todo.done,
       dueAt: todo.dueAt ?? null,
       day: todo.day,
+      googleTaskId: todo.googleTaskId ?? null,
+      googleEventId: todo.googleEventId ?? null,
       createdAt: todo.createdAt ?? serverTimestamp(),
       updatedAt: serverTimestamp(),
     },

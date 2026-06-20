@@ -28,6 +28,7 @@ import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
 import { useHydrationHistory } from "@/features/focus/hooks/useHydrationHistory";
+import { useGoogleTodoSync } from "@/features/focus/hooks/useGoogleTodoSync";
 import { useTodos } from "@/features/focus/hooks/useTodos";
 import { useUndo } from "@/features/focus/hooks/useUndo";
 import { todayKey } from "@/features/focus/data/focusData";
@@ -49,6 +50,7 @@ export function FocusDashboard() {
   const tasks = useFocusTasks(email, connected, activity.log);
   const journal = useFocusJournal(email, connected, activity.log);
   const todos = useTodos(email, connected, activity.log);
+  const gsync = useGoogleTodoSync(settings.todoGoogleSync, todos.setGoogleIds);
   const hydration = useHydration({
     email,
     connected,
@@ -139,16 +141,44 @@ export function FocusDashboard() {
     undo.offer("Journal note deleted", () => journal.restoreNote(note));
   };
 
+  const addTodoSynced = (text: string, dueAt: string | null, note: string) => {
+    const created = todos.addTodo(text, dueAt, note);
+    if (created) gsync.mirror(created);
+  };
+
+  const editTodoSynced = (
+    id: string,
+    patch: { text?: string; note?: string; dueAt?: string | null }
+  ) => {
+    todos.editTodo(id, patch);
+    const existing = todos.todos.find((t) => t.id === id);
+    if (existing) {
+      gsync.mirror({
+        ...existing,
+        ...patch,
+        text: patch.text !== undefined ? patch.text.trim() : existing.text,
+      });
+    }
+  };
+
   const removeTodoWithUndo = (todo: Todo) => {
     todos.removeTodo(todo.id);
-    undo.offer(`To-do “${todo.text}” deleted`, () => todos.restoreTodo(todo));
+    gsync.unmirror(todo);
+    undo.offer(`To-do “${todo.text}” deleted`, () => {
+      todos.restoreTodo(todo);
+      gsync.mirror(todo);
+    });
   };
 
   // Toggle a to-do; when marking one done, offer an undo to un-complete it.
   const toggleTodoWithUndo = (todo: Todo) => {
     todos.toggleTodo(todo.id);
+    gsync.mirror({ ...todo, done: !todo.done });
     if (!todo.done) {
-      undo.offer(`“${todo.text}” done`, () => todos.toggleTodo(todo.id));
+      undo.offer(`“${todo.text}” done`, () => {
+        todos.toggleTodo(todo.id);
+        gsync.mirror(todo);
+      });
     }
   };
 
@@ -263,9 +293,9 @@ export function FocusDashboard() {
         <TodoList
           active={todos.active}
           done={todos.done}
-          onAdd={todos.addTodo}
+          onAdd={addTodoSynced}
           onToggle={toggleTodoWithUndo}
-          onEdit={todos.editTodo}
+          onEdit={editTodoSynced}
           onRemove={removeTodoWithUndo}
         />
         <TodoHistory available={connected} events={todoEvents} />

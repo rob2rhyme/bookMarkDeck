@@ -40,4 +40,6 @@ export type Todo = {
   dueAt: string | null; // ISO datetime, or null = no due date
   createdAt: string | null; // ISO timestamp
   day: string; // YYYY-MM-DD created — used to flag rolled-over items
+  googleTaskId?: string | null; // mapping to a mirrored Google Task
+  googleEventId?: string | null; // mapping to a mirrored Calendar event (timed)
 };

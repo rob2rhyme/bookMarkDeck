@@ -37,6 +37,9 @@ function loadLocal(email?: string | null): Todo[] {
         dueAt: typeof t.dueAt === "string" ? t.dueAt : null,
         createdAt: typeof t.createdAt === "string" ? t.createdAt : null,
         day: typeof t.day === "string" ? t.day : "",
+        googleTaskId: typeof t.googleTaskId === "string" ? t.googleTaskId : null,
+        googleEventId:
+          typeof t.googleEventId === "string" ? t.googleEventId : null,
       }))
       .filter((t) => t.text.trim().length > 0);
   } catch {
@@ -89,9 +92,9 @@ export function useTodos(
   }, [canSync, email]);
 
   const addTodo = useCallback(
-    (text: string, dueAt: string | null, note = "") => {
+    (text: string, dueAt: string | null, note = ""): Todo | null => {
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed) return null;
       const todo: Todo = {
         id: crypto.randomUUID(),
         text: trimmed,
@@ -100,12 +103,28 @@ export function useTodos(
         dueAt: dueAt ?? null,
         createdAt: new Date().toISOString(),
         day: todayKey(),
+        googleTaskId: null,
+        googleEventId: null,
       };
       setTodos((prev) => [todo, ...prev]);
       if (canSync && email) saveTodo(email, todo).catch(() => {});
       onLog?.("todo_added", `Added to-do: ${trimmed}`);
+      return todo;
     },
     [canSync, email, onLog]
+  );
+
+  // Persist the Google mapping ids without re-mirroring (called by the sync layer).
+  const setGoogleIds = useCallback(
+    (id: string, ids: { googleTaskId?: string | null; googleEventId?: string | null }) => {
+      setTodos((prev) => {
+        const next = prev.map((t) => (t.id === id ? { ...t, ...ids } : t));
+        const updated = next.find((t) => t.id === id);
+        if (canSync && email && updated) saveTodo(email, updated).catch(() => {});
+        return next;
+      });
+    },
+    [canSync, email]
   );
 
   const toggleTodo = useCallback(
@@ -176,6 +195,7 @@ export function useTodos(
     editTodo,
     removeTodo,
     restoreTodo,
+    setGoogleIds,
     pullFromCloud,
     pushToCloud,
   };
