@@ -9,6 +9,28 @@ type HydrationTrackerProps = {
   onDismiss: () => void;
 };
 
+function GlassIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-8 w-7" aria-hidden="true">
+      {/* water fill (lower portion) */}
+      {filled && (
+        <path
+          d="M6.5 11 L17.5 11 L16.5 20.5 L7.5 20.5 Z"
+          className="fill-sky-500/80"
+        />
+      )}
+      {/* glass outline */}
+      <path
+        d="M5 3.6 L19 3.6 L16.5 20.6 L7.5 20.6 Z"
+        fill="none"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        className={filled ? "stroke-sky-400" : "stroke-slate-600"}
+      />
+    </svg>
+  );
+}
+
 export function HydrationTracker({
   glasses,
   goal,
@@ -55,15 +77,9 @@ export function HydrationTracker({
 
       <div className="mt-4 flex flex-wrap gap-1.5">
         {Array.from({ length: goal }, (_, i) => (
-          <div
-            key={i}
-            title={`Glass ${i + 1}`}
-            className={`h-8 w-6 rounded-b-md rounded-t-sm border transition ${
-              i < glasses
-                ? "border-sky-400 bg-sky-500/70"
-                : "border-slate-600 bg-transparent"
-            }`}
-          />
+          <span key={i} title={`Glass ${i + 1}`} className="transition">
+            <GlassIcon filled={i < glasses} />
+          </span>
         ))}
       </div>
 
