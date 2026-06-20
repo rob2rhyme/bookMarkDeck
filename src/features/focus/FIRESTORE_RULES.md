@@ -6,6 +6,7 @@ per-user subcollections:
 
 - `users/{uid}/focusTasks/{taskId}`
 - `users/{uid}/focusSessions/{sessionId}`
+- `users/{uid}/focusSettings/{docId}` (single `settings` doc)
 
 ## What to add (additive — do NOT remove existing rules)
 
@@ -17,6 +18,9 @@ match /users/{uid}/focusTasks/{taskId} {
   allow read, write: if request.auth != null && request.auth.uid == uid;
 }
 match /users/{uid}/focusSessions/{sessionId} {
+  allow read, write: if request.auth != null && request.auth.uid == uid;
+}
+match /users/{uid}/focusSettings/{docId} {
   allow read, write: if request.auth != null && request.auth.uid == uid;
 }
 ```

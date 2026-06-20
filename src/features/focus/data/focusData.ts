@@ -12,6 +12,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -21,10 +22,22 @@ import {
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import type { SessionTask } from "@/features/focus/hooks/useSessionTasks";
+import {
+  type FocusSettings,
+  normalizeSettings,
+} from "@/features/focus/lib/settings";
 
 const tasksCol = (uid: string) => collection(db, "users", uid, "focusTasks");
 const sessionsCol = (uid: string) =>
   collection(db, "users", uid, "focusSessions");
+const settingsDoc = (uid: string) =>
+  doc(db, "users", uid, "focusSettings", "settings");
+
+export type FocusSessionRecord = {
+  focusMin: number;
+  day: string;
+  linkedFolderId: string | null;
+};
 
 async function uidFor(emailHint: string): Promise<string> {
   const user = await ensureFirebaseGoogleAuth(emailHint);
@@ -100,4 +113,41 @@ export async function countSessionsForDay(
   const uid = await uidFor(emailHint);
   const snap = await getDocs(query(sessionsCol(uid), where("day", "==", day)));
   return snap.size;
+}
+
+/** All completed focus sessions for the user — input for the stats panel. */
+export async function fetchSessions(
+  emailHint: string
+): Promise<FocusSessionRecord[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(sessionsCol(uid));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      focusMin: typeof data.focusMin === "number" ? data.focusMin : 0,
+      day: typeof data.day === "string" ? data.day : "",
+      linkedFolderId:
+        typeof data.linkedFolderId === "string" ? data.linkedFolderId : null,
+    };
+  });
+}
+
+export async function fetchSettings(
+  emailHint: string
+): Promise<FocusSettings | null> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDoc(settingsDoc(uid));
+  if (!snap.exists()) return null;
+  return normalizeSettings(snap.data());
+}
+
+export async function saveSettings(
+  emailHint: string,
+  settings: FocusSettings
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(settingsDoc(uid), {
+    ...settings,
+    updatedAt: serverTimestamp(),
+  });
 }

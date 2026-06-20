@@ -115,9 +115,18 @@ under `src/features/focus/` + the `/focus` route; removable cleanly.
 - Persistence (opt-in): `useFocusSync` reflects an existing Firebase session
   silently (`onAuthStateChanged`) or connects on demand. Data layer
   `features/focus/data/focusData.ts` writes per-user subcollections
-  `users/{uid}/focusTasks` and `users/{uid}/focusSessions`
-  (`{ focusMin, day, createdAt, linkedFolderId? }`). Writes are optimistic and
-  fail-safe. Security rules: `src/features/focus/FIRESTORE_RULES.md` (console).
+  `users/{uid}/focusTasks`, `users/{uid}/focusSessions`
+  (`{ focusMin, day, createdAt, linkedFolderId? }`), and `users/{uid}/focusSettings/settings`.
+  Writes are optimistic and fail-safe. Security rules:
+  `src/features/focus/FIRESTORE_RULES.md` (console).
+- Settings (`useFocusSettings` + `FocusSettingsModal`): custom durations,
+  sessions-until-long, auto-start, sound, hydration prefs — localStorage +
+  Firestore. The timer (`useFocusTimer`) is settings-driven, timestamp-based
+  (accurate when backgrounded), with Web Audio chimes (`lib/sound.ts`) and
+  notifications (`lib/notify.ts`).
+- Stats (`useFocusStats` + `StatsPanel`): streak / 7-day / totals / focus-by-
+  collection, computed from `focusSessions`. Hydration (`useHydration`,
+  localStorage-only) + `QuoteBox` round out the dashboard.
 - Hub link: a session can link a bookmark **folder**; its bookmarks render in a
   read-only `ResourcesPanel`, and `linkedFolderId` is stored on sessions. Folder
   data is read via the existing `useBookmarks(email)` — never mutated.

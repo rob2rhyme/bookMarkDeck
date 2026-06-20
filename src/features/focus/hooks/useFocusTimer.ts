@@ -7,6 +7,12 @@ import {
   logSession,
   todayKey,
 } from "@/features/focus/data/focusData";
+import { initAudio, playChime } from "@/features/focus/lib/sound";
+import {
+  notify,
+  requestNotificationPermission,
+} from "@/features/focus/lib/notify";
+import type { FocusSettings } from "@/features/focus/lib/settings";
 
 export type FocusMode = "focus" | "short" | "long";
 
@@ -16,36 +22,76 @@ export const MODE_LABELS: Record<FocusMode, string> = {
   long: "Long break",
 };
 
-export const MODE_MINUTES: Record<FocusMode, number> = {
-  focus: 25,
-  short: 5,
-  long: 15,
+type UseFocusTimerArgs = {
+  settings: FocusSettings;
+  email?: string | null;
+  connected?: boolean;
+  linkedFolderId?: string | null;
+  /** Called after a focus block is logged, so stats can refresh. */
+  onFocusComplete?: () => void;
 };
 
-/** After this many completed focus blocks, the next break is a long one. */
-const SESSIONS_BEFORE_LONG = 4;
-
-const secondsFor = (mode: FocusMode) => MODE_MINUTES[mode] * 60;
+function format(totalSeconds: number) {
+  const m = Math.floor(totalSeconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const s = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
 
 /**
- * In-memory Pomodoro state machine with optional Firestore persistence.
- * Hydration-safe: initial values are deterministic (no Date/localStorage reads
- * during render); the ticking interval only runs client-side after a user start.
- * When `connected` with an `email`, today's completed-block count is seeded from
- * Firestore and each finished focus block is logged (failures are non-blocking).
+ * Settings-driven Pomodoro state machine. Timestamp-based (accurate when the
+ * tab is backgrounded), with optional sound, notifications, auto-start, and
+ * Firestore session logging. Hydration-safe: initial state is deterministic and
+ * the interval only runs after a user gesture.
  */
-export function useFocusTimer(
-  email?: string | null,
+export function useFocusTimer({
+  settings,
+  email,
   connected = false,
-  linkedFolderId?: string | null
-) {
+  linkedFolderId,
+  onFocusComplete,
+}: UseFocusTimerArgs) {
+  const durationFor = useCallback(
+    (mode: FocusMode) => settings[mode] * 60,
+    [settings]
+  );
+
   const [mode, setMode] = useState<FocusMode>("focus");
-  const [secondsLeft, setSecondsLeft] = useState(() => secondsFor("focus"));
+  const [secondsLeft, setSecondsLeft] = useState(() => settings.focus * 60);
   const [running, setRunning] = useState(false);
-  const [completedFocus, setCompletedFocus] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [completedToday, setCompletedToday] = useState(0);
 
   const canSync = connected && Boolean(email);
+
+  // Refs so the interval callback reads the latest values without restarting.
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const endTimeRef = useRef(0);
+  const runningRef = useRef(false);
+  const modeRef = useRef<FocusMode>("focus");
+  const secondsLeftRef = useRef(settings.focus * 60);
+  const completedRef = useRef(0);
+  const settingsRef = useRef(settings);
+  const linkedRef = useRef<string | null | undefined>(linkedFolderId);
+  const lastModeDurRef = useRef(settings.focus * 60);
+  const handleCompleteRef = useRef<() => void>(() => {});
+  const startWithRef = useRef<(seconds: number) => void>(() => {});
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  useEffect(() => {
+    secondsLeftRef.current = secondsLeft;
+  }, [secondsLeft]);
+  useEffect(() => {
+    completedRef.current = completedToday;
+  }, [completedToday]);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  useEffect(() => {
+    linkedRef.current = linkedFolderId;
+  }, [linkedFolderId]);
 
   const clearTick = () => {
     if (intervalRef.current) {
@@ -60,7 +106,10 @@ export function useFocusTimer(
     let cancelled = false;
     countSessionsForDay(email, todayKey())
       .then((count) => {
-        if (!cancelled) setCompletedFocus(count);
+        if (!cancelled) {
+          setCompletedToday(count);
+          completedRef.current = count;
+        }
       })
       .catch(() => {});
     return () => {
@@ -68,69 +117,132 @@ export function useFocusTimer(
     };
   }, [canSync, email]);
 
-  const switchMode = useCallback((next: FocusMode) => {
-    clearTick();
-    setRunning(false);
+  const transitionTo = useCallback((next: FocusMode, auto: boolean) => {
+    modeRef.current = next;
     setMode(next);
-    setSecondsLeft(secondsFor(next));
+    const dur = settingsRef.current[next] * 60;
+    lastModeDurRef.current = dur;
+    secondsLeftRef.current = dur;
+    setSecondsLeft(dur);
+    if (auto) startWithRef.current(dur);
   }, []);
 
-  const start = useCallback(() => {
-    setRunning((r) => (r ? r : true));
-  }, []);
-
-  const pause = useCallback(() => setRunning(false), []);
-
-  const reset = useCallback(() => {
-    clearTick();
-    setRunning(false);
-    setSecondsLeft(secondsFor(mode));
-  }, [mode]);
-
-  // Drive the countdown while running.
-  useEffect(() => {
-    if (!running) return;
-    intervalRef.current = setInterval(() => {
-      setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
-    }, 1000);
-    return clearTick;
-  }, [running]);
-
-  // Advance to the next mode when a block completes (and log focus blocks).
-  useEffect(() => {
-    if (secondsLeft !== 0 || !running) return;
-    clearTick();
-    setRunning(false);
-    if (mode === "focus") {
-      setCompletedFocus((count) => count + 1);
+  handleCompleteRef.current = () => {
+    const completed = modeRef.current;
+    const s = settingsRef.current;
+    if (completed === "focus") {
+      const newCount = completedRef.current + 1;
+      completedRef.current = newCount;
+      setCompletedToday(newCount);
       if (canSync && email) {
-        logSession(email, MODE_MINUTES.focus, todayKey(), linkedFolderId).catch(
+        logSession(email, s.focus, todayKey(), linkedRef.current).catch(
           () => {}
         );
       }
-      // Decide the next break from the just-incremented count.
-      const nextMode: FocusMode =
-        (completedFocus + 1) % SESSIONS_BEFORE_LONG === 0 ? "long" : "short";
-      setMode(nextMode);
-      setSecondsLeft(secondsFor(nextMode));
+      onFocusComplete?.();
+      if (s.soundEnabled) playChime("session");
+      notify("Focus session complete", "Nice work — time for a break.");
+      const isLong = newCount % s.sessionsUntilLong === 0;
+      transitionTo(isLong ? "long" : "short", s.autoStartBreaks);
     } else {
-      setMode("focus");
-      setSecondsLeft(secondsFor("focus"));
+      if (s.soundEnabled) playChime("break");
+      notify("Break over", "Back to focus.");
+      transitionTo("focus", s.autoStartFocus);
     }
-  }, [secondsLeft, running, mode, completedFocus, canSync, email, linkedFolderId]);
+  };
 
-  const total = secondsFor(mode);
+  startWithRef.current = (seconds: number) => {
+    clearTick();
+    endTimeRef.current = Date.now() + seconds * 1000;
+    runningRef.current = true;
+    setRunning(true);
+    intervalRef.current = setInterval(() => {
+      const left = Math.max(
+        0,
+        Math.round((endTimeRef.current - Date.now()) / 1000)
+      );
+      secondsLeftRef.current = left;
+      setSecondsLeft(left);
+      if (left <= 0) {
+        clearTick();
+        runningRef.current = false;
+        setRunning(false);
+        handleCompleteRef.current();
+      }
+    }, 250);
+  };
+
+  const start = useCallback(() => {
+    initAudio(); // unlock audio from this user gesture
+    requestNotificationPermission();
+    startWithRef.current(secondsLeftRef.current);
+  }, []);
+
+  const pause = useCallback(() => {
+    clearTick();
+    const left = Math.max(
+      0,
+      Math.round((endTimeRef.current - Date.now()) / 1000)
+    );
+    secondsLeftRef.current = left;
+    setSecondsLeft(left);
+    runningRef.current = false;
+    setRunning(false);
+  }, []);
+
+  const toggle = useCallback(() => {
+    if (runningRef.current) pause();
+    else start();
+  }, [pause, start]);
+
+  const reset = useCallback(() => {
+    clearTick();
+    runningRef.current = false;
+    setRunning(false);
+    const dur = settingsRef.current[modeRef.current] * 60;
+    lastModeDurRef.current = dur;
+    secondsLeftRef.current = dur;
+    setSecondsLeft(dur);
+  }, []);
+
+  const switchMode = useCallback((next: FocusMode) => {
+    clearTick();
+    runningRef.current = false;
+    setRunning(false);
+    modeRef.current = next;
+    setMode(next);
+    const dur = settingsRef.current[next] * 60;
+    lastModeDurRef.current = dur;
+    secondsLeftRef.current = dur;
+    setSecondsLeft(dur);
+  }, []);
+
+  // When durations change in settings and we're idle, snap to the new value.
+  useEffect(() => {
+    const dur = durationFor(modeRef.current);
+    if (!runningRef.current && dur !== lastModeDurRef.current) {
+      lastModeDurRef.current = dur;
+      secondsLeftRef.current = dur;
+      setSecondsLeft(dur);
+    }
+  }, [durationFor]);
+
+  useEffect(() => clearTick, []);
+
+  const total = durationFor(mode);
   const progress = total > 0 ? 1 - secondsLeft / total : 0;
+  const untilLongBreak =
+    settings.sessionsUntilLong - (completedToday % settings.sessionsUntilLong);
 
   return {
     mode,
     secondsLeft,
+    display: format(secondsLeft),
     running,
-    completedFocus,
-    total,
     progress,
-    start,
-    pause,
+    completedToday,
+    untilLongBreak,
+    toggle,
     reset,
     switchMode,
   };

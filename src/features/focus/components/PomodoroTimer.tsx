@@ -5,6 +5,7 @@ import {
   MODE_LABELS,
   useFocusTimer,
 } from "@/features/focus/hooks/useFocusTimer";
+import type { FocusSettings } from "@/features/focus/lib/settings";
 
 const MODES: FocusMode[] = ["focus", "short", "long"];
 
@@ -34,36 +35,38 @@ const STROKE = 12;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-function formatTime(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
-}
-
 type PomodoroTimerProps = {
+  settings: FocusSettings;
   email?: string | null;
   connected?: boolean;
   linkedFolderId?: string | null;
+  onFocusComplete?: () => void;
 };
 
 export function PomodoroTimer({
+  settings,
   email,
   connected,
   linkedFolderId,
+  onFocusComplete,
 }: PomodoroTimerProps) {
   const {
     mode,
-    secondsLeft,
+    display,
     running,
-    completedFocus,
+    completedToday,
+    untilLongBreak,
     progress,
-    start,
-    pause,
+    toggle,
     reset,
     switchMode,
-  } = useFocusTimer(email, connected, linkedFolderId);
+  } = useFocusTimer({
+    settings,
+    email,
+    connected,
+    linkedFolderId,
+    onFocusComplete,
+  });
 
   const accent = MODE_ACCENT[mode];
 
@@ -119,7 +122,7 @@ export function PomodoroTimer({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-4xl font-semibold tabular-nums text-slate-50 sm:text-5xl">
-            {formatTime(secondsLeft)}
+            {display}
           </span>
           <span
             className={`mt-1 text-xs font-medium uppercase tracking-wide ${accent.text}`}
@@ -133,7 +136,7 @@ export function PomodoroTimer({
       <div className="mt-6 flex items-center gap-3">
         <button
           type="button"
-          onClick={running ? pause : start}
+          onClick={toggle}
           className={`min-w-28 rounded-full px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition ${accent.button}`}
         >
           {running ? "Pause" : "Start"}
@@ -147,12 +150,16 @@ export function PomodoroTimer({
         </button>
       </div>
 
-      <p className="mt-5 text-xs text-slate-400">
-        {completedFocus === 0
+      <p className="mt-5 text-center text-xs text-slate-400">
+        {completedToday === 0
           ? "No focus blocks finished yet today."
-          : `${completedFocus} focus ${
-              completedFocus === 1 ? "block" : "blocks"
+          : `${completedToday} focus ${
+              completedToday === 1 ? "block" : "blocks"
             } done today.`}
+        <span className="mx-1.5 text-slate-600">·</span>
+        {untilLongBreak === 1
+          ? "Long break next."
+          : `${untilLongBreak} until a long break.`}
       </p>
     </div>
   );
