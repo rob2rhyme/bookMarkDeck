@@ -10,6 +10,10 @@ import {
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
 
 function dayKey(d: Date): string {
   const y = d.getFullYear();
@@ -18,16 +22,22 @@ function dayKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function shortDate(d: Date): string {
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
 type DayBucket = { sessions: number; focusMin: number };
 
 /**
- * Derives progress stats from the focus sessions stored in Firestore.
- * Reloads when `refreshKey` changes (bumped after a session is logged).
+ * Derives progress stats from the live focus sessions. Today's progress, the
+ * streak, and all-time totals are always current; the 7-day chart + weekly
+ * summary shift by `weekOffset` weeks into the past (0 = the current week) so
+ * the user can page back through history.
  */
 export function useFocusStats(
   email: string | null | undefined,
   connected: boolean,
-  refreshKey: number
+  weekOffset = 0
 ) {
   const [sessions, setSessions] = useState<FocusSessionRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -80,6 +90,13 @@ export function useFocusStats(
 
   const today = byDay[dayKey(new Date())] ?? { sessions: 0, focusMin: 0 };
 
+  // Anchor (the "end" day of the visible window), shifted back by whole weeks.
+  const anchor = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - weekOffset * 7);
+    return d;
+  }, [weekOffset]);
+
   const last7 = useMemo(() => {
     const out: {
       key: string;
@@ -87,20 +104,27 @@ export function useFocusStats(
       sessions: number;
       isToday: boolean;
     }[] = [];
-    const now = new Date();
+    const todayK = dayKey(new Date());
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
+      const d = new Date(anchor);
+      d.setDate(anchor.getDate() - i);
       const k = dayKey(d);
       out.push({
         key: k,
         label: WEEKDAYS[d.getDay()],
         sessions: byDay[k]?.sessions ?? 0,
-        isToday: i === 0,
+        isToday: k === todayK,
       });
     }
     return out;
-  }, [byDay]);
+  }, [byDay, anchor]);
+
+  const weekLabel = useMemo(() => {
+    const end = new Date(anchor);
+    const start = new Date(anchor);
+    start.setDate(anchor.getDate() - 6);
+    return `${shortDate(start)} – ${shortDate(end)}`;
+  }, [anchor]);
 
   const streak = useMemo(() => {
     let count = 0;
@@ -138,13 +162,12 @@ export function useFocusStats(
     return map;
   }, [sessions]);
 
-  // Last 7 calendar days (inclusive of today) — for the weekly summary.
+  // The 7-day window ending at the anchor — for the weekly summary.
   const week = useMemo(() => {
     const days = new Set<string>();
-    const now = new Date();
     for (let i = 0; i < 7; i++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
+      const d = new Date(anchor);
+      d.setDate(anchor.getDate() - i);
       days.add(dayKey(d));
     }
     let sessionsCount = 0;
@@ -157,7 +180,7 @@ export function useFocusStats(
       if (s.taskId) taskMin[s.taskId] = (taskMin[s.taskId] ?? 0) + s.focusMin;
     }
     return { sessions: sessionsCount, focusMin, taskMin };
-  }, [sessions]);
+  }, [sessions, anchor]);
 
   return {
     available: canSync,
@@ -168,6 +191,8 @@ export function useFocusStats(
     todaySessions: today.sessions,
     todayFocusMin: today.focusMin,
     last7,
+    weekLabel,
+    isCurrentWeek: weekOffset === 0,
     streak,
     totalSessions: totals.sessions,
     totalFocusMin: totals.focusMin,

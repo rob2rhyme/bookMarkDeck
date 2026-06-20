@@ -14,6 +14,11 @@ type AnalysisPanelProps = {
   totalSessions: number;
   totalFocusMin: number;
   last7: { key: string; label: string; sessions: number; isToday: boolean }[];
+  weekLabel: string;
+  isCurrentWeek: boolean;
+  onPrevWeek: () => void;
+  onNextWeek: () => void;
+  onResetWeek: () => void;
   weekFocusMin: number;
   weekSessions: number;
   weekTaskMin: Record<string, number>;
@@ -34,6 +39,11 @@ export function AnalysisPanel({
   totalSessions,
   totalFocusMin,
   last7,
+  weekLabel,
+  isCurrentWeek,
+  onPrevWeek,
+  onNextWeek,
+  onResetWeek,
   weekFocusMin,
   weekSessions,
   weekTaskMin,
@@ -110,10 +120,40 @@ export function AnalysisPanel({
             ))}
           </div>
 
-          {/* 7-day chart + mood trend */}
-          <p className="mb-2 mt-6 text-[11px] uppercase tracking-wide text-slate-500">
-            Last 7 days
-          </p>
+          {/* 7-day chart + mood trend (navigable into the past) */}
+          <div className="mb-2 mt-6 flex items-center justify-between gap-2">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">
+              {isCurrentWeek ? "Last 7 days" : weekLabel}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onPrevWeek}
+                aria-label="Previous week"
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-700 text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+              >
+                ‹
+              </button>
+              {!isCurrentWeek && (
+                <button
+                  type="button"
+                  onClick={onResetWeek}
+                  className="rounded-md border border-slate-700 px-2 text-[11px] font-medium text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+                >
+                  This week
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onNextWeek}
+                disabled={isCurrentWeek}
+                aria-label="Next week"
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-700 text-slate-400 transition hover:border-slate-500 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                ›
+              </button>
+            </div>
+          </div>
           <div className="flex h-24 items-end gap-2">
             {last7.map((d) => {
               const h = Math.round((d.sessions / maxSessions) * 100);
@@ -158,7 +198,7 @@ export function AnalysisPanel({
           {/* Weekly summary */}
           <div className="mt-6 flex items-baseline justify-between">
             <p className="text-[11px] uppercase tracking-wide text-slate-500">
-              This week
+              {isCurrentWeek ? "This week" : "That week"}
             </p>
             <span className="text-xs tabular-nums text-slate-400">
               {hours(weekFocusMin)}h · {weekSessions}{" "}

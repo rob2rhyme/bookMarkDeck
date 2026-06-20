@@ -62,7 +62,6 @@ export function FocusDashboard() {
   const undo = useUndo();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [statsKey, setStatsKey] = useState(0);
   const [journalPrompt, setJournalPrompt] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -77,7 +76,6 @@ export function FocusDashboard() {
       hydration.pushToCloud(),
       todos.pushToCloud(),
     ]);
-    setStatsKey((k) => k + 1);
     setSyncing(false);
     setSyncMsg("Saved to cloud just now.");
   };
@@ -92,12 +90,12 @@ export function FocusDashboard() {
       hydration.pullFromCloud(),
       todos.pullFromCloud(),
     ]);
-    setStatsKey((k) => k + 1);
     setSyncing(false);
     setSyncMsg("Loaded from cloud just now.");
   };
 
-  const stats = useFocusStats(email, connected, statsKey);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const stats = useFocusStats(email, connected, weekOffset);
 
   const taskNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -116,7 +114,6 @@ export function FocusDashboard() {
   }, [activity.events]);
 
   const onFocusComplete = (_focusMin: number, taskId: string | null) => {
-    setStatsKey((k) => k + 1);
     if (taskId) tasks.markUsed(taskId, new Date().toISOString());
     setJournalPrompt(true);
   };
@@ -265,6 +262,11 @@ export function FocusDashboard() {
           totalSessions={stats.totalSessions}
           totalFocusMin={stats.totalFocusMin}
           last7={stats.last7}
+          weekLabel={stats.weekLabel}
+          isCurrentWeek={stats.isCurrentWeek}
+          onPrevWeek={() => setWeekOffset((w) => w + 1)}
+          onNextWeek={() => setWeekOffset((w) => Math.max(0, w - 1))}
+          onResetWeek={() => setWeekOffset(0)}
           weekFocusMin={stats.weekFocusMin}
           weekSessions={stats.weekSessions}
           weekTaskMin={stats.weekTaskMin}
