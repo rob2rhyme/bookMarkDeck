@@ -24,13 +24,47 @@ export function FocusDashboard() {
   const email = session?.user?.email ?? null;
   const { connected, connecting, error, connect } = useFocusSync(email);
 
-  const { settings, update, reset } = useFocusSettings(email, connected);
+  const {
+    settings,
+    update,
+    reset,
+    pullFromCloud: pullSettings,
+    pushToCloud: pushSettings,
+  } = useFocusSettings(email, connected);
   const tasks = useFocusTasks(email, connected);
   const journal = useFocusJournal(email, connected);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsKey, setStatsKey] = useState(0);
   const [journalPrompt, setJournalPrompt] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  const syncToCloud = async () => {
+    setSyncing(true);
+    setSyncMsg("Saving to cloud…");
+    await Promise.allSettled([
+      tasks.pushToCloud(),
+      pushSettings(),
+      journal.pushToCloud(),
+    ]);
+    setStatsKey((k) => k + 1);
+    setSyncing(false);
+    setSyncMsg("Saved to cloud just now.");
+  };
+
+  const syncFromCloud = async () => {
+    setSyncing(true);
+    setSyncMsg("Loading from cloud…");
+    await Promise.allSettled([
+      tasks.pullFromCloud(),
+      pullSettings(),
+      journal.pullFromCloud(),
+    ]);
+    setStatsKey((k) => k + 1);
+    setSyncing(false);
+    setSyncMsg("Loaded from cloud just now.");
+  };
 
   const stats = useFocusStats(email, connected, statsKey);
   const hydration = useHydration({
@@ -81,7 +115,7 @@ export function FocusDashboard() {
         </button>
       </div>
 
-      {!connected && (
+      {!connected ? (
         <div className="mb-5 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-400">
             Your focus data stays on this device.{" "}
@@ -96,6 +130,32 @@ export function FocusDashboard() {
           >
             {connecting ? "Connecting…" : "Sign in to sync"}
           </button>
+        </div>
+      ) : (
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-400">
+            <span className="text-emerald-400">●</span> Synced to your account —
+            changes save automatically.
+            {syncMsg && <span className="ml-1.5 text-slate-300">{syncMsg}</span>}
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={syncFromCloud}
+              disabled={syncing}
+              className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50"
+            >
+              Sync from cloud
+            </button>
+            <button
+              type="button"
+              onClick={syncToCloud}
+              disabled={syncing}
+              className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50"
+            >
+              Sync to cloud
+            </button>
+          </div>
         </div>
       )}
 

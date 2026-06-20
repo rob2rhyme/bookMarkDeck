@@ -117,6 +117,17 @@ export function useFocusJournal(email?: string | null, connected = false) {
     return map;
   }, [entries]);
 
+  const pullFromCloud = useCallback(async () => {
+    if (!canSync || !email) return;
+    const remote = await fetchJournal(email);
+    setEntries(remote);
+  }, [canSync, email]);
+
+  const pushToCloud = useCallback(async () => {
+    if (!canSync || !email) return;
+    await Promise.all(entries.map((e) => saveJournal(email, e)));
+  }, [canSync, email, entries]);
+
   return {
     hydrated,
     todayNote: todayEntry.note,
@@ -124,5 +135,7 @@ export function useFocusJournal(email?: string | null, connected = false) {
     setNote,
     setMood,
     moodByDay,
+    pullFromCloud,
+    pushToCloud,
   };
 }
