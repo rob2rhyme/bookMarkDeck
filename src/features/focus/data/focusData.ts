@@ -40,6 +40,30 @@ const settingsDoc = (uid: string) =>
   doc(db, "users", uid, "focusSettings", "settings");
 const journalCol = (uid: string) =>
   collection(db, "users", uid, "focusJournal");
+const activityCol = (uid: string) => collection(db, "users", uid, "activity");
+
+export type ActivityType =
+  | "focus"
+  | "task_added"
+  | "task_done"
+  | "mood"
+  | "journal"
+  | "hydration";
+
+export type ActivityEvent = {
+  id: string;
+  type: ActivityType;
+  summary: string;
+  day: string;
+  createdAt: string | null;
+};
+
+function timestampToIso(value: unknown): string | null {
+  if (value && typeof (value as { toDate?: unknown }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return typeof value === "string" ? value : null;
+}
 
 async function uidFor(emailHint: string): Promise<string> {
   const user = await ensureFirebaseGoogleAuth(emailHint);
@@ -209,5 +233,40 @@ export async function saveJournal(
     note: entry.note,
     mood: entry.mood,
     updatedAt: serverTimestamp(),
+  });
+}
+
+/* ------------------------------------------------------------- activity --- */
+
+export async function logActivity(
+  emailHint: string,
+  type: ActivityType,
+  summary: string,
+  day: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const id = crypto.randomUUID();
+  await setDoc(doc(activityCol(uid), id), {
+    type,
+    summary,
+    day,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function fetchActivity(
+  emailHint: string
+): Promise<ActivityEvent[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(activityCol(uid));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      type: (typeof data.type === "string" ? data.type : "focus") as ActivityType,
+      summary: typeof data.summary === "string" ? data.summary : "",
+      day: typeof data.day === "string" ? data.day : "",
+      createdAt: timestampToIso(data.createdAt),
+    };
   });
 }
