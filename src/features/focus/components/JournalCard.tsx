@@ -40,37 +40,57 @@ type JournalCardProps = {
   notesByDay: DayNotes[];
   onAddNote: (text: string) => void;
   onRemoveNote: (note: JournalNote) => void;
+  onRemoveNotes: (notes: JournalNote[]) => void;
   onMoodChange: (mood: MoodKey | null) => void;
   highlight?: boolean;
 };
 
 function NoteRow({
   note,
+  selectMode,
+  selected,
+  onToggle,
   onRemove,
 }: {
   note: JournalNote;
+  selectMode: boolean;
+  selected: boolean;
+  onToggle: (id: string) => void;
   onRemove: (note: JournalNote) => void;
 }) {
   return (
     <li className="group flex items-start justify-between gap-3 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2">
-      <div className="min-w-0">
-        {note.createdAt && (
-          <span className="mb-0.5 block text-[11px] tabular-nums text-slate-500">
-            {timeOf(note.createdAt)}
-          </span>
+      <label className="flex min-w-0 items-start gap-2">
+        {selectMode && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggle(note.id)}
+            aria-label="Select note"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500"
+          />
         )}
-        <p className="whitespace-pre-wrap break-words text-sm text-slate-200">
-          {note.text}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={() => onRemove(note)}
-        aria-label="Delete note"
-        className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+        <span className="min-w-0">
+          {note.createdAt && (
+            <span className="mb-0.5 block text-[11px] tabular-nums text-slate-500">
+              {timeOf(note.createdAt)}
+            </span>
+          )}
+          <span className="block whitespace-pre-wrap break-words text-sm text-slate-200">
+            {note.text}
+          </span>
+        </span>
+      </label>
+      {!selectMode && (
+        <button
+          type="button"
+          onClick={() => onRemove(note)}
+          aria-label="Delete note"
+          className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
     </li>
   );
 }
@@ -80,12 +100,15 @@ export function JournalCard({
   notesByDay,
   onAddNote,
   onRemoveNote,
+  onRemoveNotes,
   onMoodChange,
   highlight,
 }: JournalCardProps) {
   const [draft, setDraft] = useState("");
   const [justAdded, setJustAdded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const trimmed = draft.trim();
   const tooLong = draft.length > MAX_NOTE;
@@ -102,6 +125,39 @@ export function JournalCard({
   const todayNotes = notesByDay.find((d) => d.day === today)?.notes ?? [];
   const earlier = notesByDay.filter((d) => d.day !== today);
   const earlierCount = earlier.reduce((sum, d) => sum + d.notes.length, 0);
+  const allNotes = notesByDay.flatMap((d) => d.notes);
+  const hasNotes = allNotes.length > 0;
+
+  const toggleNote = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const enterSelect = () => {
+    setSelectMode(true);
+    setShowHistory(true); // reveal earlier notes so they can be picked
+  };
+  const exitSelect = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const deleteSelected = () => {
+    const notes = allNotes.filter((n) => selectedIds.has(n.id));
+    if (notes.length) onRemoveNotes(notes);
+    exitSelect();
+  };
+
+  const rowProps = (n: JournalNote) => ({
+    note: n,
+    selectMode,
+    selected: selectedIds.has(n.id),
+    onToggle: toggleNote,
+    onRemove: onRemoveNote,
+  });
 
   return (
     <section
@@ -189,11 +245,56 @@ export function JournalCard({
         </button>
       </div>
 
+      {/* Select / bulk-delete controls */}
+      {hasNotes && (
+        <div className="mt-4 flex items-center justify-between gap-3 text-xs">
+          {selectMode ? (
+            <>
+              <span className="tabular-nums text-slate-400">
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-3 font-medium">
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set(allNotes.map((n) => n.id)))}
+                  className="text-slate-400 transition hover:text-slate-200"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={exitSelect}
+                  className="text-slate-400 transition hover:text-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedIds.size === 0}
+                  onClick={deleteSelected}
+                  className="rounded-md bg-red-600/90 px-2.5 py-1 text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Delete ({selectedIds.size})
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={enterSelect}
+              className="ml-auto rounded-md border border-slate-700 px-2 py-0.5 font-medium text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+            >
+              Select
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Today's notes */}
       {todayNotes.length > 0 && (
-        <ul className="mt-4 flex flex-col gap-2">
+        <ul className="mt-3 flex flex-col gap-2">
           {todayNotes.map((n) => (
-            <NoteRow key={n.id} note={n} onRemove={onRemoveNote} />
+            <NoteRow key={n.id} {...rowProps(n)} />
           ))}
         </ul>
       )}
@@ -208,7 +309,7 @@ export function JournalCard({
           >
             {showHistory ? "▾" : "▸"} Earlier notes ({earlierCount})
           </button>
-          {showHistory && (
+          {(showHistory || selectMode) && (
             <div className="mt-3 flex flex-col gap-4">
               {earlier.slice(0, 14).map((d) => (
                 <div key={d.day}>
@@ -217,7 +318,7 @@ export function JournalCard({
                   </p>
                   <ul className="flex flex-col gap-2">
                     {d.notes.map((n) => (
-                      <NoteRow key={n.id} note={n} onRemove={onRemoveNote} />
+                      <NoteRow key={n.id} {...rowProps(n)} />
                     ))}
                   </ul>
                 </div>

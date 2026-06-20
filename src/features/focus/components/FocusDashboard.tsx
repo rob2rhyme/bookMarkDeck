@@ -124,6 +124,14 @@ export function FocusDashboard() {
     undo.offer("Journal note deleted", () => journal.restoreNote(note));
   };
 
+  const removeNotesWithUndo = (notes: JournalNote[]) => {
+    notes.forEach((n) => journal.removeNote(n.id));
+    undo.offer(
+      notes.length === 1 ? "Journal note deleted" : `${notes.length} notes deleted`,
+      () => notes.forEach((n) => journal.restoreNote(n))
+    );
+  };
+
   return (
     <section className="flex flex-1 flex-col">
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -236,6 +244,7 @@ export function FocusDashboard() {
           notesByDay={journal.notesByDay}
           onAddNote={journal.addNote}
           onRemoveNote={removeNoteWithUndo}
+          onRemoveNotes={removeNotesWithUndo}
           onMoodChange={(m) => {
             journal.setMood(m);
             setJournalPrompt(false);

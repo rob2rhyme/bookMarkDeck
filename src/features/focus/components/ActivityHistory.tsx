@@ -372,36 +372,21 @@ export function ActivityHistory({
           Activity history
         </h3>
         {available && hasActivity && (
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-full border border-slate-800 bg-slate-950/60 p-0.5">
-              {RANGES.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRangeDays(r)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                    rangeDays === r
-                      ? "bg-slate-700 text-slate-100"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  {r}d
-                </button>
-              ))}
-            </div>
-            {totalInRange > 0 && (
+          <div className="flex rounded-full border border-slate-800 bg-slate-950/60 p-0.5">
+            {RANGES.map((r) => (
               <button
+                key={r}
                 type="button"
-                onClick={() => (selectMode ? exitSelect() : enterSelect())}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  selectMode
-                    ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
-                    : "border-slate-800 bg-slate-950/60 text-slate-400 hover:text-slate-200"
+                onClick={() => setRangeDays(r)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  rangeDays === r
+                    ? "bg-slate-700 text-slate-100"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                {selectMode ? "Cancel" : "Select"}
+                {r}d
               </button>
-            )}
+            ))}
           </div>
         )}
       </div>
@@ -480,6 +465,13 @@ export function ActivityHistory({
                   >
                     Collapse all
                   </button>
+                  <button
+                    type="button"
+                    onClick={enterSelect}
+                    className="rounded-md border border-slate-700 px-2 py-0.5 font-medium text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+                  >
+                    Select
+                  </button>
                 </div>
               )}
 
@@ -538,27 +530,30 @@ export function ActivityHistory({
                                 className={`absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 bg-slate-950 ${TYPE_META[item.type].dot}`}
                               />
                               <div className="flex items-baseline justify-between gap-3">
-                                <span className="text-sm text-slate-200">
-                                  <span className="mr-1.5" aria-hidden="true">
-                                    {TYPE_META[item.type].glyph}
+                                <label className="flex min-w-0 items-baseline gap-2 text-sm text-slate-200">
+                                  {selectMode && (
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedIds.has(item.id)}
+                                      onChange={() => toggleSelect(item.id)}
+                                      aria-label="Select activity"
+                                      className="h-4 w-4 shrink-0 self-center accent-blue-500"
+                                    />
+                                  )}
+                                  <span className="min-w-0">
+                                    <span className="mr-1.5" aria-hidden="true">
+                                      {TYPE_META[item.type].glyph}
+                                    </span>
+                                    {item.text}
                                   </span>
-                                  {item.text}
-                                </span>
+                                </label>
                                 <span className="flex shrink-0 items-center gap-2">
                                   {item.createdAt && (
                                     <span className="text-xs tabular-nums text-slate-500">
                                       {timeOf(item.createdAt)}
                                     </span>
                                   )}
-                                  {selectMode ? (
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedIds.has(item.id)}
-                                      onChange={() => toggleSelect(item.id)}
-                                      aria-label="Select activity"
-                                      className="h-4 w-4 accent-blue-500"
-                                    />
-                                  ) : (
+                                  {!selectMode && (
                                     <button
                                       type="button"
                                       onClick={() => setPendingDelete(item)}
