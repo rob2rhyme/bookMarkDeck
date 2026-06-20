@@ -21,6 +21,13 @@ export type FocusSessionRecord = {
 
 export type JournalEntry = {
   day: string; // YYYY-MM-DD (also the doc id)
-  note: string;
+  note: string; // legacy single note (pre multi-note); kept for migration
   mood: MoodKey | null;
+};
+
+export type JournalNote = {
+  id: string;
+  day: string; // YYYY-MM-DD
+  text: string;
+  createdAt: string | null; // ISO timestamp (null for migrated legacy notes)
 };

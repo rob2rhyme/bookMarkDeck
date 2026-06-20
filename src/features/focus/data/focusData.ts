@@ -31,7 +31,9 @@ import type {
   FocusSessionRecord,
   FocusTask,
   JournalEntry,
+  JournalNote,
 } from "@/features/focus/lib/types";
+import { type MoodKey } from "@/features/focus/lib/mood";
 
 const tasksCol = (uid: string) => collection(db, "users", uid, "focusTasks");
 const sessionsCol = (uid: string) =>
@@ -40,6 +42,7 @@ const settingsDoc = (uid: string) =>
   doc(db, "users", uid, "focusSettings", "settings");
 const journalCol = (uid: string) =>
   collection(db, "users", uid, "focusJournal");
+const notesCol = (uid: string) => collection(db, "users", uid, "focusNotes");
 const activityCol = (uid: string) => collection(db, "users", uid, "activity");
 
 export type ActivityType =
@@ -249,16 +252,65 @@ export async function fetchJournal(
   });
 }
 
-export async function saveJournal(
+/** Persist the mood for a day. Merge so it never clobbers the legacy note. */
+export async function saveMood(
   emailHint: string,
-  entry: JournalEntry
+  day: string,
+  mood: MoodKey | null
 ): Promise<void> {
   const uid = await uidFor(emailHint);
-  await setDoc(doc(journalCol(uid), entry.day), {
-    note: entry.note,
-    mood: entry.mood,
-    updatedAt: serverTimestamp(),
+  await setDoc(
+    doc(journalCol(uid), day),
+    { mood, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+/** Clear a migrated legacy single-note on a day doc (keeps the mood). */
+export async function clearJournalNote(
+  emailHint: string,
+  day: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(journalCol(uid), day), { note: "" }, { merge: true });
+}
+
+/* ---------------------------------------------------------------- notes --- */
+
+export async function fetchNotes(emailHint: string): Promise<JournalNote[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(notesCol(uid));
+  return snap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        day: typeof data.day === "string" ? data.day : "",
+        text: typeof data.text === "string" ? data.text : "",
+        createdAt: timestampToIso(data.createdAt),
+      };
+    })
+    .filter((n) => n.text.trim().length > 0);
+}
+
+export async function addNote(
+  emailHint: string,
+  note: JournalNote
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(notesCol(uid), note.id), {
+    day: note.day,
+    text: note.text,
+    createdAt: note.createdAt ?? serverTimestamp(),
   });
+}
+
+export async function deleteNote(
+  emailHint: string,
+  id: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(notesCol(uid), id));
 }
 
 /* ------------------------------------------------------------- activity --- */

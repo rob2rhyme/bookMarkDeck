@@ -9,7 +9,9 @@ The focus feature stores data in per-user subcollections:
 - `users/{uid}/focusTasks/{taskId}`
 - `users/{uid}/focusSessions/{sessionId}`
 - `users/{uid}/focusSettings/{docId}` (single `settings` doc)
-- `users/{uid}/focusJournal/{day}` (one doc per `YYYY-MM-DD`)
+- `users/{uid}/focusJournal/{day}` (one doc per `YYYY-MM-DD` — holds the day's mood)
+- `users/{uid}/focusNotes/{noteId}` (multiple timestamped notes per day)
+- `users/{uid}/activity/{eventId}` (unified activity log)
 
 These are all covered by the one owner-scoped recursive rule in `firestore.rules`:
 

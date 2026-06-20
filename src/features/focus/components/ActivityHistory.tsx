@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Trash2, X } from "@/components/icons";
+import { MoodIcon } from "@/features/focus/components/MoodIcon";
 import type { ActivityEvent, ActivityType } from "@/features/focus/data/focusData";
-import { MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
+import { type MoodKey } from "@/features/focus/lib/mood";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
 
 // A handle to the underlying record so a deleted item can be removed/restored.
@@ -399,9 +400,10 @@ export function ActivityHistory({
                           </span>
                           {day.label}
                           {day.mood && (
-                            <span title={MOOD_BY_KEY[day.mood].label}>
-                              {MOOD_BY_KEY[day.mood].emoji}
-                            </span>
+                            <MoodIcon
+                              mood={day.mood}
+                              className="h-4 w-4"
+                            />
                           )}
                         </span>
                         <span className="shrink-0 text-xs tabular-nums text-slate-500">

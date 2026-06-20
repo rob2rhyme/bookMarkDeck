@@ -214,10 +214,10 @@ export function FocusDashboard() {
           moodByDay={journal.moodByDay}
         />
         <JournalCard
-          note={journal.todayNote}
           mood={journal.todayMood}
-          history={journal.history}
-          onSaveNote={journal.saveNote}
+          notesByDay={journal.notesByDay}
+          onAddNote={journal.addNote}
+          onRemoveNote={journal.removeNote}
           onMoodChange={(m) => {
             journal.setMood(m);
             setJournalPrompt(false);

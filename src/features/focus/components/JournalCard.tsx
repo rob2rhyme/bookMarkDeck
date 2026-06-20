@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { MOOD_BY_KEY, MOODS, type MoodKey } from "@/features/focus/lib/mood";
-import type { JournalEntry } from "@/features/focus/lib/types";
+import { Trash2 } from "@/components/icons";
+import { MoodIcon } from "@/features/focus/components/MoodIcon";
+import { todayKey } from "@/features/focus/data/focusData";
+import { MOODS, type MoodKey } from "@/features/focus/lib/mood";
+import type { JournalNote } from "@/features/focus/lib/types";
 
 const MAX_NOTE = 2000;
 
@@ -14,55 +17,111 @@ const MONTHS = [
 ];
 
 function dayLabel(key: string): string {
+  if (key === todayKey()) return "Today";
   const [y, m, d] = key.split("-").map(Number);
   const date = new Date(y, m - 1, d);
   return `${WEEKDAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${d}`;
 }
 
+function timeOf(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  let h = d.getHours();
+  const min = d.getMinutes().toString().padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${min} ${ampm}`;
+}
+
+type DayNotes = { day: string; notes: JournalNote[] };
+
 type JournalCardProps = {
-  note: string;
   mood: MoodKey | null;
-  history: JournalEntry[];
-  onSaveNote: (note: string) => void;
+  notesByDay: DayNotes[];
+  onAddNote: (text: string) => void;
+  onRemoveNote: (id: string) => void;
   onMoodChange: (mood: MoodKey | null) => void;
   highlight?: boolean;
 };
 
-export function JournalCard({
+function NoteRow({
   note,
+  onRemove,
+}: {
+  note: JournalNote;
+  onRemove: (id: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <li className="group flex items-start justify-between gap-3 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2">
+      <div className="min-w-0">
+        {note.createdAt && (
+          <span className="mb-0.5 block text-[11px] tabular-nums text-slate-500">
+            {timeOf(note.createdAt)}
+          </span>
+        )}
+        <p className="whitespace-pre-wrap break-words text-sm text-slate-200">
+          {note.text}
+        </p>
+      </div>
+      {confirming ? (
+        <span className="flex shrink-0 items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => onRemove(note.id)}
+            className="font-medium text-red-300 transition hover:text-red-200"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="text-slate-400 transition hover:text-slate-200"
+          >
+            Cancel
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          aria-label="Delete note"
+          className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </li>
+  );
+}
+
+export function JournalCard({
   mood,
-  history,
-  onSaveNote,
+  notesByDay,
+  onAddNote,
+  onRemoveNote,
   onMoodChange,
   highlight,
 }: JournalCardProps) {
-  const [draft, setDraft] = useState(note);
+  const [draft, setDraft] = useState("");
+  const [justAdded, setJustAdded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
-  const lastSyncedRef = useRef(note);
-
-  // Reset the editor only on an external note change (day rollover, cloud pull)
-  // — not from our own save, which intentionally clears the field.
-  useEffect(() => {
-    if (note !== lastSyncedRef.current) {
-      lastSyncedRef.current = note;
-      setDraft(note);
-      setJustSaved(false);
-    }
-  }, [note]);
 
   const trimmed = draft.trim();
   const tooLong = draft.length > MAX_NOTE;
-  const dirty = draft !== note;
-  const canSave = dirty && trimmed.length > 0 && !tooLong;
+  const canAdd = trimmed.length > 0 && !tooLong;
 
-  const save = () => {
-    if (!canSave) return;
-    onSaveNote(draft);
-    lastSyncedRef.current = draft;
+  const add = () => {
+    if (!canAdd) return;
+    onAddNote(draft);
     setDraft("");
-    setJustSaved(true);
+    setJustAdded(true);
   };
+
+  const today = todayKey();
+  const todayNotes = notesByDay.find((d) => d.day === today)?.notes ?? [];
+  const earlier = notesByDay.filter((d) => d.day !== today);
+  const earlierCount = earlier.reduce((sum, d) => sum + d.notes.length, 0);
 
   return (
     <section
@@ -93,28 +152,28 @@ export function JournalCard({
               onClick={() => onMoodChange(active ? null : m.key)}
               aria-pressed={active}
               title={m.label}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm transition ${
                 active
                   ? "border-blue-400 bg-blue-500/15 text-slate-100"
                   : "border-slate-700 text-slate-300 hover:border-slate-500"
               }`}
             >
-              <span className="text-base leading-none">{m.emoji}</span>
+              <MoodIcon mood={m.key} className="h-5 w-5" />
               <span className="hidden sm:inline">{m.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Note */}
+      {/* Add a note */}
       <textarea
         value={draft}
         onChange={(e) => {
           setDraft(e.target.value);
-          setJustSaved(false);
+          setJustAdded(false);
         }}
         placeholder="What did you work on? Anything on your mind?"
-        rows={4}
+        rows={3}
         maxLength={MAX_NOTE + 200}
         className={`mt-4 w-full resize-y rounded-lg border bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none ${
           tooLong
@@ -122,72 +181,68 @@ export function JournalCard({
             : "border-slate-700 focus:border-blue-400"
         }`}
       />
-
       <div className="mt-2 flex items-center justify-between gap-3">
         <span
           className={`text-xs ${
             tooLong
               ? "text-red-400"
-              : justSaved
+              : justAdded
                 ? "text-emerald-300"
                 : "text-slate-500"
           }`}
         >
           {tooLong
             ? `${draft.length} / ${MAX_NOTE} — too long`
-            : justSaved
-              ? "Saved ✓"
-              : dirty
-                ? trimmed.length === 0
-                  ? "Add a note to save"
-                  : "Unsaved changes"
-                : note.trim().length > 0
-                  ? "Saved"
-                  : ""}
+            : justAdded
+              ? "Added ✓"
+              : trimmed.length > 0
+                ? "Press Add to save this note"
+                : "Add as many notes as you like today"}
         </span>
         <button
           type="button"
-          onClick={save}
-          disabled={!canSave}
+          onClick={add}
+          disabled={!canAdd}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Save
+          Add note
         </button>
       </div>
 
-      {/* History */}
-      {history.length > 0 && (
+      {/* Today's notes */}
+      {todayNotes.length > 0 && (
+        <ul className="mt-4 flex flex-col gap-2">
+          {todayNotes.map((n) => (
+            <NoteRow key={n.id} note={n} onRemove={onRemoveNote} />
+          ))}
+        </ul>
+      )}
+
+      {/* Earlier notes */}
+      {earlierCount > 0 && (
         <div className="mt-5 border-t border-slate-800/60 pt-4">
           <button
             type="button"
             onClick={() => setShowHistory((v) => !v)}
             className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
           >
-            {showHistory ? "▾" : "▸"} Saved notes ({history.length})
+            {showHistory ? "▾" : "▸"} Earlier notes ({earlierCount})
           </button>
           {showHistory && (
-            <ul className="mt-3 flex flex-col gap-3">
-              {history.slice(0, 14).map((e) => (
-                <li
-                  key={e.day}
-                  className="rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
-                >
-                  <div className="mb-1 flex items-baseline justify-between">
-                    <span className="text-xs font-medium text-slate-400">
-                      {dayLabel(e.day)}
-                    </span>
-                    {e.mood && (
-                      <span title={MOOD_BY_KEY[e.mood].label}>
-                        {MOOD_BY_KEY[e.mood].emoji}
-                      </span>
-                    )}
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm text-slate-300">
-                    {e.note}
+            <div className="mt-3 flex flex-col gap-4">
+              {earlier.slice(0, 14).map((d) => (
+                <div key={d.day}>
+                  <p className="mb-2 text-xs font-medium text-slate-400">
+                    {dayLabel(d.day)}
                   </p>
-                </li>
+                  <ul className="flex flex-col gap-2">
+                    {d.notes.map((n) => (
+                      <NoteRow key={n.id} note={n} onRemove={onRemoveNote} />
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       )}
