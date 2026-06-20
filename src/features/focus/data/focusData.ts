@@ -608,6 +608,7 @@ function mapTodo(d: { id: string; data: () => Record<string, unknown> }): Todo {
   return {
     id: d.id,
     text: typeof data.text === "string" ? data.text : "",
+    note: typeof data.note === "string" ? data.note : "",
     done: Boolean(data.done),
     dueAt: typeof data.dueAt === "string" ? data.dueAt : null,
     createdAt: timestampToIso(data.createdAt),
@@ -627,6 +628,7 @@ export async function saveTodo(emailHint: string, todo: Todo): Promise<void> {
     doc(todosCol(uid), todo.id),
     {
       text: todo.text,
+      note: todo.note ?? "",
       done: todo.done,
       dueAt: todo.dueAt ?? null,
       day: todo.day,
