@@ -11,7 +11,7 @@ import type { Todo } from "@/features/focus/lib/types";
 type TodoListProps = {
   active: Todo[];
   done: Todo[];
-  onAdd: (text: string, dueAt: string | null) => void;
+  onAdd: (text: string, dueAt: string | null, note: string) => void;
   onToggle: (todo: Todo) => void;
   onEdit: (
     id: string,
@@ -79,6 +79,7 @@ export function TodoList({
   onRemove,
 }: TodoListProps) {
   const [draft, setDraft] = useState("");
+  const [draftNote, setDraftNote] = useState("");
   const [draftDue, setDraftDue] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -110,8 +111,9 @@ export function TodoList({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
-    onAdd(draft, draftDue);
+    onAdd(draft, draftDue, draftNote);
     setDraft("");
+    setDraftNote("");
     setDraftDue(null);
   };
 
@@ -161,6 +163,14 @@ export function TodoList({
             Add
           </button>
         </div>
+        <textarea
+          value={draftNote}
+          onChange={(e) => setDraftNote(e.target.value)}
+          placeholder="Add a note or link (optional)"
+          rows={2}
+          aria-label="To-do note"
+          className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+        />
         <DueField value={draftDue} onChange={setDraftDue} />
       </form>
 
@@ -249,7 +259,7 @@ export function TodoList({
                   type="button"
                   onClick={() => startEdit(todo)}
                   aria-label="Edit to-do"
-                  className="shrink-0 text-slate-600 opacity-0 transition hover:text-blue-300 focus:opacity-100 group-hover:opacity-100"
+                  className="shrink-0 text-slate-600 opacity-100 transition sm:opacity-0 hover:text-blue-300 focus:opacity-100 sm:group-hover:opacity-100"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -257,7 +267,7 @@ export function TodoList({
                   type="button"
                   onClick={() => onRemove(todo)}
                   aria-label="Delete to-do"
-                  className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+                  className="shrink-0 text-slate-600 opacity-100 transition sm:opacity-0 hover:text-red-300 focus:opacity-100 sm:group-hover:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -299,7 +309,7 @@ export function TodoList({
                   <button
                     type="button"
                     onClick={() => onToggle(todo)}
-                    className="shrink-0 text-[11px] font-medium text-slate-500 opacity-0 transition hover:text-slate-200 focus:opacity-100 group-hover:opacity-100"
+                    className="shrink-0 text-[11px] font-medium text-slate-500 opacity-100 transition sm:opacity-0 hover:text-slate-200 focus:opacity-100 sm:group-hover:opacity-100"
                   >
                     Undo
                   </button>
@@ -307,7 +317,7 @@ export function TodoList({
                     type="button"
                     onClick={() => onRemove(todo)}
                     aria-label="Delete to-do"
-                    className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+                    className="shrink-0 text-slate-600 opacity-100 transition sm:opacity-0 hover:text-red-300 focus:opacity-100 sm:group-hover:opacity-100"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
