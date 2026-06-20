@@ -17,6 +17,7 @@ import { JournalCard } from "@/features/focus/components/JournalCard";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
 import { TaskTracker } from "@/features/focus/components/TaskTracker";
+import { TodoHistory } from "@/features/focus/components/TodoHistory";
 import { TodoList } from "@/features/focus/components/TodoList";
 import { UndoToast } from "@/features/focus/components/UndoToast";
 import { useFocusActivity } from "@/features/focus/hooks/useFocusActivity";
@@ -143,6 +144,22 @@ export function FocusDashboard() {
     undo.offer(`To-do “${todo.text}” deleted`, () => todos.restoreTodo(todo));
   };
 
+  // Toggle a to-do; when marking one done, offer an undo to un-complete it.
+  const toggleTodoWithUndo = (todo: Todo) => {
+    todos.toggleTodo(todo.id);
+    if (!todo.done) {
+      undo.offer(`“${todo.text}” done`, () => todos.toggleTodo(todo.id));
+    }
+  };
+
+  const todoEvents = useMemo(
+    () =>
+      activity.events.filter(
+        (e) => e.type === "todo_added" || e.type === "todo_done"
+      ),
+    [activity.events]
+  );
+
   const removeNotesWithUndo = (notes: JournalNote[]) => {
     notes.forEach((n) => journal.removeNote(n.id));
     undo.offer(
@@ -242,14 +259,16 @@ export function FocusDashboard() {
         />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <TodoList
           active={todos.active}
           done={todos.done}
           onAdd={todos.addTodo}
-          onToggle={todos.toggleTodo}
+          onToggle={toggleTodoWithUndo}
+          onEdit={todos.editTodo}
           onRemove={removeTodoWithUndo}
         />
+        <TodoHistory available={connected} events={todoEvents} />
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Check, Trash2 } from "@/components/icons";
+import { Check, Pencil, Trash2, X } from "@/components/icons";
+import { DueField } from "@/features/focus/components/DueField";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { Todo } from "@/features/focus/lib/types";
 
@@ -10,7 +11,8 @@ type TodoListProps = {
   active: Todo[];
   done: Todo[];
   onAdd: (text: string, dueAt: string | null) => void;
-  onToggle: (id: string) => void;
+  onToggle: (todo: Todo) => void;
+  onEdit: (id: string, patch: { text?: string; dueAt?: string | null }) => void;
   onRemove: (todo: Todo) => void;
 };
 
@@ -30,10 +32,7 @@ function remaining(dueAt: string, now: number): { text: string; tone: Tone } {
   else if (m > 0) str = `${m}m ${s}s`;
   else str = `${s}s`;
   if (overdue) return { text: `Overdue ${str}`, tone: "overdue" };
-  return {
-    text: `${str} left`,
-    tone: a < 3600000 ? "soon" : "normal",
-  };
+  return { text: `${str} left`, tone: a < 3600000 ? "soon" : "normal" };
 }
 
 const TONE_CLASS: Record<Tone, string> = {
@@ -43,8 +42,7 @@ const TONE_CLASS: Record<Tone, string> = {
 };
 
 function dueTitle(dueAt: string): string {
-  const d = new Date(dueAt);
-  return d.toLocaleString(undefined, {
+  return new Date(dueAt).toLocaleString(undefined, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -73,14 +71,19 @@ export function TodoList({
   done,
   onAdd,
   onToggle,
+  onEdit,
   onRemove,
 }: TodoListProps) {
   const [draft, setDraft] = useState("");
-  const [due, setDue] = useState("");
+  const [draftDue, setDraftDue] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
-  // Tick once a second while any item has a due date (for the live countdown).
+  // Inline edit state.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editDue, setEditDue] = useState<string | null>(null);
+
   const hasDue = active.some((t) => t.dueAt);
   useEffect(() => {
     if (!hasDue) return;
@@ -92,7 +95,7 @@ export function TodoList({
     () =>
       [...active].sort((a, b) => {
         if (a.dueAt && b.dueAt) return a.dueAt < b.dueAt ? -1 : 1;
-        if (a.dueAt) return -1; // dated items first
+        if (a.dueAt) return -1;
         if (b.dueAt) return 1;
         return 0;
       }),
@@ -102,9 +105,21 @@ export function TodoList({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
-    onAdd(draft, due ? new Date(due).toISOString() : null);
+    onAdd(draft, draftDue);
     setDraft("");
-    setDue("");
+    setDraftDue(null);
+  };
+
+  const startEdit = (todo: Todo) => {
+    setEditingId(todo.id);
+    setEditText(todo.text);
+    setEditDue(todo.dueAt);
+  };
+  const cancelEdit = () => setEditingId(null);
+  const saveEdit = () => {
+    if (!editText.trim()) return;
+    onEdit(editingId!, { text: editText, dueAt: editDue });
+    setEditingId(null);
   };
 
   const today = todayKey();
@@ -118,38 +133,68 @@ export function TodoList({
         <span className="text-xs text-slate-500">Unfinished items roll over</span>
       </div>
 
-      <form onSubmit={submit} className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add a to-do"
-          aria-label="Add a to-do"
-          className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
-        />
-        <input
-          type="datetime-local"
-          value={due}
-          onChange={(e) => setDue(e.target.value)}
-          aria-label="Due date (optional)"
-          className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-2 text-sm text-slate-300 focus:border-blue-400 focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
-        >
-          Add
-        </button>
+      {/* Add */}
+      <form onSubmit={submit} className="mt-4 flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Add a to-do"
+            aria-label="Add a to-do"
+            className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+          >
+            Add
+          </button>
+        </div>
+        <DueField value={draftDue} onChange={setDraftDue} />
       </form>
 
       <ul className="mt-4 flex flex-col gap-2">
         {sortedActive.length === 0 ? (
           <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
-            Nothing to do. Add a to-do above — give it a due date for a live
-            countdown.
+            Nothing to do. Add a to-do — give it a due date for a live countdown.
           </li>
         ) : (
           sortedActive.map((todo) => {
+            if (editingId === todo.id) {
+              return (
+                <li
+                  key={todo.id}
+                  className="flex flex-col gap-2 rounded-lg border border-blue-500/50 bg-slate-950/40 px-3 py-2"
+                >
+                  <input
+                    type="text"
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    aria-label="Edit to-do"
+                    autoFocus
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none"
+                  />
+                  <DueField value={editDue} onChange={setEditDue} />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition hover:border-slate-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveEdit}
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-500"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </li>
+              );
+            }
             const rolledOver = todo.day && todo.day < today;
             return (
               <li
@@ -158,7 +203,7 @@ export function TodoList({
               >
                 <button
                   type="button"
-                  onClick={() => onToggle(todo.id)}
+                  onClick={() => onToggle(todo)}
                   aria-label="Mark done"
                   className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 transition hover:border-emerald-400"
                 />
@@ -175,6 +220,14 @@ export function TodoList({
                     )}
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => startEdit(todo)}
+                  aria-label="Edit to-do"
+                  className="shrink-0 text-slate-600 opacity-0 transition hover:text-blue-300 focus:opacity-100 group-hover:opacity-100"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => onRemove(todo)}
@@ -207,9 +260,10 @@ export function TodoList({
                 >
                   <button
                     type="button"
-                    onClick={() => onToggle(todo.id)}
+                    onClick={() => onToggle(todo)}
                     aria-label="Mark not done"
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-emerald-500 bg-emerald-500/20 text-emerald-300"
+                    title="Undo — mark not done"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-emerald-500 bg-emerald-500/20 text-emerald-300 transition hover:bg-emerald-500/30"
                   >
                     <Check className="h-3 w-3" />
                   </button>
@@ -218,11 +272,18 @@ export function TodoList({
                   </span>
                   <button
                     type="button"
+                    onClick={() => onToggle(todo)}
+                    className="shrink-0 text-[11px] font-medium text-slate-500 opacity-0 transition hover:text-slate-200 focus:opacity-100 group-hover:opacity-100"
+                  >
+                    Undo
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => onRemove(todo)}
                     aria-label="Delete to-do"
                     className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 </li>
               ))}

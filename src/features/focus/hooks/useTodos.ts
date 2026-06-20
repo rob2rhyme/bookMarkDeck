@@ -121,6 +121,29 @@ export function useTodos(
     [canSync, email, onLog]
   );
 
+  const editTodo = useCallback(
+    (id: string, patch: { text?: string; dueAt?: string | null }) => {
+      setTodos((prev) => {
+        const next = prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                ...patch,
+                text:
+                  patch.text !== undefined ? patch.text.trim() : t.text,
+              }
+            : t
+        );
+        const updated = next.find((t) => t.id === id);
+        if (canSync && email && updated && updated.text.length > 0) {
+          saveTodo(email, updated).catch(() => {});
+        }
+        return next;
+      });
+    },
+    [canSync, email]
+  );
+
   const removeTodo = useCallback(
     (id: string) => {
       setTodos((prev) => prev.filter((t) => t.id !== id));
@@ -148,6 +171,7 @@ export function useTodos(
     done,
     addTodo,
     toggleTodo,
+    editTodo,
     removeTodo,
     restoreTodo,
     pullFromCloud,
