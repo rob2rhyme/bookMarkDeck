@@ -338,7 +338,7 @@ export function FishCursor({
           const open = Math.max(0.08, Math.abs(Math.cos(phase * Math.PI)));
           eye2.setAttribute(
             "transform",
-            `translate(-7 2) scale(1 ${open.toFixed(3)})`
+            `translate(-3.9 -2.6) scale(1 ${open.toFixed(3)})`
           );
         } else {
           blinkWait -= spd; // higher speed → next blink arrives sooner
@@ -349,7 +349,7 @@ export function FishCursor({
             blinkProg = blinkDur;
             blinkWait = 50 + Math.random() * 130; // frames until the next blink
           } else {
-            eye2.setAttribute("transform", "translate(-7 2)");
+            eye2.setAttribute("transform", "translate(-3.9 -2.6)");
           }
         }
       }
@@ -432,13 +432,13 @@ export function FishCursor({
               <circle cx="-10" cy="9" r="1.4" fill="url(#FishAntennaGrad)" />
             </g>
             <ellipse cx="-2" cy="0" rx="10" ry="7.5" fill="url(#FishBodyGrad)" />
-            <circle cx="-7" cy="-2" r="1.7" fill="#0b1722" />
-            <circle cx="-7.6" cy="-2.7" r="0.6" fill="#ffffff" />
-            {/* second eye — mirrors the first below the head axis (each sits
-                under an antenna); JS blinks it on a varying cadence. */}
-            <g id="FishEye2" transform="translate(-7 2)">
-              <circle cx="0" cy="0" r="1.6" fill="#0b1722" />
-              <circle cx="-0.6" cy="-0.7" r="0.55" fill="#ffffff" />
+            {/* both eyes forward + up, side by side as a pair */}
+            <circle cx="-7" cy="-2.6" r="1.5" fill="#0b1722" />
+            <circle cx="-7.6" cy="-3.2" r="0.55" fill="#ffffff" />
+            {/* second eye — beside the first; JS blinks it on a varying cadence */}
+            <g id="FishEye2" transform="translate(-3.9 -2.6)">
+              <circle cx="0" cy="0" r="1.5" fill="#0b1722" />
+              <circle cx="-0.6" cy="-0.6" r="0.55" fill="#ffffff" />
             </g>
           </g>
 
