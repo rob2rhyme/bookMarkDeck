@@ -51,7 +51,7 @@ function HueControl({
     }`;
   const isJelly = Boolean(jelly);
   const mode = isJelly ? "jelly" : value === null ? "auto" : "custom";
-  const showSlider = mode === "custom" || mode === "jelly";
+  const swatchHue = value ?? 270;
   return (
     <>
       <div className="flex items-center gap-2">
@@ -87,31 +87,35 @@ function HueControl({
             Jelly
           </button>
         )}
-        {showSlider && (
-          <span
-            className="ml-1 h-7 w-7 shrink-0 rounded-full border border-slate-600"
-            style={{
-              background: `hsl(${value ?? 270}, ${isJelly ? 75 : 80}%, ${
-                isJelly ? 65 : 55
-              }%)`,
-              opacity: isJelly ? 0.6 : 1,
-            }}
-            aria-hidden="true"
-          />
-        )}
-      </div>
-      {showSlider && (
-        <input
-          type="range"
-          min={0}
-          max={360}
-          step={1}
-          value={value ?? 270}
-          onChange={(e) => onChange(Number(e.target.value))}
-          aria-label="Hue"
-          className="mt-3 w-full accent-blue-500"
-          style={{ background: HUE_BAR, borderRadius: 9999 }}
+        {/* Live swatch of the currently picked colour. */}
+        <span
+          className="ml-auto h-7 w-7 shrink-0 rounded-full border border-slate-600"
+          style={{
+            background: `hsl(${swatchHue}, ${isJelly ? 75 : 80}%, ${
+              isJelly ? 65 : 55
+            }%)`,
+            opacity: mode === "auto" ? 0.45 : isJelly ? 0.6 : 1,
+          }}
+          aria-hidden="true"
         />
+      </div>
+      {/* Live colour bar — always visible. Dragging it picks a colour (and
+          switches Auto → Custom). */}
+      <input
+        type="range"
+        min={0}
+        max={360}
+        step={1}
+        value={swatchHue}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label="Hue"
+        className="mt-3 w-full accent-white"
+        style={{ background: HUE_BAR, borderRadius: 9999 }}
+      />
+      {mode === "auto" && (
+        <p className="mt-1 text-[11px] text-slate-500">
+          Auto-cycles the colour. Drag the bar to pick your own.
+        </p>
       )}
     </>
   );
