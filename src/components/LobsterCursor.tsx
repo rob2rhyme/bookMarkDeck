@@ -159,6 +159,8 @@ export function LobsterCursor({
     let speed = 0;
     let frm = Math.random();
     let legPhase = 0;
+    let tailPhase = 0;
+    let antPhase = 0;
     let rad = 0;
     let radm = Math.min(pointer.x, pointer.y) - 20;
     let rippleTimer = 0;
@@ -215,9 +217,9 @@ export function LobsterCursor({
         )}) scale(${s.toFixed(3)})`
       );
 
-      // Walk cycle — legs step faster as it moves; idle shuffle otherwise.
-      legPhase += 0.12 + Math.min(0.7, speed * 0.06);
-      const legAmp = 10 + Math.min(14, speed * 1.2);
+      // Walk cycle — legs mostly step while it moves; barely shuffle at rest.
+      legPhase += 0.04 + Math.min(0.8, speed * 0.1);
+      const legAmp = 4 + Math.min(13, speed * 1.5);
       for (let i = 0; i < legs.length; i++) {
         // alternate sides + front-to-back phase for a crawl
         const side = i % 2 === 0 ? 1 : -1;
@@ -230,23 +232,34 @@ export function LobsterCursor({
         );
       }
 
-      // Claws — slow sway, raised while turning, with a periodic pincer gape.
+      // How "active" the lobster is right now (0 at rest → 1 darting/turning).
+      const drive = Math.min(1, speed * 0.28 + turnMag * 7);
+
+      // Claws — REACTIVE: swing toward the turn, spread + gape the pincers when
+      // active (moving/turning), resting closed when still. No idle screwing.
       const fz = finSizeRef.current;
-      const sway = 5 * Math.sin(frm * 4) + turnSigned * 50;
-      const gape = Math.max(0, Math.sin(frm * 3.3)) * 14;
-      clawL?.setAttribute("transform", `translate(-9 -6) rotate(${(-8 + sway).toFixed(2)}) scale(${fz.toFixed(3)})`);
-      clawR?.setAttribute("transform", `translate(-9 6) rotate(${(8 + sway).toFixed(2)}) scale(${fz.toFixed(3)})`);
+      const clawSwing = turnSigned * 45;
+      const lift = drive * 11;
+      clawL?.setAttribute("transform", `translate(-9 -6) rotate(${(-8 - lift + clawSwing).toFixed(2)}) scale(${fz.toFixed(3)})`);
+      clawR?.setAttribute("transform", `translate(-9 6) rotate(${(8 + lift + clawSwing).toFixed(2)}) scale(${fz.toFixed(3)})`);
+      const gape = 1 + drive * 16;
       pincerL?.setAttribute("transform", `rotate(${(-gape).toFixed(2)})`);
       pincerR?.setAttribute("transform", `rotate(${gape.toFixed(2)})`);
 
-      // Antennae — long wavy whips sweeping forward (-x), livelier when moving.
-      const whip = 1 + Math.min(2.2, speed * 0.25 + turnMag * 9);
+      // Antennae — REACTIVE: sweep forward at rest, drag backward as it swims,
+      // sway into the turn, with a wave whose amplitude tracks activity.
+      antPhase += 0.08 + Math.min(0.7, speed * 0.12);
+      const drag = Math.min(12, speed * 1.6); // tips pulled back when swimming
+      const aSway = 0.5 + drive * 1.8;
       const buildAnt = (sign: number) => {
         let d = `M -15 ${(sign * 3).toFixed(1)}`;
         for (let k = 1; k <= 8; k++) {
           const t = k / 8;
-          const xx = -15 - t * 30;
-          const yy = sign * (3 + t * 9) + Math.sin(t * 5 + frm * 9 * whip + sign) * (1.2 + t * 3) * whip;
+          const xx = -15 - t * 30 + drag * t * t;
+          const yy =
+            sign * (3 + t * 9) +
+            Math.sin(t * 4 + antPhase + sign) * (1 + t * 2.5) * aSway +
+            turnSigned * 10 * t;
           d += ` L ${xx.toFixed(1)} ${yy.toFixed(1)}`;
         }
         return d;
@@ -254,11 +267,14 @@ export function LobsterCursor({
       antL?.setAttribute("d", buildAnt(-1));
       antR?.setAttribute("d", buildAnt(1));
 
-      // Abdomen — gentle idle sway + a curl-under tail-flip the faster it goes.
-      const curl = Math.min(11, speed * 1.3);
+      // Abdomen — REACTIVE: a travelling undulation that grows with speed, plus
+      // a gentle uniform lean into the turn. No constant one-sided curl, so it
+      // ripples symmetrically as it swims instead of locking bent to one side.
+      tailPhase += 0.12 + Math.min(1.0, speed * 0.14);
+      const waveAmp = 1.4 + Math.min(8, speed * 1.2);
+      const lean = turnSigned * 7;
       for (let i = 0; i < SEGS; i++) {
-        const segSway = 2.2 * Math.sin(frm * 5 - i * 0.5);
-        const ang = segSway + curl;
+        const ang = waveAmp * Math.sin(tailPhase - i * 0.6) + lean;
         segEls[i]?.setAttribute("transform", `translate(3 0) rotate(${ang.toFixed(2)})`);
       }
 
@@ -294,7 +310,7 @@ export function LobsterCursor({
             rp.x = bodyX; rp.y = bodyY; rp.scale = s;
             rp.r0 = 9 * s; rp.max = 42 + Math.random() * 18; rp.life = rp.max;
           }
-          rippleTimer = 30 + Math.random() * 18;
+          rippleTimer = 22 + Math.random() * 14;
         }
         for (const rp of ripplePool) {
           if (rp.life <= 0) continue;
@@ -302,8 +318,8 @@ export function LobsterCursor({
           const t = 1 - rp.life / rp.max;
           rp.el.setAttribute("cx", rp.x.toFixed(1));
           rp.el.setAttribute("cy", rp.y.toFixed(1));
-          rp.el.setAttribute("r", (rp.r0 + t * 20 * rp.scale).toFixed(1));
-          rp.el.setAttribute("opacity", ((1 - t) * 0.4).toFixed(3));
+          rp.el.setAttribute("r", (rp.r0 + t * 22 * rp.scale).toFixed(1));
+          rp.el.setAttribute("opacity", ((1 - t) * 0.55).toFixed(3));
         }
 
         // 🫧 Bubbles — from the head, drifting up.
@@ -317,9 +333,9 @@ export function LobsterCursor({
             b.vy = -(0.5 + Math.random() * 0.7);
             b.max = 70 + Math.random() * 40;
             b.life = b.max;
-            b.el.setAttribute("r", (1.2 + Math.random() * 1.3).toFixed(2));
+            b.el.setAttribute("r", (1.5 + Math.random() * 1.6).toFixed(2));
           }
-          bubbleTimer = 12 + Math.random() * 16;
+          bubbleTimer = 7 + Math.random() * 10;
         }
         for (const b of bubblePool) {
           if (b.life <= 0) continue;
@@ -329,7 +345,7 @@ export function LobsterCursor({
           const alpha = Math.max(0, b.life / b.max);
           b.el.setAttribute("cx", b.x.toFixed(1));
           b.el.setAttribute("cy", b.y.toFixed(1));
-          b.el.setAttribute("opacity", (alpha * 0.5).toFixed(3));
+          b.el.setAttribute("opacity", (alpha * 0.65).toFixed(3));
         }
       }
 
