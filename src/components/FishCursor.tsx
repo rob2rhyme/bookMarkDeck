@@ -432,13 +432,16 @@ export function FishCursor({
               <circle cx="-10" cy="9" r="1.4" fill="url(#FishAntennaGrad)" />
             </g>
             <ellipse cx="-2" cy="0" rx="10" ry="7.5" fill="url(#FishBodyGrad)" />
-            {/* both eyes forward + up, side by side as a pair */}
-            <circle cx="-7" cy="-2.6" r="1.5" fill="#0b1722" />
-            <circle cx="-7.6" cy="-3.2" r="0.55" fill="#ffffff" />
+            {/* both eyes forward + up, side by side; pupils offset toward the
+                front (-x) so the fish looks where it's going */}
+            <circle cx="-7" cy="-2.6" r="1.6" fill="#eaf6fb" />
+            <circle cx="-7.55" cy="-2.6" r="0.95" fill="#0b1722" />
+            <circle cx="-7.85" cy="-2.85" r="0.34" fill="#ffffff" />
             {/* second eye — beside the first; JS blinks it on a varying cadence */}
             <g id="FishEye2" transform="translate(-3.9 -2.6)">
-              <circle cx="0" cy="0" r="1.5" fill="#0b1722" />
-              <circle cx="-0.6" cy="-0.6" r="0.55" fill="#ffffff" />
+              <circle cx="0" cy="0" r="1.6" fill="#eaf6fb" />
+              <circle cx="-0.55" cy="0" r="0.95" fill="#0b1722" />
+              <circle cx="-0.85" cy="-0.25" r="0.34" fill="#ffffff" />
             </g>
           </g>
 
