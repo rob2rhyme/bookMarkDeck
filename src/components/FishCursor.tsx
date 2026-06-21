@@ -56,6 +56,8 @@ export function FishCursor({
     // Head antennae — rotated each frame around their base to flick actively.
     const antennaTop = svg.querySelector<SVGGElement>("#FishAntennaTop");
     const antennaBottom = svg.querySelector<SVGGElement>("#FishAntennaBottom");
+    // Second eye — vertically squashed to blink on a varying cadence.
+    const eye2 = svg.querySelector<SVGGElement>("#FishEye2");
 
     const xmlns = "http://www.w3.org/2000/svg";
     const xlinkns = "http://www.w3.org/1999/xlink";
@@ -97,6 +99,11 @@ export function FishCursor({
     let flapPhase = 0;
     let turnSmoothed = 0;
     let antPhase = 0;
+    // Blink state: frames until the next blink, and the current blink's
+    // remaining frames / total duration (longer = a slow blink).
+    let blinkWait = 60 + Math.random() * 120;
+    let blinkProg = 0;
+    let blinkDur = 1;
 
     const resize = () => {
       width = window.innerWidth;
@@ -301,6 +308,30 @@ export function FishCursor({
         );
       }
 
+      // 👁 Second eye blinks — frequent, with the occasional slow blink. The eye
+      // squashes vertically (open → closed → open) over the blink's duration.
+      if (eye2) {
+        if (blinkProg > 0) {
+          blinkProg -= 1;
+          const phase = 1 - blinkProg / blinkDur; // 0 → 1 across the blink
+          const open = Math.max(0.08, Math.abs(Math.cos(phase * Math.PI)));
+          eye2.setAttribute(
+            "transform",
+            `translate(-3.4 -1) scale(1 ${open.toFixed(3)})`
+          );
+        } else {
+          blinkWait -= 1;
+          if (blinkWait <= 0) {
+            const slow = Math.random() < 0.25; // sometimes a slow blink
+            blinkDur = slow ? 26 + Math.random() * 12 : 7 + Math.random() * 4;
+            blinkProg = blinkDur;
+            blinkWait = 50 + Math.random() * 130; // frames until the next blink
+          } else {
+            eye2.setAttribute("transform", "translate(-3.4 -1)");
+          }
+        }
+      }
+
       if (rad < radm) rad++;
       frm += 0.003;
       if (rad > 60) {
@@ -381,6 +412,11 @@ export function FishCursor({
             <ellipse cx="-2" cy="0" rx="10" ry="7.5" fill="url(#FishBodyGrad)" />
             <circle cx="-7" cy="-2" r="1.7" fill="#0b1722" />
             <circle cx="-7.6" cy="-2.7" r="0.6" fill="#ffffff" />
+            {/* second eye — JS blinks it (vertical squash) on a varying cadence */}
+            <g id="FishEye2" transform="translate(-3.4 -1)">
+              <circle cx="0" cy="0" r="1.5" fill="#0b1722" />
+              <circle cx="-0.5" cy="-0.6" r="0.55" fill="#ffffff" />
+            </g>
           </g>
 
           {/* Body segment — the overlapping chain forms a tapered body. */}
