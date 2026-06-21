@@ -252,17 +252,18 @@ export function LobsterCursor({
       // Antennae — REACTIVE: sweep forward at rest, drag backward as it swims,
       // sway into the turn, with a wave whose amplitude tracks activity.
       antPhase += 0.08 + Math.min(0.7, speed * 0.12);
-      const drag = Math.min(12, speed * 1.6); // tips pulled back when swimming
-      const aSway = 0.5 + drive * 1.8;
+      const drag = Math.min(14, speed * 1.8); // tips pulled back when swimming
+      const aSway = 0.5 + drive * 1.6;
       const buildAnt = (sign: number) => {
-        let d = `M -15 ${(sign * 3).toFixed(1)}`;
-        for (let k = 1; k <= 8; k++) {
-          const t = k / 8;
-          const xx = -15 - t * 30 + drag * t * t;
+        // Long feelers from beside the rostrum, sweeping forward + outward.
+        let d = `M -16 ${(sign * 1.5).toFixed(1)}`;
+        for (let k = 1; k <= 9; k++) {
+          const t = k / 9;
+          const xx = -16 - t * 56 + drag * t * t;
           const yy =
-            sign * (3 + t * 9) +
-            Math.sin(t * 4 + antPhase + sign) * (1 + t * 2.5) * aSway +
-            turnSigned * 10 * t;
+            sign * (1.5 + t * 22) +
+            Math.sin(t * 3 + antPhase + sign) * (0.8 + t * 2) * aSway +
+            turnSigned * 12 * t;
           d += ` L ${xx.toFixed(1)} ${yy.toFixed(1)}`;
         }
         return d;
@@ -423,28 +424,29 @@ export function LobsterCursor({
               })}
             </g>
 
-            {/* Claws — arm + pincer (movable finger) that gapes. */}
+            {/* Claws — jointed arm (merus + carpus) → bulky hand (propodus)
+                with a fixed finger + a movable finger (the gaping pincer). */}
             <g id="lob-claw-l" transform="translate(-9 -6)">
-              <path d="M0 0 L-7 -3 L-12 -6" fill="none" stroke="url(#lob-claw-grad)" strokeWidth="3" strokeLinecap="round" />
-              <g transform="translate(-12 -6)">
-                {/* fixed lower jaw */}
-                <path d="M0 0 Q-9 -1 -13 4 Q-7 6 0 4 Z" fill="url(#lob-claw-grad)" />
-                <path d="M-13 4 q-2.4 0.6 -3.2 2.4" fill="none" stroke="#d2691e" strokeWidth="1.6" strokeLinecap="round" />
-                {/* movable upper finger */}
+              {/* arm */}
+              <path d="M0 -2.6 L-7 -3.2 L-13 -2.8 L-13 2.8 L-7 3.2 L0 2.6 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              {/* hand / palm */}
+              <path d="M-12 -4.6 Q-21 -7.6 -26 -2.4 Q-27.5 0 -26 2 Q-21 4.2 -12 4.4 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              {/* fixed finger (pollex) */}
+              <path d="M-24.5 2.4 Q-33 4 -37.5 0.8 Q-34 -0.2 -27 0.6 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              {/* movable finger (dactyl) — hinged at the palm tip, gapes open */}
+              <g transform="translate(-25 -1.6)">
                 <g id="lob-pincer-l">
-                  <path d="M0 -1 Q-9 -6 -14 -3 Q-8 -1 0 1 Z" fill="url(#lob-claw-grad)" />
-                  <path d="M-14 -3 q-2.6 -0.4 -3.6 1" fill="none" stroke="#d2691e" strokeWidth="1.6" strokeLinecap="round" />
+                  <path d="M0 0.4 Q-8 -2.6 -13 -0.2 Q-9 1.2 -2 1.4 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
                 </g>
               </g>
             </g>
             <g id="lob-claw-r" transform="translate(-9 6)">
-              <path d="M0 0 L-7 3 L-12 6" fill="none" stroke="url(#lob-claw-grad)" strokeWidth="3" strokeLinecap="round" />
-              <g transform="translate(-12 6)">
-                <path d="M0 0 Q-9 1 -13 -4 Q-7 -6 0 -4 Z" fill="url(#lob-claw-grad)" />
-                <path d="M-13 -4 q-2.4 -0.6 -3.2 -2.4" fill="none" stroke="#d2691e" strokeWidth="1.6" strokeLinecap="round" />
+              <path d="M0 2.6 L-7 3.2 L-13 2.8 L-13 -2.8 L-7 -3.2 L0 -2.6 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <path d="M-12 4.6 Q-21 7.6 -26 2.4 Q-27.5 0 -26 -2 Q-21 -4.2 -12 -4.4 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <path d="M-24.5 -2.4 Q-33 -4 -37.5 -0.8 Q-34 0.2 -27 -0.6 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <g transform="translate(-25 1.6)">
                 <g id="lob-pincer-r">
-                  <path d="M0 1 Q-9 6 -14 3 Q-8 1 0 -1 Z" fill="url(#lob-claw-grad)" />
-                  <path d="M-14 3 q-2.6 0.4 -3.6 -1" fill="none" stroke="#d2691e" strokeWidth="1.6" strokeLinecap="round" />
+                  <path d="M0 -0.4 Q-8 2.6 -13 0.2 Q-9 -1.2 -2 -1.4 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
                 </g>
               </g>
             </g>
@@ -484,8 +486,10 @@ export function LobsterCursor({
               stroke="#1b5e20"
               strokeWidth="0.5"
             />
-            {/* rostrum (pointed snout) */}
-            <path d="M-16 0 L-22 -1.4 L-21 0 L-22 1.4 Z" fill="url(#lob-body-grad)" stroke="#1b5e20" strokeWidth="0.4" />
+            {/* rostrum (long pointed snout) + antennal scales */}
+            <path d="M-15 -1.8 L-26 0 L-15 1.8 Z" fill="url(#lob-body-grad)" stroke="#1b5e20" strokeWidth="0.4" />
+            <path d="M-15 -2.4 L-21 -3 L-15 -1 Z" fill="url(#lob-body-grad)" stroke="#1b5e20" strokeWidth="0.3" />
+            <path d="M-15 2.4 L-21 3 L-15 1 Z" fill="url(#lob-body-grad)" stroke="#1b5e20" strokeWidth="0.3" />
             {/* dorsal midline + carapace mottle hint */}
             <path d="M-15 0 L1 0" fill="none" stroke="#d6b53a" strokeWidth="0.5" opacity="0.6" />
             {/* beady stalk-eyes */}
