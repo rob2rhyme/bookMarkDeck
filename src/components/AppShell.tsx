@@ -4,8 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useEffect, useRef, useState } from "react";
 
 import { CursorOverlay } from "@/components/CursorOverlay";
+import { CursorSettingsPanel } from "@/components/CursorSettingsPanel";
 import { Bookmark, Search, Timer } from "@/components/icons";
 import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/CommandPalette";
 
@@ -22,9 +24,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? { href: "/", label: "Bookmarks", Icon: Bookmark }
     : { href: "/focus", label: "Focus", Icon: Timer };
 
+  // Account dropdown menu (holds Cursor settings + Sign out).
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [cursorOpen, setCursorOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
   return (
     <main className="relative isolate flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
       <CursorOverlay />
+      <CursorSettingsPanel
+        open={cursorOpen}
+        onClose={() => setCursorOpen(false)}
+      />
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-24 pt-8 sm:px-6 sm:pb-12 lg:px-8 lg:pt-12">
         <header className="mb-8 flex flex-col gap-4 sm:mb-10">
           <div className="flex flex-col gap-2">
@@ -52,46 +80,69 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <navTab.Icon className="h-4 w-4" />
                     <span className="hidden sm:inline">{navTab.label}</span>
                   </Link>
-                  <div className="flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-2 py-1 shadow-sm sm:gap-3 sm:px-3 sm:py-1.5">
-                  <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-800 text-[11px] font-semibold text-slate-100 ring-1 ring-white/5 sm:h-9 sm:w-9 sm:text-sm">
-                    {avatarSrc ? (
-                      <Image
-                        src={avatarSrc}
-                        alt={avatarLabel}
-                        width={36}
-                        height={36}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span>{avatarLabel.charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <span className="hidden max-w-[100px] truncate text-[10px] font-medium text-slate-200 sm:inline sm:max-w-[180px] sm:text-xs">
-                    {avatarLabel}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => signOut({ callbackUrl: "/login" })}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-blue-500 transition hover:border-blue-400 hover:text-blue-300"
-                    aria-label="Sign out"
-                  >
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white/15 shadow-inner shadow-black/30">
+                  <div className="relative" ref={menuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setMenuOpen((v) => !v)}
+                      aria-haspopup="menu"
+                      aria-expanded={menuOpen}
+                      className="flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-2 py-1 shadow-sm transition hover:border-slate-600 sm:gap-3 sm:px-3 sm:py-1.5"
+                    >
+                      <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-800 text-[11px] font-semibold text-slate-100 ring-1 ring-white/5 sm:h-9 sm:w-9 sm:text-sm">
+                        {avatarSrc ? (
+                          <Image
+                            src={avatarSrc}
+                            alt={avatarLabel}
+                            width={36}
+                            height={36}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span>{avatarLabel.charAt(0).toUpperCase()}</span>
+                        )}
+                      </span>
+                      <span className="hidden max-w-[100px] truncate text-[10px] font-medium text-slate-200 sm:inline sm:max-w-[180px] sm:text-xs">
+                        {avatarLabel}
+                      </span>
                       <svg
-                        xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="2.2"
-                        className="h-5 w-5"
+                        strokeWidth="2"
+                        className={`h-4 w-4 text-slate-400 transition ${
+                          menuOpen ? "rotate-180" : ""
+                        }`}
                         aria-hidden="true"
                       >
-                        <path
-                          strokeLinecap="round"
-                          d="M12 3v8M8.5 6.5a6 6 0 1 0 7 0"
-                        />
+                        <path strokeLinecap="round" d="m6 9 6 6 6-6" />
                       </svg>
-                    </span>
-                  </button>
+                    </button>
+                    {menuOpen && (
+                      <div
+                        role="menu"
+                        className="absolute right-0 z-30 mt-2 w-52 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setCursorOpen(true);
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-200 transition hover:bg-slate-800"
+                        >
+                          🐟 Cursor settings…
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => signOut({ callbackUrl: "/login" })}
+                          className="flex w-full items-center gap-2 border-t border-slate-800/60 px-4 py-2.5 text-left text-sm text-slate-200 transition hover:bg-slate-800"
+                        >
+                          ↩ Sign out
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

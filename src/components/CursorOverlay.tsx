@@ -1,20 +1,27 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-
 import { DragonCursor } from "@/components/DragonCursor";
 import { FishCursor } from "@/components/FishCursor";
-import { useCursorStyle } from "@/hooks/useCursorStyle";
+import { useCursorSettings } from "@/lib/cursorSettings";
 
-// Renders the user's chosen decorative cursor overlay (synced via focus
-// settings). Defaults to the dragon, so existing behaviour is unchanged.
+// Renders the chosen decorative cursor overlay with the user's size / colour /
+// transition settings. Defaults to the dragon, so existing behaviour is intact.
 export function CursorOverlay() {
-  const { data: session } = useSession();
-  const style = useCursorStyle(session?.user?.email);
+  const { settings } = useCursorSettings();
+  if (settings.style === "off") return null;
 
-  if (style === "off") return null;
-  if (style === "fish") return <FishCursor />;
-  return <DragonCursor />;
+  const props = {
+    size: settings.size,
+    hue: settings.hue,
+    finHue: settings.finHue,
+    antennaHue: settings.antennaHue,
+    transition: settings.transition,
+  };
+  return settings.style === "fish" ? (
+    <FishCursor {...props} />
+  ) : (
+    <DragonCursor {...props} />
+  );
 }
 
 export default CursorOverlay;

@@ -8,8 +8,46 @@
 
 import { useEffect, useRef } from "react";
 
-export function FishCursor() {
+import type { CursorProps } from "@/lib/cursorSettings";
+
+export function FishCursor({
+  size = 1,
+  hue = null,
+  finHue = null,
+  antennaHue = null,
+  finSize = 1,
+  antennaSize = 1,
+  blinkSpeed = 1,
+  transition = 0.5,
+}: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const sizeRef = useRef(size);
+  const hueRef = useRef(hue);
+  const finHueRef = useRef(finHue);
+  const antHueRef = useRef(antennaHue);
+  const finSizeRef = useRef(finSize);
+  const antSizeRef = useRef(antennaSize);
+  const blinkSpeedRef = useRef(blinkSpeed);
+  const transRef = useRef(transition);
+  useEffect(() => {
+    sizeRef.current = size;
+    hueRef.current = hue;
+    finHueRef.current = finHue;
+    antHueRef.current = antennaHue;
+    finSizeRef.current = finSize;
+    antSizeRef.current = antennaSize;
+    blinkSpeedRef.current = blinkSpeed;
+    transRef.current = transition;
+  }, [
+    size,
+    hue,
+    finHue,
+    antennaHue,
+    finSize,
+    antennaSize,
+    blinkSpeed,
+    transition,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -26,6 +64,18 @@ export function FishCursor() {
     const bodyGradients = Array.from(
       svg.querySelectorAll<SVGLinearGradientElement>(".fish-body-grad")
     );
+    // Accent gradients: fins + tail, and antennae (coloured separately).
+    const finGrad = svg.querySelector<SVGLinearGradientElement>("#FishFinGrad");
+    const antGrad =
+      svg.querySelector<SVGLinearGradientElement>("#FishAntennaGrad");
+
+    // Fin group — its vertical scale is animated each frame to flap.
+    const finsGroup = svg.querySelector<SVGGElement>("#FishFins");
+    // Head antennae — rotated each frame around their base to flick actively.
+    const antennaTop = svg.querySelector<SVGGElement>("#FishAntennaTop");
+    const antennaBottom = svg.querySelector<SVGGElement>("#FishAntennaBottom");
+    // Second eye — vertically squashed to blink on a varying cadence.
+    const eye2 = svg.querySelector<SVGGElement>("#FishEye2");
 
     const xmlns = "http://www.w3.org/2000/svg";
     const xlinkns = "http://www.w3.org/1999/xlink";
@@ -60,6 +110,18 @@ export function FishCursor() {
     let radm = radmForPointer();
     let frm = Math.random();
     let rad = 0;
+
+    // Fin-flap state: a steady beat whose cadence + depth rise with how hard
+    // the fish is turning.
+    let prevHeading = 0;
+    let flapPhase = 0;
+    let turnSmoothed = 0;
+    let antPhase = 0;
+    // Blink state: frames until the next blink, and the current blink's
+    // remaining frames / total duration (longer = a slow blink).
+    let blinkWait = 60 + Math.random() * 120;
+    let blinkProg = 0;
+    let blinkDur = 1;
 
     const resize = () => {
       width = window.innerWidth;
@@ -116,16 +178,38 @@ export function FishCursor() {
 
       // Shimmering aqua body — cycle hue gently within a teal/cyan band.
       if (bodyGradients.length) {
+        const base = hueRef.current ?? 175; // Auto centres on aqua (175)
         bodyGradients.forEach((gradient) => {
           const stops = Array.from(gradient.querySelectorAll("stop"));
           stops.forEach((stop, stopIndex) => {
-            const hue = 175 + 30 * Math.sin(frm * 6 + stopIndex * 1.2); // ~145–205
-            const color = `hsl(${hue}, 72%, ${56 - stopIndex * 6}%)`;
+            const h = base + 30 * Math.sin(frm * 6 + stopIndex * 1.2);
+            const color = `hsl(${h}, 72%, ${56 - stopIndex * 6}%)`;
             stop.setAttribute("stop-color", color);
             stop.style.setProperty("stop-color", color);
           });
         });
       }
+
+      // Accent colours — fins/tail + antennae, each Auto (cyan, 190) or custom.
+      const setAccent = (
+        grad: SVGLinearGradientElement | null,
+        h: number
+      ) => {
+        const stops = grad?.querySelectorAll<SVGStopElement>("stop");
+        if (!stops) return;
+        if (stops[0]) {
+          const c = `hsl(${h}, 85%, 68%)`;
+          stops[0].setAttribute("stop-color", c);
+          stops[0].style.setProperty("stop-color", c);
+        }
+        if (stops[1]) {
+          const c = `hsl(${h}, 88%, 40%)`;
+          stops[1].setAttribute("stop-color", c);
+          stops[1].style.setProperty("stop-color", c);
+        }
+      };
+      setAccent(finGrad, finHueRef.current ?? 190);
+      setAccent(antGrad, antHueRef.current ?? 190);
 
       // 🫧 Bubbles — emitted near the head, drifting upward as they fade.
       if (bubbles.length && elems[0] && elems[1]) {
@@ -174,18 +258,23 @@ export function FishCursor() {
       const ax = (Math.cos(3 * frm) * rad * width) / height;
       const ay = (Math.sin(4 * frm) * rad * height) / width;
 
-      e0.x += (ax + pointer.x - e0.x) / 10;
-      e0.y += (ay + pointer.y - e0.y) / 10;
+      // Transition: snappier ↔ smoother. 0.5 = the original feel (10 / 4).
+      const headDiv = 15 - transRef.current * 10;
+      const segDiv = 5.75 - transRef.current * 3.5;
+      const sizeMul = sizeRef.current;
+
+      e0.x += (ax + pointer.x - e0.x) / headDiv;
+      e0.y += (ay + pointer.y - e0.y) / headDiv;
 
       for (let i = 1; i < N; i++) {
         const e = elems[i];
         const ep = elems[i - 1];
         const a = Math.atan2(e.y - ep.y, e.x - ep.x);
 
-        e.x += (ep.x - e.x + (Math.cos(a) * (100 - i)) / 5) / 4;
-        e.y += (ep.y - e.y + (Math.sin(a) * (100 - i)) / 5) / 4;
+        e.x += (ep.x - e.x + (Math.cos(a) * (100 - i)) / 5) / segDiv;
+        e.y += (ep.y - e.y + (Math.sin(a) * (100 - i)) / 5) / segDiv;
 
-        const s = (162 + 4 * (1 - i)) / 50;
+        const s = ((162 + 4 * (1 - i)) / 50) * sizeMul;
 
         e.use?.setAttributeNS(
           null,
@@ -194,6 +283,75 @@ export function FishCursor() {
             (180 / Math.PI) * a
           }) translate(0,0) scale(${s},${s})`
         );
+      }
+
+      // Smoothed turn rate (radians/frame) — drives the fins + antennae.
+      if (elems[0] && elems[1]) {
+        const heading = Math.atan2(
+          elems[1].y - elems[0].y,
+          elems[1].x - elems[0].x
+        );
+        let dh = heading - prevHeading;
+        if (dh > Math.PI) dh -= 2 * Math.PI;
+        else if (dh < -Math.PI) dh += 2 * Math.PI;
+        prevHeading = heading;
+        turnSmoothed = turnSmoothed * 0.88 + Math.abs(dh) * 0.12;
+      }
+
+      // 🪽 Fins flap — a steady beat that quickens + deepens as the fish turns.
+      if (finsGroup) {
+        flapPhase += 0.22 + Math.min(2.0, turnSmoothed * 14);
+        const amp = 0.34 + Math.min(0.42, turnSmoothed * 5);
+        const flapY = 1 - amp * Math.abs(Math.sin(flapPhase));
+        const fs = 1.75 * finSizeRef.current;
+        finsGroup.setAttribute(
+          "transform",
+          `scale(${fs.toFixed(3)}, ${(fs * flapY).toFixed(3)})`
+        );
+      }
+
+      // 🪡 Antennae flick — very active, and livelier still while turning. Each
+      // rotates around its base at the head front, out of phase with the other.
+      if (antennaTop && antennaBottom) {
+        antPhase += 0.5 + Math.min(1.5, turnSmoothed * 12);
+        const amp = 20 + Math.min(24, turnSmoothed * 220); // degrees
+        const angT = amp * Math.sin(antPhase);
+        const angB = amp * Math.sin(antPhase * 1.27 + 1.7);
+        const as = antSizeRef.current.toFixed(3);
+        antennaTop.setAttribute(
+          "transform",
+          `translate(-9 -4) rotate(${angT.toFixed(2)}) scale(${as})`
+        );
+        antennaBottom.setAttribute(
+          "transform",
+          `translate(-9 4) rotate(${angB.toFixed(2)}) scale(${as})`
+        );
+      }
+
+      // 👁 Second eye blinks — frequent, with the occasional slow blink. The eye
+      // squashes vertically (open → closed → open) over the blink's duration.
+      if (eye2) {
+        const spd = blinkSpeedRef.current;
+        if (blinkProg > 0) {
+          blinkProg -= 1;
+          const phase = 1 - blinkProg / blinkDur; // 0 → 1 across the blink
+          const open = Math.max(0.08, Math.abs(Math.cos(phase * Math.PI)));
+          eye2.setAttribute(
+            "transform",
+            `translate(-7.5 -0.6) scale(1 ${open.toFixed(3)})`
+          );
+        } else {
+          blinkWait -= spd; // higher speed → next blink arrives sooner
+          if (blinkWait <= 0) {
+            const slow = Math.random() < 0.25; // sometimes a slow blink
+            const baseDur = slow ? 26 + Math.random() * 12 : 7 + Math.random() * 4;
+            blinkDur = Math.max(3, baseDur / spd); // higher speed → faster blink
+            blinkProg = blinkDur;
+            blinkWait = 50 + Math.random() * 130; // frames until the next blink
+          } else {
+            eye2.setAttribute("transform", "translate(-7.5 -0.6)");
+          }
+        }
       }
 
       if (rad < radm) rad++;
@@ -243,13 +401,48 @@ export function FishCursor() {
             <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.9" />
             <stop offset="100%" stopColor="#0891b2" stopOpacity="0.7" />
           </linearGradient>
+          <linearGradient id="FishAntennaGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#67e8f9" />
+            <stop offset="100%" stopColor="#0891b2" />
+          </linearGradient>
 
           {/* Head — front faces -x (eye near the nose), to match the chain's
               rotation convention. */}
           <g id="FishHead">
+            {/* Antennae (drawn behind the head so they sprout from the front);
+                JS rotates each around its base every frame to flick. */}
+            <g id="FishAntennaTop" transform="translate(-9 -4)">
+              <path
+                d="M0 0 Q -6 -4 -10 -9"
+                fill="none"
+                stroke="url(#FishAntennaGrad)"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+              <circle cx="-10" cy="-9" r="1.4" fill="url(#FishAntennaGrad)" />
+            </g>
+            <g id="FishAntennaBottom" transform="translate(-9 4)">
+              <path
+                d="M0 0 Q -6 4 -10 9"
+                fill="none"
+                stroke="url(#FishAntennaGrad)"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+              <circle cx="-10" cy="9" r="1.4" fill="url(#FishAntennaGrad)" />
+            </g>
             <ellipse cx="-2" cy="0" rx="10" ry="7.5" fill="url(#FishBodyGrad)" />
-            <circle cx="-7" cy="-2" r="1.7" fill="#0b1722" />
-            <circle cx="-7.6" cy="-2.7" r="0.6" fill="#ffffff" />
+            {/* both eyes at the SAME forward x (so neither sits behind), stacked
+                as a pair at the front-top; pupils offset toward the front (-x). */}
+            <circle cx="-7.5" cy="-3.4" r="1.3" fill="#eaf6fb" />
+            <circle cx="-7.95" cy="-3.4" r="0.82" fill="#0b1722" />
+            <circle cx="-8.2" cy="-3.6" r="0.3" fill="#ffffff" />
+            {/* second eye — the other half of the pair; JS blinks it. */}
+            <g id="FishEye2" transform="translate(-7.5 -0.6)">
+              <circle cx="0" cy="0" r="1.3" fill="#eaf6fb" />
+              <circle cx="-0.45" cy="0" r="0.82" fill="#0b1722" />
+              <circle cx="-0.7" cy="-0.2" r="0.3" fill="#ffffff" />
+            </g>
           </g>
 
           {/* Body segment — the overlapping chain forms a tapered body. */}
