@@ -38,6 +38,7 @@ export type CursorSettings = {
   ripples: boolean; // turtle: water ripples
   bubbles: boolean; // turtle: rising bubbles
   swimSpeed: number; // turtle: stroke/animation tempo (0.25 slow … 3 fast)
+  tailSpeed: number; // lobster: tail undulation speed (0 = still … 2 fast)
   babies: boolean; // turtle: trailing baby turtles that follow along
   babyCount: number; // turtle: how many babies (1–100); each is 50% of parent size
   babyGap: number; // turtle: spacing/distance between babies (6–40)
@@ -61,6 +62,7 @@ export type CursorProps = {
   ripples?: boolean;
   bubbles?: boolean;
   swimSpeed?: number;
+  tailSpeed?: number;
   babies?: boolean;
   babyCount?: number;
   babyGap?: number;
@@ -84,6 +86,7 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   ripples: true,
   bubbles: true,
   swimSpeed: 1,
+  tailSpeed: 1,
   babies: false,
   babyCount: 2,
   babyGap: 16,
@@ -127,6 +130,7 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     ripples: typeof r.ripples === "boolean" ? r.ripples : d.ripples,
     bubbles: typeof r.bubbles === "boolean" ? r.bubbles : d.bubbles,
     swimSpeed: clampNum(r.swimSpeed, 0.25, 3, d.swimSpeed),
+    tailSpeed: clampNum(r.tailSpeed, 0, 2, d.tailSpeed),
     babies: typeof r.babies === "boolean" ? r.babies : d.babies,
     babyCount: Math.round(clampNum(r.babyCount, 1, 100, d.babyCount)),
     babyGap: clampNum(r.babyGap, 6, 40, d.babyGap),

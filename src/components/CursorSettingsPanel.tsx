@@ -416,6 +416,22 @@ export function CursorSettingsPanel({
               onChange={(v) => update({ antennaHue: v })}
             />
           </Row>
+          <Row label="Tail motion">
+            <input
+              type="range"
+              min={0}
+              max={2}
+              step={0.05}
+              value={settings.tailSpeed ?? 1}
+              onChange={(e) => update({ tailSpeed: Number(e.target.value) })}
+              aria-label="Tail motion speed"
+              className="w-full accent-blue-500"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+              <span>Still</span>
+              <span>Fast</span>
+            </div>
+          </Row>
         </>
       )}
 

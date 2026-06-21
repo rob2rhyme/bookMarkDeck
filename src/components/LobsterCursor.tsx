@@ -25,6 +25,7 @@ export function LobsterCursor({
   antennaHue = null,
   finSize = 1,
   transition = 0.5,
+  tailSpeed = 1,
   jelly = false,
   babies = false,
   babyCount = 2,
@@ -39,6 +40,7 @@ export function LobsterCursor({
   const antHueRef = useRef(antennaHue);
   const finSizeRef = useRef(finSize);
   const transRef = useRef(transition);
+  const tailSpeedRef = useRef(tailSpeed);
   const jellyRef = useRef(jelly);
   const babiesRef = useRef(babies);
   const babyCountRef = useRef(babyCount);
@@ -52,6 +54,7 @@ export function LobsterCursor({
     antHueRef.current = antennaHue;
     finSizeRef.current = finSize;
     transRef.current = transition;
+    tailSpeedRef.current = tailSpeed;
     jellyRef.current = jelly;
     babiesRef.current = babies;
     babyCountRef.current = babyCount;
@@ -65,6 +68,7 @@ export function LobsterCursor({
     antennaHue,
     finSize,
     transition,
+    tailSpeed,
     jelly,
     babies,
     babyCount,
@@ -274,7 +278,8 @@ export function LobsterCursor({
       // Abdomen — REACTIVE: a travelling undulation that grows with speed, plus
       // a gentle uniform lean into the turn. No constant one-sided curl, so it
       // ripples symmetrically as it swims instead of locking bent to one side.
-      tailPhase += 0.12 + Math.min(1.0, speed * 0.14);
+      // Calmer base rate, scaled by the Tail-motion setting (0 = still).
+      tailPhase += (0.05 + Math.min(0.6, speed * 0.1)) * tailSpeedRef.current;
       const waveAmp = 1.4 + Math.min(8, speed * 1.2);
       const lean = turnSigned * 7;
       for (let i = 0; i < SEGS; i++) {

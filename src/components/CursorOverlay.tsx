@@ -28,6 +28,7 @@ export function CursorOverlay() {
     ripples: settings.ripples,
     bubbles: settings.bubbles,
     swimSpeed: settings.swimSpeed,
+    tailSpeed: settings.tailSpeed,
     babies: settings.babies,
     babyCount: settings.babyCount,
     babyGap: settings.babyGap,
