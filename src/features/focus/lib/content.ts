@@ -11,7 +11,11 @@ export type Nugget =
   | { kind: "tip"; note: string }
   | { kind: "shortcut"; keys: string; note: string };
 
-export type Challenge = { level: "Easy" | "Medium" | "Hard"; prompt: string };
+export type Challenge = {
+  level: "Easy" | "Medium" | "Hard";
+  prompt: string;
+  solution?: string; // reference solution (revealable in the UI)
+};
 
 export type FocusContent = {
   quotes: Quote[];
@@ -169,24 +173,112 @@ export const DEFAULT_NUGGETS: Nugget[] = [
 ];
 
 export const DEFAULT_CHALLENGES: Challenge[] = [
-  { level: "Easy", prompt: "Reverse a string without using .reverse()." },
-  { level: "Easy", prompt: "Write FizzBuzz for 1–100 in five lines or fewer." },
-  { level: "Easy", prompt: "Check whether two strings are anagrams of each other." },
-  { level: "Easy", prompt: "Group an array of objects by one of their keys — no libraries." },
-  { level: "Easy", prompt: "Sum every number in a deeply nested array." },
-  { level: "Easy", prompt: "Count the vowels in a string." },
-  { level: "Easy", prompt: "Capitalize the first letter of every word in a sentence." },
-  { level: "Medium", prompt: "Find the first non-repeating character in a string." },
-  { level: "Medium", prompt: "Flatten a deeply nested array without Array.prototype.flat." },
-  { level: "Medium", prompt: "Write a debounce(fn, ms) helper in under ten lines." },
-  { level: "Medium", prompt: "Given an array and a target, return the two indices that sum to it." },
-  { level: "Medium", prompt: "Decide if a string of (), [], {} brackets is balanced." },
-  { level: "Medium", prompt: "Memoize a single-argument pure function." },
-  { level: "Medium", prompt: "Implement Array.prototype.map from scratch." },
-  { level: "Medium", prompt: "Find the longest word in a sentence." },
-  { level: "Hard", prompt: "Convert an integer (1–3999) to its Roman numeral." },
-  { level: "Hard", prompt: "Implement a tiny LRU cache with O(1) get and set." },
-  { level: "Hard", prompt: "Flatten and sort an arbitrarily nested array of numbers." },
+  {
+    level: "Easy",
+    prompt: "Reverse a string without using .reverse().",
+    solution: 'const reverse = (s) =>\n  [...s].reduce((rev, c) => c + rev, "");',
+  },
+  {
+    level: "Easy",
+    prompt: "Write FizzBuzz for 1–100 in five lines or fewer.",
+    solution:
+      'for (let i = 1; i <= 100; i++)\n  console.log(\n    i % 15 ? (i % 3 ? (i % 5 ? i : "Buzz") : "Fizz") : "FizzBuzz"\n  );',
+  },
+  {
+    level: "Easy",
+    prompt: "Check whether two strings are anagrams of each other.",
+    solution:
+      'const isAnagram = (a, b) =>\n  [...a].sort().join("") === [...b].sort().join("");',
+  },
+  {
+    level: "Easy",
+    prompt: "Group an array of objects by one of their keys — no libraries.",
+    solution:
+      "const groupBy = (arr, key) =>\n  arr.reduce((acc, x) => ((acc[x[key]] ??= []).push(x), acc), {});",
+  },
+  {
+    level: "Easy",
+    prompt: "Sum every number in a deeply nested array.",
+    solution:
+      "const deepSum = (a) =>\n  a.reduce((s, x) => s + (Array.isArray(x) ? deepSum(x) : x), 0);",
+  },
+  {
+    level: "Easy",
+    prompt: "Count the vowels in a string.",
+    solution: "const countVowels = (s) => (s.match(/[aeiou]/gi) ?? []).length;",
+  },
+  {
+    level: "Easy",
+    prompt: "Capitalize the first letter of every word in a sentence.",
+    solution:
+      "const titleCase = (s) =>\n  s.replace(/\\b\\w/g, (c) => c.toUpperCase());",
+  },
+  {
+    level: "Medium",
+    prompt: "Find the first non-repeating character in a string.",
+    solution:
+      "const firstUnique = (s) => {\n  const n = {};\n  for (const c of s) n[c] = (n[c] ?? 0) + 1;\n  return [...s].find((c) => n[c] === 1) ?? null;\n};",
+  },
+  {
+    level: "Medium",
+    prompt: "Flatten a deeply nested array without Array.prototype.flat.",
+    solution:
+      "const flatten = (a) =>\n  a.reduce((r, x) => r.concat(Array.isArray(x) ? flatten(x) : x), []);",
+  },
+  {
+    level: "Medium",
+    prompt: "Write a debounce(fn, ms) helper in under ten lines.",
+    solution:
+      "const debounce = (fn, ms) => {\n  let t;\n  return (...args) => {\n    clearTimeout(t);\n    t = setTimeout(() => fn(...args), ms);\n  };\n};",
+  },
+  {
+    level: "Medium",
+    prompt: "Given an array and a target, return the two indices that sum to it.",
+    solution:
+      "const twoSum = (nums, target) => {\n  const seen = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const need = target - nums[i];\n    if (seen.has(need)) return [seen.get(need), i];\n    seen.set(nums[i], i);\n  }\n};",
+  },
+  {
+    level: "Medium",
+    prompt: "Decide if a string of (), [], {} brackets is balanced.",
+    solution:
+      'const balanced = (s) => {\n  const pairs = { ")": "(", "]": "[", "}": "{" };\n  const stack = [];\n  for (const c of s) {\n    if ("([{".includes(c)) stack.push(c);\n    else if (stack.pop() !== pairs[c]) return false;\n  }\n  return stack.length === 0;\n};',
+  },
+  {
+    level: "Medium",
+    prompt: "Memoize a single-argument pure function.",
+    solution:
+      "const memoize = (fn) => {\n  const cache = new Map();\n  return (x) => {\n    if (!cache.has(x)) cache.set(x, fn(x));\n    return cache.get(x);\n  };\n};",
+  },
+  {
+    level: "Medium",
+    prompt: "Implement Array.prototype.map from scratch.",
+    solution:
+      "const map = (arr, fn) => {\n  const out = [];\n  for (let i = 0; i < arr.length; i++) out.push(fn(arr[i], i, arr));\n  return out;\n};",
+  },
+  {
+    level: "Medium",
+    prompt: "Find the longest word in a sentence.",
+    solution:
+      'const longest = (s) =>\n  s.split(/\\s+/).reduce((a, b) => (b.length > a.length ? b : a), "");',
+  },
+  {
+    level: "Hard",
+    prompt: "Convert an integer (1–3999) to its Roman numeral.",
+    solution:
+      'const toRoman = (n) => {\n  const map = [[1000,"M"],[900,"CM"],[500,"D"],[400,"CD"],[100,"C"],[90,"XC"],[50,"L"],[40,"XL"],[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]];\n  let out = "";\n  for (const [v, sym] of map) while (n >= v) { out += sym; n -= v; }\n  return out;\n};',
+  },
+  {
+    level: "Hard",
+    prompt: "Implement a tiny LRU cache with O(1) get and set.",
+    solution:
+      "class LRU {\n  constructor(cap) { this.cap = cap; this.map = new Map(); }\n  get(k) {\n    if (!this.map.has(k)) return undefined;\n    const v = this.map.get(k);\n    this.map.delete(k); this.map.set(k, v);\n    return v;\n  }\n  set(k, v) {\n    this.map.delete(k); this.map.set(k, v);\n    if (this.map.size > this.cap)\n      this.map.delete(this.map.keys().next().value);\n  }\n}",
+  },
+  {
+    level: "Hard",
+    prompt: "Flatten and sort an arbitrarily nested array of numbers.",
+    solution:
+      "const flatSort = (a) => a.flat(Infinity).sort((x, y) => x - y);",
+  },
 ];
 
 export const DEFAULT_CONTENT: FocusContent = {
@@ -224,7 +316,8 @@ export function isChallenge(v: unknown): v is Challenge {
   return (
     (c.level === "Easy" || c.level === "Medium" || c.level === "Hard") &&
     typeof c.prompt === "string" &&
-    c.prompt.trim().length > 0
+    c.prompt.trim().length > 0 &&
+    (c.solution === undefined || typeof c.solution === "string")
   );
 }
 
