@@ -208,7 +208,7 @@ export function LobsterCursor({
       speed = speed * 0.85 + Math.hypot(leadX - leadPX, leadY - leadPY) * 0.15;
 
       const sizeMul = sizeRef.current;
-      const s = 2.4 * sizeMul;
+      const s = 5.05 * sizeMul; // base lobster — larger (+45% over prior)
 
       // Faces -x; rotate by the backward direction, leaning into turns.
       const rotDeg =
@@ -255,19 +255,21 @@ export function LobsterCursor({
 
       // Antennae — REACTIVE: sweep forward at rest, drag backward as it swims,
       // sway into the turn, with a wave whose amplitude tracks activity.
-      antPhase += 0.08 + Math.min(0.7, speed * 0.12);
+      // Smooth, slow feelers: a single gentle bend (sub-1-cycle wave), slow
+      // phase, modest amplitude, many points — no fast squirrely jitter.
+      antPhase += 0.04 + Math.min(0.32, speed * 0.07);
       const drag = Math.min(14, speed * 1.8); // tips pulled back when swimming
-      const aSway = 0.5 + drive * 1.6;
+      const aSway = 0.4 + drive * 1.0;
       const buildAnt = (sign: number) => {
         // Long feelers from beside the rostrum, sweeping forward + outward.
         let d = `M -16 ${(sign * 1.5).toFixed(1)}`;
-        for (let k = 1; k <= 9; k++) {
-          const t = k / 9;
+        for (let k = 1; k <= 14; k++) {
+          const t = k / 14;
           const xx = -16 - t * 56 + drag * t * t;
           const yy =
             sign * (1.5 + t * 22) +
-            Math.sin(t * 3 + antPhase + sign) * (0.8 + t * 2) * aSway +
-            turnSigned * 12 * t;
+            Math.sin(t * 1.5 + antPhase + sign) * (0.6 + t * 1.6) * aSway +
+            turnSigned * 10 * t;
           d += ` L ${xx.toFixed(1)} ${yy.toFixed(1)}`;
         }
         return d;
