@@ -111,10 +111,8 @@ export function FishCursor({
     let frm = Math.random();
     let rad = 0;
 
-    // Fin-flap state: a steady beat whose cadence + depth rise with how hard
-    // the fish is turning.
+    // Turn-rate state (drives the antennae flick).
     let prevHeading = 0;
-    let flapPhase = 0;
     let turnSmoothed = 0;
     let antPhase = 0;
     // Blink state: frames until the next blink, and the current blink's
@@ -298,16 +296,10 @@ export function FishCursor({
         turnSmoothed = turnSmoothed * 0.88 + Math.abs(dh) * 0.12;
       }
 
-      // 🪽 Fins flap — a steady beat that quickens + deepens as the fish turns.
+      // Fins — sized to the setting, held static (no flapping).
       if (finsGroup) {
-        flapPhase += 0.22 + Math.min(2.0, turnSmoothed * 14);
-        const amp = 0.34 + Math.min(0.42, turnSmoothed * 5);
-        const flapY = 1 - amp * Math.abs(Math.sin(flapPhase));
         const fs = 1.75 * finSizeRef.current;
-        finsGroup.setAttribute(
-          "transform",
-          `scale(${fs.toFixed(3)}, ${(fs * flapY).toFixed(3)})`
-        );
+        finsGroup.setAttribute("transform", `scale(${fs.toFixed(3)})`);
       }
 
       // 🪡 Antennae flick — very active, and livelier still while turning. Each
