@@ -258,8 +258,8 @@ export function FishCursor() {
           </g>
 
           {/* Dorsal + ventral fins, sweeping backward (+x). Large + spiky
-              (notched back edge) for a tougher silhouette. */}
-          <g id="FishFins" fill="url(#FishFinGrad)">
+              (notched back edge) for a tougher silhouette; scaled up 75%. */}
+          <g id="FishFins" fill="url(#FishFinGrad)" transform="scale(1.75)">
             <path d="M-2 -3 L16 -23 L10 -13 L13 -8 L6 -4 Z" />
             <path d="M-2 3 L16 23 L10 13 L13 8 L6 4 Z" />
           </g>
