@@ -10,6 +10,7 @@ export function DragonCursor({
   size = 1,
   hue = null,
   transition = 0.5,
+  jelly = false,
   babies = false,
   babyCount = 2,
   babyGap = 16,
@@ -22,6 +23,7 @@ export function DragonCursor({
   const sizeRef = useRef(size);
   const hueRef = useRef(hue);
   const transRef = useRef(transition);
+  const jellyRef = useRef(jelly);
   const babiesRef = useRef(babies);
   const babyCountRef = useRef(babyCount);
   const babyGapRef = useRef(babyGap);
@@ -31,12 +33,23 @@ export function DragonCursor({
     sizeRef.current = size;
     hueRef.current = hue;
     transRef.current = transition;
+    jellyRef.current = jelly;
     babiesRef.current = babies;
     babyCountRef.current = babyCount;
     babyGapRef.current = babyGap;
     babySpreadRef.current = babySpread;
     babySizeRef.current = babySize;
-  }, [size, hue, transition, babies, babyCount, babyGap, babySpread, babySize]);
+  }, [
+    size,
+    hue,
+    transition,
+    jelly,
+    babies,
+    babyCount,
+    babyGap,
+    babySpread,
+    babySize,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -203,21 +216,30 @@ export function DragonCursor({
       // Left and right sides share the SAME colors because we
       // compute hues per stop index, then apply to each gradient's
       // corresponding stop.
+      // Jelly: render the dragon crystal-clear (translucent), pale aqua.
+      const jel = jellyRef.current;
+      screen.setAttribute("opacity", jel ? "0.4" : "1");
+
       if (bodyGradients.length) {
         const locked = hueRef.current;
+        const jh = locked ?? 195;
         bodyGradients.forEach((gradient) => {
           const stops = Array.from(gradient.querySelectorAll("stop"));
 
           stops.forEach((stop, stopIndex) => {
-            // Auto (null): the original animated rainbow. Locked: a living
-            // shimmer around the chosen hue.
-            const h =
-              locked == null
-                ? (frm * 180 + stopIndex * 90) % 360
-                : (locked + stopIndex * 22 + 12 * Math.sin(frm * 6 + stopIndex) +
-                    360) %
-                  360;
-            const color = `hsl(${h}, 80%, 55%)`;
+            // Jelly: pale, low-saturation aqua (clear water). Otherwise Auto
+            // (null) = animated rainbow, or a living shimmer around the hue.
+            const color = jel
+              ? `hsl(${jh}, 52%, ${86 - stopIndex * 6}%)`
+              : `hsl(${
+                  locked == null
+                    ? (frm * 180 + stopIndex * 90) % 360
+                    : (locked +
+                        stopIndex * 22 +
+                        12 * Math.sin(frm * 6 + stopIndex) +
+                        360) %
+                      360
+                }, 80%, 55%)`;
             stop.setAttribute("stop-color", color);
             stop.style.setProperty("stop-color", color);
           });

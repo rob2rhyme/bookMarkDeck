@@ -227,7 +227,7 @@ export function CursorSettingsPanel({
         <HueControl
           value={settings.hue}
           onChange={(v) => update({ hue: v })}
-          {...(settings.style === "turtle"
+          {...(settings.style !== "off"
             ? {
                 jelly: settings.jelly,
                 onJelly: (b: boolean) => update({ jelly: b }),

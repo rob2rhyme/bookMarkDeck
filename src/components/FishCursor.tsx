@@ -20,6 +20,7 @@ export function FishCursor({
   antennaSize = 1,
   blinkSpeed = 1,
   transition = 0.5,
+  jelly = false,
   babies = false,
   babyCount = 2,
   babyGap = 16,
@@ -35,6 +36,7 @@ export function FishCursor({
   const antSizeRef = useRef(antennaSize);
   const blinkSpeedRef = useRef(blinkSpeed);
   const transRef = useRef(transition);
+  const jellyRef = useRef(jelly);
   const babiesRef = useRef(babies);
   const babyCountRef = useRef(babyCount);
   const babyGapRef = useRef(babyGap);
@@ -49,6 +51,7 @@ export function FishCursor({
     antSizeRef.current = antennaSize;
     blinkSpeedRef.current = blinkSpeed;
     transRef.current = transition;
+    jellyRef.current = jelly;
     babiesRef.current = babies;
     babyCountRef.current = babyCount;
     babyGapRef.current = babyGap;
@@ -63,6 +66,7 @@ export function FishCursor({
     antennaSize,
     blinkSpeed,
     transition,
+    jelly,
     babies,
     babyCount,
     babyGap,
@@ -211,14 +215,23 @@ export function FishCursor({
     const run = () => {
       rafId = requestAnimationFrame(run);
 
-      // Shimmering aqua body — cycle hue gently within a teal/cyan band.
+      // Jelly: render the whole fish crystal-clear (translucent), pale aqua.
+      const jel = jellyRef.current;
+      screen.setAttribute("opacity", jel ? "0.4" : "1");
+
+      // Shimmering aqua body — cycle hue gently within a teal/cyan band. In
+      // jelly mode use a pale, low-saturation aqua so it reads as clear water.
       if (bodyGradients.length) {
         const base = hueRef.current ?? 175; // Auto centres on aqua (175)
+        const jh = hueRef.current ?? 195;
         bodyGradients.forEach((gradient) => {
           const stops = Array.from(gradient.querySelectorAll("stop"));
           stops.forEach((stop, stopIndex) => {
-            const h = base + 30 * Math.sin(frm * 6 + stopIndex * 1.2);
-            const color = `hsl(${h}, 72%, ${56 - stopIndex * 6}%)`;
+            const color = jel
+              ? `hsl(${jh}, 52%, ${86 - stopIndex * 7}%)`
+              : `hsl(${base + 30 * Math.sin(frm * 6 + stopIndex * 1.2)}, 72%, ${
+                  56 - stopIndex * 6
+                }%)`;
             stop.setAttribute("stop-color", color);
             stop.style.setProperty("stop-color", color);
           });
@@ -233,18 +246,18 @@ export function FishCursor({
         const stops = grad?.querySelectorAll<SVGStopElement>("stop");
         if (!stops) return;
         if (stops[0]) {
-          const c = `hsl(${h}, 85%, 68%)`;
+          const c = jel ? `hsl(${h}, 50%, 88%)` : `hsl(${h}, 85%, 68%)`;
           stops[0].setAttribute("stop-color", c);
           stops[0].style.setProperty("stop-color", c);
         }
         if (stops[1]) {
-          const c = `hsl(${h}, 88%, 40%)`;
+          const c = jel ? `hsl(${h}, 55%, 72%)` : `hsl(${h}, 88%, 40%)`;
           stops[1].setAttribute("stop-color", c);
           stops[1].style.setProperty("stop-color", c);
         }
       };
-      setAccent(finGrad, finHueRef.current ?? 190);
-      setAccent(antGrad, antHueRef.current ?? 190);
+      setAccent(finGrad, jel ? (finHueRef.current ?? 195) : (finHueRef.current ?? 190));
+      setAccent(antGrad, jel ? (antHueRef.current ?? 195) : (antHueRef.current ?? 190));
 
       // Place the babies (trailing the tail) and capture their spots so they
       // can blow their own bubbles below.
