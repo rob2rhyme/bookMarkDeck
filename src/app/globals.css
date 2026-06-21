@@ -131,25 +131,36 @@ body {
   }
 }
 
-/* Hue picker slider — show the rainbow gradient (set inline as the element
-   background) as the track, with a clear draggable knob. Native track/thumb
-   pseudo-elements otherwise paint over the gradient. */
+/* Hue picker slider — paint the full rainbow gradient directly on the track so
+   it always shows (relying on the input background bleeding through is flaky),
+   with a clear draggable knob. The knob position reflects the selected hue, and
+   dragging updates the colour live. */
 .hue-slider {
+  --hue-bar: linear-gradient(
+    to right,
+    hsl(0, 80%, 55%),
+    hsl(60, 80%, 55%),
+    hsl(120, 80%, 55%),
+    hsl(180, 80%, 55%),
+    hsl(240, 80%, 55%),
+    hsl(300, 80%, 55%),
+    hsl(360, 80%, 55%)
+  );
   -webkit-appearance: none;
   appearance: none;
   height: 14px;
   cursor: pointer;
-  background-clip: padding-box;
+  background: transparent;
 }
 .hue-slider::-webkit-slider-runnable-track {
   height: 14px;
   border-radius: 9999px;
-  background: transparent;
+  background: var(--hue-bar);
 }
 .hue-slider::-moz-range-track {
   height: 14px;
   border-radius: 9999px;
-  background: transparent;
+  background: var(--hue-bar);
 }
 .hue-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
