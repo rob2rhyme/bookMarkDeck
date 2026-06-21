@@ -29,6 +29,7 @@ export type CursorSettings = {
   float: boolean; // turtle: buoyant idle drift + free 360° rotation
   ripples: boolean; // turtle: water ripples
   bubbles: boolean; // turtle: rising bubbles
+  swimSpeed: number; // turtle: stroke/animation tempo (0.25 slow … 3 fast)
 };
 
 /** Props the overlays accept so the settings drive their animation. */
@@ -45,6 +46,7 @@ export type CursorProps = {
   float?: boolean;
   ripples?: boolean;
   bubbles?: boolean;
+  swimSpeed?: number;
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -61,6 +63,7 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   float: true,
   ripples: true,
   bubbles: true,
+  swimSpeed: 1,
 };
 
 const KEY = "bd:cursor-settings:v1";
@@ -92,6 +95,7 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     float: typeof r.float === "boolean" ? r.float : d.float,
     ripples: typeof r.ripples === "boolean" ? r.ripples : d.ripples,
     bubbles: typeof r.bubbles === "boolean" ? r.bubbles : d.bubbles,
+    swimSpeed: clampNum(r.swimSpeed, 0.25, 3, d.swimSpeed),
   };
 }
 

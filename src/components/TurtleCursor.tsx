@@ -26,6 +26,7 @@ export function TurtleCursor({
   float = true,
   ripples = true,
   bubbles = true,
+  swimSpeed = 1,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
@@ -39,6 +40,7 @@ export function TurtleCursor({
   const floatRef = useRef(float);
   const ripplesRef = useRef(ripples);
   const bubblesRef = useRef(bubbles);
+  const swimSpeedRef = useRef(swimSpeed);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
@@ -51,6 +53,7 @@ export function TurtleCursor({
     floatRef.current = float;
     ripplesRef.current = ripples;
     bubblesRef.current = bubbles;
+    swimSpeedRef.current = swimSpeed;
   }, [
     size,
     hue,
@@ -63,6 +66,7 @@ export function TurtleCursor({
     float,
     ripples,
     bubbles,
+    swimSpeed,
   ]);
 
   useEffect(() => {
@@ -76,10 +80,10 @@ export function TurtleCursor({
     const root = q<SVGGElement>("#turtle");
     const frontL = q<SVGGElement>("#t-front-flipper-l");
     const frontR = q<SVGGElement>("#t-front-flipper-r");
-    const frontLtip = q<SVGGElement>("#t-front-flipper-l-tip");
-    const frontRtip = q<SVGGElement>("#t-front-flipper-r-tip");
     const rearL = q<SVGGElement>("#t-rear-flipper-l");
     const rearR = q<SVGGElement>("#t-rear-flipper-r");
+    const rearLtip = q<SVGGElement>("#t-rear-flipper-l-tip");
+    const rearRtip = q<SVGGElement>("#t-rear-flipper-r-tip");
     const tail = q<SVGGElement>("#t-tail");
     const head = q<SVGGElement>("#t-head");
     const eyeL = q<SVGGElement>("#t-eye-l");
@@ -219,7 +223,7 @@ export function TurtleCursor({
         Math.hypot(leadX - leadPX, leadY - leadPY) * 0.15;
 
       const sizeMul = sizeRef.current;
-      const s = 2.1 * sizeMul; // base turtle ~50% bigger
+      const s = 3.7 * sizeMul; // base turtle — large (≈75% over the prior size)
 
       // Buoyant float: when nearly still, the turtle bobs + sways and rotates
       // very slowly/meanderingly (eventually all the way round) — not a constant
@@ -247,8 +251,11 @@ export function TurtleCursor({
         turnSigned * 40 +
         floatSpin;
 
-      // Stroke cadence quickens with speed + turning.
-      flipPhase += 0.18 + Math.min(1.7, speed * 0.05 + turnMag * 9);
+      // Stroke cadence quickens with speed + turning, scaled by the swim-speed
+      // setting.
+      flipPhase +=
+        (0.18 + Math.min(1.7, speed * 0.05 + turnMag * 9)) *
+        swimSpeedRef.current;
 
       // Root transform: gentle bob, or a gelatinous wobble in jelly mode.
       const jON = jellyRef.current;
@@ -262,7 +269,7 @@ export function TurtleCursor({
             2
           )}) scale(${sx.toFixed(3)},${sy.toFixed(3)})`
         );
-        root.setAttribute("opacity", "0.55");
+        root.setAttribute("opacity", "0.34"); // crystal-clear, water-like
       } else {
         const bob = 1 + 0.02 * Math.sin(flipPhase);
         root.setAttribute(
@@ -277,10 +284,13 @@ export function TurtleCursor({
       // Colours (live).
       const baseHue = hueRef.current;
       if (jON) {
-        const jh = baseHue ?? 270; // translucent violet/cyan jelly
-        setStops(shellGrad, `hsl(${jh}, 75%, 72%)`, `hsl(${jh}, 80%, 56%)`);
-        setStops(finGrad, `hsl(${jh}, 72%, 74%)`, `hsl(${jh}, 76%, 60%)`);
-        scutes?.setAttribute("opacity", "0.12");
+        // Crystal-clear water jelly: pale, low-saturation, glassy — almost see-
+        // through (the low root opacity does the rest).
+        const jh = baseHue ?? 195; // clear aqua water by default
+        setStops(shellGrad, `hsl(${jh}, 55%, 88%)`, `hsl(${jh}, 60%, 70%)`);
+        setStops(finGrad, `hsl(${jh}, 50%, 90%)`, `hsl(${jh}, 58%, 74%)`);
+        scutes?.setAttribute("stroke", `hsl(${jh}, 50%, 80%)`);
+        scutes?.setAttribute("opacity", "0.18");
       } else {
         const sh = baseHue ?? 135; // green turtle by default
         setStops(shellGrad, `hsl(${sh}, 48%, 55%)`, `hsl(${sh}, 52%, 32%)`);
@@ -291,13 +301,10 @@ export function TurtleCursor({
         scutes?.setAttribute("opacity", "0.85");
       }
 
-      // Front flippers — synchronised "flying" stroke (mirrored).
+      // Front flippers — synchronised "flying" stroke (mirrored), single piece.
       const fSize = finSizeRef.current;
       const ampF = 14 + Math.min(22, speed * 1.4 + turnMag * 130);
       const fAng = ampF * Math.sin(flipPhase);
-      // Tip lags the shoulder → the flipper BENDS/curves through the stroke
-      // instead of swinging rigidly.
-      const tipAng = (ampF * 0.9 + 8) * Math.sin(flipPhase - 1.1);
       frontL?.setAttribute(
         "transform",
         `translate(-6 -8) rotate(${fAng.toFixed(2)}) scale(${fSize.toFixed(3)})`
@@ -306,29 +313,32 @@ export function TurtleCursor({
         "transform",
         `translate(-6 8) rotate(${(-fAng).toFixed(2)}) scale(${fSize.toFixed(3)})`
       );
-      frontLtip?.setAttribute(
-        "transform",
-        `translate(-9 -5) rotate(${tipAng.toFixed(2)})`
-      );
-      frontRtip?.setAttribute(
-        "transform",
-        `translate(-9 5) rotate(${(-tipAng).toFixed(2)})`
-      );
 
-      // Rear flippers — rudder (steer toward the turn) + slow wobble.
+      // Rear flippers — rudder (steer toward the turn) + a flexing kick: the
+      // upper limb swings while the tip lags, so the hind limbs BEND as the
+      // turtle swims.
       const steer = Math.max(-26, Math.min(26, turnSigned * 220));
-      const rWob = 4 * Math.sin(flipPhase * 0.6);
+      const rKick = (10 + Math.min(10, speed * 0.6)) * Math.sin(flipPhase * 0.9);
+      const rTip = (14 + Math.min(12, speed * 0.7)) * Math.sin(flipPhase * 0.9 - 1.1);
       rearL?.setAttribute(
         "transform",
-        `translate(8 -7) rotate(${(steer + rWob).toFixed(2)}) scale(${fSize.toFixed(
+        `translate(8 -7) rotate(${(steer + rKick).toFixed(2)}) scale(${fSize.toFixed(
           3
         )})`
       );
       rearR?.setAttribute(
         "transform",
-        `translate(8 7) rotate(${(steer - rWob).toFixed(2)}) scale(${fSize.toFixed(
+        `translate(8 7) rotate(${(steer - rKick).toFixed(2)}) scale(${fSize.toFixed(
           3
         )})`
+      );
+      rearLtip?.setAttribute(
+        "transform",
+        `translate(6 -3.5) rotate(${rTip.toFixed(2)})`
+      );
+      rearRtip?.setAttribute(
+        "transform",
+        `translate(6 3.5) rotate(${(-rTip).toFixed(2)})`
       );
 
       // Tail — sways opposite the steer.
@@ -480,28 +490,28 @@ export function TurtleCursor({
 
         {/* The whole turtle; JS sets its transform/opacity each frame. */}
         <g id="turtle">
-          {/* Rear flippers (rudders) — behind the shell. */}
+          {/* Rear flippers (hind limbs) — two-segment so they BEND/flex through
+              the kick: an upper limb at the hip + a tip that lags at the
+              "knee" (6,±3.5). */}
           <g id="t-rear-flipper-l" transform="translate(8 -7)">
-            <path d="M0 0 C 2 -4 7 -6 11 -5 C 8 -2 4 -1 0 1 Z" fill="url(#t-fin-grad)" />
+            <path d="M0 0 C 1.5 -2.5 4 -3.5 6 -3.5 C 4 -1.5 1.5 -0.7 0 1 Z" fill="url(#t-fin-grad)" />
+            <g id="t-rear-flipper-l-tip" transform="translate(6 -3.5)">
+              <path d="M0 0 C 1.5 -1.5 4 -2.5 5 -1.5 C 3.5 -0.5 1.5 0 0 0.8 Z" fill="url(#t-fin-grad)" />
+            </g>
           </g>
           <g id="t-rear-flipper-r" transform="translate(8 7)">
-            <path d="M0 0 C 2 4 7 6 11 5 C 8 2 4 1 0 -1 Z" fill="url(#t-fin-grad)" />
+            <path d="M0 0 C 1.5 2.5 4 3.5 6 3.5 C 4 1.5 1.5 0.7 0 -1 Z" fill="url(#t-fin-grad)" />
+            <g id="t-rear-flipper-r-tip" transform="translate(6 3.5)">
+              <path d="M0 0 C 1.5 1.5 4 2.5 5 1.5 C 3.5 0.5 1.5 0 0 -0.8 Z" fill="url(#t-fin-grad)" />
+            </g>
           </g>
 
-          {/* Front flippers (thrust) — two-segment so they BEND through the
-              stroke: an upper arm at the shoulder + a tip that lags at the
-              "elbow" (-9,∓5). */}
+          {/* Front flippers (thrust) — single-piece, partly behind the shell. */}
           <g id="t-front-flipper-l" transform="translate(-6 -8)">
-            <path d="M0 0 C -2 -3 -6 -5 -9 -5 C -6 -2 -2 -1 1 2 Z" fill="url(#t-fin-grad)" />
-            <g id="t-front-flipper-l-tip" transform="translate(-9 -5)">
-              <path d="M0 0 C -2 -2 -6 -4 -8 -3 C -5 -1.5 -2 -0.5 1 1 Z" fill="url(#t-fin-grad)" />
-            </g>
+            <path d="M0 0 C -3 -5 -10 -9 -16 -8 C -12 -4 -6 -2 1 2 Z" fill="url(#t-fin-grad)" />
           </g>
           <g id="t-front-flipper-r" transform="translate(-6 8)">
-            <path d="M0 0 C -2 3 -6 5 -9 5 C -6 2 -2 1 1 -2 Z" fill="url(#t-fin-grad)" />
-            <g id="t-front-flipper-r-tip" transform="translate(-9 5)">
-              <path d="M0 0 C -2 2 -6 4 -8 3 C -5 1.5 -2 0.5 1 -1 Z" fill="url(#t-fin-grad)" />
-            </g>
+            <path d="M0 0 C -3 5 -10 9 -16 8 C -12 4 -6 2 1 -2 Z" fill="url(#t-fin-grad)" />
           </g>
 
           {/* Tail. */}

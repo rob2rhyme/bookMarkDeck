@@ -43,6 +43,9 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ antennaSize: 0 }).antennaSize).toBe(0.5);
     expect(normalizeCursorSettings({ blinkSpeed: 99 }).blinkSpeed).toBe(3);
     expect(normalizeCursorSettings({ blinkSpeed: 0 }).blinkSpeed).toBe(0.25);
+    expect(normalizeCursorSettings({}).swimSpeed).toBe(1);
+    expect(normalizeCursorSettings({ swimSpeed: 99 }).swimSpeed).toBe(3);
+    expect(normalizeCursorSettings({ swimSpeed: 0 }).swimSpeed).toBe(0.25);
   });
 
   it("treats hue null/absent as Auto, clamps a custom hue (body/fins/antennae)", () => {

@@ -331,6 +331,22 @@ export function CursorSettingsPanel({
               <span>Fast</span>
             </div>
           </Row>
+          <Row label="Swim speed">
+            <input
+              type="range"
+              min={0.25}
+              max={3}
+              step={0.05}
+              value={settings.swimSpeed}
+              onChange={(e) => update({ swimSpeed: Number(e.target.value) })}
+              aria-label="Swim speed"
+              className="w-full accent-blue-500"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+              <span>Slow</span>
+              <span>Fast</span>
+            </div>
+          </Row>
           <Row label="Motion & water">
             <Toggle
               label="Float (idle drift + free spin)"
