@@ -27,6 +27,8 @@ export function TurtleCursor({
   ripples = true,
   bubbles = true,
   swimSpeed = 1,
+  babies = false,
+  babyCount = 2,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
@@ -41,6 +43,8 @@ export function TurtleCursor({
   const ripplesRef = useRef(ripples);
   const bubblesRef = useRef(bubbles);
   const swimSpeedRef = useRef(swimSpeed);
+  const babiesRef = useRef(babies);
+  const babyCountRef = useRef(babyCount);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
@@ -54,6 +58,8 @@ export function TurtleCursor({
     ripplesRef.current = ripples;
     bubblesRef.current = bubbles;
     swimSpeedRef.current = swimSpeed;
+    babiesRef.current = babies;
+    babyCountRef.current = babyCount;
   }, [
     size,
     hue,
@@ -67,6 +73,8 @@ export function TurtleCursor({
     ripples,
     bubbles,
     swimSpeed,
+    babies,
+    babyCount,
   ]);
 
   useEffect(() => {
@@ -92,6 +100,15 @@ export function TurtleCursor({
     const finGrad = q<SVGLinearGradientElement>("#t-fin-grad");
     const scutes = q<SVGGElement>("#t-scutes");
     if (!root) return;
+
+    // Baby turtles: a conga line that traces the parent's recent path. Each is
+    // a live <use> mirror of the parent's animated body, so they paddle in sync.
+    const babyEls = Array.from(
+      svg.querySelectorAll<SVGGElement>(".t-baby")
+    );
+    const trail: { x: number; y: number }[] = [];
+    const babyRot = babyEls.map(() => 0);
+    const BABY_GAP = 16; // frames of spacing between turtles in the line
 
     // Water FX (world-space, behind the turtle): expanding ripples + bubbles.
     const svgns = "http://www.w3.org/2000/svg";
@@ -279,6 +296,36 @@ export function TurtleCursor({
           )}) scale(${(s * bob).toFixed(3)})`
         );
         root.setAttribute("opacity", "1");
+      }
+
+      // Baby turtles — trail the parent's path in a conga line.
+      if (babyEls.length) {
+        trail.unshift({ x: dispX, y: dispY });
+        if (trail.length > 130) trail.pop();
+        const nb = babiesRef.current
+          ? Math.min(babyEls.length, Math.round(babyCountRef.current))
+          : 0;
+        babyEls.forEach((g, i) => {
+          if (i >= nb) {
+            g.setAttribute("opacity", "0");
+            return;
+          }
+          const idx = Math.min(trail.length - 1, (i + 1) * BABY_GAP);
+          const p = trail[idx];
+          const ahead = trail[Math.max(0, idx - 5)];
+          const vx = p.x - ahead.x;
+          const vy = p.y - ahead.y;
+          if (Math.hypot(vx, vy) > 0.6)
+            babyRot[i] = (Math.atan2(vy, vx) * 180) / Math.PI;
+          const bScale = s * 0.5 * (1 + 0.03 * Math.sin(flipPhase + i * 1.3));
+          g.setAttribute(
+            "transform",
+            `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${babyRot[
+              i
+            ].toFixed(2)}) scale(${bScale.toFixed(3)})`
+          );
+          g.setAttribute("opacity", jON ? "0.34" : "1");
+        });
       }
 
       // Colours (live).
@@ -508,8 +555,21 @@ export function TurtleCursor({
         {/* Water FX (ripples + bubbles) injected by JS, behind the turtle. */}
         <g id="t-fx" />
 
-        {/* The whole turtle; JS sets its transform/opacity each frame. */}
+        {/* Baby turtles — live <use> mirrors of the parent's animated body
+            (#turtle-rig), each positioned along the parent's trail by JS.
+            Behind the parent so it overlaps them. */}
+        <g id="t-babies">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <g key={i} className="t-baby" opacity="0">
+              <use href="#turtle-rig" />
+            </g>
+          ))}
+        </g>
+
+        {/* The whole turtle; JS sets #turtle's transform/opacity each frame,
+            while #turtle-rig holds the body whose appendages are animated. */}
         <g id="turtle">
+          <g id="turtle-rig">
           {/* Rear flippers (hind limbs) — two-segment so they BEND/flex through
               the kick: an upper limb at the hip + a tip that lags at the
               "knee" (6,±3.5). Reticulated skin overlay (net) over the tan base. */}
@@ -601,6 +661,7 @@ export function TurtleCursor({
             {/* marginal ring */}
             <path d="M-11 -7 Q2 -10 13 -4" />
             <path d="M-11 7 Q2 10 13 4" />
+          </g>
           </g>
         </g>
       </svg>

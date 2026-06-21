@@ -30,6 +30,8 @@ export type CursorSettings = {
   ripples: boolean; // turtle: water ripples
   bubbles: boolean; // turtle: rising bubbles
   swimSpeed: number; // turtle: stroke/animation tempo (0.25 slow … 3 fast)
+  babies: boolean; // turtle: trailing baby turtles that follow along
+  babyCount: number; // turtle: how many babies (1–6); each is 50% of parent size
 };
 
 /** Props the overlays accept so the settings drive their animation. */
@@ -47,6 +49,8 @@ export type CursorProps = {
   ripples?: boolean;
   bubbles?: boolean;
   swimSpeed?: number;
+  babies?: boolean;
+  babyCount?: number;
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -64,6 +68,8 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   ripples: true,
   bubbles: true,
   swimSpeed: 1,
+  babies: false,
+  babyCount: 2,
 };
 
 const KEY = "bd:cursor-settings:v1";
@@ -96,6 +102,8 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     ripples: typeof r.ripples === "boolean" ? r.ripples : d.ripples,
     bubbles: typeof r.bubbles === "boolean" ? r.bubbles : d.bubbles,
     swimSpeed: clampNum(r.swimSpeed, 0.25, 3, d.swimSpeed),
+    babies: typeof r.babies === "boolean" ? r.babies : d.babies,
+    babyCount: Math.round(clampNum(r.babyCount, 1, 6, d.babyCount)),
   };
 }
 

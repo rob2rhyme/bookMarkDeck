@@ -48,6 +48,16 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ swimSpeed: 0 }).swimSpeed).toBe(0.25);
   });
 
+  it("coerces babies (default false) and clamps/rounds babyCount to 1–6", () => {
+    expect(normalizeCursorSettings({}).babies).toBe(false);
+    expect(normalizeCursorSettings({ babies: true }).babies).toBe(true);
+    expect(normalizeCursorSettings({ babies: "x" }).babies).toBe(false);
+    expect(normalizeCursorSettings({}).babyCount).toBe(2);
+    expect(normalizeCursorSettings({ babyCount: 99 }).babyCount).toBe(6);
+    expect(normalizeCursorSettings({ babyCount: 0 }).babyCount).toBe(1);
+    expect(normalizeCursorSettings({ babyCount: 3.7 }).babyCount).toBe(4);
+  });
+
   it("treats hue null/absent as Auto, clamps a custom hue (body/fins/antennae)", () => {
     expect(normalizeCursorSettings({ hue: null }).hue).toBeNull();
     expect(normalizeCursorSettings({}).hue).toBeNull();

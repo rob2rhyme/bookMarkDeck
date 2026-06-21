@@ -368,6 +368,32 @@ export function CursorSettingsPanel({
               onChange={(v) => update({ bubbles: v })}
             />
           </Row>
+          <Row label="Baby turtles">
+            <Toggle
+              label="Show babies (follow along, half size)"
+              checked={settings.babies}
+              onChange={(v) => update({ babies: v })}
+            />
+            {settings.babies && (
+              <div className="mt-4">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Number of babies — {settings.babyCount}
+                </p>
+                <input
+                  type="range"
+                  min={1}
+                  max={6}
+                  step={1}
+                  value={settings.babyCount ?? 2}
+                  onChange={(e) =>
+                    update({ babyCount: Number(e.target.value) })
+                  }
+                  aria-label="Number of baby turtles"
+                  className="w-full accent-blue-500"
+                />
+              </div>
+            )}
+          </Row>
         </>
       )}
 
