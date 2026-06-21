@@ -131,6 +131,7 @@ export function TurtleCursor({
       r0: number;
       life: number;
       max: number;
+      scale: number;
     };
     type Bub = {
       el: SVGCircleElement;
@@ -143,16 +144,17 @@ export function TurtleCursor({
     const ripplePool: Ripple[] = [];
     const bubblePool: Bub[] = [];
     if (fx) {
-      for (let i = 0; i < 6; i++) {
+      // Pools sized for the mother + up to 6 babies all emitting.
+      for (let i = 0; i < 18; i++) {
         const c = document.createElementNS(svgns, "circle");
         c.setAttribute("fill", "none");
         c.setAttribute("stroke", "#bae6fd");
         c.setAttribute("stroke-width", "1.4");
         c.setAttribute("opacity", "0");
         fx.appendChild(c);
-        ripplePool.push({ el: c, x: 0, y: 0, r0: 0, life: 0, max: 1 });
+        ripplePool.push({ el: c, x: 0, y: 0, r0: 0, life: 0, max: 1, scale: 1 });
       }
-      for (let i = 0; i < 22; i++) {
+      for (let i = 0; i < 64; i++) {
         const c = document.createElementNS(svgns, "circle");
         c.setAttribute("fill", "none");
         c.setAttribute("stroke", "#bae6fd");
@@ -166,6 +168,37 @@ export function TurtleCursor({
     let rippleTimer = 0;
     let bubbleTimer = 0;
     let floatSpin = 0;
+
+    // Emit one ripple / one bubble at a given spot + scale (reused by the
+    // mother and every baby so they all leave a matching wake).
+    const spawnRipple = (x: number, y: number, scale: number) => {
+      const rp = ripplePool.find((p) => p.life <= 0);
+      if (!rp) return;
+      rp.x = x;
+      rp.y = y;
+      rp.scale = scale;
+      rp.r0 = 13 * scale;
+      rp.max = 44 + Math.random() * 20;
+      rp.life = rp.max;
+    };
+    // abs = absolute turtle scale (sets emit offset); rel = size vs the mother
+    // (1 for mother, <1 for babies) so baby bubbles are proportionally smaller.
+    const spawnBubble = (
+      x: number,
+      y: number,
+      abs: number,
+      rel: number,
+      behind: number
+    ) => {
+      const b = bubblePool.find((p) => p.life <= 0);
+      if (!b) return;
+      b.x = x + Math.cos(behind) * 11 * abs + (Math.random() - 0.5) * 8 * rel;
+      b.y = y + Math.sin(behind) * 11 * abs;
+      b.vy = -(0.5 + Math.random() * 0.7) * (0.6 + 0.4 * rel);
+      b.max = 70 + Math.random() * 40;
+      b.life = b.max;
+      b.el.setAttribute("r", ((1.4 + Math.random() * 1.4) * rel).toFixed(2));
+    };
 
     const setStops = (
       g: SVGGradientElement | null,
@@ -310,6 +343,8 @@ export function TurtleCursor({
       }
 
       // Baby turtles — trail the parent's path, fanned out to alternating sides.
+      // Active babies' spots are captured here so they leave their own wake.
+      const activeBabies: { x: number; y: number; s: number; h: number }[] = [];
       if (babyEls.length) {
         trail.unshift({ x: dispX, y: dispY });
         if (trail.length > 260) trail.pop();
@@ -348,6 +383,13 @@ export function TurtleCursor({
             ].toFixed(2)}) scale(${bScale.toFixed(3)})`
           );
           g.setAttribute("opacity", jON ? "0.34" : "1");
+          // babyRot is the backward (tail-ward) angle → wake emits behind.
+          activeBabies.push({
+            x: bx,
+            y: by,
+            s: bScale,
+            h: (babyRot[i] * Math.PI) / 180,
+          });
         });
       }
 
@@ -459,14 +501,8 @@ export function TurtleCursor({
       if (ripplesRef.current) {
         rippleTimer -= 1 + speed * 0.3;
         if (rippleTimer <= 0) {
-          const rp = ripplePool.find((p) => p.life <= 0);
-          if (rp) {
-            rp.x = bodyX;
-            rp.y = bodyY;
-            rp.r0 = 13 * s;
-            rp.max = 44 + Math.random() * 20;
-            rp.life = rp.max;
-          }
+          spawnRipple(bodyX, bodyY, s);
+          for (const b of activeBabies) spawnRipple(b.x, b.y, b.s);
           rippleTimer = 26 + Math.random() * 16;
         }
         for (const rp of ripplePool) {
@@ -475,7 +511,7 @@ export function TurtleCursor({
           const t = 1 - rp.life / rp.max;
           rp.el.setAttribute("cx", rp.x.toFixed(1));
           rp.el.setAttribute("cy", rp.y.toFixed(1));
-          rp.el.setAttribute("r", (rp.r0 + t * 26 * s).toFixed(1));
+          rp.el.setAttribute("r", (rp.r0 + t * 26 * rp.scale).toFixed(1));
           rp.el.setAttribute("opacity", ((1 - t) * 0.5).toFixed(3));
         }
       } else {
@@ -490,17 +526,9 @@ export function TurtleCursor({
       if (bubblesRef.current) {
         bubbleTimer -= 1;
         if (bubbleTimer <= 0) {
-          const b = bubblePool.find((p) => p.life <= 0);
-          if (b) {
-            const bx = Math.cos(prevHeading + Math.PI);
-            const by = Math.sin(prevHeading + Math.PI);
-            b.x = bodyX + bx * 11 * s + (Math.random() - 0.5) * 8;
-            b.y = bodyY + by * 11 * s;
-            b.vy = -(0.5 + Math.random() * 0.7);
-            b.max = 70 + Math.random() * 40;
-            b.life = b.max;
-            b.el.setAttribute("r", (1.4 + Math.random() * 1.4).toFixed(2));
-          }
+          spawnBubble(bodyX, bodyY, s, 1, prevHeading + Math.PI);
+          for (const b of activeBabies)
+            spawnBubble(b.x, b.y, b.s, b.s / s, b.h);
           bubbleTimer = 9 + Math.random() * 14;
         }
         for (const b of bubblePool) {
