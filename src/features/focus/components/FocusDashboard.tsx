@@ -293,7 +293,7 @@ export function FocusDashboard() {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <PomodoroTimer
           settings={settings}
           email={email}
@@ -314,7 +314,7 @@ export function FocusDashboard() {
         />
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <TodoList
           active={todos.active}
           done={todos.done}
@@ -348,7 +348,7 @@ export function FocusDashboard() {
         </div>
       )}
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <AnalysisPanel
           available={stats.available}
           loaded={stats.loaded}
@@ -408,7 +408,7 @@ export function FocusDashboard() {
         </div>
       )}
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {settings.hydrationEnabled ? (
           <HydrationTracker
             cups={hydration.cups}
