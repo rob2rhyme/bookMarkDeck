@@ -397,6 +397,17 @@ export function FocusDashboard() {
         />
       </div>
 
+      {settings.hydrationEnabled && (
+        <div className="mt-5">
+          <HydrationHistory
+            available={connected}
+            history={hydrationHistory}
+            todayEvents={todayHydrationEvents}
+            goal={settings.waterGoal}
+          />
+        </div>
+      )}
+
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {settings.hydrationEnabled ? (
           <HydrationTracker
@@ -412,17 +423,6 @@ export function FocusDashboard() {
         ) : null}
         <QuoteBox email={email} connected={connected} />
       </div>
-
-      {settings.hydrationEnabled && (
-        <div className="mt-5">
-          <HydrationHistory
-            available={connected}
-            history={hydrationHistory}
-            todayEvents={todayHydrationEvents}
-            goal={settings.waterGoal}
-          />
-        </div>
-      )}
 
       <div className="mt-6">
         <Link
