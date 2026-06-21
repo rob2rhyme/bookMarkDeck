@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // GitHub-style contributions heatmap. Renders ~12 months of daily activity as a
 // 7-row × ~53-column grid, coloured by how many things happened that day. Each
@@ -57,6 +57,14 @@ export function ContributionsCalendar({
   onSelect,
 }: ContributionsCalendarProps) {
   const [showHelp, setShowHelp] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Open showing the most recent weeks (the right edge) by default — the latest
+  // activity is what you want to see first, not last September.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, []);
 
   const { weeks, total } = useMemo(() => {
     const today = new Date();
@@ -95,7 +103,7 @@ export function ContributionsCalendar({
 
   return (
     <div>
-      <div className="overflow-x-auto pb-2">
+      <div ref={scrollRef} className="overflow-x-auto pb-2">
         <div className="inline-flex flex-col gap-1">
           {/* Month labels — each spills right over its column. */}
           <div className="flex gap-[3px] pl-[2px]">

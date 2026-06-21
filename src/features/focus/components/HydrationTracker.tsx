@@ -15,8 +15,10 @@ type HydrationTrackerProps = {
 
 /**
  * A glass-shaped container whose water level reflects cups / goal. The surface
- * rides up as cups are added (transition on the group's transform) and ripples
- * via two looping SMIL wave layers. Empty glass when fill is 0.
+ * rides up as cups are added (transition on the group's transform); a gradient
+ * "crystal clear" body, a glossy meniscus, two parallax SMIL wave layers, and
+ * rising bubbles give it life. Empty glass when fill is 0. Motion is gated by
+ * prefers-reduced-motion.
  */
 function WaterGlass({ fill }: { fill: number }) {
   // Surface sits at y=18 when full, y=146 when empty (128px of travel).
@@ -34,6 +36,17 @@ function WaterGlass({ fill }: { fill: number }) {
         <clipPath id="hydration-glass-clip">
           <path d="M30 18 L90 18 L82 142 Q81 148 75 148 L45 148 Q39 148 38 142 Z" />
         </clipPath>
+        {/* clear-water body: bright near the surface, deeper toward the base */}
+        <linearGradient id="hydration-water" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#bae6fd" stopOpacity="0.55" />
+          <stop offset="45%" stopColor="#38bdf8" stopOpacity="0.72" />
+          <stop offset="100%" stopColor="#0284c7" stopOpacity="0.9" />
+        </linearGradient>
+        {/* soft reflection running down the left wall of the glass */}
+        <linearGradient id="hydration-sheen" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.18" />
+          <stop offset="24%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
       </defs>
 
       {/* water (clipped to the glass interior) */}
@@ -42,9 +55,11 @@ function WaterGlass({ fill }: { fill: number }) {
           className={reducedMotion ? undefined : "transition-transform duration-700 ease-out"}
           transform={`translate(0 ${offset})`}
         >
+          {/* back wave — faint, slower parallax for depth */}
           <path
             d="M-40 22 q 20 -6 40 0 q 20 6 40 0 q 20 -6 40 0 q 20 6 40 0 q 20 -6 40 0 L 200 200 L -40 200 Z"
-            className="fill-sky-500/40"
+            fill="#7dd3fc"
+            fillOpacity="0.3"
           >
             {!reducedMotion && (
               <animateTransform
@@ -57,9 +72,10 @@ function WaterGlass({ fill }: { fill: number }) {
               />
             )}
           </path>
+          {/* front wave — the clear-water body */}
           <path
             d="M-40 18 q 20 -5 40 0 q 20 5 40 0 q 20 -5 40 0 q 20 5 40 0 q 20 -5 40 0 L 200 200 L -40 200 Z"
-            className="fill-sky-500/80"
+            fill="url(#hydration-water)"
           >
             {!reducedMotion && (
               <animateTransform
@@ -72,8 +88,53 @@ function WaterGlass({ fill }: { fill: number }) {
               />
             )}
           </path>
+          {/* glossy meniscus riding the surface */}
+          <path
+            d="M-40 18 q 20 -5 40 0 q 20 5 40 0 q 20 -5 40 0 q 20 5 40 0 q 20 -5 40 0"
+            fill="none"
+            stroke="#e0f7ff"
+            strokeOpacity="0.75"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          >
+            {!reducedMotion && (
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                from="-80 0"
+                to="0 0"
+                dur="2.4s"
+                repeatCount="indefinite"
+              />
+            )}
+          </path>
+
+          {/* rising bubbles — coordinates are in the water group so they track
+              the surface; only shown once there's a real body of water */}
+          {!reducedMotion && fill >= 0.4 && (
+            <g fill="#e0f7ff">
+              <circle cx="51" cy="118" r="1.6">
+                <animate attributeName="cy" from="118" to="42" dur="3.6s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0;0.7;0" dur="3.6s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="66" cy="116" r="1.1">
+                <animate attributeName="cy" from="116" to="46" dur="4.8s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0;0.6;0" dur="4.8s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="58" cy="120" r="0.9">
+                <animate attributeName="cy" from="120" to="40" dur="5.6s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0;0.55;0" dur="5.6s" repeatCount="indefinite" />
+              </circle>
+            </g>
+          )}
         </g>
       </g>
+
+      {/* glass reflection sheen */}
+      <path
+        d="M30 18 L90 18 L82 142 Q81 148 75 148 L45 148 Q39 148 38 142 Z"
+        fill="url(#hydration-sheen)"
+      />
 
       {/* glass outline */}
       <path
