@@ -56,6 +56,12 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ babyCount: 99 }).babyCount).toBe(6);
     expect(normalizeCursorSettings({ babyCount: 0 }).babyCount).toBe(1);
     expect(normalizeCursorSettings({ babyCount: 3.7 }).babyCount).toBe(4);
+    expect(normalizeCursorSettings({}).babyGap).toBe(16);
+    expect(normalizeCursorSettings({ babyGap: 999 }).babyGap).toBe(40);
+    expect(normalizeCursorSettings({ babyGap: 1 }).babyGap).toBe(6);
+    expect(normalizeCursorSettings({}).babySpread).toBe(30);
+    expect(normalizeCursorSettings({ babySpread: 999 }).babySpread).toBe(80);
+    expect(normalizeCursorSettings({ babySpread: -5 }).babySpread).toBe(0);
   });
 
   it("treats hue null/absent as Auto, clamps a custom hue (body/fins/antennae)", () => {

@@ -29,6 +29,8 @@ export function TurtleCursor({
   swimSpeed = 1,
   babies = false,
   babyCount = 2,
+  babyGap = 16,
+  babySpread = 30,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
@@ -45,6 +47,8 @@ export function TurtleCursor({
   const swimSpeedRef = useRef(swimSpeed);
   const babiesRef = useRef(babies);
   const babyCountRef = useRef(babyCount);
+  const babyGapRef = useRef(babyGap);
+  const babySpreadRef = useRef(babySpread);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
@@ -60,6 +64,8 @@ export function TurtleCursor({
     swimSpeedRef.current = swimSpeed;
     babiesRef.current = babies;
     babyCountRef.current = babyCount;
+    babyGapRef.current = babyGap;
+    babySpreadRef.current = babySpread;
   }, [
     size,
     hue,
@@ -75,6 +81,8 @@ export function TurtleCursor({
     swimSpeed,
     babies,
     babyCount,
+    babyGap,
+    babySpread,
   ]);
 
   useEffect(() => {
@@ -108,7 +116,6 @@ export function TurtleCursor({
     );
     const trail: { x: number; y: number }[] = [];
     const babyRot = babyEls.map(() => 0);
-    const BABY_GAP = 16; // frames of spacing between turtles in the line
 
     // Water FX (world-space, behind the turtle): expanding ripples + bubbles.
     const svgns = "http://www.w3.org/2000/svg";
@@ -298,29 +305,40 @@ export function TurtleCursor({
         root.setAttribute("opacity", "1");
       }
 
-      // Baby turtles — trail the parent's path in a conga line.
+      // Baby turtles — trail the parent's path, fanned out to alternating sides.
       if (babyEls.length) {
         trail.unshift({ x: dispX, y: dispY });
-        if (trail.length > 130) trail.pop();
+        if (trail.length > 260) trail.pop();
         const nb = babiesRef.current
           ? Math.min(babyEls.length, Math.round(babyCountRef.current))
           : 0;
+        const gap = babyGapRef.current;
+        const spread = babySpreadRef.current;
         babyEls.forEach((g, i) => {
           if (i >= nb) {
             g.setAttribute("opacity", "0");
             return;
           }
-          const idx = Math.min(trail.length - 1, (i + 1) * BABY_GAP);
+          // Sample a point further back along the path for each baby (distance).
+          const idx = Math.min(trail.length - 1, Math.round((i + 1) * gap));
           const p = trail[idx];
           const ahead = trail[Math.max(0, idx - 5)];
           const vx = p.x - ahead.x;
           const vy = p.y - ahead.y;
           if (Math.hypot(vx, vy) > 0.6)
             babyRot[i] = (Math.atan2(vy, vx) * 180) / Math.PI;
+          // Fan sideways: alternate L/R, widening with rank, perpendicular to
+          // the heading (so they follow from the side, not just straight back).
+          const side = i % 2 === 0 ? 1 : -1;
+          const rank = Math.floor(i / 2) + 1;
+          const lateral = spread * side * rank;
+          const rad = (babyRot[i] * Math.PI) / 180;
+          const bx = p.x + -Math.sin(rad) * lateral;
+          const by = p.y + Math.cos(rad) * lateral;
           const bScale = s * 0.5 * (1 + 0.03 * Math.sin(flipPhase + i * 1.3));
           g.setAttribute(
             "transform",
-            `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${babyRot[
+            `translate(${bx.toFixed(1)},${by.toFixed(1)}) rotate(${babyRot[
               i
             ].toFixed(2)}) scale(${bScale.toFixed(3)})`
           );

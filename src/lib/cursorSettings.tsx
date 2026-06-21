@@ -32,6 +32,8 @@ export type CursorSettings = {
   swimSpeed: number; // turtle: stroke/animation tempo (0.25 slow … 3 fast)
   babies: boolean; // turtle: trailing baby turtles that follow along
   babyCount: number; // turtle: how many babies (1–6); each is 50% of parent size
+  babyGap: number; // turtle: spacing/distance between babies (6–40)
+  babySpread: number; // turtle: sideways fan offset, px (0 = single file)
 };
 
 /** Props the overlays accept so the settings drive their animation. */
@@ -51,6 +53,8 @@ export type CursorProps = {
   swimSpeed?: number;
   babies?: boolean;
   babyCount?: number;
+  babyGap?: number;
+  babySpread?: number;
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -70,6 +74,8 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   swimSpeed: 1,
   babies: false,
   babyCount: 2,
+  babyGap: 16,
+  babySpread: 30,
 };
 
 const KEY = "bd:cursor-settings:v1";
@@ -104,6 +110,8 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     swimSpeed: clampNum(r.swimSpeed, 0.25, 3, d.swimSpeed),
     babies: typeof r.babies === "boolean" ? r.babies : d.babies,
     babyCount: Math.round(clampNum(r.babyCount, 1, 6, d.babyCount)),
+    babyGap: clampNum(r.babyGap, 6, 40, d.babyGap),
+    babySpread: clampNum(r.babySpread, 0, 80, d.babySpread),
   };
 }
 
