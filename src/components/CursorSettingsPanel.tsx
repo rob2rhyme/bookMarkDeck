@@ -383,7 +383,7 @@ export function CursorSettingsPanel({
                   <input
                     type="range"
                     min={1}
-                    max={6}
+                    max={100}
                     step={1}
                     value={settings.babyCount ?? 2}
                     onChange={(e) =>

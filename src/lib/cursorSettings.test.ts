@@ -53,7 +53,8 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ babies: true }).babies).toBe(true);
     expect(normalizeCursorSettings({ babies: "x" }).babies).toBe(false);
     expect(normalizeCursorSettings({}).babyCount).toBe(2);
-    expect(normalizeCursorSettings({ babyCount: 99 }).babyCount).toBe(6);
+    expect(normalizeCursorSettings({ babyCount: 99 }).babyCount).toBe(99);
+    expect(normalizeCursorSettings({ babyCount: 999 }).babyCount).toBe(100);
     expect(normalizeCursorSettings({ babyCount: 0 }).babyCount).toBe(1);
     expect(normalizeCursorSettings({ babyCount: 3.7 }).babyCount).toBe(4);
     expect(normalizeCursorSettings({}).babyGap).toBe(16);

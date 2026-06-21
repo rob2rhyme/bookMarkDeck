@@ -347,7 +347,7 @@ export function TurtleCursor({
       const activeBabies: { x: number; y: number; s: number; h: number }[] = [];
       if (babyEls.length) {
         trail.unshift({ x: dispX, y: dispY });
-        if (trail.length > 260) trail.pop();
+        if (trail.length > 4100) trail.pop(); // covers 100 babies × max spacing
         const nb = babiesRef.current
           ? Math.min(babyEls.length, Math.round(babyCountRef.current))
           : 0;
@@ -610,7 +610,7 @@ export function TurtleCursor({
             (#turtle-rig), each positioned along the parent's trail by JS.
             Behind the parent so it overlaps them. */}
         <g id="t-babies">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 100 }).map((_, i) => (
             <g key={i} className="t-baby" opacity="0">
               <use href="#turtle-rig" />
             </g>
