@@ -242,9 +242,9 @@ export function LobsterCursor({
       const lift = drive * 11;
       clawL?.setAttribute("transform", `translate(-9 -6) rotate(${(-8 - lift + clawSwing).toFixed(2)}) scale(${fz.toFixed(3)})`);
       clawR?.setAttribute("transform", `translate(-9 6) rotate(${(8 + lift + clawSwing).toFixed(2)}) scale(${fz.toFixed(3)})`);
-      // Pincers sit WIDE OPEN by default (ready to hug), opening a touch more
-      // when active.
-      const gape = 34 + drive * 12;
+      // Pincers sit WIDE OPEN by default (ready to hug; ~75% wider than before),
+      // and still gape reactively a touch more when active.
+      const gape = 60 + drive * 14;
       pincerL?.setAttribute("transform", `rotate(${(-gape).toFixed(2)})`);
       pincerR?.setAttribute("transform", `rotate(${gape.toFixed(2)})`);
 
