@@ -48,3 +48,9 @@ next-env.d.ts
 /launcher-desktop/dist
 /launcher-desktop/out
 /launcher-desktop/certs
+
+# Capacitor (native iOS shell — generated locally via `npx cap add ios`)
+/ios/App/Pods/
+/ios/App/App/public/
+/ios/App/output/
+/ios/.gradle/
