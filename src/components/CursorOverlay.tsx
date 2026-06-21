@@ -2,6 +2,7 @@
 
 import { DragonCursor } from "@/components/DragonCursor";
 import { FishCursor } from "@/components/FishCursor";
+import { JellyfishCursor } from "@/components/JellyfishCursor";
 import { TurtleCursor } from "@/components/TurtleCursor";
 import { useCursorSettings } from "@/lib/cursorSettings";
 
@@ -34,6 +35,7 @@ export function CursorOverlay() {
 
   if (settings.style === "fish") return <FishCursor {...props} />;
   if (settings.style === "turtle") return <TurtleCursor {...props} />;
+  if (settings.style === "jellyfish") return <JellyfishCursor {...props} />;
   return <DragonCursor {...props} />;
 }
 
