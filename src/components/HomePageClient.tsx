@@ -416,6 +416,18 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showShortcutInfo]);
 
+  // Open the add-bookmark form when arriving via the ⌘K command palette.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("bd:intent:add-bookmark") === "1") {
+        localStorage.removeItem("bd:intent:add-bookmark");
+        setShowAddForm(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     if (!showAddForm) return;
     const handleKeyDown = (event: KeyboardEvent) => {

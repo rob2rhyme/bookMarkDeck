@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { IconAction } from "@/components/IconAction";
 import {
   Check,
@@ -12,10 +13,13 @@ import {
   Pencil,
   Star,
   StarFilled,
+  Timer,
   Trash,
   X,
 } from "@/components/icons";
 import { hapticTap } from "@/utils/haptics";
+import { setFocusTaskIntent } from "@/lib/focusIntent";
+import { useToast } from "@/components/toast/ToastProvider";
 
 function safeParseUrl(rawUrl: string): URL | null {
   try {
@@ -103,6 +107,8 @@ export function BookmarkCard({
   const [note, setNote] = useState(bookmark.note ?? "");
   const [isEditing, setIsEditing] = useState(false);
   const [showNote, setShowNote] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
 
   const faviconCandidates = getFaviconCandidates(bookmark.url);
   const [faviconState, setFaviconState] = useState<{
@@ -306,6 +312,16 @@ export function BookmarkCard({
 
   const handleTogglePinned = () => {
     onUpdate(bookmark.id, { pinned: !bookmark.pinned });
+  };
+
+  // Cohesion: turn this resource into focused work. Seed a Focus task from the
+  // bookmark and jump to the Focus hub, which picks the intent up on mount.
+  const handleWorkOnThis = () => {
+    const seed = (bookmark.title || bookmark.url).trim();
+    if (!seed) return;
+    setFocusTaskIntent(seed);
+    toast(`Starting focus on “${seed}”`, { variant: "success" });
+    router.push("/focus");
   };
 
   const handleFolderChange = (value: string) => {
@@ -590,6 +606,15 @@ export function BookmarkCard({
               onClick={handleOpen}
               disabled={selectMode || isEditing}
               icon={<ExternalLink className="h-4 w-4" />}
+            />
+            <IconAction
+              label="Work on this in Focus"
+              onClick={() => {
+                hapticTap();
+                handleWorkOnThis();
+              }}
+              disabled={selectMode || isEditing}
+              icon={<Timer className="h-4 w-4" />}
             />
             <IconAction
               label={isEditing ? "Save" : "Edit"}
@@ -891,6 +916,15 @@ export function BookmarkCard({
                 onClick={handleOpen}
                 disabled={selectMode || isEditing}
                 icon={<ExternalLink className="h-4 w-4" />}
+              />
+              <IconAction
+                label="Work on this in Focus"
+                onClick={() => {
+                  hapticTap();
+                  handleWorkOnThis();
+                }}
+                disabled={selectMode || isEditing}
+                icon={<Timer className="h-4 w-4" />}
               />
               <IconAction
                 label={isEditing ? "Save" : "Edit"}
