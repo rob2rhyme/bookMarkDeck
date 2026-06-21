@@ -131,6 +131,46 @@ body {
   }
 }
 
+/* Hue picker slider — show the rainbow gradient (set inline as the element
+   background) as the track, with a clear draggable knob. Native track/thumb
+   pseudo-elements otherwise paint over the gradient. */
+.hue-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  cursor: pointer;
+  background-clip: padding-box;
+}
+.hue-slider::-webkit-slider-runnable-track {
+  height: 14px;
+  border-radius: 9999px;
+  background: transparent;
+}
+.hue-slider::-moz-range-track {
+  height: 14px;
+  border-radius: 9999px;
+  background: transparent;
+}
+.hue-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  margin-top: -2px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid rgba(15, 23, 42, 0.85); /* slate-900 ring */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.hue-slider::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid rgba(15, 23, 42, 0.85);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
 @layer utilities {
   .bd-tile-grid {
     display: grid;

@@ -13,21 +13,26 @@ import {
   useState,
 } from "react";
 
-export type CursorStyle = "dragon" | "fish" | "off";
+export type CursorStyle = "dragon" | "fish" | "turtle" | "off";
 
 export type CursorSettings = {
   style: CursorStyle;
   size: number; // overlay scale multiplier (0.5–2)
-  hue: number | null; // body colour. null = Auto (built-in animated palette); 0–360 = locked
-  finHue: number | null; // fins + tail colour (fish). null = Auto (cyan)
-  antennaHue: number | null; // antennae colour (fish). null = Auto (cyan)
-  finSize: number; // fish fin scale (0.5–2.5)
+  hue: number | null; // body/shell colour. null = Auto; 0–360 = locked
+  finHue: number | null; // fins/tail (fish) · flippers (turtle). null = Auto
+  antennaHue: number | null; // antennae (fish) · shell pattern (turtle). null = Auto
+  finSize: number; // fish fin · turtle flipper scale (0.5–2.5)
   antennaSize: number; // fish antenna scale (0.5–2.5)
-  blinkSpeed: number; // fish eye blink cadence (0.25 slow … 3 fast)
+  blinkSpeed: number; // eye blink cadence (0.25 slow … 3 fast)
   transition: number; // follow feel: 0 = smooth/laggy … 1 = snappy
+  jelly: boolean; // turtle: translucent jellyfish body
+  float: boolean; // turtle: buoyant idle drift + free 360° rotation
+  ripples: boolean; // turtle: water ripples
+  bubbles: boolean; // turtle: rising bubbles
+  swimSpeed: number; // turtle: stroke/animation tempo (0.25 slow … 3 fast)
 };
 
-/** Props the Dragon/Fish overlays accept so the settings drive their animation. */
+/** Props the overlays accept so the settings drive their animation. */
 export type CursorProps = {
   size?: number;
   hue?: number | null;
@@ -37,6 +42,11 @@ export type CursorProps = {
   antennaSize?: number;
   blinkSpeed?: number;
   transition?: number;
+  jelly?: boolean;
+  float?: boolean;
+  ripples?: boolean;
+  bubbles?: boolean;
+  swimSpeed?: number;
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -49,6 +59,11 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   antennaSize: 1,
   blinkSpeed: 1,
   transition: 0.5,
+  jelly: false,
+  float: true,
+  ripples: true,
+  bubbles: true,
+  swimSpeed: 1,
 };
 
 const KEY = "bd:cursor-settings:v1";
@@ -64,7 +79,10 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
   const hueOrAuto = (v: unknown) =>
     v === null || v === undefined ? null : clampNum(v, 0, 360, 0);
   return {
-    style: r.style === "dragon" || r.style === "off" ? r.style : "fish",
+    style:
+      r.style === "dragon" || r.style === "off" || r.style === "turtle"
+        ? r.style
+        : "fish",
     size: clampNum(r.size, 0.5, 2, d.size),
     hue: hueOrAuto(r.hue),
     finHue: hueOrAuto(r.finHue),
@@ -73,6 +91,11 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     antennaSize: clampNum(r.antennaSize, 0.5, 2.5, d.antennaSize),
     blinkSpeed: clampNum(r.blinkSpeed, 0.25, 3, d.blinkSpeed),
     transition: clampNum(r.transition, 0, 1, d.transition),
+    jelly: typeof r.jelly === "boolean" ? r.jelly : d.jelly,
+    float: typeof r.float === "boolean" ? r.float : d.float,
+    ripples: typeof r.ripples === "boolean" ? r.ripples : d.ripples,
+    bubbles: typeof r.bubbles === "boolean" ? r.bubbles : d.bubbles,
+    swimSpeed: clampNum(r.swimSpeed, 0.25, 3, d.swimSpeed),
   };
 }
 

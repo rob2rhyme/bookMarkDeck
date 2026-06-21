@@ -14,8 +14,24 @@ describe("normalizeCursorSettings", () => {
   it("validates style against the allowed set (fish is the default)", () => {
     expect(normalizeCursorSettings({ style: "fish" }).style).toBe("fish");
     expect(normalizeCursorSettings({ style: "dragon" }).style).toBe("dragon");
+    expect(normalizeCursorSettings({ style: "turtle" }).style).toBe("turtle");
     expect(normalizeCursorSettings({ style: "off" }).style).toBe("off");
     expect(normalizeCursorSettings({ style: "unicorn" }).style).toBe("fish");
+  });
+
+  it("coerces jelly to a boolean (default false)", () => {
+    expect(normalizeCursorSettings({}).jelly).toBe(false);
+    expect(normalizeCursorSettings({ jelly: true }).jelly).toBe(true);
+    expect(normalizeCursorSettings({ jelly: "yes" }).jelly).toBe(false);
+  });
+
+  it("coerces float/ripples/bubbles to booleans (default true)", () => {
+    const d = normalizeCursorSettings({});
+    expect(d.float).toBe(true);
+    expect(d.ripples).toBe(true);
+    expect(d.bubbles).toBe(true);
+    expect(normalizeCursorSettings({ ripples: false }).ripples).toBe(false);
+    expect(normalizeCursorSettings({ bubbles: "x" }).bubbles).toBe(true);
   });
 
   it("clamps size, fin/antenna size, blink speed, and transition into range", () => {
@@ -27,6 +43,9 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ antennaSize: 0 }).antennaSize).toBe(0.5);
     expect(normalizeCursorSettings({ blinkSpeed: 99 }).blinkSpeed).toBe(3);
     expect(normalizeCursorSettings({ blinkSpeed: 0 }).blinkSpeed).toBe(0.25);
+    expect(normalizeCursorSettings({}).swimSpeed).toBe(1);
+    expect(normalizeCursorSettings({ swimSpeed: 99 }).swimSpeed).toBe(3);
+    expect(normalizeCursorSettings({ swimSpeed: 0 }).swimSpeed).toBe(0.25);
   });
 
   it("treats hue null/absent as Auto, clamps a custom hue (body/fins/antennae)", () => {
