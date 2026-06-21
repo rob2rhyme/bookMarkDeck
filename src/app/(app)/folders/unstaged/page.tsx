@@ -417,13 +417,13 @@ export default function UnstagedFolderPage() {
                 ? "Bookmarks deleted"
                 : "Bookmark deleted"}
             </span>
-            <button
+            <button type="button"
               onClick={handleUndo}
               className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-white"
             >
               Undo
             </button>
-            <button
+            <button type="button"
               onClick={() => setUndoState(null)}
               className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-transform duration-150 ease-out hover:bg-slate-800/60 hover:text-slate-100 active:scale-95"
               aria-label="Dismiss undo"

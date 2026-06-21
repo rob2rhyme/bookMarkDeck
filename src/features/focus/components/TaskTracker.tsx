@@ -71,7 +71,7 @@ export function TaskTracker({
 
       <ul className="mt-4 flex flex-col gap-2">
         {activeTasks.length === 0 ? (
-          <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
+          <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
             No tasks yet. Add one, then start the timer to log time against it.
           </li>
         ) : (

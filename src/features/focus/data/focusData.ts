@@ -410,9 +410,17 @@ export async function fetchActivity(
 //
 // Each subscribe* attaches an onSnapshot listener and returns an unsubscribe.
 // uid resolution is async, so the returned function also cancels a pending
-// resolve. Errors are swallowed — listeners are best-effort, like the fetches.
+// resolve. Listeners are best-effort (the UI keeps its last-known state on
+// error), but failures are logged rather than swallowed so they're diagnosable.
 
 type Unsub = () => void;
+
+/** Shared onSnapshot error handler — logs the failing listener for diagnosis. */
+function onListenError(label: string) {
+  return (err: unknown) => {
+    console.error(`[focus] ${label} listener error:`, err);
+  };
+}
 
 function listen(
   emailHint: string,
@@ -424,7 +432,9 @@ function listen(
     .then((uid) => {
       if (!cancelled) unsub = attach(uid);
     })
-    .catch(() => {});
+    .catch((err) => {
+      console.error("[focus] listener auth failed:", err);
+    });
   return () => {
     cancelled = true;
     unsub();
@@ -453,7 +463,7 @@ export function subscribeTasks(
             })
             .filter((t) => t.text.trim().length > 0)
         ),
-      () => {}
+      onListenError("tasks")
     )
   );
 }
@@ -478,7 +488,7 @@ export function subscribeSessions(
             };
           })
         ),
-      () => {}
+      onListenError("sessions")
     )
   );
 }
@@ -501,7 +511,7 @@ export function subscribeJournal(
             };
           })
         ),
-      () => {}
+      onListenError("journal")
     )
   );
 }
@@ -527,7 +537,7 @@ export function subscribeNotes(
             })
             .filter((n) => n.text.trim().length > 0)
         ),
-      () => {}
+      onListenError("notes")
     )
   );
 }
@@ -554,7 +564,7 @@ export function subscribeActivity(
             };
           })
         ),
-      () => {}
+      onListenError("activity")
     )
   );
 }
@@ -571,7 +581,7 @@ export function subscribeHydration(
         const cups = snap.exists() ? snap.data().cups : null;
         cb(typeof cups === "number" ? cups : null);
       },
-      () => {}
+      onListenError("hydration")
     )
   );
 }
@@ -593,7 +603,7 @@ export function subscribeHydrationHistory(
             }))
             .filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.day) && r.cups > 0)
         ),
-      () => {}
+      onListenError("hydrationHistory")
     )
   );
 }
@@ -652,7 +662,7 @@ export function subscribeTodos(
     onSnapshot(
       todosCol(uid),
       (snap) => cb(snap.docs.map(mapTodo).filter((t) => t.text.trim().length > 0)),
-      () => {}
+      onListenError("todos")
     )
   );
 }

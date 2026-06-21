@@ -8,6 +8,10 @@ export function DragonCursor() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Respect reduced-motion: this is a purely decorative animated cursor, so
+    // skip building and animating it entirely when the user opts out.
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
     const svg = svgRef.current;
     if (!svg) return;
 
