@@ -40,6 +40,9 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ transition: 5 }).transition).toBe(1);
     expect(normalizeCursorSettings({ transition: -1 }).transition).toBe(0);
     expect(normalizeCursorSettings({ finSize: 9 }).finSize).toBe(2.5);
+    expect(normalizeCursorSettings({}).finFlap).toBe(1);
+    expect(normalizeCursorSettings({ finFlap: 9 }).finFlap).toBe(2);
+    expect(normalizeCursorSettings({ finFlap: -1 }).finFlap).toBe(0);
     expect(normalizeCursorSettings({ antennaSize: 0 }).antennaSize).toBe(0.5);
     expect(normalizeCursorSettings({ blinkSpeed: 99 }).blinkSpeed).toBe(3);
     expect(normalizeCursorSettings({ blinkSpeed: 0 }).blinkSpeed).toBe(0.25);

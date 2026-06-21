@@ -22,6 +22,7 @@ export type CursorSettings = {
   finHue: number | null; // fins/tail (fish) · flippers (turtle). null = Auto
   antennaHue: number | null; // antennae (fish) · shell pattern (turtle). null = Auto
   finSize: number; // fish fin · turtle flipper scale (0.5–2.5)
+  finFlap: number; // fish: fin flap amount, turn-reactive (0 = static … 2)
   antennaSize: number; // fish antenna scale (0.5–2.5)
   blinkSpeed: number; // eye blink cadence (0.25 slow … 3 fast)
   transition: number; // follow feel: 0 = smooth/laggy … 1 = snappy
@@ -44,6 +45,7 @@ export type CursorProps = {
   finHue?: number | null;
   antennaHue?: number | null;
   finSize?: number;
+  finFlap?: number;
   antennaSize?: number;
   blinkSpeed?: number;
   transition?: number;
@@ -66,6 +68,7 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   finHue: null,
   antennaHue: null,
   finSize: 1,
+  finFlap: 1,
   antennaSize: 1,
   blinkSpeed: 1,
   transition: 0.5,
@@ -103,6 +106,7 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     finHue: hueOrAuto(r.finHue),
     antennaHue: hueOrAuto(r.antennaHue),
     finSize: clampNum(r.finSize, 0.5, 2.5, d.finSize),
+    finFlap: clampNum(r.finFlap, 0, 2, d.finFlap),
     antennaSize: clampNum(r.antennaSize, 0.5, 2.5, d.antennaSize),
     blinkSpeed: clampNum(r.blinkSpeed, 0.25, 3, d.blinkSpeed),
     transition: clampNum(r.transition, 0, 1, d.transition),

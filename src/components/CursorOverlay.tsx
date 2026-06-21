@@ -16,6 +16,7 @@ export function CursorOverlay() {
     finHue: settings.finHue,
     antennaHue: settings.antennaHue,
     finSize: settings.finSize,
+    finFlap: settings.finFlap,
     antennaSize: settings.antennaSize,
     blinkSpeed: settings.blinkSpeed,
     transition: settings.transition,

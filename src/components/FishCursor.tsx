@@ -17,6 +17,7 @@ export function FishCursor({
   finHue = null,
   antennaHue = null,
   finSize = 1,
+  finFlap = 1,
   antennaSize = 1,
   blinkSpeed = 1,
   transition = 0.5,
@@ -33,6 +34,7 @@ export function FishCursor({
   const finHueRef = useRef(finHue);
   const antHueRef = useRef(antennaHue);
   const finSizeRef = useRef(finSize);
+  const finFlapRef = useRef(finFlap);
   const antSizeRef = useRef(antennaSize);
   const blinkSpeedRef = useRef(blinkSpeed);
   const transRef = useRef(transition);
@@ -48,6 +50,7 @@ export function FishCursor({
     finHueRef.current = finHue;
     antHueRef.current = antennaHue;
     finSizeRef.current = finSize;
+    finFlapRef.current = finFlap;
     antSizeRef.current = antennaSize;
     blinkSpeedRef.current = blinkSpeed;
     transRef.current = transition;
@@ -63,6 +66,7 @@ export function FishCursor({
     finHue,
     antennaHue,
     finSize,
+    finFlap,
     antennaSize,
     blinkSpeed,
     transition,
@@ -155,6 +159,7 @@ export function FishCursor({
     let prevHeading = 0;
     let turnSmoothed = 0;
     let antPhase = 0;
+    let finFlapPhase = 0;
     // Blink state: frames until the next blink, and the current blink's
     // remaining frames / total duration (longer = a slow blink).
     let blinkWait = 60 + Math.random() * 120;
@@ -372,10 +377,23 @@ export function FishCursor({
         turnSmoothed = turnSmoothed * 0.88 + Math.abs(dh) * 0.12;
       }
 
-      // Fins — sized to the setting, held static (no flapping).
+      // Fins — sized to the setting, with a turn-reactive flap (the fins sweep
+      // vertically; the flap is gentle at rest and quickens/deepens while
+      // turning). finFlap = 0 keeps them static.
       if (finsGroup) {
         const fs = 1.75 * finSizeRef.current;
-        finsGroup.setAttribute("transform", `scale(${fs.toFixed(3)})`);
+        const flap = finFlapRef.current;
+        if (flap > 0) {
+          finFlapPhase += 0.25 + Math.min(0.9, turnSmoothed * 9);
+          const amp = flap * (0.16 + Math.min(0.5, turnSmoothed * 5));
+          const sy = fs * (1 + amp * Math.sin(finFlapPhase));
+          finsGroup.setAttribute(
+            "transform",
+            `scale(${fs.toFixed(3)} ${sy.toFixed(3)})`
+          );
+        } else {
+          finsGroup.setAttribute("transform", `scale(${fs.toFixed(3)})`);
+        }
       }
 
       // 🪡 Antennae flick — very active, and livelier still while turning. Each

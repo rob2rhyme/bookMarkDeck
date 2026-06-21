@@ -256,6 +256,22 @@ export function CursorSettingsPanel({
               />
             </div>
           </Row>
+          <Row label="Fin flap">
+            <input
+              type="range"
+              min={0}
+              max={2}
+              step={0.05}
+              value={settings.finFlap ?? 1}
+              onChange={(e) => update({ finFlap: Number(e.target.value) })}
+              aria-label="Fin flap amount"
+              className="w-full accent-blue-500"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+              <span>Off</span>
+              <span>Strong</span>
+            </div>
+          </Row>
           <Row label={`Antennae — ${Math.round(settings.antennaSize * 100)}%`}>
             <input
               type="range"
