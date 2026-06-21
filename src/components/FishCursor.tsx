@@ -94,14 +94,19 @@ export function FishCursor({
     const bubbles: Bubble[] = [];
 
     const N = 40;
-    type ElemData = { use: SVGUseElement | null; x: number; y: number };
+    type ElemData = {
+      use: SVGUseElement | null;
+      scaleUse: SVGUseElement | null; // scale-texture overlay (body segments)
+      x: number;
+      y: number;
+    };
 
     let width = window.innerWidth;
     let height = window.innerHeight;
 
     const elems: ElemData[] = [];
     for (let i = 0; i < N; i++) {
-      elems[i] = { use: null, x: width / 2, y: 0 };
+      elems[i] = { use: null, scaleUse: null, x: width / 2, y: 0 };
     }
 
     const pointer = { x: width / 2, y: height / 2 };
@@ -152,6 +157,18 @@ export function FishCursor({
       else if (i === N - 1) prepend("FishTail", i);
       else if (i === 10 || i === 18) prepend("FishFins", i);
       else prepend("FishBody", i);
+    }
+
+    // Scale texture on each body segment, density ramping from light at the
+    // front to heavy at the back (appended → drawn over the bodies).
+    for (let i = 2; i < N - 1; i++) {
+      if (i === 10 || i === 18) continue; // skip the fin segments
+      const su = document.createElementNS(xmlns, "use") as SVGUseElement;
+      su.setAttributeNS(xlinkns, "xlink:href", "#FishScales");
+      const t = (i - 2) / (N - 4); // 0 (front body) → 1 (back body)
+      su.setAttribute("opacity", (0.12 + 0.72 * t).toFixed(3));
+      screen.append(su);
+      elems[i].scaleUse = su;
     }
 
     let rafId = 0;
@@ -276,13 +293,11 @@ export function FishCursor({
 
         const s = ((162 + 4 * (1 - i)) / 50) * sizeMul;
 
-        e.use?.setAttributeNS(
-          null,
-          "transform",
-          `translate(${(ep.x + e.x) / 2},${(ep.y + e.y) / 2}) rotate(${
-            (180 / Math.PI) * a
-          }) translate(0,0) scale(${s},${s})`
-        );
+        const T = `translate(${(ep.x + e.x) / 2},${(ep.y + e.y) / 2}) rotate(${
+          (180 / Math.PI) * a
+        }) translate(0,0) scale(${s},${s})`;
+        e.use?.setAttributeNS(null, "transform", T);
+        e.scaleUse?.setAttributeNS(null, "transform", T);
       }
 
       // Smoothed turn rate (radians/frame) — drives the fins + antennae.
@@ -449,6 +464,31 @@ export function FishCursor({
           {/* Body segment — the overlapping chain forms a tapered body. */}
           <g id="FishBody">
             <ellipse cx="0" cy="0" rx="7" ry="5.5" fill="url(#FishBodyGrad)" />
+          </g>
+
+          {/* Scale texture — staggered rows of crescents (a scale's lower edge).
+              Overlaid per body segment with a density that ramps front→back. */}
+          <g
+            id="FishScales"
+            fill="none"
+            stroke="#0c4a6e"
+            strokeWidth="0.5"
+            strokeLinecap="round"
+          >
+            <path d="M-6 -3 Q-4.5 -1.6 -3 -3" />
+            <path d="M-3 -3 Q-1.5 -1.6 0 -3" />
+            <path d="M0 -3 Q1.5 -1.6 3 -3" />
+            <path d="M3 -3 Q4.5 -1.6 6 -3" />
+            <path d="M-4.5 -1 Q-3 0.4 -1.5 -1" />
+            <path d="M-1.5 -1 Q0 0.4 1.5 -1" />
+            <path d="M1.5 -1 Q3 0.4 4.5 -1" />
+            <path d="M-6 1 Q-4.5 2.4 -3 1" />
+            <path d="M-3 1 Q-1.5 2.4 0 1" />
+            <path d="M0 1 Q1.5 2.4 3 1" />
+            <path d="M3 1 Q4.5 2.4 6 1" />
+            <path d="M-4.5 3 Q-3 4.4 -1.5 3" />
+            <path d="M-1.5 3 Q0 4.4 1.5 3" />
+            <path d="M1.5 3 Q3 4.4 4.5 3" />
           </g>
 
           {/* Dorsal + ventral fins, sweeping backward (+x). Large + spiky
