@@ -235,16 +235,17 @@ export function LobsterCursor({
       // How "active" the lobster is right now (0 at rest → 1 darting/turning).
       const drive = Math.min(1, speed * 0.28 + turnMag * 7);
 
-      // Claws — REACTIVE: swing toward the turn, spread + gape the pincers when
-      // active (moving/turning), resting closed when still. No idle screwing.
+      // Carpus (claw arms) held WIDE open — a hug-ready spread (~75% wider than
+      // the old rest pose) — plus swing into the turn and open a touch more when
+      // active.
       const fz = finSizeRef.current;
       const clawSwing = turnSigned * 45;
       const lift = drive * 11;
-      clawL?.setAttribute("transform", `translate(-9 -6) rotate(${(-8 - lift + clawSwing).toFixed(2)}) scale(${fz.toFixed(3)})`);
-      clawR?.setAttribute("transform", `translate(-9 6) rotate(${(8 + lift + clawSwing).toFixed(2)}) scale(${fz.toFixed(3)})`);
-      // Pincers sit WIDE OPEN by default (ready to hug; ~75% wider than before),
-      // and still gape reactively a touch more when active.
-      const gape = 60 + drive * 14;
+      const open = 32; // wide carpus spread
+      clawL?.setAttribute("transform", `translate(-9 -6) rotate(${(-8 - open - lift + clawSwing).toFixed(2)}) scale(${fz.toFixed(3)})`);
+      clawR?.setAttribute("transform", `translate(-9 6) rotate(${(8 + open + lift + clawSwing).toFixed(2)}) scale(${fz.toFixed(3)})`);
+      // Pincers gape REACTIVELY: open as it moves/turns, resting nearly shut.
+      const gape = 2 + drive * 16;
       pincerL?.setAttribute("transform", `rotate(${(-gape).toFixed(2)})`);
       pincerR?.setAttribute("transform", `rotate(${gape.toFixed(2)})`);
 
