@@ -209,6 +209,15 @@ export function Bookmark({ className }: IconProps) {
   );
 }
 
+export function Search({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
 export function Settings({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...baseProps(className)}>

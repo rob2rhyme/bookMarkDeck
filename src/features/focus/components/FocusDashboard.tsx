@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+
+import { consumeFocusTaskIntent } from "@/lib/focusIntent";
 
 import { Settings, Timer } from "@/components/icons";
 import {
@@ -61,6 +63,16 @@ export function FocusDashboard() {
   const hydrationHistory = useHydrationHistory(email, connected);
 
   const undo = useUndo();
+
+  // Cross-feature handoff: if the user clicked "Work on this" on a bookmark,
+  // seed + activate that task once on arrival. consume() clears the intent, so
+  // this is idempotent across re-renders.
+  const addTaskRef = useRef(tasks.addTask);
+  addTaskRef.current = tasks.addTask;
+  useEffect(() => {
+    const seed = consumeFocusTaskIntent();
+    if (seed) addTaskRef.current(seed);
+  }, []);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [journalPrompt, setJournalPrompt] = useState(false);
@@ -274,6 +286,7 @@ export function FocusDashboard() {
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <AnalysisPanel
           available={stats.available}
+          loaded={stats.loaded}
           todayFocusMin={stats.todayFocusMin}
           todaySessions={stats.todaySessions}
           dailyGoalHours={settings.dailyGoalHours}

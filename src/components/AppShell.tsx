@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
 import { DragonCursor } from "@/components/DragonCursor";
-import { Bookmark, Timer } from "@/components/icons";
+import { Bookmark, Search, Timer } from "@/components/icons";
+import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/CommandPalette";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -24,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="relative isolate flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
       <DragonCursor />
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-24 pt-8 sm:px-6 sm:pb-12 lg:px-8 lg:pt-12">
         <header className="mb-8 flex flex-col gap-4 sm:mb-10">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
@@ -126,6 +127,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </footer>
       </div>
+
+      {/* Mobile bottom nav — primary destinations + search (⌘K). */}
+      {session && (
+        <nav
+          aria-label="Primary"
+          className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-800/70 bg-slate-950/95 backdrop-blur sm:hidden"
+        >
+          {[
+            { href: "/", label: "Bookmarks", Icon: Bookmark, active: !onFocus },
+            { href: "/focus", label: "Focus", Icon: Timer, active: onFocus },
+          ].map((tab) => (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={tab.active ? "page" : undefined}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition ${
+                tab.active ? "text-blue-300" : "text-slate-400"
+              }`}
+            >
+              <tab.Icon className="h-5 w-5" />
+              {tab.label}
+            </Link>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))
+            }
+            className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium text-slate-400 transition hover:text-slate-200"
+          >
+            <Search className="h-5 w-5" />
+            Search
+          </button>
+        </nav>
+      )}
     </main>
   );
 }

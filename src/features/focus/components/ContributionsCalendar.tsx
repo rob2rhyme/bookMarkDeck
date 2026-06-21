@@ -21,7 +21,7 @@ const LEVEL_CLASS = [
   "bg-emerald-300",
 ];
 
-function levelFor(count: number): number {
+export function levelFor(count: number): number {
   if (count <= 0) return 0;
   if (count <= 2) return 1;
   if (count <= 4) return 2;

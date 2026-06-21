@@ -10,6 +10,8 @@ import { useRouter } from "next/navigation";
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { FolderCard } from "@/components/FolderCard";
 import { ShortcutIcon } from "@/components/ShortcutIcon";
+import { Modal } from "@/components/Modal";
+import { useToast } from "@/components/toast/ToastProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
@@ -198,6 +200,39 @@ export function HomePageClient() {
     areBackupsLoading,
     backupError,
   } = useBookmarks(userId);
+
+  const { toast } = useToast();
+  const [restoreTarget, setRestoreTarget] =
+    useState<FirestoreBookmarkBackup | null>(null);
+  const [importPreview, setImportPreview] = useState<{
+    source: string;
+    newBookmarks: number;
+    duplicateBookmarks: number;
+    newShortcuts: number;
+    mergedBookmarks: Bookmark[] | null;
+    mergedShortcuts: ShortcutApp[] | null;
+  } | null>(null);
+
+  // Existing tags across all bookmarks — for add-form autocomplete chips.
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of bookmarks)
+      for (const t of b.tags ?? []) {
+        const tag = t.trim();
+        if (tag) set.add(tag);
+      }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [bookmarks]);
+
+  const appendNewTag = (tag: string) =>
+    setNewTags((cur) => {
+      const parts = cur
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (parts.some((p) => p.toLowerCase() === tag.toLowerCase())) return cur;
+      return [...parts, tag].join(", ");
+    });
 
   const [search, setSearch] = useState("");
   // Default to "favorites" so only pinned bookmarks show initially
@@ -415,6 +450,18 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showShortcutInfo]);
+
+  // Open the add-bookmark form when arriving via the ⌘K command palette.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("bd:intent:add-bookmark") === "1") {
+        localStorage.removeItem("bd:intent:add-bookmark");
+        setShowAddForm(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (!showAddForm) return;
@@ -1066,6 +1113,40 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setShowBulkDeleteBookmarksConfirm(false);
   };
 
+  // Build a non-destructive merge (existing kept, new appended by URL) plus the
+  // counts the preview modal needs. Nothing is applied until the user confirms.
+  const buildBookmarkMerge = (imported: Bookmark[]) => {
+    const existingByUrl = new Map(bookmarks.map((b) => [b.url, b]));
+    const merged: Bookmark[] = [...bookmarks];
+    let duplicate = 0;
+    imported.forEach((imp) => {
+      if (existingByUrl.has(imp.url)) duplicate++;
+      else merged.push(imp);
+    });
+    return { merged, added: imported.length - duplicate, duplicate };
+  };
+
+  const buildShortcutMerge = (imported: ShortcutApp[]) => {
+    const shortcutKey = (s: ShortcutApp) => {
+      const url = s.url?.trim();
+      if (url) return `url:${url}`;
+      if (s.id?.trim()) return `id:${s.id}`;
+      const name = s.name?.trim() || "shortcut";
+      const localPath = s.localPath?.trim() || "";
+      return `native:${name}::${localPath}`;
+    };
+    const existingByKey = new Map(shortcuts.map((s) => [shortcutKey(s), s]));
+    const merged: ShortcutApp[] = [...shortcuts];
+    let added = 0;
+    imported.forEach((imp) => {
+      if (!existingByKey.has(shortcutKey(imp))) {
+        merged.push(imp);
+        added++;
+      }
+    });
+    return { merged, added };
+  };
+
   const handleImport = async (file: File | null) => {
     if (!file) return;
     const text = await file.text();
@@ -1085,79 +1166,77 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           ? parsed.shortcuts
           : [];
 
-        // Merge bookmarks by URL
-        if (importedBookmarks.length > 0) {
-          const existingByUrl = new Map(bookmarks.map((b) => [b.url, b]));
-          const merged: Bookmark[] = [...bookmarks];
-          importedBookmarks.forEach((imp) => {
-            if (!existingByUrl.has(imp.url)) {
-              merged.push(imp);
-            }
-          });
-          clearAll();
-          merged.forEach((b) =>
-            addBookmark({
-              title: b.title,
-              url: b.url,
-              note: b.note,
-              folderId: b.folderId ?? null,
-              folder: b.folder,
-              tags: b.tags ?? [],
-            })
-          );
-        }
+        const bm =
+          importedBookmarks.length > 0
+            ? buildBookmarkMerge(importedBookmarks)
+            : null;
+        const sc =
+          importedShortcuts.length > 0
+            ? buildShortcutMerge(importedShortcuts)
+            : null;
 
-        // Merge shortcuts by URL; for native-only shortcuts, fall back to id or name+localPath.
-        if (importedShortcuts.length > 0) {
-          const shortcutKey = (s: ShortcutApp) => {
-            const url = s.url?.trim();
-            if (url) return `url:${url}`;
-            if (s.id?.trim()) return `id:${s.id}`;
-            const name = s.name?.trim() || "shortcut";
-            const localPath = s.localPath?.trim() || "";
-            return `native:${name}::${localPath}`;
-          };
-          const existingByKey = new Map(shortcuts.map((s) => [shortcutKey(s), s]));
-          const mergedShortcuts: ShortcutApp[] = [...shortcuts];
-          importedShortcuts.forEach((imp) => {
-            if (!existingByKey.has(shortcutKey(imp))) {
-              mergedShortcuts.push(imp);
-            }
-          });
-          restoreShortcuts(mergedShortcuts);
+        if (!bm && !sc) {
+          toast("Nothing to import from that file.", { variant: "error" });
+          return;
         }
-
-        // If JSON was parsed successfully, stop here.
+        setImportPreview({
+          source: file.name,
+          newBookmarks: bm?.added ?? 0,
+          duplicateBookmarks: bm?.duplicate ?? 0,
+          newShortcuts: sc?.added ?? 0,
+          mergedBookmarks: bm ? bm.merged : null,
+          mergedShortcuts: sc ? sc.merged : null,
+        });
         return;
       } catch (err) {
         console.error("JSON import failed, trying HTML instead", err);
       }
     }
 
-    // Fallback to Netscape HTML import (bookmarks only)
+    // Fallback to Netscape HTML import (bookmarks only).
     const imported = parseBookmarkHtml(text);
-
-    // Merge, de-dupe by URL
-    const existingByUrl = new Map(bookmarks.map((b) => [b.url, b]));
-    const merged: Bookmark[] = [...bookmarks];
-
-    imported.forEach((imp) => {
-      if (!existingByUrl.has(imp.url)) {
-        merged.push(imp);
-      }
+    if (imported.length === 0) {
+      toast("No bookmarks found in that file.", { variant: "error" });
+      return;
+    }
+    const bm = buildBookmarkMerge(imported);
+    setImportPreview({
+      source: file.name,
+      newBookmarks: bm.added,
+      duplicateBookmarks: bm.duplicate,
+      newShortcuts: 0,
+      mergedBookmarks: bm.merged,
+      mergedShortcuts: null,
     });
+  };
 
-    // reset and re-add (keeps normalization from hook)
-    clearAll();
-    merged.forEach((b) =>
-      addBookmark({
-        title: b.title,
-        url: b.url,
-        note: b.note,
-        folderId: b.folderId ?? null,
-        folder: b.folder,
-        tags: b.tags ?? [],
-      })
+  // Apply the previewed merge: replace local state with the merged result.
+  const applyImport = () => {
+    if (!importPreview) return;
+    if (importPreview.mergedBookmarks) {
+      clearAll();
+      importPreview.mergedBookmarks.forEach((b) =>
+        addBookmark({
+          title: b.title,
+          url: b.url,
+          note: b.note,
+          folderId: b.folderId ?? null,
+          folder: b.folder,
+          tags: b.tags ?? [],
+        })
+      );
+    }
+    if (importPreview.mergedShortcuts) {
+      restoreShortcuts(importPreview.mergedShortcuts);
+    }
+    const added =
+      importPreview.newBookmarks + importPreview.newShortcuts;
+    setImportPreview(null);
+    toast(
+      added > 0
+        ? `Imported ${added} new item${added !== 1 ? "s" : ""}.`
+        : "Already up to date — nothing new to add.",
+      { variant: "success" }
     );
   };
 
@@ -1205,6 +1284,17 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleString();
+  };
+
+  // Replace current bookmarks + shortcuts with a backup snapshot (local state;
+  // the user can then Sync to cloud to persist). Destructive — hence confirm.
+  const handleRestoreBackup = (backup: FirestoreBookmarkBackup) => {
+    restoreFromSnapshot(backup.bookmarks);
+    if (backup.shortcuts && backup.shortcuts.length > 0) {
+      restoreShortcuts(backup.shortcuts);
+    }
+    setRestoreTarget(null);
+    toast("Backup restored. Sync to cloud to keep it.", { variant: "success" });
   };
 
   const handleRefreshBackups = async () => {
@@ -1297,6 +1387,20 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     onChange={(e) => setNewTags(e.target.value)}
                     className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
+                  {allTags.length > 0 && (
+                    <div className="flex w-full flex-wrap gap-1.5">
+                      {allTags.slice(0, 16).map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => appendNewTag(tag)}
+                          className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-300 transition hover:border-blue-400 hover:text-blue-200"
+                        >
+                          + {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <button type="button"
                     onClick={handleAddQuick}
                     className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
@@ -1647,19 +1751,136 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                         {backup.shortcuts?.length ?? 0} shortcut{(backup.shortcuts?.length ?? 0) !== 1 ? "s" : ""}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleBackupDownload(backup)}
-                      className="inline-flex items-center justify-center rounded-full bg-slate-800 px-3 py-1.5 text-[11px] font-semibold text-slate-100 transition hover:bg-slate-700"
-                    >
-                      Download backup
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRestoreTarget(backup)}
+                        className="inline-flex items-center justify-center rounded-full border border-slate-700 px-3 py-1.5 text-[11px] font-semibold text-slate-200 transition hover:border-slate-500 hover:text-slate-50"
+                      >
+                        Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBackupDownload(backup)}
+                        className="inline-flex items-center justify-center rounded-full bg-slate-800 px-3 py-1.5 text-[11px] font-semibold text-slate-100 transition hover:bg-slate-700"
+                      >
+                        Download backup
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
             </div>
           )}
         </section>
+
+        {/* Import preview */}
+        <Modal
+          open={importPreview !== null}
+          onClose={() => setImportPreview(null)}
+          labelledBy="import-title"
+        >
+          <h2
+            id="import-title"
+            className="text-base font-semibold text-slate-50"
+          >
+            Import preview
+          </h2>
+          {importPreview && (
+            <>
+              <p className="mt-1 truncate text-xs text-slate-500">
+                {importPreview.source}
+              </p>
+              <ul className="mt-4 flex flex-col gap-2 text-sm">
+                <li className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2">
+                  <span className="text-slate-300">New bookmarks</span>
+                  <span className="font-semibold tabular-nums text-emerald-300">
+                    +{importPreview.newBookmarks}
+                  </span>
+                </li>
+                {importPreview.newShortcuts > 0 && (
+                  <li className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2">
+                    <span className="text-slate-300">New shortcuts</span>
+                    <span className="font-semibold tabular-nums text-emerald-300">
+                      +{importPreview.newShortcuts}
+                    </span>
+                  </li>
+                )}
+                <li className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2">
+                  <span className="text-slate-300">
+                    Duplicates (skipped)
+                  </span>
+                  <span className="font-semibold tabular-nums text-slate-400">
+                    {importPreview.duplicateBookmarks}
+                  </span>
+                </li>
+              </ul>
+              <p className="mt-3 text-xs text-slate-500">
+                Your existing bookmarks are kept — only new URLs are added.
+              </p>
+            </>
+          )}
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setImportPreview(null)}
+              className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={applyImport}
+              className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+            >
+              Import
+            </button>
+          </div>
+        </Modal>
+
+        {/* Restore-backup confirm */}
+        <Modal
+          open={restoreTarget !== null}
+          onClose={() => setRestoreTarget(null)}
+          labelledBy="restore-title"
+        >
+          <h2
+            id="restore-title"
+            className="text-base font-semibold text-slate-50"
+          >
+            Restore this backup?
+          </h2>
+          {restoreTarget && (
+            <p className="mt-3 text-sm text-slate-300">
+              This replaces your current bookmarks and shortcuts with the
+              snapshot from{" "}
+              <span className="font-medium text-slate-100">
+                {formatBackupDate(restoreTarget.createdAt)}
+              </span>{" "}
+              ({restoreTarget.bookmarks.length} bookmark
+              {restoreTarget.bookmarks.length !== 1 ? "s" : ""}).
+            </p>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Nothing is saved to the cloud until you Sync to cloud afterwards.
+          </p>
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setRestoreTarget(null)}
+              className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => restoreTarget && handleRestoreBackup(restoreTarget)}
+              className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+            >
+              Restore
+            </button>
+          </div>
+        </Modal>
 
         {/* Folders (wallet view) */}
         {bookmarks.length === 0 && rootFolders.length === 0 ? (
