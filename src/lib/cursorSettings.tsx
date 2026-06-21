@@ -26,6 +26,9 @@ export type CursorSettings = {
   blinkSpeed: number; // eye blink cadence (0.25 slow … 3 fast)
   transition: number; // follow feel: 0 = smooth/laggy … 1 = snappy
   jelly: boolean; // turtle: translucent jellyfish body
+  float: boolean; // turtle: buoyant idle drift + free 360° rotation
+  ripples: boolean; // turtle: water ripples
+  bubbles: boolean; // turtle: rising bubbles
 };
 
 /** Props the overlays accept so the settings drive their animation. */
@@ -39,6 +42,9 @@ export type CursorProps = {
   blinkSpeed?: number;
   transition?: number;
   jelly?: boolean;
+  float?: boolean;
+  ripples?: boolean;
+  bubbles?: boolean;
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -52,6 +58,9 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   blinkSpeed: 1,
   transition: 0.5,
   jelly: false,
+  float: true,
+  ripples: true,
+  bubbles: true,
 };
 
 const KEY = "bd:cursor-settings:v1";
@@ -80,6 +89,9 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     blinkSpeed: clampNum(r.blinkSpeed, 0.25, 3, d.blinkSpeed),
     transition: clampNum(r.transition, 0, 1, d.transition),
     jelly: typeof r.jelly === "boolean" ? r.jelly : d.jelly,
+    float: typeof r.float === "boolean" ? r.float : d.float,
+    ripples: typeof r.ripples === "boolean" ? r.ripples : d.ripples,
+    bubbles: typeof r.bubbles === "boolean" ? r.bubbles : d.bubbles,
   };
 }
 

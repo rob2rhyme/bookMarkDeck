@@ -117,6 +117,38 @@ function HueControl({
   );
 }
 
+function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="mt-4 flex items-center justify-between">
+      <span className="text-sm text-slate-300">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+          checked ? "bg-blue-600" : "bg-slate-700"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+            checked ? "left-[1.375rem]" : "left-0.5"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
 export function CursorSettingsPanel({
   open,
   onClose,
@@ -298,6 +330,23 @@ export function CursorSettingsPanel({
               <span>Slow</span>
               <span>Fast</span>
             </div>
+          </Row>
+          <Row label="Motion & water">
+            <Toggle
+              label="Float (idle drift + free spin)"
+              checked={settings.float}
+              onChange={(v) => update({ float: v })}
+            />
+            <Toggle
+              label="Ripples"
+              checked={settings.ripples}
+              onChange={(v) => update({ ripples: v })}
+            />
+            <Toggle
+              label="Bubbles"
+              checked={settings.bubbles}
+              onChange={(v) => update({ bubbles: v })}
+            />
           </Row>
         </>
       )}

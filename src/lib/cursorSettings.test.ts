@@ -25,6 +25,15 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ jelly: "yes" }).jelly).toBe(false);
   });
 
+  it("coerces float/ripples/bubbles to booleans (default true)", () => {
+    const d = normalizeCursorSettings({});
+    expect(d.float).toBe(true);
+    expect(d.ripples).toBe(true);
+    expect(d.bubbles).toBe(true);
+    expect(normalizeCursorSettings({ ripples: false }).ripples).toBe(false);
+    expect(normalizeCursorSettings({ bubbles: "x" }).bubbles).toBe(true);
+  });
+
   it("clamps size, fin/antenna size, blink speed, and transition into range", () => {
     expect(normalizeCursorSettings({ size: 99 }).size).toBe(2);
     expect(normalizeCursorSettings({ size: 0 }).size).toBe(0.5);

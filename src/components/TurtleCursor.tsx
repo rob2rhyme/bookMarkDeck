@@ -23,6 +23,9 @@ export function TurtleCursor({
   blinkSpeed = 1,
   transition = 0.5,
   jelly = false,
+  float = true,
+  ripples = true,
+  bubbles = true,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
@@ -33,6 +36,9 @@ export function TurtleCursor({
   const blinkSpeedRef = useRef(blinkSpeed);
   const transRef = useRef(transition);
   const jellyRef = useRef(jelly);
+  const floatRef = useRef(float);
+  const ripplesRef = useRef(ripples);
+  const bubblesRef = useRef(bubbles);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
@@ -42,7 +48,22 @@ export function TurtleCursor({
     blinkSpeedRef.current = blinkSpeed;
     transRef.current = transition;
     jellyRef.current = jelly;
-  }, [size, hue, finHue, antennaHue, finSize, blinkSpeed, transition, jelly]);
+    floatRef.current = float;
+    ripplesRef.current = ripples;
+    bubblesRef.current = bubbles;
+  }, [
+    size,
+    hue,
+    finHue,
+    antennaHue,
+    finSize,
+    blinkSpeed,
+    transition,
+    jelly,
+    float,
+    ripples,
+    bubbles,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -64,6 +85,52 @@ export function TurtleCursor({
     const finGrad = q<SVGLinearGradientElement>("#t-fin-grad");
     const scutes = q<SVGGElement>("#t-scutes");
     if (!root) return;
+
+    // Water FX (world-space, behind the turtle): expanding ripples + bubbles.
+    const svgns = "http://www.w3.org/2000/svg";
+    const fx = q<SVGGElement>("#t-fx");
+    type Ripple = {
+      el: SVGCircleElement;
+      x: number;
+      y: number;
+      r0: number;
+      life: number;
+      max: number;
+    };
+    type Bub = {
+      el: SVGCircleElement;
+      x: number;
+      y: number;
+      vy: number;
+      life: number;
+      max: number;
+    };
+    const ripplePool: Ripple[] = [];
+    const bubblePool: Bub[] = [];
+    if (fx) {
+      for (let i = 0; i < 6; i++) {
+        const c = document.createElementNS(svgns, "circle");
+        c.setAttribute("fill", "none");
+        c.setAttribute("stroke", "#bae6fd");
+        c.setAttribute("stroke-width", "1.4");
+        c.setAttribute("opacity", "0");
+        fx.appendChild(c);
+        ripplePool.push({ el: c, x: 0, y: 0, r0: 0, life: 0, max: 1 });
+      }
+      for (let i = 0; i < 22; i++) {
+        const c = document.createElementNS(svgns, "circle");
+        c.setAttribute("fill", "none");
+        c.setAttribute("stroke", "#bae6fd");
+        c.setAttribute("stroke-width", "1.1");
+        c.setAttribute("r", "2");
+        c.setAttribute("opacity", "0");
+        fx.appendChild(c);
+        bubblePool.push({ el: c, x: 0, y: 0, vy: 0, life: 0, max: 1 });
+      }
+    }
+    let rippleTimer = 0;
+    let bubbleTimer = 0;
+    let floatSpin = 0;
 
     const setStops = (
       g: SVGGradientElement | null,
@@ -150,10 +217,27 @@ export function TurtleCursor({
 
       const sizeMul = sizeRef.current;
       const s = 1.4 * sizeMul;
-      // Turtle faces -x; rotate by the backward direction, leaning into turns.
+
+      // Buoyant float: when nearly still, drift gently and rotate freely (360°);
+      // the spin decays back toward the heading once it starts moving.
+      const idle = Math.max(0, 1 - speed / 2);
+      if (floatRef.current) {
+        floatSpin += 0.3 * idle;
+        if (idle < 0.3) floatSpin *= 0.94;
+        if (idle > 0.5) {
+          bodyX += Math.cos(frm * 5) * 0.15 * idle;
+          bodyY += Math.sin(frm * 4) * 0.15 * idle;
+        }
+      } else {
+        floatSpin *= 0.9;
+      }
+
+      // Turtle faces -x; rotate by the backward direction, leaning into turns,
+      // plus the buoyant float spin.
       const rotDeg =
         (Math.atan2(bodyY - leadY, bodyX - leadX) * 180) / Math.PI +
-        turnSigned * 40;
+        turnSigned * 40 +
+        floatSpin;
 
       // Stroke cadence quickens with speed + turning.
       flipPhase += 0.18 + Math.min(1.7, speed * 0.05 + turnMag * 9);
@@ -269,6 +353,72 @@ export function TurtleCursor({
         }
       }
 
+      // 〜 Ripples — expanding rings on the surface, faster while moving.
+      if (ripplesRef.current) {
+        rippleTimer -= 1 + speed * 0.3;
+        if (rippleTimer <= 0) {
+          const rp = ripplePool.find((p) => p.life <= 0);
+          if (rp) {
+            rp.x = bodyX;
+            rp.y = bodyY;
+            rp.r0 = 13 * s;
+            rp.max = 44 + Math.random() * 20;
+            rp.life = rp.max;
+          }
+          rippleTimer = 26 + Math.random() * 16;
+        }
+        for (const rp of ripplePool) {
+          if (rp.life <= 0) continue;
+          rp.life -= 1;
+          const t = 1 - rp.life / rp.max;
+          rp.el.setAttribute("cx", rp.x.toFixed(1));
+          rp.el.setAttribute("cy", rp.y.toFixed(1));
+          rp.el.setAttribute("r", (rp.r0 + t * 26 * s).toFixed(1));
+          rp.el.setAttribute("opacity", ((1 - t) * 0.5).toFixed(3));
+        }
+      } else {
+        for (const rp of ripplePool)
+          if (rp.life > 0) {
+            rp.life = 0;
+            rp.el.setAttribute("opacity", "0");
+          }
+      }
+
+      // 🫧 Bubbles — emitted behind the turtle, drifting upward as they fade.
+      if (bubblesRef.current) {
+        bubbleTimer -= 1;
+        if (bubbleTimer <= 0) {
+          const b = bubblePool.find((p) => p.life <= 0);
+          if (b) {
+            const bx = Math.cos(prevHeading + Math.PI);
+            const by = Math.sin(prevHeading + Math.PI);
+            b.x = bodyX + bx * 11 * s + (Math.random() - 0.5) * 8;
+            b.y = bodyY + by * 11 * s;
+            b.vy = -(0.5 + Math.random() * 0.7);
+            b.max = 70 + Math.random() * 40;
+            b.life = b.max;
+            b.el.setAttribute("r", (1.4 + Math.random() * 1.4).toFixed(2));
+          }
+          bubbleTimer = 9 + Math.random() * 14;
+        }
+        for (const b of bubblePool) {
+          if (b.life <= 0) continue;
+          b.life -= 1;
+          b.x += Math.sin(b.life * 0.15) * 0.25;
+          b.y += b.vy;
+          const alpha = Math.max(0, b.life / b.max);
+          b.el.setAttribute("cx", b.x.toFixed(1));
+          b.el.setAttribute("cy", b.y.toFixed(1));
+          b.el.setAttribute("opacity", (alpha * 0.6).toFixed(3));
+        }
+      } else {
+        for (const b of bubblePool)
+          if (b.life > 0) {
+            b.life = 0;
+            b.el.setAttribute("opacity", "0");
+          }
+      }
+
       if (rad < radm) rad++;
       frm += 0.003;
       if (rad > 60) {
@@ -306,6 +456,9 @@ export function TurtleCursor({
             <stop offset="100%" stopColor="#2e7d32" />
           </linearGradient>
         </defs>
+
+        {/* Water FX (ripples + bubbles) injected by JS, behind the turtle. */}
+        <g id="t-fx" />
 
         {/* The whole turtle; JS sets its transform/opacity each frame. */}
         <g id="turtle">
