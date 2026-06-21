@@ -90,6 +90,47 @@ body {
   }
 }
 
+/* Larger, more legible text on small screens (phones + portrait tablets).
+   Bumps Tailwind's font-size tokens — which every text-* utility references —
+   plus the handful of fixed-px text utilities. Spacing, layout widths, and
+   desktop sizing are deliberately left untouched. */
+@media (max-width: 767px) {
+  :root {
+    --text-xs: 0.8125rem; /* 13px (from 12) */
+    --text-sm: 0.9375rem; /* 15px (from 14) */
+    --text-base: 1.0625rem; /* 17px (from 16) */
+    --text-lg: 1.1875rem; /* 19px (from 18) */
+    --text-xl: 1.375rem; /* 22px (from 20) */
+  }
+
+  body {
+    font-size: 16px;
+  }
+
+  /* Fixed-px utilities can't read the tokens above — bump them directly. */
+  .text-\[9px\] {
+    font-size: 11px;
+  }
+  .text-\[10px\] {
+    font-size: 12px;
+  }
+  .text-\[11px\] {
+    font-size: 13px;
+  }
+  .text-\[12px\] {
+    font-size: 13px;
+  }
+  .text-\[13px\] {
+    font-size: 14px;
+  }
+  .text-\[14px\] {
+    font-size: 15px;
+  }
+  .text-\[15px\] {
+    font-size: 16px;
+  }
+}
+
 @layer utilities {
   .bd-tile-grid {
     display: grid;
