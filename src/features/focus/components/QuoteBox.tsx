@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-const QUOTES = [
+const QUOTES: { text: string; author: string | null }[] = [
   { text: "Progress, not perfection. One function at a time.", author: null },
   { text: "The only way to go fast is to go well.", author: "Robert C. Martin" },
   { text: "Momentum builds in 25-minute chunks. Start the clock.", author: null },
@@ -15,10 +15,7 @@ const QUOTES = [
     author: null,
   },
   { text: "Shipping something beats perfecting nothing.", author: null },
-  {
-    text: "Small steps every day outpace big leaps every month.",
-    author: null,
-  },
+  { text: "Small steps every day outpace big leaps every month.", author: null },
   {
     text: "Context switching is the enemy. Close the tabs. Do the work.",
     author: null,
@@ -31,30 +28,74 @@ const QUOTES = [
     text: "Don't watch the clock; do what it does. Keep going.",
     author: "Sam Levenson",
   },
+  { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
+  {
+    text: "Programs must be written for people to read, and only incidentally for machines to execute.",
+    author: "Harold Abelson",
+  },
+  {
+    text: "Any fool can write code a computer understands. Good programmers write code humans understand.",
+    author: "Martin Fowler",
+  },
+  { text: "Make it work, make it right, make it fast.", author: "Kent Beck" },
+  {
+    text: "Premature optimization is the root of all evil.",
+    author: "Donald Knuth",
+  },
+  { text: "Simplicity is the soul of efficiency.", author: "Austin Freeman" },
+  { text: "Deleted code is debugged code.", author: "Jeff Sickel" },
+  { text: "The best error message is the one that never shows up.", author: "Thomas Fuchs" },
+  { text: "Talk is cheap. Show me the code.", author: "Linus Torvalds" },
+  {
+    text: "The function of good software is to make the complex appear simple.",
+    author: "Grady Booch",
+  },
+  { text: "Done is better than perfect.", author: null },
+  { text: "Quality is not an act, it is a habit.", author: "Aristotle" },
+  { text: "Well begun is half done.", author: "Aristotle" },
+  {
+    text: "Amateurs sit and wait for inspiration; the rest of us just get up and go to work.",
+    author: "Stephen King",
+  },
+  { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+  {
+    text: "A year from now you may wish you had started today.",
+    author: "Karen Lamb",
+  },
+  {
+    text: "Energy and persistence conquer all things.",
+    author: "Benjamin Franklin",
+  },
+  { text: "Slow is smooth, and smooth is fast.", author: null },
+  {
+    text: "Discipline is choosing between what you want now and what you want most.",
+    author: null,
+  },
+  { text: "Focus is the art of knowing what to ignore.", author: null },
+  { text: "You can't improve what you never finish.", author: null },
+  { text: "Make the change easy, then make the easy change.", author: "Kent Beck" },
+  {
+    text: "Fall in love with the process, and the results will follow.",
+    author: null,
+  },
+  { text: "When in doubt, ship a smaller thing.", author: null },
 ];
 
-// "Useful code of the day" — a rotating dev nugget that spans three flavours:
-// a copyable snippet, a coding tip, and an editor/CLI shortcut.
+// "Useful code of the day" — a rotating dev nugget that spans four flavours:
+// a copyable snippet, a coding tip, an editor/CLI shortcut, and a code challenge.
 type Nugget =
   | { kind: "snippet"; lang: string; code: string; note: string }
   | { kind: "tip"; note: string }
-  | { kind: "shortcut"; keys: string; note: string };
+  | { kind: "shortcut"; keys: string; note: string }
+  | { kind: "challenge"; level: string; note: string };
 
 const NUGGETS: Nugget[] = [
+  // ---- snippets ----
   {
     kind: "snippet",
     lang: "js",
     code: "const unique = [...new Set(arr)];",
     note: "Dedupe an array in one line.",
-  },
-  {
-    kind: "tip",
-    note: "Name booleans as questions — isReady, hasAccess — so conditionals read like plain English.",
-  },
-  {
-    kind: "shortcut",
-    keys: "⌘⇧P  /  Ctrl⇧P",
-    note: "Command Palette — reach any editor action without leaving the keyboard.",
   },
   {
     kind: "snippet",
@@ -63,8 +104,64 @@ const NUGGETS: Nugget[] = [
     note: "Grab the last item — no length math.",
   },
   {
-    kind: "tip",
-    note: "Commit small. A diff you can hold in your head is a diff you can actually review.",
+    kind: "snippet",
+    lang: "js",
+    code: "const copy = structuredClone(obj);",
+    note: "Deep-clone without a JSON round-trip.",
+  },
+  {
+    kind: "snippet",
+    lang: "js",
+    code: "await Promise.allSettled(tasks);",
+    note: "Wait for everything — successes and failures alike.",
+  },
+  {
+    kind: "snippet",
+    lang: "js",
+    code: "const sum = nums.reduce((a, b) => a + b, 0);",
+    note: "Total a list of numbers.",
+  },
+  {
+    kind: "snippet",
+    lang: "js",
+    code: "[...nums].sort((a, b) => a - b);",
+    note: "Sort numbers correctly — the default sort is alphabetical!",
+  },
+  {
+    kind: "snippet",
+    lang: "js",
+    code: 'String(n).padStart(2, "0");',
+    note: "Zero-pad a value for clocks and dates.",
+  },
+  {
+    kind: "snippet",
+    lang: "js",
+    code: "Object.groupBy(items, (x) => x.type);",
+    note: "Group a list by a key — no lodash needed.",
+  },
+  {
+    kind: "snippet",
+    lang: "js",
+    code: "Array.from({ length: n }, (_, i) => i);",
+    note: "Build a 0..n-1 range.",
+  },
+  {
+    kind: "snippet",
+    lang: "ts",
+    code: "const cfg = base satisfies Config;",
+    note: "Type-check a value without widening its literal type.",
+  },
+  {
+    kind: "snippet",
+    lang: "css",
+    code: "text-wrap: balance;",
+    note: "Even line lengths on headings — no manual breaks.",
+  },
+  {
+    kind: "snippet",
+    lang: "css",
+    code: "aspect-ratio: 16 / 9;",
+    note: "Lock an element's shape without padding hacks.",
   },
   {
     kind: "snippet",
@@ -73,25 +170,85 @@ const NUGGETS: Nugget[] = [
     note: "Fold staged changes into your last commit, message untouched.",
   },
   {
-    kind: "shortcut",
-    keys: "⌥↑  /  ⌥↓",
-    note: "Move the current line up or down (VS Code).",
+    kind: "snippet",
+    lang: "bash",
+    code: "git switch -c feature/x",
+    note: "Create a branch and switch to it in one step.",
   },
   {
     kind: "snippet",
-    lang: "js",
-    code: "const copy = structuredClone(obj);",
-    note: "Deep-clone without a JSON round-trip.",
+    lang: "bash",
+    code: "git restore --staged <file>",
+    note: "Unstage a file without losing your changes.",
+  },
+  {
+    kind: "snippet",
+    lang: "bash",
+    code: "git stash -u",
+    note: "Stash your work including untracked files.",
+  },
+  // ---- tips ----
+  {
+    kind: "tip",
+    note: "Name booleans as questions — isReady, hasAccess — so conditionals read like plain English.",
+  },
+  {
+    kind: "tip",
+    note: "Commit small. A diff you can hold in your head is a diff you can actually review.",
   },
   {
     kind: "tip",
     note: "Write the test that would have caught the bug first, then fix the bug.",
   },
   {
-    kind: "snippet",
-    lang: "bash",
-    code: "git switch -c feature/x",
-    note: "Create a branch and switch to it in one step.",
+    kind: "tip",
+    note: "If a function needs a comment to explain what it does, try a better name first.",
+  },
+  {
+    kind: "tip",
+    note: "Prefer pure functions — same input, same output — they're trivial to test and reason about.",
+  },
+  {
+    kind: "tip",
+    note: "Read the error message. Then read it again. The answer is usually right there.",
+  },
+  {
+    kind: "tip",
+    note: "Rubber-duck it: explain the bug out loud and you'll often spot it yourself.",
+  },
+  {
+    kind: "tip",
+    note: "Optimize for deletion. Code that's easy to delete is code that's easy to change.",
+  },
+  {
+    kind: "tip",
+    note: "When you're stuck, take a walk. Your subconscious keeps compiling in the background.",
+  },
+  // ---- shortcuts ----
+  {
+    kind: "shortcut",
+    keys: "⌘⇧P  /  Ctrl⇧P",
+    note: "Command Palette — reach any editor action without leaving the keyboard.",
+  },
+  {
+    kind: "shortcut",
+    keys: "⌥↑  /  ⌥↓",
+    note: "Move the current line up or down (VS Code).",
+  },
+  {
+    kind: "shortcut",
+    keys: "F2",
+    note: "Rename a symbol everywhere at once (VS Code).",
+  },
+  {
+    kind: "shortcut",
+    keys: "⌘D  /  Ctrl+D",
+    note: "Select the next match for multi-cursor editing.",
+  },
+  {
+    kind: "shortcut",
+    keys: "⌘/  /  Ctrl+/",
+    note: "Toggle a line comment on the current selection.",
   },
   {
     kind: "shortcut",
@@ -99,10 +256,65 @@ const NUGGETS: Nugget[] = [
     note: "Reverse-search your shell history instead of re-typing.",
   },
   {
-    kind: "snippet",
-    lang: "js",
-    code: "await Promise.allSettled(tasks);",
-    note: "Wait for everything — successes and failures alike.",
+    kind: "shortcut",
+    keys: "cd -",
+    note: "Jump back to the directory you were just in.",
+  },
+  {
+    kind: "shortcut",
+    keys: "sudo !!",
+    note: "Re-run your last command with sudo — !! repeats it.",
+  },
+  // ---- challenges ----
+  {
+    kind: "challenge",
+    level: "Easy",
+    note: "Reverse a string without using .reverse().",
+  },
+  {
+    kind: "challenge",
+    level: "Easy",
+    note: "Write FizzBuzz for 1–100 in five lines or fewer.",
+  },
+  {
+    kind: "challenge",
+    level: "Easy",
+    note: "Check whether two strings are anagrams of each other.",
+  },
+  {
+    kind: "challenge",
+    level: "Easy",
+    note: "Group an array of objects by one of their keys — no libraries.",
+  },
+  {
+    kind: "challenge",
+    level: "Medium",
+    note: "Find the first non-repeating character in a string.",
+  },
+  {
+    kind: "challenge",
+    level: "Medium",
+    note: "Flatten a deeply nested array without Array.prototype.flat.",
+  },
+  {
+    kind: "challenge",
+    level: "Medium",
+    note: "Write a debounce(fn, ms) helper in under ten lines.",
+  },
+  {
+    kind: "challenge",
+    level: "Medium",
+    note: "Given an array and a target, return the two indices that sum to it.",
+  },
+  {
+    kind: "challenge",
+    level: "Medium",
+    note: "Decide if a string of (), [], {} brackets is balanced.",
+  },
+  {
+    kind: "challenge",
+    level: "Hard",
+    note: "Convert an integer (1–3999) to its Roman numeral.",
   },
 ];
 
@@ -110,6 +322,7 @@ const KIND_BADGE: Record<Nugget["kind"], { label: string; cls: string }> = {
   snippet: { label: "Snippet", cls: "border-emerald-500/40 text-emerald-300" },
   tip: { label: "Tip", cls: "border-sky-500/40 text-sky-300" },
   shortcut: { label: "Shortcut", cls: "border-violet-500/40 text-violet-300" },
+  challenge: { label: "Challenge", cls: "border-amber-500/40 text-amber-300" },
 };
 
 function dayOfYear(): number {
@@ -230,6 +443,15 @@ export function QuoteBox() {
             </kbd>
             <p className="mt-2 text-[13px] text-slate-400">{nugget.note}</p>
           </>
+        ) : nugget.kind === "challenge" ? (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 px-3 py-2.5">
+            <p className="text-[14px] leading-relaxed text-slate-200">
+              {nugget.note}
+            </p>
+            <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wide text-amber-300/80">
+              {nugget.level} · try it in a scratch file
+            </p>
+          </div>
         ) : (
           <p className="text-[14px] leading-relaxed text-slate-300">
             {nugget.note}
