@@ -43,6 +43,9 @@ export function FishCursor({
 
     // Fin group — its vertical scale is animated each frame to flap.
     const finsGroup = svg.querySelector<SVGGElement>("#FishFins");
+    // Head antennae — rotated each frame around their base to flick actively.
+    const antennaTop = svg.querySelector<SVGGElement>("#FishAntennaTop");
+    const antennaBottom = svg.querySelector<SVGGElement>("#FishAntennaBottom");
 
     const xmlns = "http://www.w3.org/2000/svg";
     const xlinkns = "http://www.w3.org/1999/xlink";
@@ -83,6 +86,7 @@ export function FishCursor({
     let prevHeading = 0;
     let flapPhase = 0;
     let turnSmoothed = 0;
+    let antPhase = 0;
 
     const resize = () => {
       width = window.innerWidth;
@@ -225,8 +229,8 @@ export function FishCursor({
         );
       }
 
-      // 🪽 Fins flap — a steady beat that quickens + deepens as the fish turns.
-      if (finsGroup && elems[0] && elems[1]) {
+      // Smoothed turn rate (radians/frame) — drives the fins + antennae.
+      if (elems[0] && elems[1]) {
         const heading = Math.atan2(
           elems[1].y - elems[0].y,
           elems[1].x - elems[0].x
@@ -235,16 +239,34 @@ export function FishCursor({
         if (dh > Math.PI) dh -= 2 * Math.PI;
         else if (dh < -Math.PI) dh += 2 * Math.PI;
         prevHeading = heading;
-        // Smoothed magnitude of turning (radians/frame).
         turnSmoothed = turnSmoothed * 0.88 + Math.abs(dh) * 0.12;
+      }
 
-        // Base cadence + extra while turning; amplitude (fold depth) likewise.
+      // 🪽 Fins flap — a steady beat that quickens + deepens as the fish turns.
+      if (finsGroup) {
         flapPhase += 0.22 + Math.min(2.0, turnSmoothed * 14);
         const amp = 0.34 + Math.min(0.42, turnSmoothed * 5);
         const flapY = 1 - amp * Math.abs(Math.sin(flapPhase));
         finsGroup.setAttribute(
           "transform",
           `scale(1.75, ${(1.75 * flapY).toFixed(3)})`
+        );
+      }
+
+      // 🪡 Antennae flick — very active, and livelier still while turning. Each
+      // rotates around its base at the head front, out of phase with the other.
+      if (antennaTop && antennaBottom) {
+        antPhase += 0.5 + Math.min(1.5, turnSmoothed * 12);
+        const amp = 20 + Math.min(24, turnSmoothed * 220); // degrees
+        const angT = amp * Math.sin(antPhase);
+        const angB = amp * Math.sin(antPhase * 1.27 + 1.7);
+        antennaTop.setAttribute(
+          "transform",
+          `translate(-9 -4) rotate(${angT.toFixed(2)})`
+        );
+        antennaBottom.setAttribute(
+          "transform",
+          `translate(-9 4) rotate(${angB.toFixed(2)})`
         );
       }
 
@@ -299,6 +321,28 @@ export function FishCursor({
           {/* Head — front faces -x (eye near the nose), to match the chain's
               rotation convention. */}
           <g id="FishHead">
+            {/* Antennae (drawn behind the head so they sprout from the front);
+                JS rotates each around its base every frame to flick. */}
+            <g id="FishAntennaTop" transform="translate(-9 -4)">
+              <path
+                d="M0 0 Q -6 -4 -10 -9"
+                fill="none"
+                stroke="url(#FishFinGrad)"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+              <circle cx="-10" cy="-9" r="1.4" fill="#67e8f9" />
+            </g>
+            <g id="FishAntennaBottom" transform="translate(-9 4)">
+              <path
+                d="M0 0 Q -6 4 -10 9"
+                fill="none"
+                stroke="url(#FishFinGrad)"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+              <circle cx="-10" cy="9" r="1.4" fill="#67e8f9" />
+            </g>
             <ellipse cx="-2" cy="0" rx="10" ry="7.5" fill="url(#FishBodyGrad)" />
             <circle cx="-7" cy="-2" r="1.7" fill="#0b1722" />
             <circle cx="-7.6" cy="-2.7" r="0.6" fill="#ffffff" />
