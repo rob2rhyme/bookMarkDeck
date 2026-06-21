@@ -49,6 +49,8 @@ const activityCol = (uid: string) => collection(db, "users", uid, "activity");
 const hydrationCol = (uid: string) =>
   collection(db, "users", uid, "focusHydration");
 const todosCol = (uid: string) => collection(db, "users", uid, "todos");
+const contentDoc = (uid: string) =>
+  doc(db, "users", uid, "focusContent", "content");
 
 export type ActivityType =
   | "focus"
@@ -669,6 +671,42 @@ export function subscribeTodos(
       todosCol(uid),
       (snap) => cb(snap.docs.map(mapTodo).filter((t) => t.text.trim().length > 0)),
       onListenError("todos")
+    )
+  );
+}
+
+/* ----------------------------------------------------------------- content --- */
+//
+// users/{uid}/focusContent/content — optional per-user EXTRA inspirational
+// content (quotes/nuggets/challenges) merged on top of the built-in defaults.
+// Raw arrays are passed through; validation/merge happens in the hook.
+
+export type RawContent = {
+  quotes: unknown[];
+  nuggets: unknown[];
+  challenges: unknown[];
+};
+
+export function subscribeContent(
+  emailHint: string,
+  cb: (extra: RawContent | null) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      contentDoc(uid),
+      (snap) => {
+        if (!snap.exists()) {
+          cb(null);
+          return;
+        }
+        const d = snap.data();
+        cb({
+          quotes: Array.isArray(d.quotes) ? d.quotes : [],
+          nuggets: Array.isArray(d.nuggets) ? d.nuggets : [],
+          challenges: Array.isArray(d.challenges) ? d.challenges : [],
+        });
+      },
+      onListenError("content")
     )
   );
 }
