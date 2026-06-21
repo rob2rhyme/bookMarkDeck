@@ -95,12 +95,15 @@ self.addEventListener("push", (event) => {
     body: data.body || "",
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
-    // Stay on screen until dismissed, buzz, and collapse repeats so a missed
-    // timer end is hard to overlook even with the app closed.
+    // Stay on screen until dismissed, alert (sound + haptic), and collapse
+    // repeats so a missed timer end is hard to overlook even with the app closed.
     requireInteraction: true,
     renotify: true,
     tag: data.tag || "bmd-focus-timer",
-    vibrate: [200, 100, 200],
+    silent: false, // never deliver quietly — let the OS sound/buzz
+    // Android honours this pattern; iOS ignores it (no Web Vibration in push)
+    // and instead uses the OS default notification sound/haptic.
+    vibrate: [300, 150, 300, 150, 400],
     data: { url: data.url || "/focus" },
   };
   event.waitUntil(self.registration.showNotification(title, options));
