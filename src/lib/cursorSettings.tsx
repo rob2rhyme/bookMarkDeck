@@ -19,6 +19,7 @@ export type CursorStyle =
   | "turtle"
   | "jellyfish"
   | "jellysprite"
+  | "lobster"
   | "off";
 
 export type CursorSettings = {
@@ -108,7 +109,8 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
       r.style === "off" ||
       r.style === "turtle" ||
       r.style === "jellyfish" ||
-      r.style === "jellysprite"
+      r.style === "jellysprite" ||
+      r.style === "lobster"
         ? r.style
         : "fish",
     size: clampNum(r.size, 0.5, 2, d.size),

@@ -21,6 +21,7 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ style: "jellysprite" }).style).toBe(
       "jellysprite"
     );
+    expect(normalizeCursorSettings({ style: "lobster" }).style).toBe("lobster");
     expect(normalizeCursorSettings({ style: "off" }).style).toBe("off");
     expect(normalizeCursorSettings({ style: "unicorn" }).style).toBe("fish");
   });

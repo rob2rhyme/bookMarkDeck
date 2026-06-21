@@ -9,6 +9,7 @@ const STYLES: { value: CursorStyle; label: string }[] = [
   { value: "dragon", label: "🐉 Dragon" },
   { value: "jellyfish", label: "🪼 Jellyfish" },
   { value: "jellysprite", label: "🖼️ Jelly art" },
+  { value: "lobster", label: "🦞 Lobster" },
   { value: "off", label: "○ Off" },
 ];
 
@@ -221,7 +222,7 @@ export function CursorSettingsPanel({
         label={
           settings.style === "turtle"
             ? "Shell colour"
-            : settings.style === "fish"
+            : settings.style === "fish" || settings.style === "lobster"
               ? "Body colour"
               : "Colour"
         }
@@ -389,6 +390,35 @@ export function CursorSettingsPanel({
         </>
       )}
 
+      {settings.style === "lobster" && (
+        <>
+          <Row label={`Claws — ${Math.round(settings.finSize * 100)}%`}>
+            <input
+              type="range"
+              min={0.5}
+              max={2.5}
+              step={0.05}
+              value={settings.finSize}
+              onChange={(e) => update({ finSize: Number(e.target.value) })}
+              aria-label="Claw size"
+              className="w-full accent-blue-500"
+            />
+            <div className="mt-3">
+              <HueControl
+                value={settings.finHue}
+                onChange={(v) => update({ finHue: v })}
+              />
+            </div>
+          </Row>
+          <Row label="Legs & antennae colour">
+            <HueControl
+              value={settings.antennaHue}
+              onChange={(v) => update({ antennaHue: v })}
+            />
+          </Row>
+        </>
+      )}
+
       {settings.style !== "off" && (
         <Row
           label={
@@ -399,7 +429,9 @@ export function CursorSettingsPanel({
                 : settings.style === "jellyfish" ||
                     settings.style === "jellysprite"
                   ? "Baby jellies"
-                  : "Baby dragons"
+                  : settings.style === "lobster"
+                    ? "Baby lobsters"
+                    : "Baby dragons"
           }
         >
           <Toggle
