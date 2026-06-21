@@ -14,8 +14,15 @@ describe("normalizeCursorSettings", () => {
   it("validates style against the allowed set (fish is the default)", () => {
     expect(normalizeCursorSettings({ style: "fish" }).style).toBe("fish");
     expect(normalizeCursorSettings({ style: "dragon" }).style).toBe("dragon");
+    expect(normalizeCursorSettings({ style: "turtle" }).style).toBe("turtle");
     expect(normalizeCursorSettings({ style: "off" }).style).toBe("off");
     expect(normalizeCursorSettings({ style: "unicorn" }).style).toBe("fish");
+  });
+
+  it("coerces jelly to a boolean (default false)", () => {
+    expect(normalizeCursorSettings({}).jelly).toBe(false);
+    expect(normalizeCursorSettings({ jelly: true }).jelly).toBe(true);
+    expect(normalizeCursorSettings({ jelly: "yes" }).jelly).toBe(false);
   });
 
   it("clamps size, fin/antenna size, blink speed, and transition into range", () => {

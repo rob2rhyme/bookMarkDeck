@@ -5,6 +5,7 @@ import { type CursorStyle, useCursorSettings } from "@/lib/cursorSettings";
 
 const STYLES: { value: CursorStyle; label: string }[] = [
   { value: "fish", label: "🐟 Fish" },
+  { value: "turtle", label: "🐢 Turtle" },
   { value: "dragon", label: "🐉 Dragon" },
   { value: "off", label: "○ Off" },
 ];
@@ -29,13 +30,18 @@ function Row({
 const HUE_BAR =
   "linear-gradient(to right, hsl(0,80%,55%), hsl(60,80%,55%), hsl(120,80%,55%), hsl(180,80%,55%), hsl(240,80%,55%), hsl(300,80%,55%), hsl(360,80%,55%))";
 
-// Auto-or-custom hue picker, reused for body / fins / antennae.
+// Auto-or-custom hue picker, reused for body / fins / antennae. With the
+// optional jelly toggle it gains a third "Jelly" (translucent) mode.
 function HueControl({
   value,
   onChange,
+  jelly,
+  onJelly,
 }: {
   value: number | null;
   onChange: (v: number | null) => void;
+  jelly?: boolean;
+  onJelly?: (b: boolean) => void;
 }) {
   const pill = (active: boolean) =>
     `rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
@@ -43,40 +49,64 @@ function HueControl({
         ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
         : "border-slate-700 text-slate-300 hover:border-slate-500 hover:text-slate-100"
     }`;
+  const isJelly = Boolean(jelly);
+  const mode = isJelly ? "jelly" : value === null ? "auto" : "custom";
+  const showSlider = mode === "custom" || mode === "jelly";
   return (
     <>
       <div className="flex items-center gap-2">
         <button
           type="button"
-          aria-pressed={value === null}
-          onClick={() => onChange(null)}
-          className={pill(value === null)}
+          aria-pressed={mode === "auto"}
+          onClick={() => {
+            onChange(null);
+            onJelly?.(false);
+          }}
+          className={pill(mode === "auto")}
         >
           Auto
         </button>
         <button
           type="button"
-          aria-pressed={value !== null}
-          onClick={() => onChange(value ?? 200)}
-          className={pill(value !== null)}
+          aria-pressed={mode === "custom"}
+          onClick={() => {
+            onChange(value ?? 200);
+            onJelly?.(false);
+          }}
+          className={pill(mode === "custom")}
         >
           Custom
         </button>
-        {value !== null && (
+        {onJelly && (
+          <button
+            type="button"
+            aria-pressed={mode === "jelly"}
+            onClick={() => onJelly(true)}
+            className={pill(mode === "jelly")}
+          >
+            Jelly
+          </button>
+        )}
+        {showSlider && (
           <span
             className="ml-1 h-7 w-7 shrink-0 rounded-full border border-slate-600"
-            style={{ background: `hsl(${value}, 80%, 55%)` }}
+            style={{
+              background: `hsl(${value ?? 270}, ${isJelly ? 75 : 80}%, ${
+                isJelly ? 65 : 55
+              }%)`,
+              opacity: isJelly ? 0.6 : 1,
+            }}
             aria-hidden="true"
           />
         )}
       </div>
-      {value !== null && (
+      {showSlider && (
         <input
           type="range"
           min={0}
           max={360}
           step={1}
-          value={value}
+          value={value ?? 270}
           onChange={(e) => onChange(Number(e.target.value))}
           aria-label="Hue"
           className="mt-3 w-full accent-blue-500"
@@ -114,7 +144,7 @@ export function CursorSettingsPanel({
       </p>
 
       <Row label="Style">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {STYLES.map((opt) => {
             const active = settings.style === opt.value;
             return (
@@ -123,7 +153,7 @@ export function CursorSettingsPanel({
                 type="button"
                 aria-pressed={active}
                 onClick={() => update({ style: opt.value })}
-                className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                className={`min-w-[84px] flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
                   active
                     ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
                     : "border-slate-700 text-slate-300 hover:border-slate-500 hover:text-slate-100"
@@ -149,8 +179,25 @@ export function CursorSettingsPanel({
         />
       </Row>
 
-      <Row label={settings.style === "fish" ? "Body colour" : "Colour"}>
-        <HueControl value={settings.hue} onChange={(v) => update({ hue: v })} />
+      <Row
+        label={
+          settings.style === "turtle"
+            ? "Shell colour"
+            : settings.style === "fish"
+              ? "Body colour"
+              : "Colour"
+        }
+      >
+        <HueControl
+          value={settings.hue}
+          onChange={(v) => update({ hue: v })}
+          {...(settings.style === "turtle"
+            ? {
+                jelly: settings.jelly,
+                onJelly: (b: boolean) => update({ jelly: b }),
+              }
+            : {})}
+        />
       </Row>
 
       {settings.style === "fish" && (
@@ -190,6 +237,51 @@ export function CursorSettingsPanel({
                 onChange={(v) => update({ antennaHue: v })}
               />
             </div>
+          </Row>
+          <Row label="Eye blink speed">
+            <input
+              type="range"
+              min={0.25}
+              max={3}
+              step={0.05}
+              value={settings.blinkSpeed}
+              onChange={(e) => update({ blinkSpeed: Number(e.target.value) })}
+              aria-label="Eye blink speed"
+              className="w-full accent-blue-500"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+              <span>Slow</span>
+              <span>Fast</span>
+            </div>
+          </Row>
+        </>
+      )}
+
+      {settings.style === "turtle" && (
+        <>
+          <Row label={`Flippers — ${Math.round(settings.finSize * 100)}%`}>
+            <input
+              type="range"
+              min={0.5}
+              max={2.5}
+              step={0.05}
+              value={settings.finSize}
+              onChange={(e) => update({ finSize: Number(e.target.value) })}
+              aria-label="Flipper size"
+              className="w-full accent-blue-500"
+            />
+            <div className="mt-3">
+              <HueControl
+                value={settings.finHue}
+                onChange={(v) => update({ finHue: v })}
+              />
+            </div>
+          </Row>
+          <Row label="Shell pattern colour">
+            <HueControl
+              value={settings.antennaHue}
+              onChange={(v) => update({ antennaHue: v })}
+            />
           </Row>
           <Row label="Eye blink speed">
             <input

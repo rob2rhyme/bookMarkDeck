@@ -2,10 +2,10 @@
 
 import { DragonCursor } from "@/components/DragonCursor";
 import { FishCursor } from "@/components/FishCursor";
+import { TurtleCursor } from "@/components/TurtleCursor";
 import { useCursorSettings } from "@/lib/cursorSettings";
 
-// Renders the chosen decorative cursor overlay with the user's size / colour /
-// transition settings. Defaults to the dragon, so existing behaviour is intact.
+// Renders the chosen decorative cursor overlay with the user's full settings.
 export function CursorOverlay() {
   const { settings } = useCursorSettings();
   if (settings.style === "off") return null;
@@ -15,13 +15,16 @@ export function CursorOverlay() {
     hue: settings.hue,
     finHue: settings.finHue,
     antennaHue: settings.antennaHue,
+    finSize: settings.finSize,
+    antennaSize: settings.antennaSize,
+    blinkSpeed: settings.blinkSpeed,
     transition: settings.transition,
+    jelly: settings.jelly,
   };
-  return settings.style === "fish" ? (
-    <FishCursor {...props} />
-  ) : (
-    <DragonCursor {...props} />
-  );
+
+  if (settings.style === "fish") return <FishCursor {...props} />;
+  if (settings.style === "turtle") return <TurtleCursor {...props} />;
+  return <DragonCursor {...props} />;
 }
 
 export default CursorOverlay;
