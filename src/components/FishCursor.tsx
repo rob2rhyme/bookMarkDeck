@@ -115,8 +115,8 @@ export function FishCursor({
     const xmlns = "http://www.w3.org/2000/svg";
     const xlinkns = "http://www.w3.org/1999/xlink";
 
-    // 🫧 Rising bubble particles
-    const BUBBLE_COUNT = 60;
+    // 🫧 Rising bubble particles (shared by the mother + babies)
+    const BUBBLE_COUNT = 140;
     type Bubble = {
       use: SVGUseElement;
       x: number;
@@ -125,6 +125,7 @@ export function FishCursor({
       vy: number;
       life: number;
       maxLife: number;
+      sizeF: number; // render size factor (1 = mother, <1 = baby)
     };
     const bubbles: Bubble[] = [];
 
@@ -203,6 +204,7 @@ export function FishCursor({
         vy: 0,
         life: 0,
         maxLife: 1,
+        sizeF: 1,
       });
     }
 
@@ -244,6 +246,15 @@ export function FishCursor({
       setAccent(finGrad, finHueRef.current ?? 190);
       setAccent(antGrad, antHueRef.current ?? 190);
 
+      // Place the babies (trailing the tail) and capture their spots so they
+      // can blow their own bubbles below.
+      const headScale = 3.24 * sizeRef.current;
+      const activeBabies = babyRig.update(
+        elems[N - 1].x,
+        elems[N - 1].y,
+        headScale
+      );
+
       // 🫧 Bubbles — emitted near the head, drifting upward as they fade.
       if (bubbles.length && elems[0] && elems[1]) {
         const headPos = elems[1];
@@ -265,6 +276,23 @@ export function FishCursor({
             spawn.vy = -(0.6 + Math.random() * 0.6); // buoyant rise
             spawn.maxLife = 90 + Math.random() * 40;
             spawn.life = spawn.maxLife;
+            spawn.sizeF = 1;
+          }
+
+          // Baby fish blow their own (smaller) bubbles from their mouths.
+          for (const baby of activeBabies) {
+            const spawnB = bubbles.find((p) => p.life <= 0);
+            if (!spawnB) break;
+            const fwd = baby.h + Math.PI; // mouth faces forward (−x ⇒ +π)
+            const rel = Math.min(1, baby.s / headScale);
+            spawnB.x =
+              baby.x + Math.cos(fwd) * 12 * rel + (Math.random() - 0.5) * 5 * rel;
+            spawnB.y = baby.y + Math.sin(fwd) * 12 * rel;
+            spawnB.vx = (Math.random() - 0.5) * 0.3;
+            spawnB.vy = -(0.5 + Math.random() * 0.5);
+            spawnB.maxLife = 80 + Math.random() * 40;
+            spawnB.life = spawnB.maxLife;
+            spawnB.sizeF = rel;
           }
         }
 
@@ -277,7 +305,7 @@ export function FishCursor({
           p.vy *= 0.992;
 
           const alpha = Math.max(0, p.life / p.maxLife);
-          const scale = 0.4 + (1 - alpha) * 0.9; // grow slightly as they rise
+          const scale = (0.4 + (1 - alpha) * 0.9) * p.sizeF; // grow as they rise
           p.use.setAttribute(
             "transform",
             `translate(${p.x},${p.y}) scale(${scale})`
@@ -317,10 +345,6 @@ export function FishCursor({
           }) translate(0,0) scale(${s},${s})`
         );
       }
-
-      // Baby fish trail the tail end (so they follow behind the whole body).
-      const fishTail = elems[N - 1];
-      babyRig.update(fishTail.x, fishTail.y, 3.24 * sizeMul);
 
       // Smoothed turn rate (radians/frame) — drives the fins + antennae.
       if (elems[0] && elems[1]) {

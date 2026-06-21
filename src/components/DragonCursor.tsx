@@ -96,9 +96,9 @@ export function DragonCursor({
       spineGradBottom,
     ].filter((g): g is SVGLinearGradientElement => !!g);
 
-    // 💨 Smoke spit particles
+    // 💨 Smoke spit particles (shared by the mother + babies)
     // Higher count for denser smoke
-    const SMOKE_COUNT = 200;
+    const SMOKE_COUNT = 300;
     type SmokeParticle = {
       use: SVGUseElement;
       x: number;
@@ -107,6 +107,7 @@ export function DragonCursor({
       vy: number;
       life: number;
       maxLife: number;
+      sizeF: number; // render size factor (1 = mother, <1 = baby)
     };
     const smokeParticles: SmokeParticle[] = [];
 
@@ -175,6 +176,7 @@ export function DragonCursor({
         vy: 0,
         life: 0,
         maxLife: 1,
+        sizeF: 1,
       });
     }
 
@@ -222,6 +224,15 @@ export function DragonCursor({
         });
       }
 
+      // Place the babies (trailing the tail) and capture their spots so they
+      // can breathe their own smoke below.
+      const headScale = 3.24 * sizeRef.current;
+      const activeBabies = babyRig.update(
+        elems[N - 1].x,
+        elems[N - 1].y,
+        headScale
+      );
+
       // 💨 Update smoke spit particles (emit from mouth/front, drift & fade)
       if (smokeParticles.length && elems[0] && elems[1]) {
         const headPos = elems[1]; // head segment
@@ -251,6 +262,25 @@ export function DragonCursor({
 
           spawn.maxLife = 150 + Math.random() * 40; // frames
           spawn.life = spawn.maxLife;
+          spawn.sizeF = 1;
+        }
+
+        // Baby dragons breathe their own (smaller) smoke from their mouths.
+        for (const baby of activeBabies) {
+          const spawn = smokeParticles.find((p) => p.life <= 0);
+          if (!spawn) break;
+          const fwd = baby.h + Math.PI; // mouth faces forward (−x ⇒ +π)
+          const bnx = Math.cos(fwd);
+          const bny = Math.sin(fwd);
+          const rel = Math.min(1, baby.s / headScale);
+          spawn.x = baby.x + bnx * 16 * rel;
+          spawn.y = baby.y + bny * 16 * rel;
+          const baseSpeed = (1.4 + Math.random() * 0.6) * rel;
+          spawn.vx = bnx * baseSpeed + (Math.random() - 0.5) * 0.3;
+          spawn.vy = bny * baseSpeed + (Math.random() - 0.5) * 0.3;
+          spawn.maxLife = 110 + Math.random() * 40;
+          spawn.life = spawn.maxLife;
+          spawn.sizeF = rel;
         }
 
         // Integrate & render existing puffs
@@ -269,7 +299,7 @@ export function DragonCursor({
           // Make the smoke dot grow as it fades:
           // - small when alpha ~ 1 (just spawned)
           // - larger when alpha ~ 0 (about to disappear)
-          const scale = 0.5 + (1 - alpha) * 1.2; // 0.5 → 1.7
+          const scale = (0.5 + (1 - alpha) * 1.2) * p.sizeF; // 0.5 → 1.7
 
           p.use.setAttribute(
             "transform",
@@ -311,10 +341,6 @@ export function DragonCursor({
           }) translate(0,0) scale(${s},${s})`
         );
       }
-
-      // Baby dragons trail the tail end (so they follow behind the whole body).
-      const dragonTail = elems[N - 1];
-      babyRig.update(dragonTail.x, dragonTail.y, 3.24 * sizeMul);
 
       if (rad < radm) rad++;
       frm += 0.003;

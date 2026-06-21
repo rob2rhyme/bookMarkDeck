@@ -14,6 +14,10 @@ export type BabyRefs = {
   size: RefObject<number>;
 };
 
+// A placed baby this frame: position, absolute scale, and heading (radians,
+// pointing tail-ward — add π for the facing/forward direction).
+export type ActiveBaby = { x: number; y: number; s: number; h: number };
+
 export function setupBabies(
   container: SVGGElement,
   rigId: string,
@@ -38,7 +42,11 @@ export function setupBabies(
   const rot = els.map(() => 0);
   let tick = 0;
 
-  const update = (cx: number, cy: number, parentScale: number) => {
+  const update = (
+    cx: number,
+    cy: number,
+    parentScale: number
+  ): ActiveBaby[] => {
     tick += 1;
     trail.unshift({ x: cx, y: cy });
     if (trail.length > 4100) trail.pop(); // covers 100 babies × max spacing
@@ -49,6 +57,7 @@ export function setupBabies(
     const gap = refs.gap.current;
     const spread = refs.spread.current;
     const size = refs.size.current;
+    const active: ActiveBaby[] = [];
 
     els.forEach((g, i) => {
       if (i >= nb) {
@@ -78,7 +87,9 @@ export function setupBabies(
         )}) scale(${bs.toFixed(3)})`
       );
       g.setAttribute("opacity", "1");
+      active.push({ x: bx, y: by, s: bs, h: rad });
     });
+    return active;
   };
 
   return { update };
