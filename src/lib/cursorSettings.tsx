@@ -18,7 +18,9 @@ export type CursorStyle = "dragon" | "fish" | "off";
 export type CursorSettings = {
   style: CursorStyle;
   size: number; // overlay scale multiplier (0.5–2)
-  hue: number | null; // null = Auto (the built-in animated palette); 0–360 = locked
+  hue: number | null; // body colour. null = Auto (built-in animated palette); 0–360 = locked
+  finHue: number | null; // fins + tail colour (fish). null = Auto (cyan)
+  antennaHue: number | null; // antennae colour (fish). null = Auto (cyan)
   transition: number; // follow feel: 0 = smooth/laggy … 1 = snappy
 };
 
@@ -26,6 +28,8 @@ export type CursorSettings = {
 export type CursorProps = {
   size?: number;
   hue?: number | null;
+  finHue?: number | null;
+  antennaHue?: number | null;
   transition?: number;
 };
 
@@ -33,6 +37,8 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   style: "dragon",
   size: 1,
   hue: null,
+  finHue: null,
+  antennaHue: null,
   transition: 0.5,
 };
 
@@ -46,13 +52,14 @@ function clampNum(v: unknown, min: number, max: number, fallback: number): numbe
 export function normalizeCursorSettings(raw: unknown): CursorSettings {
   const r = (raw ?? {}) as Record<string, unknown>;
   const d = DEFAULT_CURSOR_SETTINGS;
+  const hueOrAuto = (v: unknown) =>
+    v === null || v === undefined ? null : clampNum(v, 0, 360, 0);
   return {
     style: r.style === "fish" || r.style === "off" ? r.style : "dragon",
     size: clampNum(r.size, 0.5, 2, d.size),
-    hue:
-      r.hue === null || r.hue === undefined
-        ? null
-        : clampNum(r.hue, 0, 360, 0),
+    hue: hueOrAuto(r.hue),
+    finHue: hueOrAuto(r.finHue),
+    antennaHue: hueOrAuto(r.antennaHue),
     transition: clampNum(r.transition, 0, 1, d.transition),
   };
 }

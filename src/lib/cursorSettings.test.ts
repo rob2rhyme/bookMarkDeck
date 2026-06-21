@@ -24,10 +24,15 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ transition: -1 }).transition).toBe(0);
   });
 
-  it("treats hue null/absent as Auto, clamps a custom hue", () => {
+  it("treats hue null/absent as Auto, clamps a custom hue (body/fins/antennae)", () => {
     expect(normalizeCursorSettings({ hue: null }).hue).toBeNull();
     expect(normalizeCursorSettings({}).hue).toBeNull();
     expect(normalizeCursorSettings({ hue: 400 }).hue).toBe(360);
     expect(normalizeCursorSettings({ hue: 210 }).hue).toBe(210);
+
+    expect(normalizeCursorSettings({}).finHue).toBeNull();
+    expect(normalizeCursorSettings({}).antennaHue).toBeNull();
+    expect(normalizeCursorSettings({ finHue: -5 }).finHue).toBe(0);
+    expect(normalizeCursorSettings({ antennaHue: 130 }).antennaHue).toBe(130);
   });
 });

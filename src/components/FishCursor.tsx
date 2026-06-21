@@ -13,17 +13,23 @@ import type { CursorProps } from "@/lib/cursorSettings";
 export function FishCursor({
   size = 1,
   hue = null,
+  finHue = null,
+  antennaHue = null,
   transition = 0.5,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
   const hueRef = useRef(hue);
+  const finHueRef = useRef(finHue);
+  const antHueRef = useRef(antennaHue);
   const transRef = useRef(transition);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
+    finHueRef.current = finHue;
+    antHueRef.current = antennaHue;
     transRef.current = transition;
-  }, [size, hue, transition]);
+  }, [size, hue, finHue, antennaHue, transition]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -40,6 +46,10 @@ export function FishCursor({
     const bodyGradients = Array.from(
       svg.querySelectorAll<SVGLinearGradientElement>(".fish-body-grad")
     );
+    // Accent gradients: fins + tail, and antennae (coloured separately).
+    const finGrad = svg.querySelector<SVGLinearGradientElement>("#FishFinGrad");
+    const antGrad =
+      svg.querySelector<SVGLinearGradientElement>("#FishAntennaGrad");
 
     // Fin group — its vertical scale is animated each frame to flap.
     const finsGroup = svg.querySelector<SVGGElement>("#FishFins");
@@ -154,6 +164,27 @@ export function FishCursor({
           });
         });
       }
+
+      // Accent colours — fins/tail + antennae, each Auto (cyan, 190) or custom.
+      const setAccent = (
+        grad: SVGLinearGradientElement | null,
+        h: number
+      ) => {
+        const stops = grad?.querySelectorAll<SVGStopElement>("stop");
+        if (!stops) return;
+        if (stops[0]) {
+          const c = `hsl(${h}, 85%, 68%)`;
+          stops[0].setAttribute("stop-color", c);
+          stops[0].style.setProperty("stop-color", c);
+        }
+        if (stops[1]) {
+          const c = `hsl(${h}, 88%, 40%)`;
+          stops[1].setAttribute("stop-color", c);
+          stops[1].style.setProperty("stop-color", c);
+        }
+      };
+      setAccent(finGrad, finHueRef.current ?? 190);
+      setAccent(antGrad, antHueRef.current ?? 190);
 
       // 🫧 Bubbles — emitted near the head, drifting upward as they fade.
       if (bubbles.length && elems[0] && elems[1]) {
@@ -317,6 +348,10 @@ export function FishCursor({
             <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.9" />
             <stop offset="100%" stopColor="#0891b2" stopOpacity="0.7" />
           </linearGradient>
+          <linearGradient id="FishAntennaGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#67e8f9" />
+            <stop offset="100%" stopColor="#0891b2" />
+          </linearGradient>
 
           {/* Head — front faces -x (eye near the nose), to match the chain's
               rotation convention. */}
@@ -327,21 +362,21 @@ export function FishCursor({
               <path
                 d="M0 0 Q -6 -4 -10 -9"
                 fill="none"
-                stroke="url(#FishFinGrad)"
+                stroke="url(#FishAntennaGrad)"
                 strokeWidth="1.3"
                 strokeLinecap="round"
               />
-              <circle cx="-10" cy="-9" r="1.4" fill="#67e8f9" />
+              <circle cx="-10" cy="-9" r="1.4" fill="url(#FishAntennaGrad)" />
             </g>
             <g id="FishAntennaBottom" transform="translate(-9 4)">
               <path
                 d="M0 0 Q -6 4 -10 9"
                 fill="none"
-                stroke="url(#FishFinGrad)"
+                stroke="url(#FishAntennaGrad)"
                 strokeWidth="1.3"
                 strokeLinecap="round"
               />
-              <circle cx="-10" cy="9" r="1.4" fill="#67e8f9" />
+              <circle cx="-10" cy="9" r="1.4" fill="url(#FishAntennaGrad)" />
             </g>
             <ellipse cx="-2" cy="0" rx="10" ry="7.5" fill="url(#FishBodyGrad)" />
             <circle cx="-7" cy="-2" r="1.7" fill="#0b1722" />

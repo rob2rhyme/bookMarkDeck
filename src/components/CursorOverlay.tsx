@@ -13,6 +13,8 @@ export function CursorOverlay() {
   const props = {
     size: settings.size,
     hue: settings.hue,
+    finHue: settings.finHue,
+    antennaHue: settings.antennaHue,
     transition: settings.transition,
   };
   return settings.style === "fish" ? (

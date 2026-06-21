@@ -26,6 +26,67 @@ function Row({
   );
 }
 
+const HUE_BAR =
+  "linear-gradient(to right, hsl(0,80%,55%), hsl(60,80%,55%), hsl(120,80%,55%), hsl(180,80%,55%), hsl(240,80%,55%), hsl(300,80%,55%), hsl(360,80%,55%))";
+
+// Auto-or-custom hue picker, reused for body / fins / antennae.
+function HueControl({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  const pill = (active: boolean) =>
+    `rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+      active
+        ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+        : "border-slate-700 text-slate-300 hover:border-slate-500 hover:text-slate-100"
+    }`;
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-pressed={value === null}
+          onClick={() => onChange(null)}
+          className={pill(value === null)}
+        >
+          Auto
+        </button>
+        <button
+          type="button"
+          aria-pressed={value !== null}
+          onClick={() => onChange(value ?? 200)}
+          className={pill(value !== null)}
+        >
+          Custom
+        </button>
+        {value !== null && (
+          <span
+            className="ml-1 h-7 w-7 shrink-0 rounded-full border border-slate-600"
+            style={{ background: `hsl(${value}, 80%, 55%)` }}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+      {value !== null && (
+        <input
+          type="range"
+          min={0}
+          max={360}
+          step={1}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          aria-label="Hue"
+          className="mt-3 w-full accent-blue-500"
+          style={{ background: HUE_BAR, borderRadius: 9999 }}
+        />
+      )}
+    </>
+  );
+}
+
 export function CursorSettingsPanel({
   open,
   onClose,
@@ -83,58 +144,26 @@ export function CursorSettingsPanel({
         />
       </Row>
 
-      <Row label="Colour">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-pressed={settings.hue === null}
-            onClick={() => update({ hue: null })}
-            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-              settings.hue === null
-                ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
-                : "border-slate-700 text-slate-300 hover:border-slate-500 hover:text-slate-100"
-            }`}
-          >
-            Auto
-          </button>
-          <button
-            type="button"
-            aria-pressed={settings.hue !== null}
-            onClick={() => update({ hue: settings.hue ?? 200 })}
-            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-              settings.hue !== null
-                ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
-                : "border-slate-700 text-slate-300 hover:border-slate-500 hover:text-slate-100"
-            }`}
-          >
-            Custom
-          </button>
-          {settings.hue !== null && (
-            <span
-              className="ml-1 h-7 w-7 shrink-0 rounded-full border border-slate-600"
-              style={{ background: `hsl(${settings.hue}, 80%, 55%)` }}
-              aria-hidden="true"
-            />
-          )}
-        </div>
-        {settings.hue !== null && (
-          <input
-            type="range"
-            min={0}
-            max={360}
-            step={1}
-            value={settings.hue}
-            onChange={(e) => update({ hue: Number(e.target.value) })}
-            aria-label="Cursor hue"
-            className="mt-3 w-full accent-blue-500"
-            style={{
-              background:
-                "linear-gradient(to right, hsl(0,80%,55%), hsl(60,80%,55%), hsl(120,80%,55%), hsl(180,80%,55%), hsl(240,80%,55%), hsl(300,80%,55%), hsl(360,80%,55%))",
-              borderRadius: 9999,
-            }}
-          />
-        )}
+      <Row label={settings.style === "fish" ? "Body colour" : "Colour"}>
+        <HueControl value={settings.hue} onChange={(v) => update({ hue: v })} />
       </Row>
+
+      {settings.style === "fish" && (
+        <>
+          <Row label="Fins & tail colour">
+            <HueControl
+              value={settings.finHue}
+              onChange={(v) => update({ finHue: v })}
+            />
+          </Row>
+          <Row label="Antennae colour">
+            <HueControl
+              value={settings.antennaHue}
+              onChange={(v) => update({ antennaHue: v })}
+            />
+          </Row>
+        </>
+      )}
 
       <Row label="Transition (follow feel)">
         <input
