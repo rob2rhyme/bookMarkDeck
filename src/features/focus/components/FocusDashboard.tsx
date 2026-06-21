@@ -30,6 +30,9 @@ import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
 import { useHydrationHistory } from "@/features/focus/hooks/useHydrationHistory";
+import { AgendaCard } from "@/features/focus/components/AgendaCard";
+import { useGoogleEvents } from "@/features/focus/hooks/useGoogleEvents";
+import { useGoogleTodoSync } from "@/features/focus/hooks/useGoogleTodoSync";
 import { useTodos } from "@/features/focus/hooks/useTodos";
 import { useUndo } from "@/features/focus/hooks/useUndo";
 import { todayKey } from "@/features/focus/data/focusData";
@@ -51,6 +54,8 @@ export function FocusDashboard() {
   const tasks = useFocusTasks(email, connected, activity.log);
   const journal = useFocusJournal(email, connected, activity.log);
   const todos = useTodos(email, connected, activity.log);
+  const gsync = useGoogleTodoSync(settings.todoGoogleSync, todos.setGoogleIds);
+  const gevents = useGoogleEvents(settings.todoGoogleSync);
   const hydration = useHydration({
     email,
     connected,
@@ -151,18 +156,56 @@ export function FocusDashboard() {
     undo.offer("Journal note deleted", () => journal.restoreNote(note));
   };
 
+  const addTodoSynced = (text: string, dueAt: string | null, note: string) => {
+    const created = todos.addTodo(text, dueAt, note);
+    if (created) gsync.mirror(created);
+  };
+
+  const editTodoSynced = (
+    id: string,
+    patch: { text?: string; note?: string; dueAt?: string | null }
+  ) => {
+    todos.editTodo(id, patch);
+    const existing = todos.todos.find((t) => t.id === id);
+    if (existing) {
+      gsync.mirror({
+        ...existing,
+        ...patch,
+        text: patch.text !== undefined ? patch.text.trim() : existing.text,
+      });
+    }
+  };
+
   const removeTodoWithUndo = (todo: Todo) => {
     todos.removeTodo(todo.id);
-    undo.offer(`To-do “${todo.text}” deleted`, () => todos.restoreTodo(todo));
+    gsync.unmirror(todo);
+    undo.offer(`To-do “${todo.text}” deleted`, () => {
+      todos.restoreTodo(todo);
+      gsync.mirror(todo);
+    });
   };
 
   // Toggle a to-do; when marking one done, offer an undo to un-complete it.
   const toggleTodoWithUndo = (todo: Todo) => {
     todos.toggleTodo(todo.id);
+    gsync.mirror({ ...todo, done: !todo.done });
     if (!todo.done) {
-      undo.offer(`“${todo.text}” done`, () => todos.toggleTodo(todo.id));
+      undo.offer(`“${todo.text}” done`, () => {
+        todos.toggleTodo(todo.id);
+        gsync.mirror(todo);
+      });
     }
   };
+
+  const todayCalendarEvents = useMemo(() => {
+    const today = todayKey();
+    return gevents.events.filter((e) => {
+      if (!e.start) return false;
+      const d = new Date(e.start);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return k === today;
+    });
+  }, [gevents.events]);
 
   const todoEvents = useMemo(
     () =>
@@ -275,13 +318,35 @@ export function FocusDashboard() {
         <TodoList
           active={todos.active}
           done={todos.done}
-          onAdd={todos.addTodo}
+          todayEvents={todayCalendarEvents}
+          onAdd={addTodoSynced}
           onToggle={toggleTodoWithUndo}
-          onEdit={todos.editTodo}
+          onEdit={editTodoSynced}
           onRemove={removeTodoWithUndo}
         />
-        <TodoHistory available={connected} events={todoEvents} />
+        {settings.todoGoogleSync ? (
+          <AgendaCard
+            enabled
+            events={gevents.events}
+            loading={gevents.loading}
+            error={gevents.error}
+            days={gevents.days}
+            canExpand={gevents.canExpand}
+            canCollapse={gevents.canCollapse}
+            onRefresh={gevents.refresh}
+            onExpand={gevents.expand}
+            onCollapse={gevents.collapse}
+          />
+        ) : (
+          <TodoHistory available={connected} events={todoEvents} />
+        )}
       </div>
+
+      {settings.todoGoogleSync && (
+        <div className="mt-5">
+          <TodoHistory available={connected} events={todoEvents} />
+        </div>
+      )}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <AnalysisPanel
