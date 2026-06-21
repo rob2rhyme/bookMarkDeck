@@ -3,7 +3,11 @@
 import { useEffect } from "react";
 
 import { X } from "@/components/icons";
-import type { FocusSettings } from "@/features/focus/lib/settings";
+import type {
+  CursorStyle,
+  FocusSettings,
+} from "@/features/focus/lib/settings";
+import { broadcastCursorStyle } from "@/hooks/useCursorStyle";
 import {
   initAudio,
   playChime,
@@ -216,6 +220,41 @@ export function FocusSettingsModal({
           Pushes your to-dos to Google Tasks (timed ones also get a Calendar
           event), and shows your Google Calendar agenda + today’s events here.
           Sign out and back in once to grant access.
+        </p>
+
+        <SectionLabel>Cursor</SectionLabel>
+        <div className="flex gap-2">
+          {(
+            [
+              { value: "dragon", label: "🐉 Dragon" },
+              { value: "fish", label: "🐟 Fish" },
+              { value: "off", label: "○ Off" },
+            ] as { value: CursorStyle; label: string }[]
+          ).map((opt) => {
+            const active = settings.cursorStyle === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  onUpdate({ cursorStyle: opt.value });
+                  broadcastCursorStyle(opt.value); // apply instantly this tab
+                }}
+                className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                  active
+                    ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                    : "border-slate-700 text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500">
+          The decorative cursor that follows your pointer. Synced across your
+          devices; respects reduced-motion.
         </p>
 
         <p className="mt-6 text-center text-[11px] text-slate-500">

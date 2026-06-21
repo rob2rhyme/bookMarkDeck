@@ -1,4 +1,4 @@
-import { DragonCursor } from "@/components/DragonCursor";
+import { CursorOverlay } from "@/components/CursorOverlay";
 
 export default function AuthRoutesLayout({
   children,
@@ -7,7 +7,7 @@ export default function AuthRoutesLayout({
 }) {
   return (
     <main className="relative isolate min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
-      <DragonCursor />
+      <CursorOverlay />
       <div className="relative z-10">{children}</div>
     </main>
   );

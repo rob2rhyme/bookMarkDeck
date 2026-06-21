@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
-import { DragonCursor } from "@/components/DragonCursor";
+import { CursorOverlay } from "@/components/CursorOverlay";
 import { Bookmark, Search, Timer } from "@/components/icons";
 import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/CommandPalette";
 
@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <main className="relative isolate flex min-h-screen flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
-      <DragonCursor />
+      <CursorOverlay />
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-24 pt-8 sm:px-6 sm:pb-12 lg:px-8 lg:pt-12">
         <header className="mb-8 flex flex-col gap-4 sm:mb-10">
           <div className="flex flex-col gap-2">

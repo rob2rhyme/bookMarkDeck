@@ -38,4 +38,12 @@ describe("normalizeSettings", () => {
       DEFAULT_SETTINGS.chimeSound
     );
   });
+
+  it("validates cursorStyle against the allowed set", () => {
+    expect(normalizeSettings({ cursorStyle: "fish" }).cursorStyle).toBe("fish");
+    expect(normalizeSettings({ cursorStyle: "off" }).cursorStyle).toBe("off");
+    expect(normalizeSettings({ cursorStyle: "unicorn" }).cursorStyle).toBe(
+      DEFAULT_SETTINGS.cursorStyle
+    );
+  });
 });
