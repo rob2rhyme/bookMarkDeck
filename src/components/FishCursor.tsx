@@ -15,6 +15,9 @@ export function FishCursor({
   hue = null,
   finHue = null,
   antennaHue = null,
+  finSize = 1,
+  antennaSize = 1,
+  blinkSpeed = 1,
   transition = 0.5,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -22,14 +25,29 @@ export function FishCursor({
   const hueRef = useRef(hue);
   const finHueRef = useRef(finHue);
   const antHueRef = useRef(antennaHue);
+  const finSizeRef = useRef(finSize);
+  const antSizeRef = useRef(antennaSize);
+  const blinkSpeedRef = useRef(blinkSpeed);
   const transRef = useRef(transition);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
     finHueRef.current = finHue;
     antHueRef.current = antennaHue;
+    finSizeRef.current = finSize;
+    antSizeRef.current = antennaSize;
+    blinkSpeedRef.current = blinkSpeed;
     transRef.current = transition;
-  }, [size, hue, finHue, antennaHue, transition]);
+  }, [
+    size,
+    hue,
+    finHue,
+    antennaHue,
+    finSize,
+    antennaSize,
+    blinkSpeed,
+    transition,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -285,9 +303,10 @@ export function FishCursor({
         flapPhase += 0.22 + Math.min(2.0, turnSmoothed * 14);
         const amp = 0.34 + Math.min(0.42, turnSmoothed * 5);
         const flapY = 1 - amp * Math.abs(Math.sin(flapPhase));
+        const fs = 1.75 * finSizeRef.current;
         finsGroup.setAttribute(
           "transform",
-          `scale(1.75, ${(1.75 * flapY).toFixed(3)})`
+          `scale(${fs.toFixed(3)}, ${(fs * flapY).toFixed(3)})`
         );
       }
 
@@ -298,36 +317,39 @@ export function FishCursor({
         const amp = 20 + Math.min(24, turnSmoothed * 220); // degrees
         const angT = amp * Math.sin(antPhase);
         const angB = amp * Math.sin(antPhase * 1.27 + 1.7);
+        const as = antSizeRef.current.toFixed(3);
         antennaTop.setAttribute(
           "transform",
-          `translate(-9 -4) rotate(${angT.toFixed(2)})`
+          `translate(-9 -4) rotate(${angT.toFixed(2)}) scale(${as})`
         );
         antennaBottom.setAttribute(
           "transform",
-          `translate(-9 4) rotate(${angB.toFixed(2)})`
+          `translate(-9 4) rotate(${angB.toFixed(2)}) scale(${as})`
         );
       }
 
       // 👁 Second eye blinks — frequent, with the occasional slow blink. The eye
       // squashes vertically (open → closed → open) over the blink's duration.
       if (eye2) {
+        const spd = blinkSpeedRef.current;
         if (blinkProg > 0) {
           blinkProg -= 1;
           const phase = 1 - blinkProg / blinkDur; // 0 → 1 across the blink
           const open = Math.max(0.08, Math.abs(Math.cos(phase * Math.PI)));
           eye2.setAttribute(
             "transform",
-            `translate(-3.4 -1) scale(1 ${open.toFixed(3)})`
+            `translate(-7 2) scale(1 ${open.toFixed(3)})`
           );
         } else {
-          blinkWait -= 1;
+          blinkWait -= spd; // higher speed → next blink arrives sooner
           if (blinkWait <= 0) {
             const slow = Math.random() < 0.25; // sometimes a slow blink
-            blinkDur = slow ? 26 + Math.random() * 12 : 7 + Math.random() * 4;
+            const baseDur = slow ? 26 + Math.random() * 12 : 7 + Math.random() * 4;
+            blinkDur = Math.max(3, baseDur / spd); // higher speed → faster blink
             blinkProg = blinkDur;
             blinkWait = 50 + Math.random() * 130; // frames until the next blink
           } else {
-            eye2.setAttribute("transform", "translate(-3.4 -1)");
+            eye2.setAttribute("transform", "translate(-7 2)");
           }
         }
       }
@@ -412,10 +434,11 @@ export function FishCursor({
             <ellipse cx="-2" cy="0" rx="10" ry="7.5" fill="url(#FishBodyGrad)" />
             <circle cx="-7" cy="-2" r="1.7" fill="#0b1722" />
             <circle cx="-7.6" cy="-2.7" r="0.6" fill="#ffffff" />
-            {/* second eye — JS blinks it (vertical squash) on a varying cadence */}
-            <g id="FishEye2" transform="translate(-3.4 -1)">
-              <circle cx="0" cy="0" r="1.5" fill="#0b1722" />
-              <circle cx="-0.5" cy="-0.6" r="0.55" fill="#ffffff" />
+            {/* second eye — mirrors the first below the head axis (each sits
+                under an antenna); JS blinks it on a varying cadence. */}
+            <g id="FishEye2" transform="translate(-7 2)">
+              <circle cx="0" cy="0" r="1.6" fill="#0b1722" />
+              <circle cx="-0.6" cy="-0.7" r="0.55" fill="#ffffff" />
             </g>
           </g>
 

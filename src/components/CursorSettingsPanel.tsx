@@ -97,7 +97,12 @@ export function CursorSettingsPanel({
   const { settings, update, reset } = useCursorSettings();
 
   return (
-    <Modal open={open} onClose={onClose} labelledBy="cursor-settings-title">
+    <Modal
+      open={open}
+      onClose={onClose}
+      labelledBy="cursor-settings-title"
+      panelClassName="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
+    >
       <h2
         id="cursor-settings-title"
         className="text-lg font-semibold tracking-tight text-slate-50"
@@ -150,17 +155,57 @@ export function CursorSettingsPanel({
 
       {settings.style === "fish" && (
         <>
-          <Row label="Fins & tail colour">
-            <HueControl
-              value={settings.finHue}
-              onChange={(v) => update({ finHue: v })}
+          <Row label={`Fins & tail — ${Math.round(settings.finSize * 100)}%`}>
+            <input
+              type="range"
+              min={0.5}
+              max={2.5}
+              step={0.05}
+              value={settings.finSize}
+              onChange={(e) => update({ finSize: Number(e.target.value) })}
+              aria-label="Fin size"
+              className="w-full accent-blue-500"
             />
+            <div className="mt-3">
+              <HueControl
+                value={settings.finHue}
+                onChange={(v) => update({ finHue: v })}
+              />
+            </div>
           </Row>
-          <Row label="Antennae colour">
-            <HueControl
-              value={settings.antennaHue}
-              onChange={(v) => update({ antennaHue: v })}
+          <Row label={`Antennae — ${Math.round(settings.antennaSize * 100)}%`}>
+            <input
+              type="range"
+              min={0.5}
+              max={2.5}
+              step={0.05}
+              value={settings.antennaSize}
+              onChange={(e) => update({ antennaSize: Number(e.target.value) })}
+              aria-label="Antenna size"
+              className="w-full accent-blue-500"
             />
+            <div className="mt-3">
+              <HueControl
+                value={settings.antennaHue}
+                onChange={(v) => update({ antennaHue: v })}
+              />
+            </div>
+          </Row>
+          <Row label="Eye blink speed">
+            <input
+              type="range"
+              min={0.25}
+              max={3}
+              step={0.05}
+              value={settings.blinkSpeed}
+              onChange={(e) => update({ blinkSpeed: Number(e.target.value) })}
+              aria-label="Eye blink speed"
+              className="w-full accent-blue-500"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+              <span>Slow</span>
+              <span>Fast</span>
+            </div>
           </Row>
         </>
       )}

@@ -21,6 +21,9 @@ export type CursorSettings = {
   hue: number | null; // body colour. null = Auto (built-in animated palette); 0–360 = locked
   finHue: number | null; // fins + tail colour (fish). null = Auto (cyan)
   antennaHue: number | null; // antennae colour (fish). null = Auto (cyan)
+  finSize: number; // fish fin scale (0.5–2.5)
+  antennaSize: number; // fish antenna scale (0.5–2.5)
+  blinkSpeed: number; // fish eye blink cadence (0.25 slow … 3 fast)
   transition: number; // follow feel: 0 = smooth/laggy … 1 = snappy
 };
 
@@ -30,6 +33,9 @@ export type CursorProps = {
   hue?: number | null;
   finHue?: number | null;
   antennaHue?: number | null;
+  finSize?: number;
+  antennaSize?: number;
+  blinkSpeed?: number;
   transition?: number;
 };
 
@@ -39,6 +45,9 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   hue: null,
   finHue: null,
   antennaHue: null,
+  finSize: 1,
+  antennaSize: 1,
+  blinkSpeed: 1,
   transition: 0.5,
 };
 
@@ -60,6 +69,9 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     hue: hueOrAuto(r.hue),
     finHue: hueOrAuto(r.finHue),
     antennaHue: hueOrAuto(r.antennaHue),
+    finSize: clampNum(r.finSize, 0.5, 2.5, d.finSize),
+    antennaSize: clampNum(r.antennaSize, 0.5, 2.5, d.antennaSize),
+    blinkSpeed: clampNum(r.blinkSpeed, 0.25, 3, d.blinkSpeed),
     transition: clampNum(r.transition, 0, 1, d.transition),
   };
 }
