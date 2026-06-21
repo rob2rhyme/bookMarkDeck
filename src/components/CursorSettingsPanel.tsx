@@ -8,6 +8,7 @@ const STYLES: { value: CursorStyle; label: string }[] = [
   { value: "turtle", label: "🐢 Turtle" },
   { value: "dragon", label: "🐉 Dragon" },
   { value: "jellyfish", label: "🪼 Jellyfish" },
+  { value: "jellysprite", label: "🖼️ Jelly art" },
   { value: "off", label: "○ Off" },
 ];
 
@@ -395,7 +396,8 @@ export function CursorSettingsPanel({
               ? "Baby turtles"
               : settings.style === "fish"
                 ? "Baby fish"
-                : settings.style === "jellyfish"
+                : settings.style === "jellyfish" ||
+                    settings.style === "jellysprite"
                   ? "Baby jellies"
                   : "Baby dragons"
           }
