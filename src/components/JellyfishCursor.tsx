@@ -142,6 +142,8 @@ export function JellyfishCursor({
     let bodyY = pointer.y;
     let frm = Math.random();
     let pulse = 0;
+    let prevDispY = bodyY;
+    let vySmooth = 0;
     let lastRing = 0;
     let bubbleTimer = 0;
     let rad = 0;
@@ -176,17 +178,24 @@ export function JellyfishCursor({
       const sizeMul = sizeRef.current;
       const s = 2.2 * sizeMul; // bell ≈ 84px wide at 100%
 
-      // Bell pulse: quick contraction (sin>0 ⇒ narrower + taller) easing back.
+      // Bell pulse rhythm + thrust-synced swim (rises on the contraction).
       pulse += 0.085;
       const sp = Math.sin(pulse);
-      // Thrust-synced swim: rises on the contraction, settles on the relax.
       const bobY = -sp * 7 * sizeMul;
       const bobX = Math.cos(frm * 5) * 2.5 * sizeMul;
       const lean = Math.max(-10, Math.min(10, velX * 1.3));
 
-      // Pulse the bell (inside the rig → babies mirror it).
-      const bx = 1 - 0.11 * sp;
-      const by = 1 + 0.13 * sp;
+      // Realistic bell: SQUEEZE (narrower + taller) while swimming UP, SPREAD
+      // (wider + flatter) while sinking DOWN. Driven by the rhythmic
+      // contraction AND the sustained vertical velocity, so it tracks the real
+      // swim direction. Lives inside the rig → babies mirror it.
+      const dispY = bodyY + bobY;
+      vySmooth = vySmooth * 0.8 + (dispY - prevDispY) * 0.2;
+      prevDispY = dispY;
+      const dirBias = Math.max(-1, Math.min(1, -vySmooth / 3)); // +up −down
+      const squeeze = Math.max(-1.2, Math.min(1.2, 0.6 * sp + 0.7 * dirBias));
+      const bx = 1 - 0.16 * squeeze;
+      const by = 1 + 0.18 * squeeze;
       bell.setAttribute("transform", `scale(${bx.toFixed(3)},${by.toFixed(3)})`);
 
       // Undulate the tentacles + oral arms (trailing, whipping on the pulse).

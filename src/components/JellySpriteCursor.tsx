@@ -128,6 +128,8 @@ export function JellySpriteCursor({
     let bodyY = pointer.y;
     let frm = Math.random();
     let pulse = 0;
+    let prevDispY = bodyY;
+    let vySmooth = 0;
     let rad = 0;
     let radm = Math.min(pointer.x, pointer.y) - 20;
 
@@ -159,11 +161,19 @@ export function JellySpriteCursor({
       const sizeMul = sizeRef.current;
       const s = 0.2 * sizeMul; // sprite ≈ 160px tall at 100%
 
+      // Thrust-synced swim + realistic squash: SQUEEZE (narrower + taller)
+      // while swimming UP, SPREAD (wider + flatter) while sinking DOWN.
       pulse += 0.06;
-      const bobY = Math.sin(frm * 7) * 5 * sizeMul;
+      const sp = Math.sin(pulse);
+      const bobY = -sp * 5 * sizeMul;
       const bobX = Math.cos(frm * 5) * 3 * sizeMul;
-      const sx = s * (1 - 0.05 * Math.sin(pulse));
-      const sy = s * (1 + 0.06 * Math.sin(pulse));
+      const dispY = bodyY + bobY;
+      vySmooth = vySmooth * 0.8 + (dispY - prevDispY) * 0.2;
+      prevDispY = dispY;
+      const dirBias = Math.max(-1, Math.min(1, -vySmooth / 3)); // +up −down
+      const squeeze = Math.max(-1.2, Math.min(1.2, 0.6 * sp + 0.7 * dirBias));
+      const sx = s * (1 - 0.12 * squeeze);
+      const sy = s * (1 + 0.14 * squeeze);
       const lean = Math.max(-12, Math.min(12, velX * 1.4));
 
       root.setAttribute(
