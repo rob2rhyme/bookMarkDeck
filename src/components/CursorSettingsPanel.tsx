@@ -109,7 +109,7 @@ function HueControl({
         value={swatchHue}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-label="Hue"
-        className="mt-3 w-full accent-white"
+        className="hue-slider mt-3 w-full"
         style={{ background: HUE_BAR, borderRadius: 9999 }}
       />
       {mode === "auto" && (
