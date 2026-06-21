@@ -28,7 +28,7 @@ function WaterGlass({ fill }: { fill: number }) {
   return (
     <svg
       viewBox="0 0 120 160"
-      className="h-40 w-32"
+      className="h-56 w-44"
       role="img"
       aria-label={`Glass ${Math.round(fill * 100)}% full`}
     >
@@ -195,23 +195,23 @@ export function HydrationTracker({
         </div>
       )}
 
-      <div className="mt-4 flex flex-col items-center gap-1">
+      <div className="mt-6 flex flex-col items-center gap-2">
         <WaterGlass fill={fill} />
-        <p className="text-sm tabular-nums text-slate-300">
-          <span className="font-semibold text-sky-300">{cups}</span>{" "}
+        <p className="text-lg tabular-nums text-slate-200">
+          <span className="text-2xl font-semibold text-sky-300">{cups}</span>{" "}
           {cups === 1 ? "cup" : "cups"}
           <span className="text-slate-500"> · {oz} oz</span>
         </p>
-        <p className="text-xs tabular-nums text-slate-500">
+        <p className="text-sm tabular-nums text-slate-500">
           Goal: {goal} cups · {goalOz} oz
         </p>
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-6 flex gap-2">
         <button
           type="button"
           onClick={onDrink}
-          className="flex-1 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-500"
+          className="flex-1 rounded-lg bg-sky-600 px-4 py-3 text-base font-medium text-white transition hover:bg-sky-500"
         >
           + Drink a cup
         </button>
@@ -220,7 +220,7 @@ export function HydrationTracker({
             type="button"
             onClick={onRemove}
             aria-label="Remove a cup"
-            className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500"
+            className="rounded-lg border border-slate-700 px-4 py-3 text-base text-slate-300 transition hover:border-slate-500"
           >
             −
           </button>

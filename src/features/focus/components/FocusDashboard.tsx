@@ -410,7 +410,7 @@ export function FocusDashboard() {
             onDismiss={hydration.dismiss}
           />
         ) : null}
-        <QuoteBox />
+        <QuoteBox email={email} connected={connected} />
       </div>
 
       {settings.hydrationEnabled && (

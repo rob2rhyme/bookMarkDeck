@@ -1,349 +1,60 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-const QUOTES: { text: string; author: string | null }[] = [
-  { text: "Progress, not perfection. One function at a time.", author: null },
-  { text: "The only way to go fast is to go well.", author: "Robert C. Martin" },
-  { text: "Momentum builds in 25-minute chunks. Start the clock.", author: null },
-  {
-    text: "You don't have to be great to start, but you have to start to be great.",
-    author: null,
-  },
-  {
-    text: "Every expert was once a beginner staring at a blank file.",
-    author: null,
-  },
-  { text: "Shipping something beats perfecting nothing.", author: null },
-  { text: "Small steps every day outpace big leaps every month.", author: null },
-  {
-    text: "Context switching is the enemy. Close the tabs. Do the work.",
-    author: null,
-  },
-  {
-    text: "Distraction is a habit. So is focus. Train the better one.",
-    author: null,
-  },
-  {
-    text: "Don't watch the clock; do what it does. Keep going.",
-    author: "Sam Levenson",
-  },
-  { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
-  {
-    text: "Programs must be written for people to read, and only incidentally for machines to execute.",
-    author: "Harold Abelson",
-  },
-  {
-    text: "Any fool can write code a computer understands. Good programmers write code humans understand.",
-    author: "Martin Fowler",
-  },
-  { text: "Make it work, make it right, make it fast.", author: "Kent Beck" },
-  {
-    text: "Premature optimization is the root of all evil.",
-    author: "Donald Knuth",
-  },
-  { text: "Simplicity is the soul of efficiency.", author: "Austin Freeman" },
-  { text: "Deleted code is debugged code.", author: "Jeff Sickel" },
-  { text: "The best error message is the one that never shows up.", author: "Thomas Fuchs" },
-  { text: "Talk is cheap. Show me the code.", author: "Linus Torvalds" },
-  {
-    text: "The function of good software is to make the complex appear simple.",
-    author: "Grady Booch",
-  },
-  { text: "Done is better than perfect.", author: null },
-  { text: "Quality is not an act, it is a habit.", author: "Aristotle" },
-  { text: "Well begun is half done.", author: "Aristotle" },
-  {
-    text: "Amateurs sit and wait for inspiration; the rest of us just get up and go to work.",
-    author: "Stephen King",
-  },
-  { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
-  {
-    text: "A year from now you may wish you had started today.",
-    author: "Karen Lamb",
-  },
-  {
-    text: "Energy and persistence conquer all things.",
-    author: "Benjamin Franklin",
-  },
-  { text: "Slow is smooth, and smooth is fast.", author: null },
-  {
-    text: "Discipline is choosing between what you want now and what you want most.",
-    author: null,
-  },
-  { text: "Focus is the art of knowing what to ignore.", author: null },
-  { text: "You can't improve what you never finish.", author: null },
-  { text: "Make the change easy, then make the easy change.", author: "Kent Beck" },
-  {
-    text: "Fall in love with the process, and the results will follow.",
-    author: null,
-  },
-  { text: "When in doubt, ship a smaller thing.", author: null },
-];
+import {
+  dayOfYear,
+  KIND_BADGE,
+  LEVEL_BADGE,
+} from "@/features/focus/lib/content";
+import { useFocusContent } from "@/features/focus/hooks/useFocusContent";
 
-// "Useful code of the day" — a rotating dev nugget that spans three flavours:
-// a copyable snippet, a coding tip, and an editor/CLI shortcut. (Code challenges
-// live in their own always-visible section below.)
-type Nugget =
-  | { kind: "snippet"; lang: string; code: string; note: string }
-  | { kind: "tip"; note: string }
-  | { kind: "shortcut"; keys: string; note: string };
-
-const NUGGETS: Nugget[] = [
-  // ---- snippets ----
-  {
-    kind: "snippet",
-    lang: "js",
-    code: "const unique = [...new Set(arr)];",
-    note: "Dedupe an array in one line.",
-  },
-  {
-    kind: "snippet",
-    lang: "js",
-    code: "const last = arr.at(-1);",
-    note: "Grab the last item — no length math.",
-  },
-  {
-    kind: "snippet",
-    lang: "js",
-    code: "const copy = structuredClone(obj);",
-    note: "Deep-clone without a JSON round-trip.",
-  },
-  {
-    kind: "snippet",
-    lang: "js",
-    code: "await Promise.allSettled(tasks);",
-    note: "Wait for everything — successes and failures alike.",
-  },
-  {
-    kind: "snippet",
-    lang: "js",
-    code: "const sum = nums.reduce((a, b) => a + b, 0);",
-    note: "Total a list of numbers.",
-  },
-  {
-    kind: "snippet",
-    lang: "js",
-    code: "[...nums].sort((a, b) => a - b);",
-    note: "Sort numbers correctly — the default sort is alphabetical!",
-  },
-  {
-    kind: "snippet",
-    lang: "js",
-    code: 'String(n).padStart(2, "0");',
-    note: "Zero-pad a value for clocks and dates.",
-  },
-  {
-    kind: "snippet",
-    lang: "js",
-    code: "Object.groupBy(items, (x) => x.type);",
-    note: "Group a list by a key — no lodash needed.",
-  },
-  {
-    kind: "snippet",
-    lang: "js",
-    code: "Array.from({ length: n }, (_, i) => i);",
-    note: "Build a 0..n-1 range.",
-  },
-  {
-    kind: "snippet",
-    lang: "ts",
-    code: "const cfg = base satisfies Config;",
-    note: "Type-check a value without widening its literal type.",
-  },
-  {
-    kind: "snippet",
-    lang: "css",
-    code: "text-wrap: balance;",
-    note: "Even line lengths on headings — no manual breaks.",
-  },
-  {
-    kind: "snippet",
-    lang: "css",
-    code: "aspect-ratio: 16 / 9;",
-    note: "Lock an element's shape without padding hacks.",
-  },
-  {
-    kind: "snippet",
-    lang: "bash",
-    code: "git commit --amend --no-edit",
-    note: "Fold staged changes into your last commit, message untouched.",
-  },
-  {
-    kind: "snippet",
-    lang: "bash",
-    code: "git switch -c feature/x",
-    note: "Create a branch and switch to it in one step.",
-  },
-  {
-    kind: "snippet",
-    lang: "bash",
-    code: "git restore --staged <file>",
-    note: "Unstage a file without losing your changes.",
-  },
-  {
-    kind: "snippet",
-    lang: "bash",
-    code: "git stash -u",
-    note: "Stash your work including untracked files.",
-  },
-  // ---- tips ----
-  {
-    kind: "tip",
-    note: "Name booleans as questions — isReady, hasAccess — so conditionals read like plain English.",
-  },
-  {
-    kind: "tip",
-    note: "Commit small. A diff you can hold in your head is a diff you can actually review.",
-  },
-  {
-    kind: "tip",
-    note: "Write the test that would have caught the bug first, then fix the bug.",
-  },
-  {
-    kind: "tip",
-    note: "If a function needs a comment to explain what it does, try a better name first.",
-  },
-  {
-    kind: "tip",
-    note: "Prefer pure functions — same input, same output — they're trivial to test and reason about.",
-  },
-  {
-    kind: "tip",
-    note: "Read the error message. Then read it again. The answer is usually right there.",
-  },
-  {
-    kind: "tip",
-    note: "Rubber-duck it: explain the bug out loud and you'll often spot it yourself.",
-  },
-  {
-    kind: "tip",
-    note: "Optimize for deletion. Code that's easy to delete is code that's easy to change.",
-  },
-  {
-    kind: "tip",
-    note: "When you're stuck, take a walk. Your subconscious keeps compiling in the background.",
-  },
-  // ---- shortcuts ----
-  {
-    kind: "shortcut",
-    keys: "⌘⇧P  /  Ctrl⇧P",
-    note: "Command Palette — reach any editor action without leaving the keyboard.",
-  },
-  {
-    kind: "shortcut",
-    keys: "⌥↑  /  ⌥↓",
-    note: "Move the current line up or down (VS Code).",
-  },
-  {
-    kind: "shortcut",
-    keys: "F2",
-    note: "Rename a symbol everywhere at once (VS Code).",
-  },
-  {
-    kind: "shortcut",
-    keys: "⌘D  /  Ctrl+D",
-    note: "Select the next match for multi-cursor editing.",
-  },
-  {
-    kind: "shortcut",
-    keys: "⌘/  /  Ctrl+/",
-    note: "Toggle a line comment on the current selection.",
-  },
-  {
-    kind: "shortcut",
-    keys: "Ctrl + R",
-    note: "Reverse-search your shell history instead of re-typing.",
-  },
-  {
-    kind: "shortcut",
-    keys: "cd -",
-    note: "Jump back to the directory you were just in.",
-  },
-  {
-    kind: "shortcut",
-    keys: "sudo !!",
-    note: "Re-run your last command with sudo — !! repeats it.",
-  },
-];
-
-// Daily code challenges — surfaced in their own always-visible section so they
-// don't get buried in the rotating nugget pool.
-type Challenge = { level: "Easy" | "Medium" | "Hard"; prompt: string };
-
-const CHALLENGES: Challenge[] = [
-  { level: "Easy", prompt: "Reverse a string without using .reverse()." },
-  { level: "Easy", prompt: "Write FizzBuzz for 1–100 in five lines or fewer." },
-  { level: "Easy", prompt: "Check whether two strings are anagrams of each other." },
-  { level: "Easy", prompt: "Group an array of objects by one of their keys — no libraries." },
-  { level: "Easy", prompt: "Sum every number in a deeply nested array." },
-  { level: "Medium", prompt: "Find the first non-repeating character in a string." },
-  { level: "Medium", prompt: "Flatten a deeply nested array without Array.prototype.flat." },
-  { level: "Medium", prompt: "Write a debounce(fn, ms) helper in under ten lines." },
-  { level: "Medium", prompt: "Given an array and a target, return the two indices that sum to it." },
-  { level: "Medium", prompt: "Decide if a string of (), [], {} brackets is balanced." },
-  { level: "Medium", prompt: "Memoize a single-argument pure function." },
-  { level: "Hard", prompt: "Convert an integer (1–3999) to its Roman numeral." },
-  { level: "Hard", prompt: "Implement a tiny LRU cache with O(1) get and set." },
-];
-
-const KIND_BADGE: Record<Nugget["kind"], { label: string; cls: string }> = {
-  snippet: { label: "Snippet", cls: "border-emerald-500/40 text-emerald-300" },
-  tip: { label: "Tip", cls: "border-sky-500/40 text-sky-300" },
-  shortcut: { label: "Shortcut", cls: "border-violet-500/40 text-violet-300" },
+type QuoteBoxProps = {
+  email?: string | null;
+  connected?: boolean;
 };
 
-const LEVEL_BADGE: Record<Challenge["level"], string> = {
-  Easy: "border-emerald-500/40 text-emerald-300",
-  Medium: "border-amber-500/40 text-amber-300",
-  Hard: "border-rose-500/40 text-rose-300",
-};
+export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
+  // Defaults render instantly; per-user extras from Firestore merge in live.
+  const { quotes, nuggets, challenges } = useFocusContent(email, connected);
 
-function dayOfYear(): number {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 0);
-  return Math.floor((now.getTime() - start.getTime()) / 86_400_000);
-}
-
-export function QuoteBox() {
   // Deterministic first render (index 0) → pick after mount to avoid a
-  // hydration mismatch. The quote is random; the nugget is "of the day".
+  // hydration mismatch. The quote is random; nugget + challenge are "of the day".
   const [idx, setIdx] = useState(0);
-  const [fading, setFading] = useState(false);
   const [nug, setNug] = useState(0);
   const [chal, setChal] = useState(0);
+  const [fading, setFading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setIdx(Math.floor(Math.random() * QUOTES.length));
-    setNug(dayOfYear() % NUGGETS.length);
-    setChal(dayOfYear() % CHALLENGES.length);
+    setIdx(Math.floor(Math.random() * quotes.length));
+    setNug(dayOfYear() % nuggets.length);
+    setChal(dayOfYear() % challenges.length);
+    // Pick once on mount; later content growth just keeps these valid.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const next = useCallback(() => {
+  const quote = quotes[idx % quotes.length] ?? quotes[0];
+  const nugget = nuggets[nug % nuggets.length] ?? nuggets[0];
+  const challenge = challenges[chal % challenges.length] ?? challenges[0];
+  const badge = KIND_BADGE[nugget.kind];
+
+  const next = () => {
     setFading(true);
     setTimeout(() => {
-      setIdx((i) => (i + 1) % QUOTES.length);
+      setIdx((i) => (i + 1) % quotes.length);
       setFading(false);
     }, 200);
-  }, []);
+  };
 
-  const nextNugget = useCallback(() => {
+  const nextNugget = () => {
     setCopied(false);
-    setNug((n) => (n + 1) % NUGGETS.length);
-  }, []);
+    setNug((n) => (n + 1) % nuggets.length);
+  };
 
-  const nextChallenge = useCallback(
-    () => setChal((c) => (c + 1) % CHALLENGES.length),
-    []
-  );
+  const nextChallenge = () => setChal((c) => (c + 1) % challenges.length);
 
-  const quote = QUOTES[idx];
-  const nugget = NUGGETS[nug];
-  const badge = KIND_BADGE[nugget.kind];
-  const challenge = CHALLENGES[chal];
-
-  const copy = useCallback(() => {
+  const copy = () => {
     if (nugget.kind !== "snippet") return;
     navigator.clipboard?.writeText(nugget.code).then(
       () => {
@@ -352,7 +63,7 @@ export function QuoteBox() {
       },
       () => {}
     );
-  }, [nugget]);
+  };
 
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
