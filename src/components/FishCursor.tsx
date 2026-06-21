@@ -8,6 +8,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { setupBabies } from "@/components/cursorBabies";
 import type { CursorProps } from "@/lib/cursorSettings";
 
 export function FishCursor({
@@ -19,6 +20,11 @@ export function FishCursor({
   antennaSize = 1,
   blinkSpeed = 1,
   transition = 0.5,
+  babies = false,
+  babyCount = 2,
+  babyGap = 16,
+  babySpread = 30,
+  babySize = 0.5,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
@@ -29,6 +35,11 @@ export function FishCursor({
   const antSizeRef = useRef(antennaSize);
   const blinkSpeedRef = useRef(blinkSpeed);
   const transRef = useRef(transition);
+  const babiesRef = useRef(babies);
+  const babyCountRef = useRef(babyCount);
+  const babyGapRef = useRef(babyGap);
+  const babySpreadRef = useRef(babySpread);
+  const babySizeRef = useRef(babySize);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
@@ -38,6 +49,11 @@ export function FishCursor({
     antSizeRef.current = antennaSize;
     blinkSpeedRef.current = blinkSpeed;
     transRef.current = transition;
+    babiesRef.current = babies;
+    babyCountRef.current = babyCount;
+    babyGapRef.current = babyGap;
+    babySpreadRef.current = babySpread;
+    babySizeRef.current = babySize;
   }, [
     size,
     hue,
@@ -47,6 +63,11 @@ export function FishCursor({
     antennaSize,
     blinkSpeed,
     transition,
+    babies,
+    babyCount,
+    babyGap,
+    babySpread,
+    babySize,
   ]);
 
   useEffect(() => {
@@ -59,6 +80,20 @@ export function FishCursor({
 
     const screen = svg.querySelector<SVGGElement>("#screen");
     if (!screen) return;
+
+    // Baby fish — trail behind the parent (rendered behind the body chain).
+    const babyGroup = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "g"
+    ) as SVGGElement;
+    screen.prepend(babyGroup);
+    const babyRig = setupBabies(babyGroup, "FishBabyRig", {
+      on: babiesRef,
+      count: babyCountRef,
+      gap: babyGapRef,
+      spread: babySpreadRef,
+      size: babySizeRef,
+    });
 
     // Body gradients animated through a shimmering aqua band.
     const bodyGradients = Array.from(
@@ -283,6 +318,10 @@ export function FishCursor({
         );
       }
 
+      // Baby fish trail the tail end (so they follow behind the whole body).
+      const fishTail = elems[N - 1];
+      babyRig.update(fishTail.x, fishTail.y, 3.24 * sizeMul);
+
       // Smoothed turn rate (radians/frame) — drives the fins + antennae.
       if (elems[0] && elems[1]) {
         const heading = Math.atan2(
@@ -453,6 +492,16 @@ export function FishCursor({
           {/* Forked caudal (tail) fin pointing backward (+x). */}
           <g id="FishTail" fill="url(#FishFinGrad)">
             <path d="M0 0 L15 -11 L9 0 L15 11 Z" />
+          </g>
+
+          {/* Baby-fish rig — a compact fish (head + body + forked tail) facing
+              -x. Built from the same symbols, so its antennae flick and eye
+              blink mirror the parent's live animation. */}
+          <g id="FishBabyRig">
+            <use href="#FishTail" transform="translate(17 0)" />
+            <use href="#FishBody" transform="translate(9 0)" />
+            <use href="#FishBody" transform="translate(3 0)" />
+            <use href="#FishHead" />
           </g>
 
           {/* Bubble prototype. */}

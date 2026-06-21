@@ -3,12 +3,18 @@
 
 import { useEffect, useRef } from "react";
 
+import { setupBabies } from "@/components/cursorBabies";
 import type { CursorProps } from "@/lib/cursorSettings";
 
 export function DragonCursor({
   size = 1,
   hue = null,
   transition = 0.5,
+  babies = false,
+  babyCount = 2,
+  babyGap = 16,
+  babySpread = 30,
+  babySize = 0.5,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   // Live settings, read inside the animation loop (so changes apply without
@@ -16,11 +22,21 @@ export function DragonCursor({
   const sizeRef = useRef(size);
   const hueRef = useRef(hue);
   const transRef = useRef(transition);
+  const babiesRef = useRef(babies);
+  const babyCountRef = useRef(babyCount);
+  const babyGapRef = useRef(babyGap);
+  const babySpreadRef = useRef(babySpread);
+  const babySizeRef = useRef(babySize);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
     transRef.current = transition;
-  }, [size, hue, transition]);
+    babiesRef.current = babies;
+    babyCountRef.current = babyCount;
+    babyGapRef.current = babyGap;
+    babySpreadRef.current = babySpread;
+    babySizeRef.current = babySize;
+  }, [size, hue, transition, babies, babyCount, babyGap, babySpread, babySize]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -33,6 +49,20 @@ export function DragonCursor({
 
     const screen = svg.querySelector<SVGGElement>("#screen");
     if (!screen) return;
+
+    // Baby dragons — trail behind the parent (rendered behind the body chain).
+    const babyGroup = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "g"
+    ) as SVGGElement;
+    screen.prepend(babyGroup);
+    const babyRig = setupBabies(babyGroup, "DragonBabyRig", {
+      on: babiesRef,
+      count: babyCountRef,
+      gap: babyGapRef,
+      spread: babySpreadRef,
+      size: babySizeRef,
+    });
 
     // 👁 Dragon eye gradient stops
     const eyeStops: SVGStopElement[] = Array.from(
@@ -282,6 +312,10 @@ export function DragonCursor({
         );
       }
 
+      // Baby dragons trail the tail end (so they follow behind the whole body).
+      const dragonTail = elems[N - 1];
+      babyRig.update(dragonTail.x, dragonTail.y, 3.24 * sizeMul);
+
       if (rad < radm) rad++;
       frm += 0.003;
       if (rad > 60) {
@@ -421,6 +455,16 @@ export function DragonCursor({
               style={{ fill: "url(#LinearGradID_3)" }}
               d="M18.8,0Q18 1.45 7.75 4.1Q2.7 2.4 0 5.95Q0.05 12.55 6.65 12.4Q1.25 16.25 -6.2 8.35Q-6.35 8.25 -6.45 8.25L-6.5 8.25Q-11.2 5.35 -12.3 9.6Q-17.85 5.7 -18.8 0L18.8 0"
             />
+          </g>
+
+          {/* Baby-dragon rig — a compact dragon (head + a short spine tail)
+              facing -x. Reuses the same symbols, so the head's eye-sweep + body
+              colours mirror the parent's live animation. */}
+          <g id="DragonBabyRig">
+            <use href="#Espina" transform="translate(34 0)" />
+            <use href="#Espina" transform="translate(22 0)" />
+            <use href="#Espina" transform="translate(12 0)" />
+            <use href="#Cabeza" />
           </g>
 
           {/* Smoke puff prototype */}
