@@ -292,13 +292,17 @@ export function TurtleCursor({
         scutes?.setAttribute("stroke", `hsl(${jh}, 50%, 80%)`);
         scutes?.setAttribute("opacity", "0.18");
       } else {
-        const sh = baseHue ?? 135; // green turtle by default
-        setStops(shellGrad, `hsl(${sh}, 48%, 55%)`, `hsl(${sh}, 52%, 32%)`);
-        const fh = finHueRef.current ?? 130;
-        setStops(finGrad, `hsl(${fh}, 52%, 52%)`, `hsl(${fh}, 55%, 35%)`);
-        const ph = antHueRef.current ?? Math.max(0, (baseHue ?? 135) - 8);
-        scutes?.setAttribute("stroke", `hsl(${ph}, 45%, 24%)`);
-        scutes?.setAttribute("opacity", "0.85");
+        const sh = baseHue ?? 32; // brown-olive carapace (hawksbill-like)
+        setStops(shellGrad, `hsl(${sh}, 46%, 42%)`, `hsl(${sh}, 58%, 20%)`);
+        const fh = finHueRef.current ?? 38;
+        setStops(finGrad, `hsl(${fh}, 48%, 64%)`, `hsl(${fh}, 46%, 42%)`); // tan skin
+        const ah = antHueRef.current;
+        // Scute borders read as cream lines by default (settable via hue).
+        scutes?.setAttribute(
+          "stroke",
+          ah == null ? "#e9dcbf" : `hsl(${ah}, 45%, 82%)`
+        );
+        scutes?.setAttribute("opacity", "0.9");
       }
 
       // Front flippers — synchronised "flying" stroke (mirrored), single piece.
@@ -475,14 +479,30 @@ export function TurtleCursor({
         style={{ pointerEvents: "none" }}
       >
         <defs>
-          <radialGradient id="t-shell-grad" cx="40%" cy="35%" r="75%">
-            <stop offset="0%" stopColor="#4caf50" />
-            <stop offset="100%" stopColor="#2e7d32" />
+          <radialGradient id="t-shell-grad" cx="42%" cy="38%" r="78%">
+            <stop offset="0%" stopColor="#7a5a2e" />
+            <stop offset="100%" stopColor="#3c2a12" />
           </radialGradient>
           <linearGradient id="t-fin-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#4caf50" />
-            <stop offset="100%" stopColor="#2e7d32" />
+            <stop offset="0%" stopColor="#cdb074" />
+            <stop offset="100%" stopColor="#8f7038" />
           </linearGradient>
+          {/* Reticulated "net" skin — dark rounded scales over the tan base,
+              evoking a hawksbill's head & flipper pattern. Tiles in the
+              turtle's local space so it rides along with each appendage. */}
+          <pattern
+            id="t-net"
+            width="2.3"
+            height="2.3"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(18)"
+          >
+            <path
+              d="M1.15 0.2 C1.95 0.35 2.05 1.15 1.15 1.95 C0.3 1.8 0.2 1 1.15 0.2 Z"
+              fill="#241606"
+              opacity="0.78"
+            />
+          </pattern>
         </defs>
 
         {/* Water FX (ripples + bubbles) injected by JS, behind the turtle. */}
@@ -492,26 +512,33 @@ export function TurtleCursor({
         <g id="turtle">
           {/* Rear flippers (hind limbs) — two-segment so they BEND/flex through
               the kick: an upper limb at the hip + a tip that lags at the
-              "knee" (6,±3.5). */}
+              "knee" (6,±3.5). Reticulated skin overlay (net) over the tan base. */}
           <g id="t-rear-flipper-l" transform="translate(8 -7)">
             <path d="M0 0 C 1.5 -2.5 4 -3.5 6 -3.5 C 4 -1.5 1.5 -0.7 0 1 Z" fill="url(#t-fin-grad)" />
+            <path d="M0 0 C 1.5 -2.5 4 -3.5 6 -3.5 C 4 -1.5 1.5 -0.7 0 1 Z" fill="url(#t-net)" />
             <g id="t-rear-flipper-l-tip" transform="translate(6 -3.5)">
               <path d="M0 0 C 1.5 -1.5 4 -2.5 5 -1.5 C 3.5 -0.5 1.5 0 0 0.8 Z" fill="url(#t-fin-grad)" />
+              <path d="M0 0 C 1.5 -1.5 4 -2.5 5 -1.5 C 3.5 -0.5 1.5 0 0 0.8 Z" fill="url(#t-net)" />
             </g>
           </g>
           <g id="t-rear-flipper-r" transform="translate(8 7)">
             <path d="M0 0 C 1.5 2.5 4 3.5 6 3.5 C 4 1.5 1.5 0.7 0 -1 Z" fill="url(#t-fin-grad)" />
+            <path d="M0 0 C 1.5 2.5 4 3.5 6 3.5 C 4 1.5 1.5 0.7 0 -1 Z" fill="url(#t-net)" />
             <g id="t-rear-flipper-r-tip" transform="translate(6 3.5)">
               <path d="M0 0 C 1.5 1.5 4 2.5 5 1.5 C 3.5 0.5 1.5 0 0 -0.8 Z" fill="url(#t-fin-grad)" />
+              <path d="M0 0 C 1.5 1.5 4 2.5 5 1.5 C 3.5 0.5 1.5 0 0 -0.8 Z" fill="url(#t-net)" />
             </g>
           </g>
 
-          {/* Front flippers (thrust) — single-piece, partly behind the shell. */}
+          {/* Front flippers (thrust) — large paddles, single-piece. Tan base +
+              reticulated net skin. */}
           <g id="t-front-flipper-l" transform="translate(-6 -8)">
             <path d="M0 0 C -3 -5 -10 -9 -16 -8 C -12 -4 -6 -2 1 2 Z" fill="url(#t-fin-grad)" />
+            <path d="M0 0 C -3 -5 -10 -9 -16 -8 C -12 -4 -6 -2 1 2 Z" fill="url(#t-net)" />
           </g>
           <g id="t-front-flipper-r" transform="translate(-6 8)">
             <path d="M0 0 C -3 5 -10 9 -16 8 C -12 4 -6 2 1 -2 Z" fill="url(#t-fin-grad)" />
+            <path d="M0 0 C -3 5 -10 9 -16 8 C -12 4 -6 2 1 -2 Z" fill="url(#t-net)" />
           </g>
 
           {/* Tail. */}
@@ -519,55 +546,61 @@ export function TurtleCursor({
             <path d="M0 -1.8 L6 0 L0 1.8 Z" fill="url(#t-fin-grad)" />
           </g>
 
-          {/* Head + neck + eyes (head protrudes past the shell front). */}
+          {/* Head + neck + eyes — pointed snout, reticulated skin, large eyes. */}
           <g id="t-head">
             <path
-              d="M-12 -3 Q-17 -2.6 -20 0 Q-17 2.6 -12 3 Z"
-              fill="url(#t-shell-grad)"
+              d="M-11 -3.4 Q-18 -3.2 -22 -2 L-24.5 0 L-22 2 Q-18 3.2 -11 3.4 Z"
+              fill="url(#t-fin-grad)"
             />
-            <ellipse cx="-20" cy="0" rx="4.4" ry="3.6" fill="url(#t-shell-grad)" />
-            {/* eyes — larger, forward-facing; both blink in sync. Pupil offset
-                toward the front (-x). */}
+            <path
+              d="M-11 -3.4 Q-18 -3.2 -22 -2 L-24.5 0 L-22 2 Q-18 3.2 -11 3.4 Z"
+              fill="url(#t-net)"
+            />
+            {/* eyes — large, forward, both blink in sync. Pupil offset front. */}
             <g id="t-eye-l" transform="translate(-21.5 -1.7)">
-              <circle cx="0" cy="0" r="1.3" fill="#eaf6fb" />
-              <circle cx="-0.5" cy="0" r="0.8" fill="#0b1722" />
-              <circle cx="-0.72" cy="-0.3" r="0.28" fill="#ffffff" />
+              <circle cx="0" cy="0" r="1.4" fill="#f2ead7" />
+              <circle cx="-0.45" cy="0" r="0.92" fill="#100a04" />
+              <circle cx="-0.7" cy="-0.34" r="0.3" fill="#ffffff" />
             </g>
             <g id="t-eye-r" transform="translate(-21.5 1.7)">
-              <circle cx="0" cy="0" r="1.3" fill="#eaf6fb" />
-              <circle cx="-0.5" cy="0" r="0.8" fill="#0b1722" />
-              <circle cx="-0.72" cy="-0.3" r="0.28" fill="#ffffff" />
+              <circle cx="0" cy="0" r="1.4" fill="#f2ead7" />
+              <circle cx="-0.45" cy="0" r="0.92" fill="#100a04" />
+              <circle cx="-0.7" cy="-0.34" r="0.3" fill="#ffffff" />
             </g>
           </g>
 
-          {/* Carapace (shell) on top, with the scute pattern. */}
-          <ellipse
-            cx="0"
-            cy="0"
-            rx="14"
-            ry="11"
+          {/* Carapace (shell) — brown teardrop tapering to a point at the rear
+              (+x), with cream scute borders. */}
+          <path
+            d="M-13 0 C-13 -8 -6 -11 2 -10.5 C9 -10 14 -5 16 0 C14 5 9 10 2 10.5 C-6 11 -13 8 -13 0 Z"
             fill="url(#t-shell-grad)"
-            stroke="#1b5e20"
+            stroke="#2a1c0a"
             strokeWidth="0.8"
           />
           <g
             id="t-scutes"
             fill="none"
-            stroke="#1b5e20"
-            strokeWidth="0.6"
+            stroke="#e9dcbf"
+            strokeWidth="0.5"
             strokeLinecap="round"
           >
-            {/* central column edges */}
-            <path d="M-12 -3.6 Q0 -4 12 -3" />
-            <path d="M-12 3.6 Q0 4 12 3" />
-            {/* transverse plate dividers */}
-            <path d="M-7 -10 Q-7.5 0 -7 10" />
-            <path d="M-1 -10.6 Q-1.5 0 -1 10.6" />
-            <path d="M5 -10 Q4.5 0 5 10" />
-            <path d="M10 -7 Q9.5 0 10 7" />
-            {/* marginal hints */}
-            <path d="M-10 -8 Q0 -9.5 11.5 -6" />
-            <path d="M-10 8 Q0 9.5 11.5 6" />
+            {/* vertebral (central) column borders + cross dividers */}
+            <path d="M-11 -3 Q2 -3.4 14 -2.2" />
+            <path d="M-11 3 Q2 3.4 14 2.2" />
+            <path d="M-6 -3.2 L-6 3.2" />
+            <path d="M0 -3.4 L0 3.4" />
+            <path d="M6 -3 L6 3" />
+            <path d="M11 -2.4 L11 2.4" />
+            {/* costal scute dividers (upper + lower) */}
+            <path d="M-8 -10 Q-7 -6 -7 -3.1" />
+            <path d="M-1 -10.6 Q-0.5 -6 0 -3.4" />
+            <path d="M6 -10 Q6.5 -6 6 -3" />
+            <path d="M-8 10 Q-7 6 -7 3.1" />
+            <path d="M-1 10.6 Q-0.5 6 0 3.4" />
+            <path d="M6 10 Q6.5 6 6 3" />
+            {/* marginal ring */}
+            <path d="M-11 -7 Q2 -10 13 -4" />
+            <path d="M-11 7 Q2 10 13 4" />
           </g>
         </g>
       </svg>

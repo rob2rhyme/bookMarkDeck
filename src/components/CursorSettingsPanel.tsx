@@ -337,7 +337,7 @@ export function CursorSettingsPanel({
               min={0.25}
               max={3}
               step={0.05}
-              value={settings.swimSpeed}
+              value={settings.swimSpeed ?? 1}
               onChange={(e) => update({ swimSpeed: Number(e.target.value) })}
               aria-label="Swim speed"
               className="w-full accent-blue-500"
