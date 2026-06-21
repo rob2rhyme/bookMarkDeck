@@ -338,7 +338,7 @@ export function FishCursor({
           const open = Math.max(0.08, Math.abs(Math.cos(phase * Math.PI)));
           eye2.setAttribute(
             "transform",
-            `translate(-7.5 -0.6) scale(1 ${open.toFixed(3)})`
+            `translate(-5.3 -2.8) scale(1 ${open.toFixed(3)})`
           );
         } else {
           blinkWait -= spd; // higher speed → next blink arrives sooner
@@ -349,7 +349,7 @@ export function FishCursor({
             blinkProg = blinkDur;
             blinkWait = 50 + Math.random() * 130; // frames until the next blink
           } else {
-            eye2.setAttribute("transform", "translate(-7.5 -0.6)");
+            eye2.setAttribute("transform", "translate(-5.3 -2.8)");
           }
         }
       }
@@ -432,16 +432,16 @@ export function FishCursor({
               <circle cx="-10" cy="9" r="1.4" fill="url(#FishAntennaGrad)" />
             </g>
             <ellipse cx="-2" cy="0" rx="10" ry="7.5" fill="url(#FishBodyGrad)" />
-            {/* both eyes at the SAME forward x (so neither sits behind), stacked
-                as a pair at the front-top; pupils offset toward the front (-x). */}
-            <circle cx="-7.5" cy="-3.4" r="1.3" fill="#eaf6fb" />
-            <circle cx="-7.95" cy="-3.4" r="0.82" fill="#0b1722" />
-            <circle cx="-8.2" cy="-3.6" r="0.3" fill="#ffffff" />
-            {/* second eye — the other half of the pair; JS blinks it. */}
-            <g id="FishEye2" transform="translate(-7.5 -0.6)">
-              <circle cx="0" cy="0" r="1.3" fill="#eaf6fb" />
-              <circle cx="-0.45" cy="0" r="0.82" fill="#0b1722" />
-              <circle cx="-0.7" cy="-0.2" r="0.3" fill="#ffffff" />
+            {/* eyes are an evenly-spaced front-top pair: left (forward) eye and
+                right eye share a height with a clear gap; pupils offset forward. */}
+            <circle cx="-8.5" cy="-2.8" r="1.25" fill="#eaf6fb" />
+            <circle cx="-8.92" cy="-2.8" r="0.78" fill="#0b1722" />
+            <circle cx="-9.15" cy="-3" r="0.28" fill="#ffffff" />
+            {/* second (right) eye — JS blinks it on a varying cadence. */}
+            <g id="FishEye2" transform="translate(-5.3 -2.8)">
+              <circle cx="0" cy="0" r="1.25" fill="#eaf6fb" />
+              <circle cx="-0.42" cy="0" r="0.78" fill="#0b1722" />
+              <circle cx="-0.65" cy="-0.2" r="0.28" fill="#ffffff" />
             </g>
           </g>
 
