@@ -431,6 +431,24 @@ export function CursorSettingsPanel({
                     <span>Fanned out</span>
                   </div>
                 </div>
+                <div className="mt-4">
+                  <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                    Baby size — {Math.round((settings.babySize ?? 0.5) * 100)}% of
+                    parent
+                  </p>
+                  <input
+                    type="range"
+                    min={0.2}
+                    max={0.9}
+                    step={0.05}
+                    value={settings.babySize ?? 0.5}
+                    onChange={(e) =>
+                      update({ babySize: Number(e.target.value) })
+                    }
+                    aria-label="Baby size"
+                    className="w-full accent-blue-500"
+                  />
+                </div>
               </>
             )}
           </Row>

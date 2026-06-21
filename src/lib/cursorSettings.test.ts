@@ -62,6 +62,9 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({}).babySpread).toBe(30);
     expect(normalizeCursorSettings({ babySpread: 999 }).babySpread).toBe(80);
     expect(normalizeCursorSettings({ babySpread: -5 }).babySpread).toBe(0);
+    expect(normalizeCursorSettings({}).babySize).toBe(0.5);
+    expect(normalizeCursorSettings({ babySize: 9 }).babySize).toBe(0.9);
+    expect(normalizeCursorSettings({ babySize: 0 }).babySize).toBe(0.2);
   });
 
   it("treats hue null/absent as Auto, clamps a custom hue (body/fins/antennae)", () => {

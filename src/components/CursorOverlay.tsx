@@ -28,6 +28,7 @@ export function CursorOverlay() {
     babyCount: settings.babyCount,
     babyGap: settings.babyGap,
     babySpread: settings.babySpread,
+    babySize: settings.babySize,
   };
 
   if (settings.style === "fish") return <FishCursor {...props} />;

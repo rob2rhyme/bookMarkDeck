@@ -31,6 +31,7 @@ export function TurtleCursor({
   babyCount = 2,
   babyGap = 16,
   babySpread = 30,
+  babySize = 0.5,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
@@ -49,6 +50,7 @@ export function TurtleCursor({
   const babyCountRef = useRef(babyCount);
   const babyGapRef = useRef(babyGap);
   const babySpreadRef = useRef(babySpread);
+  const babySizeRef = useRef(babySize);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
@@ -66,6 +68,7 @@ export function TurtleCursor({
     babyCountRef.current = babyCount;
     babyGapRef.current = babyGap;
     babySpreadRef.current = babySpread;
+    babySizeRef.current = babySize;
   }, [
     size,
     hue,
@@ -83,6 +86,7 @@ export function TurtleCursor({
     babyCount,
     babyGap,
     babySpread,
+    babySize,
   ]);
 
   useEffect(() => {
@@ -335,7 +339,8 @@ export function TurtleCursor({
           const rad = (babyRot[i] * Math.PI) / 180;
           const bx = p.x + -Math.sin(rad) * lateral;
           const by = p.y + Math.cos(rad) * lateral;
-          const bScale = s * 0.5 * (1 + 0.03 * Math.sin(flipPhase + i * 1.3));
+          const bScale =
+            s * babySizeRef.current * (1 + 0.03 * Math.sin(flipPhase + i * 1.3));
           g.setAttribute(
             "transform",
             `translate(${bx.toFixed(1)},${by.toFixed(1)}) rotate(${babyRot[

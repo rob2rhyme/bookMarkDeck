@@ -34,6 +34,7 @@ export type CursorSettings = {
   babyCount: number; // turtle: how many babies (1–6); each is 50% of parent size
   babyGap: number; // turtle: spacing/distance between babies (6–40)
   babySpread: number; // turtle: sideways fan offset, px (0 = single file)
+  babySize: number; // turtle: baby scale as a fraction of the parent (0.2–0.9)
 };
 
 /** Props the overlays accept so the settings drive their animation. */
@@ -55,6 +56,7 @@ export type CursorProps = {
   babyCount?: number;
   babyGap?: number;
   babySpread?: number;
+  babySize?: number;
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -76,6 +78,7 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   babyCount: 2,
   babyGap: 16,
   babySpread: 30,
+  babySize: 0.5,
 };
 
 const KEY = "bd:cursor-settings:v1";
@@ -112,6 +115,7 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     babyCount: Math.round(clampNum(r.babyCount, 1, 6, d.babyCount)),
     babyGap: clampNum(r.babyGap, 6, 40, d.babyGap),
     babySpread: clampNum(r.babySpread, 0, 80, d.babySpread),
+    babySize: clampNum(r.babySize, 0.2, 0.9, d.babySize),
   };
 }
 
