@@ -4,8 +4,8 @@ import { Modal } from "@/components/Modal";
 import { type CursorStyle, useCursorSettings } from "@/lib/cursorSettings";
 
 const STYLES: { value: CursorStyle; label: string }[] = [
-  { value: "dragon", label: "🐉 Dragon" },
   { value: "fish", label: "🐟 Fish" },
+  { value: "dragon", label: "🐉 Dragon" },
   { value: "off", label: "○ Off" },
 ];
 

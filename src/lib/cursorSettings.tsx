@@ -34,7 +34,7 @@ export type CursorProps = {
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
-  style: "dragon",
+  style: "fish",
   size: 1,
   hue: null,
   finHue: null,
@@ -55,7 +55,7 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
   const hueOrAuto = (v: unknown) =>
     v === null || v === undefined ? null : clampNum(v, 0, 360, 0);
   return {
-    style: r.style === "fish" || r.style === "off" ? r.style : "dragon",
+    style: r.style === "dragon" || r.style === "off" ? r.style : "fish",
     size: clampNum(r.size, 0.5, 2, d.size),
     hue: hueOrAuto(r.hue),
     finHue: hueOrAuto(r.finHue),

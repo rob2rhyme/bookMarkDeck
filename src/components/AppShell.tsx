@@ -131,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           }}
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-200 transition hover:bg-slate-800"
                         >
-                          🐉 Cursor settings…
+                          🐟 Cursor settings…
                         </button>
                         <button
                           type="button"

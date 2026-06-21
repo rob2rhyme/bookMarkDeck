@@ -11,10 +11,11 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings("nope")).toEqual(DEFAULT_CURSOR_SETTINGS);
   });
 
-  it("validates style against the allowed set", () => {
+  it("validates style against the allowed set (fish is the default)", () => {
     expect(normalizeCursorSettings({ style: "fish" }).style).toBe("fish");
+    expect(normalizeCursorSettings({ style: "dragon" }).style).toBe("dragon");
     expect(normalizeCursorSettings({ style: "off" }).style).toBe("off");
-    expect(normalizeCursorSettings({ style: "unicorn" }).style).toBe("dragon");
+    expect(normalizeCursorSettings({ style: "unicorn" }).style).toBe("fish");
   });
 
   it("clamps size and transition into range", () => {
