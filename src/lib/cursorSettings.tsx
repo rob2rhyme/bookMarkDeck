@@ -13,7 +13,13 @@ import {
   useState,
 } from "react";
 
-export type CursorStyle = "dragon" | "fish" | "turtle" | "off";
+export type CursorStyle =
+  | "dragon"
+  | "fish"
+  | "turtle"
+  | "jellyfish"
+  | "jellysprite"
+  | "off";
 
 export type CursorSettings = {
   style: CursorStyle;
@@ -98,7 +104,11 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     v === null || v === undefined ? null : clampNum(v, 0, 360, 0);
   return {
     style:
-      r.style === "dragon" || r.style === "off" || r.style === "turtle"
+      r.style === "dragon" ||
+      r.style === "off" ||
+      r.style === "turtle" ||
+      r.style === "jellyfish" ||
+      r.style === "jellysprite"
         ? r.style
         : "fish",
     size: clampNum(r.size, 0.5, 2, d.size),

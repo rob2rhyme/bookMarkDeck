@@ -22,8 +22,10 @@ export function setupBabies(
   container: SVGGElement,
   rigId: string,
   refs: BabyRefs,
-  max = 100
+  opts: { max?: number; upright?: boolean } = {}
 ) {
+  const max = opts.max ?? 100;
+  const upright = opts.upright ?? false; // keep babies un-rotated (e.g. jellyfish)
   const xmlns = "http://www.w3.org/2000/svg";
   const xlinkns = "http://www.w3.org/1999/xlink";
 
@@ -80,9 +82,10 @@ export function setupBabies(
       const bx = p.x + -Math.sin(rad) * lateral;
       const by = p.y + Math.cos(rad) * lateral;
       const bs = parentScale * size * (1 + 0.03 * Math.sin(tick * 0.2 + i * 1.3));
+      const spin = upright ? 0 : rot[i];
       g.setAttribute(
         "transform",
-        `translate(${bx.toFixed(1)},${by.toFixed(1)}) rotate(${rot[i].toFixed(
+        `translate(${bx.toFixed(1)},${by.toFixed(1)}) rotate(${spin.toFixed(
           2
         )}) scale(${bs.toFixed(3)})`
       );
