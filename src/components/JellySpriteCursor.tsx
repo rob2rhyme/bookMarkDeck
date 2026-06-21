@@ -91,6 +91,36 @@ export function JellySpriteCursor({
       { upright: true }
     );
 
+    // Water FX (world-space, behind the sprite): ripple rings + rising bubbles.
+    const svgns = "http://www.w3.org/2000/svg";
+    const fx = svg.querySelector<SVGGElement>("#jellyimg-fx");
+    type Ripple = { el: SVGCircleElement; x: number; y: number; r0: number; life: number; max: number; scale: number };
+    type Bub = { el: SVGCircleElement; x: number; y: number; vy: number; life: number; max: number };
+    const ripplePool: Ripple[] = [];
+    const bubblePool: Bub[] = [];
+    if (fx) {
+      for (let i = 0; i < 10; i++) {
+        const c = document.createElementNS(svgns, "circle");
+        c.setAttribute("fill", "none");
+        c.setAttribute("stroke", "#bae6fd");
+        c.setAttribute("stroke-width", "1.4");
+        c.setAttribute("opacity", "0");
+        fx.appendChild(c);
+        ripplePool.push({ el: c, x: 0, y: 0, r0: 0, life: 0, max: 1, scale: 1 });
+      }
+      for (let i = 0; i < 40; i++) {
+        const c = document.createElementNS(svgns, "circle");
+        c.setAttribute("fill", "none");
+        c.setAttribute("stroke", "#bae6fd");
+        c.setAttribute("stroke-width", "1.1");
+        c.setAttribute("opacity", "0");
+        fx.appendChild(c);
+        bubblePool.push({ el: c, x: 0, y: 0, vy: 0, life: 0, max: 1 });
+      }
+    }
+    let lastRing = 0;
+    let bubbleTimer = 0;
+
     let w = window.innerWidth;
     let h = window.innerHeight;
     const pointer = { x: w / 2, y: h / 2 };
@@ -156,6 +186,55 @@ export function JellySpriteCursor({
       babyGroup.style.filter = filter;
       babyGroup.setAttribute("opacity", jel ? "0.5" : "0.95");
 
+      // 〜 Ripple rings — one per bell pulse, faster while moving.
+      const ringId = Math.floor(pulse / Math.PI);
+      if (ringId !== lastRing) {
+        lastRing = ringId;
+        const rp = ripplePool.find((p) => p.life <= 0);
+        if (rp) {
+          rp.x = bodyX + bobX;
+          rp.y = bodyY + bobY;
+          rp.scale = sizeMul;
+          rp.r0 = 34 * sizeMul;
+          rp.max = 46 + Math.random() * 18;
+          rp.life = rp.max;
+        }
+      }
+      for (const rp of ripplePool) {
+        if (rp.life <= 0) continue;
+        rp.life -= 1;
+        const t = 1 - rp.life / rp.max;
+        rp.el.setAttribute("cx", rp.x.toFixed(1));
+        rp.el.setAttribute("cy", rp.y.toFixed(1));
+        rp.el.setAttribute("r", (rp.r0 + t * 20 * rp.scale).toFixed(1));
+        rp.el.setAttribute("opacity", ((1 - t) * 0.45).toFixed(3));
+      }
+
+      // 🫧 Bubbles — rise from the bell top, drifting as they fade.
+      bubbleTimer -= 1;
+      if (bubbleTimer <= 0) {
+        const b = bubblePool.find((p) => p.life <= 0);
+        if (b) {
+          b.x = bodyX + bobX + (Math.random() - 0.5) * 50 * sizeMul;
+          b.y = bodyY + bobY - 55 * sizeMul;
+          b.vy = -(0.5 + Math.random() * 0.7);
+          b.max = 80 + Math.random() * 40;
+          b.life = b.max;
+          b.el.setAttribute("r", (1.3 + Math.random() * 1.5).toFixed(2));
+        }
+        bubbleTimer = 10 + Math.random() * 16;
+      }
+      for (const b of bubblePool) {
+        if (b.life <= 0) continue;
+        b.life -= 1;
+        b.x += Math.sin(b.life * 0.15) * 0.25;
+        b.y += b.vy;
+        const alpha = Math.max(0, b.life / b.max);
+        b.el.setAttribute("cx", b.x.toFixed(1));
+        b.el.setAttribute("cy", b.y.toFixed(1));
+        b.el.setAttribute("opacity", (alpha * 0.55).toFixed(3));
+      }
+
       if (rad < radm) rad++;
       frm += 0.003;
       if (rad > 60) {
@@ -196,6 +275,7 @@ export function JellySpriteCursor({
           </g>
         </defs>
 
+        <g id="jellyimg-fx" />
         <g id="jellyimg-babies" />
         <g id="jellyimg" opacity="0">
           <use href="#jellyimg-rig" />
