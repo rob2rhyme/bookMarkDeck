@@ -431,40 +431,26 @@ export function LobsterCursor({
               })}
             </g>
 
-            {/* Claws are asymmetric like a real lobster: a big blunt CRUSHER on
-                the left, a slimmer/longer CUTTER (pincer) on the right. Same
-                ids/pivots so the animation still drives them. */}
-
-            {/* CRUSHER (left) — heavy rounded hand, short thick blunt fingers. */}
+            {/* Two matching claws (equal size, exact mirrors): jointed arm →
+                bulky hand (propodus) with a fixed finger + a hinged movable
+                finger (the reactive pincer). Same ids/pivots for the animation. */}
             <g id="lob-claw-l" transform="translate(-9 -6)">
-              {/* arm (thick) */}
-              <path d="M0 -3 L-7 -3.6 L-13 -3.2 L-13 3.2 L-7 3.6 L0 3 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
-              {/* big rounded palm */}
-              <path d="M-11 -6 Q-23 -9.8 -29 -2.6 Q-31 0 -29 2.6 Q-23 5.8 -11 5.9 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
-              {/* fixed finger — short, thick, blunt */}
-              <path d="M-27 3.2 Q-34 3.4 -36.5 0.6 Q-34 -0.9 -28 0.9 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
-              {/* molar-tooth hint along the bite */}
-              <path d="M-27 0.5 q-3.2 0.1 -5.4 0.7" fill="none" stroke="#13324f" strokeWidth="0.5" opacity="0.5" />
-              {/* movable finger (dactyl) — short + thick */}
-              <g transform="translate(-27.5 -1.9)">
+              <path d="M0 -2.8 L-7 -3.3 L-13 -3 L-13 3 L-7 3.3 L0 2.8 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <path d="M-12 -5 Q-22 -8.2 -27 -2.4 Q-28.8 0 -27 2.4 Q-22 4.8 -12 5 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <path d="M-25.5 2.6 Q-34 3.6 -39 0.7 Q-35 -0.4 -27 0.7 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <g transform="translate(-26.5 -1.7)">
                 <g id="lob-pincer-l">
-                  <path d="M0 0.7 Q-6 -2.8 -10.5 -0.2 Q-7 1.5 -2 1.7 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+                  <path d="M0 0.6 Q-8 -2.6 -13 -0.2 Q-9 1.3 -2 1.5 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
                 </g>
               </g>
             </g>
-
-            {/* CUTTER / PINCER (right) — slim hand, long slender pointed fingers. */}
             <g id="lob-claw-r" transform="translate(-9 6)">
-              {/* arm (slimmer, slightly longer) */}
-              <path d="M0 2.3 L-7 2.8 L-14 2.5 L-14 -2.5 L-7 -2.8 L0 -2.3 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
-              {/* narrow palm */}
-              <path d="M-13 3.7 Q-20 5.6 -25 1.7 Q-26.4 0 -25 -1.7 Q-20 -3.7 -13 -3.5 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
-              {/* fixed finger — long, slim, pointed */}
-              <path d="M-24 -1.7 Q-35 -2.9 -42 -0.5 Q-36 0.3 -26 -0.6 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
-              {/* movable finger (dactyl) — long + slender */}
-              <g transform="translate(-25 1.4)">
+              <path d="M0 2.8 L-7 3.3 L-13 3 L-13 -3 L-7 -3.3 L0 -2.8 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <path d="M-12 5 Q-22 8.2 -27 2.4 Q-28.8 0 -27 -2.4 Q-22 -4.8 -12 -5 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <path d="M-25.5 -2.6 Q-34 -3.6 -39 -0.7 Q-35 0.4 -27 -0.7 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+              <g transform="translate(-26.5 1.7)">
                 <g id="lob-pincer-r">
-                  <path d="M0 -0.4 Q-9.5 2.3 -16 0.2 Q-10.5 -1.1 -2 -1.2 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
+                  <path d="M0 -0.6 Q-8 2.6 -13 0.2 Q-9 -1.3 -2 -1.5 Z" fill="url(#lob-claw-grad)" stroke="#13324f" strokeWidth="0.4" />
                 </g>
               </g>
             </g>
