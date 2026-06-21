@@ -76,11 +76,14 @@ export function TurtleCursor({
     const root = q<SVGGElement>("#turtle");
     const frontL = q<SVGGElement>("#t-front-flipper-l");
     const frontR = q<SVGGElement>("#t-front-flipper-r");
+    const frontLtip = q<SVGGElement>("#t-front-flipper-l-tip");
+    const frontRtip = q<SVGGElement>("#t-front-flipper-r-tip");
     const rearL = q<SVGGElement>("#t-rear-flipper-l");
     const rearR = q<SVGGElement>("#t-rear-flipper-r");
     const tail = q<SVGGElement>("#t-tail");
     const head = q<SVGGElement>("#t-head");
-    const eye2 = q<SVGGElement>("#t-eye2");
+    const eyeL = q<SVGGElement>("#t-eye-l");
+    const eyeR = q<SVGGElement>("#t-eye-r");
     const shellGrad = q<SVGRadialGradientElement>("#t-shell-grad");
     const finGrad = q<SVGLinearGradientElement>("#t-fin-grad");
     const scutes = q<SVGGElement>("#t-scutes");
@@ -216,21 +219,26 @@ export function TurtleCursor({
         Math.hypot(leadX - leadPX, leadY - leadPY) * 0.15;
 
       const sizeMul = sizeRef.current;
-      const s = 1.4 * sizeMul;
+      const s = 2.1 * sizeMul; // base turtle ~50% bigger
 
-      // Buoyant float: when nearly still, drift gently and rotate freely (360°);
-      // the spin decays back toward the heading once it starts moving.
+      // Buoyant float: when nearly still, the turtle bobs + sways and rotates
+      // very slowly/meanderingly (eventually all the way round) — not a constant
+      // spin. The drift is a visual offset (no permanent wandering); the spin
+      // decays back toward the heading once it starts moving.
       const idle = Math.max(0, 1 - speed / 2);
+      let floatBobX = 0;
+      let floatBobY = 0;
       if (floatRef.current) {
-        floatSpin += 0.3 * idle;
-        if (idle < 0.3) floatSpin *= 0.94;
-        if (idle > 0.5) {
-          bodyX += Math.cos(frm * 5) * 0.15 * idle;
-          bodyY += Math.sin(frm * 4) * 0.15 * idle;
-        }
+        floatSpin += (0.06 + 0.05 * Math.sin(frm * 1.6)) * idle;
+        if (idle < 0.3) floatSpin *= 0.96;
+        floatBobY = Math.sin(frm * 6) * 3 * sizeMul * idle;
+        floatBobX = Math.cos(frm * 4.3) * 2 * sizeMul * idle;
       } else {
-        floatSpin *= 0.9;
+        floatSpin *= 0.92;
       }
+
+      const dispX = bodyX + floatBobX;
+      const dispY = bodyY + floatBobY;
 
       // Turtle faces -x; rotate by the backward direction, leaning into turns,
       // plus the buoyant float spin.
@@ -250,7 +258,7 @@ export function TurtleCursor({
         const sy = s * (1 + 0.05 * Math.sin(wob + 1.6));
         root.setAttribute(
           "transform",
-          `translate(${bodyX.toFixed(1)},${bodyY.toFixed(1)}) rotate(${rotDeg.toFixed(
+          `translate(${dispX.toFixed(1)},${dispY.toFixed(1)}) rotate(${rotDeg.toFixed(
             2
           )}) scale(${sx.toFixed(3)},${sy.toFixed(3)})`
         );
@@ -259,7 +267,7 @@ export function TurtleCursor({
         const bob = 1 + 0.02 * Math.sin(flipPhase);
         root.setAttribute(
           "transform",
-          `translate(${bodyX.toFixed(1)},${bodyY.toFixed(1)}) rotate(${rotDeg.toFixed(
+          `translate(${dispX.toFixed(1)},${dispY.toFixed(1)}) rotate(${rotDeg.toFixed(
             2
           )}) scale(${(s * bob).toFixed(3)})`
         );
@@ -287,6 +295,9 @@ export function TurtleCursor({
       const fSize = finSizeRef.current;
       const ampF = 14 + Math.min(22, speed * 1.4 + turnMag * 130);
       const fAng = ampF * Math.sin(flipPhase);
+      // Tip lags the shoulder → the flipper BENDS/curves through the stroke
+      // instead of swinging rigidly.
+      const tipAng = (ampF * 0.9 + 8) * Math.sin(flipPhase - 1.1);
       frontL?.setAttribute(
         "transform",
         `translate(-6 -8) rotate(${fAng.toFixed(2)}) scale(${fSize.toFixed(3)})`
@@ -294,6 +305,14 @@ export function TurtleCursor({
       frontR?.setAttribute(
         "transform",
         `translate(-6 8) rotate(${(-fAng).toFixed(2)}) scale(${fSize.toFixed(3)})`
+      );
+      frontLtip?.setAttribute(
+        "transform",
+        `translate(-9 -5) rotate(${tipAng.toFixed(2)})`
+      );
+      frontRtip?.setAttribute(
+        "transform",
+        `translate(-9 5) rotate(${(-tipAng).toFixed(2)})`
       );
 
       // Rear flippers — rudder (steer toward the turn) + slow wobble.
@@ -328,27 +347,26 @@ export function TurtleCursor({
         `translate(${extend.toFixed(2)} ${hbob.toFixed(2)})`
       );
 
-      // Eye blink.
-      if (eye2) {
+      // Eye blink — both eyes in sync, on a fairly regular (periodic) cadence.
+      if (eyeL && eyeR) {
         const spd = blinkSpeedRef.current;
         if (blinkProg > 0) {
           blinkProg -= 1;
           const phase = 1 - blinkProg / blinkDur;
-          const open = Math.max(0.08, Math.abs(Math.cos(phase * Math.PI)));
-          eye2.setAttribute(
-            "transform",
-            `translate(-21.5 1.6) scale(1 ${open.toFixed(3)})`
-          );
+          const open = Math.max(0.07, Math.abs(Math.cos(phase * Math.PI)));
+          eyeL.setAttribute("transform", `translate(-21.5 -1.7) scale(1 ${open.toFixed(3)})`);
+          eyeR.setAttribute("transform", `translate(-21.5 1.7) scale(1 ${open.toFixed(3)})`);
         } else {
           blinkWait -= spd;
           if (blinkWait <= 0) {
-            const slow = Math.random() < 0.25;
-            const baseDur = slow ? 26 + Math.random() * 12 : 7 + Math.random() * 4;
+            const slow = Math.random() < 0.22;
+            const baseDur = slow ? 24 + Math.random() * 10 : 8 + Math.random() * 3;
             blinkDur = Math.max(3, baseDur / spd);
             blinkProg = blinkDur;
-            blinkWait = 50 + Math.random() * 130;
+            blinkWait = 95 + Math.random() * 55; // ~1.5–2.5s — periodic
           } else {
-            eye2.setAttribute("transform", "translate(-21.5 1.6)");
+            eyeL.setAttribute("transform", "translate(-21.5 -1.7)");
+            eyeR.setAttribute("transform", "translate(-21.5 1.7)");
           }
         }
       }
@@ -470,12 +488,20 @@ export function TurtleCursor({
             <path d="M0 0 C 2 4 7 6 11 5 C 8 2 4 1 0 -1 Z" fill="url(#t-fin-grad)" />
           </g>
 
-          {/* Front flippers (thrust) — partly behind the shell. */}
+          {/* Front flippers (thrust) — two-segment so they BEND through the
+              stroke: an upper arm at the shoulder + a tip that lags at the
+              "elbow" (-9,∓5). */}
           <g id="t-front-flipper-l" transform="translate(-6 -8)">
-            <path d="M0 0 C -3 -5 -10 -9 -16 -8 C -12 -4 -6 -2 1 2 Z" fill="url(#t-fin-grad)" />
+            <path d="M0 0 C -2 -3 -6 -5 -9 -5 C -6 -2 -2 -1 1 2 Z" fill="url(#t-fin-grad)" />
+            <g id="t-front-flipper-l-tip" transform="translate(-9 -5)">
+              <path d="M0 0 C -2 -2 -6 -4 -8 -3 C -5 -1.5 -2 -0.5 1 1 Z" fill="url(#t-fin-grad)" />
+            </g>
           </g>
           <g id="t-front-flipper-r" transform="translate(-6 8)">
-            <path d="M0 0 C -3 5 -10 9 -16 8 C -12 4 -6 2 1 -2 Z" fill="url(#t-fin-grad)" />
+            <path d="M0 0 C -2 3 -6 5 -9 5 C -6 2 -2 1 1 -2 Z" fill="url(#t-fin-grad)" />
+            <g id="t-front-flipper-r-tip" transform="translate(-9 5)">
+              <path d="M0 0 C -2 2 -6 4 -8 3 C -5 1.5 -2 0.5 1 -1 Z" fill="url(#t-fin-grad)" />
+            </g>
           </g>
 
           {/* Tail. */}
@@ -489,15 +515,18 @@ export function TurtleCursor({
               d="M-12 -3 Q-17 -2.6 -20 0 Q-17 2.6 -12 3 Z"
               fill="url(#t-shell-grad)"
             />
-            <ellipse cx="-20" cy="0" rx="4" ry="3.2" fill="url(#t-shell-grad)" />
-            {/* eyes — light eyeball, pupil offset toward the front (-x) */}
-            <circle cx="-21.5" cy="-1.6" r="1" fill="#eaf6fb" />
-            <circle cx="-21.9" cy="-1.6" r="0.6" fill="#0b1722" />
-            <circle cx="-22.1" cy="-1.85" r="0.22" fill="#ffffff" />
-            <g id="t-eye2" transform="translate(-21.5 1.6)">
-              <circle cx="0" cy="0" r="1" fill="#eaf6fb" />
-              <circle cx="-0.4" cy="0" r="0.6" fill="#0b1722" />
-              <circle cx="-0.6" cy="-0.25" r="0.22" fill="#ffffff" />
+            <ellipse cx="-20" cy="0" rx="4.4" ry="3.6" fill="url(#t-shell-grad)" />
+            {/* eyes — larger, forward-facing; both blink in sync. Pupil offset
+                toward the front (-x). */}
+            <g id="t-eye-l" transform="translate(-21.5 -1.7)">
+              <circle cx="0" cy="0" r="1.3" fill="#eaf6fb" />
+              <circle cx="-0.5" cy="0" r="0.8" fill="#0b1722" />
+              <circle cx="-0.72" cy="-0.3" r="0.28" fill="#ffffff" />
+            </g>
+            <g id="t-eye-r" transform="translate(-21.5 1.7)">
+              <circle cx="0" cy="0" r="1.3" fill="#eaf6fb" />
+              <circle cx="-0.5" cy="0" r="0.8" fill="#0b1722" />
+              <circle cx="-0.72" cy="-0.3" r="0.28" fill="#ffffff" />
             </g>
           </g>
 
