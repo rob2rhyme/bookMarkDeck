@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
+import { Skeleton } from "@/components/Skeleton";
 import { type MoodKey } from "@/features/focus/lib/mood";
 
 type AnalysisPanelProps = {
   available: boolean;
+  loaded: boolean;
   todayFocusMin: number;
   todaySessions: number;
   dailyGoalHours: number;
@@ -33,6 +35,7 @@ function hours(min: number) {
 
 export function AnalysisPanel({
   available,
+  loaded,
   todayFocusMin,
   todaySessions,
   dailyGoalHours,
@@ -105,6 +108,16 @@ export function AnalysisPanel({
           Sign in to sync to see your daily goal, streak, history, and time per
           task.
         </p>
+      ) : !loaded ? (
+        <div className="space-y-4">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <div className="grid grid-cols-3 gap-2.5">
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+          </div>
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
       ) : (
         <>
           {/* Today's goal */}

@@ -286,6 +286,7 @@ export function FocusDashboard() {
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <AnalysisPanel
           available={stats.available}
+          loaded={stats.loaded}
           todayFocusMin={stats.todayFocusMin}
           todaySessions={stats.todaySessions}
           dailyGoalHours={settings.dailyGoalHours}
