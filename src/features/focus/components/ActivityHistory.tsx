@@ -379,6 +379,7 @@ export function ActivityHistory({
               <button
                 key={r}
                 type="button"
+                aria-pressed={rangeDays === r}
                 onClick={() => setRangeDays(r)}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                   rangeDays === r
@@ -394,11 +395,11 @@ export function ActivityHistory({
       </div>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
+        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
           Sign in to sync to see your activity timeline.
         </p>
       ) : !hasActivity ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
+        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
           No activity yet. Focus, add tasks, log your mood or hydration and
           it’ll show up here.
         </p>
@@ -414,7 +415,7 @@ export function ActivityHistory({
           </div>
 
           {totalInRange === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
+            <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
               No activity in the last {rangeDays} days. Try a wider range.
             </p>
           ) : (

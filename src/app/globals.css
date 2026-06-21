@@ -65,6 +65,31 @@ body {
   }
 }
 
+@layer base {
+  /* Visible keyboard-focus ring across all interactive elements (buttons,
+     links, cards, inputs) without touching every call site. Mouse clicks stay
+     ring-free via :focus-visible. */
+  :focus-visible {
+    outline: 2px solid #60a5fa; /* blue-400 */
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* Respect users who ask the OS to minimise motion: neutralise animations and
+   transitions globally. JS-driven decorative motion (DragonCursor, the SVG
+   water ripple) is gated separately in those components. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer utilities {
   .bd-tile-grid {
     display: grid;

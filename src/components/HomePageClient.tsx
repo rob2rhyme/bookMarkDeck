@@ -1297,7 +1297,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     onChange={(e) => setNewTags(e.target.value)}
                     className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
-                  <button
+                  <button type="button"
                     onClick={handleAddQuick}
                     className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
                   >
@@ -1501,7 +1501,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
             </span>
           </label>
 
-          <button
+          <button type="button"
             onClick={handleExport}
             className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-[10px] font-semibold text-slate-900 shadow-sm hover:bg-white sm:h-10 sm:px-4 sm:text-xs"
           >
@@ -1900,13 +1900,13 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           >
             <div className="flex items-center gap-3 rounded-full bg-slate-900/90 px-4 py-2 text-xs text-slate-100 shadow-lg ring-1 ring-slate-700">
               <span>Shortcut removed</span>
-              <button
+              <button type="button"
                 onClick={handleShortcutUndo}
                 className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-white"
               >
                 Undo
               </button>
-              <button
+              <button type="button"
                 onClick={() => setShortcutUndoState(null)}
                 className="rounded-full p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                 aria-label="Dismiss undo"
@@ -1926,13 +1926,13 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     ? "Bookmarks deleted"
                   : "All bookmarks cleared"}
               </span>
-              <button
+              <button type="button"
                 onClick={handleUndo}
                 className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-white"
               >
                 Undo
               </button>
-              <button
+              <button type="button"
                 onClick={handleDismissUndo}
                 className="rounded-full p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                 aria-label="Dismiss undo"

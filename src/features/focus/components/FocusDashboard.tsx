@@ -287,6 +287,7 @@ export function FocusDashboard() {
           onNextWeek={() => setWeekOffset((w) => Math.max(0, w - 1))}
           onResetWeek={() => setWeekOffset(0)}
           weekFocusMin={stats.weekFocusMin}
+          prevWeekFocusMin={stats.prevWeekFocusMin}
           weekSessions={stats.weekSessions}
           weekTaskMin={stats.weekTaskMin}
           taskNameById={taskNameById}

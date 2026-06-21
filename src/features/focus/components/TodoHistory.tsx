@@ -105,6 +105,7 @@ export function TodoHistory({ available, events }: TodoHistoryProps) {
               <button
                 key={r.key}
                 type="button"
+                aria-pressed={range === r.key}
                 onClick={() => setRange(r.key)}
                 className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
                   range === r.key
@@ -120,11 +121,11 @@ export function TodoHistory({ available, events }: TodoHistoryProps) {
       </div>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
+        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
           Sign in to sync to see your to-do history.
         </p>
       ) : !hasData ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
+        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
           Complete a to-do and it’ll chart here.
         </p>
       ) : (

@@ -1,5 +1,7 @@
 "use client";
 
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+
 type HydrationTrackerProps = {
   cups: number;
   oz: number;
@@ -19,6 +21,7 @@ type HydrationTrackerProps = {
 function WaterGlass({ fill }: { fill: number }) {
   // Surface sits at y=18 when full, y=146 when empty (128px of travel).
   const offset = (1 - Math.min(1, Math.max(0, fill))) * 128;
+  const reducedMotion = usePrefersReducedMotion();
 
   return (
     <svg
@@ -36,34 +39,38 @@ function WaterGlass({ fill }: { fill: number }) {
       {/* water (clipped to the glass interior) */}
       <g clipPath="url(#hydration-glass-clip)">
         <g
-          className="transition-transform duration-700 ease-out"
+          className={reducedMotion ? undefined : "transition-transform duration-700 ease-out"}
           transform={`translate(0 ${offset})`}
         >
           <path
             d="M-40 22 q 20 -6 40 0 q 20 6 40 0 q 20 -6 40 0 q 20 6 40 0 q 20 -6 40 0 L 200 200 L -40 200 Z"
             className="fill-sky-500/40"
           >
-            <animateTransform
-              attributeName="transform"
-              type="translate"
-              from="0 0"
-              to="-80 0"
-              dur="3.4s"
-              repeatCount="indefinite"
-            />
+            {!reducedMotion && (
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                from="0 0"
+                to="-80 0"
+                dur="3.4s"
+                repeatCount="indefinite"
+              />
+            )}
           </path>
           <path
             d="M-40 18 q 20 -5 40 0 q 20 5 40 0 q 20 -5 40 0 q 20 5 40 0 q 20 -5 40 0 L 200 200 L -40 200 Z"
             className="fill-sky-500/80"
           >
-            <animateTransform
-              attributeName="transform"
-              type="translate"
-              from="-80 0"
-              to="0 0"
-              dur="2.4s"
-              repeatCount="indefinite"
-            />
+            {!reducedMotion && (
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                from="-80 0"
+                to="0 0"
+                dur="2.4s"
+                repeatCount="indefinite"
+              />
+            )}
           </path>
         </g>
       </g>

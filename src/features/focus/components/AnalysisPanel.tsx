@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
 import { type MoodKey } from "@/features/focus/lib/mood";
@@ -20,6 +20,7 @@ type AnalysisPanelProps = {
   onNextWeek: () => void;
   onResetWeek: () => void;
   weekFocusMin: number;
+  prevWeekFocusMin: number;
   weekSessions: number;
   weekTaskMin: Record<string, number>;
   taskNameById: Record<string, string>;
@@ -45,6 +46,7 @@ export function AnalysisPanel({
   onNextWeek,
   onResetWeek,
   weekFocusMin,
+  prevWeekFocusMin,
   weekSessions,
   weekTaskMin,
   taskNameById,
@@ -53,6 +55,31 @@ export function AnalysisPanel({
   const maxSessions = Math.max(1, ...last7.map((d) => d.sessions));
   const goalMin = dailyGoalHours * 60;
   const goalPct = Math.min(100, Math.round((todayFocusMin / goalMin) * 100));
+
+  // Average session length across all completed sessions (all-time).
+  const avgSessionMin =
+    totalSessions > 0 ? Math.round(totalFocusMin / totalSessions) : 0;
+
+  // Week-vs-week change in focus hours (visible week vs the prior 7 days).
+  const weekDeltaMin = weekFocusMin - prevWeekFocusMin;
+  const hasWeekHistory = weekFocusMin > 0 || prevWeekFocusMin > 0;
+
+  // "On track for today's goal": compare progress against an expected pace over
+  // an 8am–10pm active window. Gated behind mount so the time-of-day read never
+  // causes a hydration mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const pace = useMemo(() => {
+    if (!mounted || goalMin <= 0 || goalPct >= 100) return null;
+    const now = new Date();
+    const START = 8;
+    const END = 22;
+    const hourFloat = now.getHours() + now.getMinutes() / 60;
+    const frac = Math.min(1, Math.max(0, (hourFloat - START) / (END - START)));
+    if (frac <= 0) return null; // before the active window — nothing expected yet
+    return { ahead: todayFocusMin >= goalMin * frac };
+  }, [mounted, goalMin, goalPct, todayFocusMin]);
 
   const topWeekTasks = useMemo(
     () =>
@@ -74,7 +101,7 @@ export function AnalysisPanel({
       </h3>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-500">
+        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
           Sign in to sync to see your daily goal, streak, history, and time per
           task.
         </p>
@@ -97,10 +124,22 @@ export function AnalysisPanel({
                 style={{ width: `${goalPct}%` }}
               />
             </div>
-            {goalPct >= 100 && (
+            {goalPct >= 100 ? (
               <p className="mt-2 text-xs font-medium text-emerald-300">
                 ✓ Daily goal reached.
               </p>
+            ) : (
+              pace && (
+                <p
+                  className={`mt-2 text-xs font-medium ${
+                    pace.ahead ? "text-emerald-300" : "text-amber-300"
+                  }`}
+                >
+                  {pace.ahead
+                    ? "On track for today's goal"
+                    : "Behind today's pace"}
+                </p>
+              )
             )}
           </div>
 
@@ -119,6 +158,11 @@ export function AnalysisPanel({
               </div>
             ))}
           </div>
+          {totalSessions > 0 && (
+            <p className="mt-2 text-center text-[11px] text-slate-400">
+              Avg session {avgSessionMin} min
+            </p>
+          )}
 
           {/* 7-day chart + mood trend (navigable into the past) */}
           <div className="mb-2 mt-6 flex items-center justify-between gap-2">
@@ -205,6 +249,16 @@ export function AnalysisPanel({
               {weekSessions === 1 ? "session" : "sessions"}
             </span>
           </div>
+          {hasWeekHistory && weekDeltaMin !== 0 && (
+            <p
+              className={`mt-1 text-[11px] tabular-nums ${
+                weekDeltaMin > 0 ? "text-emerald-300" : "text-amber-300"
+              }`}
+            >
+              {weekDeltaMin > 0 ? "▲" : "▼"} {hours(Math.abs(weekDeltaMin))}h vs
+              prior week
+            </p>
+          )}
           {topWeekTasks.length > 0 && (
             <ul className="mt-2 flex flex-col gap-1.5">
               {topWeekTasks.map((t) => (

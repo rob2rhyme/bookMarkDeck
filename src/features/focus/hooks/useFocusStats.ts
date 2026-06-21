@@ -182,6 +182,22 @@ export function useFocusStats(
     return { sessions: sessionsCount, focusMin, taskMin };
   }, [sessions, anchor]);
 
+  // The prior 7-day window (days 7–13 before the anchor) — for the week-vs-week
+  // delta. Focus minutes only; that's all the comparison needs.
+  const prevWeekFocusMin = useMemo(() => {
+    const days = new Set<string>();
+    for (let i = 7; i < 14; i++) {
+      const d = new Date(anchor);
+      d.setDate(anchor.getDate() - i);
+      days.add(dayKey(d));
+    }
+    let focusMin = 0;
+    for (const s of sessions) {
+      if (days.has(s.day)) focusMin += s.focusMin;
+    }
+    return focusMin;
+  }, [sessions, anchor]);
+
   return {
     available: canSync,
     loaded,
@@ -200,5 +216,6 @@ export function useFocusStats(
     weekSessions: week.sessions,
     weekFocusMin: week.focusMin,
     weekTaskMin: week.taskMin,
+    prevWeekFocusMin,
   };
 }
