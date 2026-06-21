@@ -227,7 +227,7 @@ export function CursorSettingsPanel({
         <HueControl
           value={settings.hue}
           onChange={(v) => update({ hue: v })}
-          {...(settings.style === "turtle"
+          {...(settings.style !== "off"
             ? {
                 jelly: settings.jelly,
                 onJelly: (b: boolean) => update({ jelly: b }),
@@ -254,6 +254,22 @@ export function CursorSettingsPanel({
                 value={settings.finHue}
                 onChange={(v) => update({ finHue: v })}
               />
+            </div>
+          </Row>
+          <Row label="Fin flap">
+            <input
+              type="range"
+              min={0}
+              max={2}
+              step={0.05}
+              value={settings.finFlap ?? 1}
+              onChange={(e) => update({ finFlap: Number(e.target.value) })}
+              aria-label="Fin flap amount"
+              className="w-full accent-blue-500"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+              <span>Off</span>
+              <span>Strong</span>
             </div>
           </Row>
           <Row label={`Antennae — ${Math.round(settings.antennaSize * 100)}%`}>
@@ -369,6 +385,93 @@ export function CursorSettingsPanel({
             />
           </Row>
         </>
+      )}
+
+      {settings.style !== "off" && (
+        <Row
+          label={
+            settings.style === "turtle"
+              ? "Baby turtles"
+              : settings.style === "fish"
+                ? "Baby fish"
+                : "Baby dragons"
+          }
+        >
+          <Toggle
+            label="Show babies (follow along)"
+            checked={settings.babies}
+            onChange={(v) => update({ babies: v })}
+          />
+          {settings.babies && (
+            <>
+              <div className="mt-4">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Number of babies — {settings.babyCount}
+                </p>
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={settings.babyCount ?? 2}
+                  onChange={(e) => update({ babyCount: Number(e.target.value) })}
+                  aria-label="Number of babies"
+                  className="w-full accent-blue-500"
+                />
+              </div>
+              <div className="mt-4">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Distance apart — {settings.babyGap}
+                </p>
+                <input
+                  type="range"
+                  min={6}
+                  max={40}
+                  step={1}
+                  value={settings.babyGap ?? 16}
+                  onChange={(e) => update({ babyGap: Number(e.target.value) })}
+                  aria-label="Baby distance apart"
+                  className="w-full accent-blue-500"
+                />
+              </div>
+              <div className="mt-4">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Sideways spread — {settings.babySpread}
+                </p>
+                <input
+                  type="range"
+                  min={0}
+                  max={80}
+                  step={1}
+                  value={settings.babySpread ?? 30}
+                  onChange={(e) => update({ babySpread: Number(e.target.value) })}
+                  aria-label="Baby sideways spread"
+                  className="w-full accent-blue-500"
+                />
+                <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+                  <span>Single file</span>
+                  <span>Fanned out</span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Baby size — {Math.round((settings.babySize ?? 0.5) * 100)}% of
+                  parent
+                </p>
+                <input
+                  type="range"
+                  min={0.2}
+                  max={0.9}
+                  step={0.05}
+                  value={settings.babySize ?? 0.5}
+                  onChange={(e) => update({ babySize: Number(e.target.value) })}
+                  aria-label="Baby size"
+                  className="w-full accent-blue-500"
+                />
+              </div>
+            </>
+          )}
+        </Row>
       )}
 
       <Row label="Transition (follow feel)">

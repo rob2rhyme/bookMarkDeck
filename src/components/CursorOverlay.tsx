@@ -16,6 +16,7 @@ export function CursorOverlay() {
     finHue: settings.finHue,
     antennaHue: settings.antennaHue,
     finSize: settings.finSize,
+    finFlap: settings.finFlap,
     antennaSize: settings.antennaSize,
     blinkSpeed: settings.blinkSpeed,
     transition: settings.transition,
@@ -24,6 +25,11 @@ export function CursorOverlay() {
     ripples: settings.ripples,
     bubbles: settings.bubbles,
     swimSpeed: settings.swimSpeed,
+    babies: settings.babies,
+    babyCount: settings.babyCount,
+    babyGap: settings.babyGap,
+    babySpread: settings.babySpread,
+    babySize: settings.babySize,
   };
 
   if (settings.style === "fish") return <FishCursor {...props} />;

@@ -22,6 +22,7 @@ export type CursorSettings = {
   finHue: number | null; // fins/tail (fish) · flippers (turtle). null = Auto
   antennaHue: number | null; // antennae (fish) · shell pattern (turtle). null = Auto
   finSize: number; // fish fin · turtle flipper scale (0.5–2.5)
+  finFlap: number; // fish: fin flap amount, turn-reactive (0 = static … 2)
   antennaSize: number; // fish antenna scale (0.5–2.5)
   blinkSpeed: number; // eye blink cadence (0.25 slow … 3 fast)
   transition: number; // follow feel: 0 = smooth/laggy … 1 = snappy
@@ -30,6 +31,11 @@ export type CursorSettings = {
   ripples: boolean; // turtle: water ripples
   bubbles: boolean; // turtle: rising bubbles
   swimSpeed: number; // turtle: stroke/animation tempo (0.25 slow … 3 fast)
+  babies: boolean; // turtle: trailing baby turtles that follow along
+  babyCount: number; // turtle: how many babies (1–100); each is 50% of parent size
+  babyGap: number; // turtle: spacing/distance between babies (6–40)
+  babySpread: number; // turtle: sideways fan offset, px (0 = single file)
+  babySize: number; // turtle: baby scale as a fraction of the parent (0.2–0.9)
 };
 
 /** Props the overlays accept so the settings drive their animation. */
@@ -39,6 +45,7 @@ export type CursorProps = {
   finHue?: number | null;
   antennaHue?: number | null;
   finSize?: number;
+  finFlap?: number;
   antennaSize?: number;
   blinkSpeed?: number;
   transition?: number;
@@ -47,6 +54,11 @@ export type CursorProps = {
   ripples?: boolean;
   bubbles?: boolean;
   swimSpeed?: number;
+  babies?: boolean;
+  babyCount?: number;
+  babyGap?: number;
+  babySpread?: number;
+  babySize?: number;
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -56,6 +68,7 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   finHue: null,
   antennaHue: null,
   finSize: 1,
+  finFlap: 1,
   antennaSize: 1,
   blinkSpeed: 1,
   transition: 0.5,
@@ -64,6 +77,11 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
   ripples: true,
   bubbles: true,
   swimSpeed: 1,
+  babies: false,
+  babyCount: 2,
+  babyGap: 16,
+  babySpread: 30,
+  babySize: 0.5,
 };
 
 const KEY = "bd:cursor-settings:v1";
@@ -88,6 +106,7 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     finHue: hueOrAuto(r.finHue),
     antennaHue: hueOrAuto(r.antennaHue),
     finSize: clampNum(r.finSize, 0.5, 2.5, d.finSize),
+    finFlap: clampNum(r.finFlap, 0, 2, d.finFlap),
     antennaSize: clampNum(r.antennaSize, 0.5, 2.5, d.antennaSize),
     blinkSpeed: clampNum(r.blinkSpeed, 0.25, 3, d.blinkSpeed),
     transition: clampNum(r.transition, 0, 1, d.transition),
@@ -96,6 +115,11 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
     ripples: typeof r.ripples === "boolean" ? r.ripples : d.ripples,
     bubbles: typeof r.bubbles === "boolean" ? r.bubbles : d.bubbles,
     swimSpeed: clampNum(r.swimSpeed, 0.25, 3, d.swimSpeed),
+    babies: typeof r.babies === "boolean" ? r.babies : d.babies,
+    babyCount: Math.round(clampNum(r.babyCount, 1, 100, d.babyCount)),
+    babyGap: clampNum(r.babyGap, 6, 40, d.babyGap),
+    babySpread: clampNum(r.babySpread, 0, 80, d.babySpread),
+    babySize: clampNum(r.babySize, 0.2, 0.9, d.babySize),
   };
 }
 

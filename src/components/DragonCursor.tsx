@@ -3,12 +3,19 @@
 
 import { useEffect, useRef } from "react";
 
+import { setupBabies } from "@/components/cursorBabies";
 import type { CursorProps } from "@/lib/cursorSettings";
 
 export function DragonCursor({
   size = 1,
   hue = null,
   transition = 0.5,
+  jelly = false,
+  babies = false,
+  babyCount = 2,
+  babyGap = 16,
+  babySpread = 30,
+  babySize = 0.5,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   // Live settings, read inside the animation loop (so changes apply without
@@ -16,11 +23,33 @@ export function DragonCursor({
   const sizeRef = useRef(size);
   const hueRef = useRef(hue);
   const transRef = useRef(transition);
+  const jellyRef = useRef(jelly);
+  const babiesRef = useRef(babies);
+  const babyCountRef = useRef(babyCount);
+  const babyGapRef = useRef(babyGap);
+  const babySpreadRef = useRef(babySpread);
+  const babySizeRef = useRef(babySize);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
     transRef.current = transition;
-  }, [size, hue, transition]);
+    jellyRef.current = jelly;
+    babiesRef.current = babies;
+    babyCountRef.current = babyCount;
+    babyGapRef.current = babyGap;
+    babySpreadRef.current = babySpread;
+    babySizeRef.current = babySize;
+  }, [
+    size,
+    hue,
+    transition,
+    jelly,
+    babies,
+    babyCount,
+    babyGap,
+    babySpread,
+    babySize,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -33,6 +62,20 @@ export function DragonCursor({
 
     const screen = svg.querySelector<SVGGElement>("#screen");
     if (!screen) return;
+
+    // Baby dragons — trail behind the parent (rendered behind the body chain).
+    const babyGroup = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "g"
+    ) as SVGGElement;
+    screen.prepend(babyGroup);
+    const babyRig = setupBabies(babyGroup, "DragonBabyRig", {
+      on: babiesRef,
+      count: babyCountRef,
+      gap: babyGapRef,
+      spread: babySpreadRef,
+      size: babySizeRef,
+    });
 
     // 👁 Dragon eye gradient stops
     const eyeStops: SVGStopElement[] = Array.from(
@@ -66,9 +109,9 @@ export function DragonCursor({
       spineGradBottom,
     ].filter((g): g is SVGLinearGradientElement => !!g);
 
-    // 💨 Smoke spit particles
+    // 💨 Smoke spit particles (shared by the mother + babies)
     // Higher count for denser smoke
-    const SMOKE_COUNT = 200;
+    const SMOKE_COUNT = 300;
     type SmokeParticle = {
       use: SVGUseElement;
       x: number;
@@ -77,6 +120,7 @@ export function DragonCursor({
       vy: number;
       life: number;
       maxLife: number;
+      sizeF: number; // render size factor (1 = mother, <1 = baby)
     };
     const smokeParticles: SmokeParticle[] = [];
 
@@ -145,6 +189,7 @@ export function DragonCursor({
         vy: 0,
         life: 0,
         maxLife: 1,
+        sizeF: 1,
       });
     }
 
@@ -171,26 +216,44 @@ export function DragonCursor({
       // Left and right sides share the SAME colors because we
       // compute hues per stop index, then apply to each gradient's
       // corresponding stop.
+      // Jelly: render the dragon crystal-clear (translucent), pale aqua.
+      const jel = jellyRef.current;
+      screen.setAttribute("opacity", jel ? "0.4" : "1");
+
       if (bodyGradients.length) {
         const locked = hueRef.current;
+        const jh = locked ?? 195;
         bodyGradients.forEach((gradient) => {
           const stops = Array.from(gradient.querySelectorAll("stop"));
 
           stops.forEach((stop, stopIndex) => {
-            // Auto (null): the original animated rainbow. Locked: a living
-            // shimmer around the chosen hue.
-            const h =
-              locked == null
-                ? (frm * 180 + stopIndex * 90) % 360
-                : (locked + stopIndex * 22 + 12 * Math.sin(frm * 6 + stopIndex) +
-                    360) %
-                  360;
-            const color = `hsl(${h}, 80%, 55%)`;
+            // Jelly: pale, low-saturation aqua (clear water). Otherwise Auto
+            // (null) = animated rainbow, or a living shimmer around the hue.
+            const color = jel
+              ? `hsl(${jh}, 52%, ${86 - stopIndex * 6}%)`
+              : `hsl(${
+                  locked == null
+                    ? (frm * 180 + stopIndex * 90) % 360
+                    : (locked +
+                        stopIndex * 22 +
+                        12 * Math.sin(frm * 6 + stopIndex) +
+                        360) %
+                      360
+                }, 80%, 55%)`;
             stop.setAttribute("stop-color", color);
             stop.style.setProperty("stop-color", color);
           });
         });
       }
+
+      // Place the babies (trailing the tail) and capture their spots so they
+      // can breathe their own smoke below.
+      const headScale = 3.24 * sizeRef.current;
+      const activeBabies = babyRig.update(
+        elems[N - 1].x,
+        elems[N - 1].y,
+        headScale
+      );
 
       // 💨 Update smoke spit particles (emit from mouth/front, drift & fade)
       if (smokeParticles.length && elems[0] && elems[1]) {
@@ -221,6 +284,25 @@ export function DragonCursor({
 
           spawn.maxLife = 150 + Math.random() * 40; // frames
           spawn.life = spawn.maxLife;
+          spawn.sizeF = 1;
+        }
+
+        // Baby dragons breathe their own (smaller) smoke from their mouths.
+        for (const baby of activeBabies) {
+          const spawn = smokeParticles.find((p) => p.life <= 0);
+          if (!spawn) break;
+          const fwd = baby.h + Math.PI; // mouth faces forward (−x ⇒ +π)
+          const bnx = Math.cos(fwd);
+          const bny = Math.sin(fwd);
+          const rel = Math.min(1, baby.s / headScale);
+          spawn.x = baby.x + bnx * 16 * rel;
+          spawn.y = baby.y + bny * 16 * rel;
+          const baseSpeed = (1.4 + Math.random() * 0.6) * rel;
+          spawn.vx = bnx * baseSpeed + (Math.random() - 0.5) * 0.3;
+          spawn.vy = bny * baseSpeed + (Math.random() - 0.5) * 0.3;
+          spawn.maxLife = 110 + Math.random() * 40;
+          spawn.life = spawn.maxLife;
+          spawn.sizeF = rel;
         }
 
         // Integrate & render existing puffs
@@ -239,7 +321,7 @@ export function DragonCursor({
           // Make the smoke dot grow as it fades:
           // - small when alpha ~ 1 (just spawned)
           // - larger when alpha ~ 0 (about to disappear)
-          const scale = 0.5 + (1 - alpha) * 1.2; // 0.5 → 1.7
+          const scale = (0.5 + (1 - alpha) * 1.2) * p.sizeF; // 0.5 → 1.7
 
           p.use.setAttribute(
             "transform",
@@ -421,6 +503,16 @@ export function DragonCursor({
               style={{ fill: "url(#LinearGradID_3)" }}
               d="M18.8,0Q18 1.45 7.75 4.1Q2.7 2.4 0 5.95Q0.05 12.55 6.65 12.4Q1.25 16.25 -6.2 8.35Q-6.35 8.25 -6.45 8.25L-6.5 8.25Q-11.2 5.35 -12.3 9.6Q-17.85 5.7 -18.8 0L18.8 0"
             />
+          </g>
+
+          {/* Baby-dragon rig — a compact dragon (head + a short spine tail)
+              facing -x. Reuses the same symbols, so the head's eye-sweep + body
+              colours mirror the parent's live animation. */}
+          <g id="DragonBabyRig">
+            <use href="#Espina" transform="translate(34 0)" />
+            <use href="#Espina" transform="translate(22 0)" />
+            <use href="#Espina" transform="translate(12 0)" />
+            <use href="#Cabeza" />
           </g>
 
           {/* Smoke puff prototype */}

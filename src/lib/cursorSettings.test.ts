@@ -40,12 +40,35 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ transition: 5 }).transition).toBe(1);
     expect(normalizeCursorSettings({ transition: -1 }).transition).toBe(0);
     expect(normalizeCursorSettings({ finSize: 9 }).finSize).toBe(2.5);
+    expect(normalizeCursorSettings({}).finFlap).toBe(1);
+    expect(normalizeCursorSettings({ finFlap: 9 }).finFlap).toBe(2);
+    expect(normalizeCursorSettings({ finFlap: -1 }).finFlap).toBe(0);
     expect(normalizeCursorSettings({ antennaSize: 0 }).antennaSize).toBe(0.5);
     expect(normalizeCursorSettings({ blinkSpeed: 99 }).blinkSpeed).toBe(3);
     expect(normalizeCursorSettings({ blinkSpeed: 0 }).blinkSpeed).toBe(0.25);
     expect(normalizeCursorSettings({}).swimSpeed).toBe(1);
     expect(normalizeCursorSettings({ swimSpeed: 99 }).swimSpeed).toBe(3);
     expect(normalizeCursorSettings({ swimSpeed: 0 }).swimSpeed).toBe(0.25);
+  });
+
+  it("coerces babies (default false) and clamps/rounds babyCount to 1–6", () => {
+    expect(normalizeCursorSettings({}).babies).toBe(false);
+    expect(normalizeCursorSettings({ babies: true }).babies).toBe(true);
+    expect(normalizeCursorSettings({ babies: "x" }).babies).toBe(false);
+    expect(normalizeCursorSettings({}).babyCount).toBe(2);
+    expect(normalizeCursorSettings({ babyCount: 99 }).babyCount).toBe(99);
+    expect(normalizeCursorSettings({ babyCount: 999 }).babyCount).toBe(100);
+    expect(normalizeCursorSettings({ babyCount: 0 }).babyCount).toBe(1);
+    expect(normalizeCursorSettings({ babyCount: 3.7 }).babyCount).toBe(4);
+    expect(normalizeCursorSettings({}).babyGap).toBe(16);
+    expect(normalizeCursorSettings({ babyGap: 999 }).babyGap).toBe(40);
+    expect(normalizeCursorSettings({ babyGap: 1 }).babyGap).toBe(6);
+    expect(normalizeCursorSettings({}).babySpread).toBe(30);
+    expect(normalizeCursorSettings({ babySpread: 999 }).babySpread).toBe(80);
+    expect(normalizeCursorSettings({ babySpread: -5 }).babySpread).toBe(0);
+    expect(normalizeCursorSettings({}).babySize).toBe(0.5);
+    expect(normalizeCursorSettings({ babySize: 9 }).babySize).toBe(0.9);
+    expect(normalizeCursorSettings({ babySize: 0 }).babySize).toBe(0.2);
   });
 
   it("treats hue null/absent as Auto, clamps a custom hue (body/fins/antennae)", () => {

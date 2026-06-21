@@ -27,6 +27,11 @@ export function TurtleCursor({
   ripples = true,
   bubbles = true,
   swimSpeed = 1,
+  babies = false,
+  babyCount = 2,
+  babyGap = 16,
+  babySpread = 30,
+  babySize = 0.5,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
@@ -41,6 +46,11 @@ export function TurtleCursor({
   const ripplesRef = useRef(ripples);
   const bubblesRef = useRef(bubbles);
   const swimSpeedRef = useRef(swimSpeed);
+  const babiesRef = useRef(babies);
+  const babyCountRef = useRef(babyCount);
+  const babyGapRef = useRef(babyGap);
+  const babySpreadRef = useRef(babySpread);
+  const babySizeRef = useRef(babySize);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
@@ -54,6 +64,11 @@ export function TurtleCursor({
     ripplesRef.current = ripples;
     bubblesRef.current = bubbles;
     swimSpeedRef.current = swimSpeed;
+    babiesRef.current = babies;
+    babyCountRef.current = babyCount;
+    babyGapRef.current = babyGap;
+    babySpreadRef.current = babySpread;
+    babySizeRef.current = babySize;
   }, [
     size,
     hue,
@@ -67,6 +82,11 @@ export function TurtleCursor({
     ripples,
     bubbles,
     swimSpeed,
+    babies,
+    babyCount,
+    babyGap,
+    babySpread,
+    babySize,
   ]);
 
   useEffect(() => {
@@ -93,6 +113,14 @@ export function TurtleCursor({
     const scutes = q<SVGGElement>("#t-scutes");
     if (!root) return;
 
+    // Baby turtles: a conga line that traces the parent's recent path. Each is
+    // a live <use> mirror of the parent's animated body, so they paddle in sync.
+    const babyEls = Array.from(
+      svg.querySelectorAll<SVGGElement>(".t-baby")
+    );
+    const trail: { x: number; y: number }[] = [];
+    const babyRot = babyEls.map(() => 0);
+
     // Water FX (world-space, behind the turtle): expanding ripples + bubbles.
     const svgns = "http://www.w3.org/2000/svg";
     const fx = q<SVGGElement>("#t-fx");
@@ -103,6 +131,7 @@ export function TurtleCursor({
       r0: number;
       life: number;
       max: number;
+      scale: number;
     };
     type Bub = {
       el: SVGCircleElement;
@@ -115,16 +144,17 @@ export function TurtleCursor({
     const ripplePool: Ripple[] = [];
     const bubblePool: Bub[] = [];
     if (fx) {
-      for (let i = 0; i < 6; i++) {
+      // Pools sized for the mother + up to 6 babies all emitting.
+      for (let i = 0; i < 18; i++) {
         const c = document.createElementNS(svgns, "circle");
         c.setAttribute("fill", "none");
         c.setAttribute("stroke", "#bae6fd");
         c.setAttribute("stroke-width", "1.4");
         c.setAttribute("opacity", "0");
         fx.appendChild(c);
-        ripplePool.push({ el: c, x: 0, y: 0, r0: 0, life: 0, max: 1 });
+        ripplePool.push({ el: c, x: 0, y: 0, r0: 0, life: 0, max: 1, scale: 1 });
       }
-      for (let i = 0; i < 22; i++) {
+      for (let i = 0; i < 64; i++) {
         const c = document.createElementNS(svgns, "circle");
         c.setAttribute("fill", "none");
         c.setAttribute("stroke", "#bae6fd");
@@ -138,6 +168,37 @@ export function TurtleCursor({
     let rippleTimer = 0;
     let bubbleTimer = 0;
     let floatSpin = 0;
+
+    // Emit one ripple / one bubble at a given spot + scale (reused by the
+    // mother and every baby so they all leave a matching wake).
+    const spawnRipple = (x: number, y: number, scale: number) => {
+      const rp = ripplePool.find((p) => p.life <= 0);
+      if (!rp) return;
+      rp.x = x;
+      rp.y = y;
+      rp.scale = scale;
+      rp.r0 = 13 * scale;
+      rp.max = 44 + Math.random() * 20;
+      rp.life = rp.max;
+    };
+    // abs = absolute turtle scale (sets emit offset); rel = size vs the mother
+    // (1 for mother, <1 for babies) so baby bubbles are proportionally smaller.
+    const spawnBubble = (
+      x: number,
+      y: number,
+      abs: number,
+      rel: number,
+      behind: number
+    ) => {
+      const b = bubblePool.find((p) => p.life <= 0);
+      if (!b) return;
+      b.x = x + Math.cos(behind) * 11 * abs + (Math.random() - 0.5) * 8 * rel;
+      b.y = y + Math.sin(behind) * 11 * abs;
+      b.vy = -(0.5 + Math.random() * 0.7) * (0.6 + 0.4 * rel);
+      b.max = 70 + Math.random() * 40;
+      b.life = b.max;
+      b.el.setAttribute("r", ((1.4 + Math.random() * 1.4) * rel).toFixed(2));
+    };
 
     const setStops = (
       g: SVGGradientElement | null,
@@ -281,6 +342,57 @@ export function TurtleCursor({
         root.setAttribute("opacity", "1");
       }
 
+      // Baby turtles — trail the parent's path, fanned out to alternating sides.
+      // Active babies' spots are captured here so they leave their own wake.
+      const activeBabies: { x: number; y: number; s: number; h: number }[] = [];
+      if (babyEls.length) {
+        trail.unshift({ x: dispX, y: dispY });
+        if (trail.length > 4100) trail.pop(); // covers 100 babies × max spacing
+        const nb = babiesRef.current
+          ? Math.min(babyEls.length, Math.round(babyCountRef.current))
+          : 0;
+        const gap = babyGapRef.current;
+        const spread = babySpreadRef.current;
+        babyEls.forEach((g, i) => {
+          if (i >= nb) {
+            g.setAttribute("opacity", "0");
+            return;
+          }
+          // Sample a point further back along the path for each baby (distance).
+          const idx = Math.min(trail.length - 1, Math.round((i + 1) * gap));
+          const p = trail[idx];
+          const ahead = trail[Math.max(0, idx - 5)];
+          const vx = p.x - ahead.x;
+          const vy = p.y - ahead.y;
+          if (Math.hypot(vx, vy) > 0.6)
+            babyRot[i] = (Math.atan2(vy, vx) * 180) / Math.PI;
+          // Fan sideways: alternate L/R, widening with rank, perpendicular to
+          // the heading (so they follow from the side, not just straight back).
+          const side = i % 2 === 0 ? 1 : -1;
+          const rank = Math.floor(i / 2) + 1;
+          const lateral = spread * side * rank;
+          const rad = (babyRot[i] * Math.PI) / 180;
+          const bx = p.x + -Math.sin(rad) * lateral;
+          const by = p.y + Math.cos(rad) * lateral;
+          const bScale =
+            s * babySizeRef.current * (1 + 0.03 * Math.sin(flipPhase + i * 1.3));
+          g.setAttribute(
+            "transform",
+            `translate(${bx.toFixed(1)},${by.toFixed(1)}) rotate(${babyRot[
+              i
+            ].toFixed(2)}) scale(${bScale.toFixed(3)})`
+          );
+          g.setAttribute("opacity", jON ? "0.34" : "1");
+          // babyRot is the backward (tail-ward) angle → wake emits behind.
+          activeBabies.push({
+            x: bx,
+            y: by,
+            s: bScale,
+            h: (babyRot[i] * Math.PI) / 180,
+          });
+        });
+      }
+
       // Colours (live).
       const baseHue = hueRef.current;
       if (jON) {
@@ -389,14 +501,8 @@ export function TurtleCursor({
       if (ripplesRef.current) {
         rippleTimer -= 1 + speed * 0.3;
         if (rippleTimer <= 0) {
-          const rp = ripplePool.find((p) => p.life <= 0);
-          if (rp) {
-            rp.x = bodyX;
-            rp.y = bodyY;
-            rp.r0 = 13 * s;
-            rp.max = 44 + Math.random() * 20;
-            rp.life = rp.max;
-          }
+          spawnRipple(bodyX, bodyY, s);
+          for (const b of activeBabies) spawnRipple(b.x, b.y, b.s);
           rippleTimer = 26 + Math.random() * 16;
         }
         for (const rp of ripplePool) {
@@ -405,7 +511,7 @@ export function TurtleCursor({
           const t = 1 - rp.life / rp.max;
           rp.el.setAttribute("cx", rp.x.toFixed(1));
           rp.el.setAttribute("cy", rp.y.toFixed(1));
-          rp.el.setAttribute("r", (rp.r0 + t * 26 * s).toFixed(1));
+          rp.el.setAttribute("r", (rp.r0 + t * 26 * rp.scale).toFixed(1));
           rp.el.setAttribute("opacity", ((1 - t) * 0.5).toFixed(3));
         }
       } else {
@@ -420,17 +526,9 @@ export function TurtleCursor({
       if (bubblesRef.current) {
         bubbleTimer -= 1;
         if (bubbleTimer <= 0) {
-          const b = bubblePool.find((p) => p.life <= 0);
-          if (b) {
-            const bx = Math.cos(prevHeading + Math.PI);
-            const by = Math.sin(prevHeading + Math.PI);
-            b.x = bodyX + bx * 11 * s + (Math.random() - 0.5) * 8;
-            b.y = bodyY + by * 11 * s;
-            b.vy = -(0.5 + Math.random() * 0.7);
-            b.max = 70 + Math.random() * 40;
-            b.life = b.max;
-            b.el.setAttribute("r", (1.4 + Math.random() * 1.4).toFixed(2));
-          }
+          spawnBubble(bodyX, bodyY, s, 1, prevHeading + Math.PI);
+          for (const b of activeBabies)
+            spawnBubble(b.x, b.y, b.s, b.s / s, b.h);
           bubbleTimer = 9 + Math.random() * 14;
         }
         for (const b of bubblePool) {
@@ -508,8 +606,21 @@ export function TurtleCursor({
         {/* Water FX (ripples + bubbles) injected by JS, behind the turtle. */}
         <g id="t-fx" />
 
-        {/* The whole turtle; JS sets its transform/opacity each frame. */}
+        {/* Baby turtles — live <use> mirrors of the parent's animated body
+            (#turtle-rig), each positioned along the parent's trail by JS.
+            Behind the parent so it overlaps them. */}
+        <g id="t-babies">
+          {Array.from({ length: 100 }).map((_, i) => (
+            <g key={i} className="t-baby" opacity="0">
+              <use href="#turtle-rig" />
+            </g>
+          ))}
+        </g>
+
+        {/* The whole turtle; JS sets #turtle's transform/opacity each frame,
+            while #turtle-rig holds the body whose appendages are animated. */}
         <g id="turtle">
+          <g id="turtle-rig">
           {/* Rear flippers (hind limbs) — two-segment so they BEND/flex through
               the kick: an upper limb at the hip + a tip that lags at the
               "knee" (6,±3.5). Reticulated skin overlay (net) over the tan base. */}
@@ -601,6 +712,7 @@ export function TurtleCursor({
             {/* marginal ring */}
             <path d="M-11 -7 Q2 -10 13 -4" />
             <path d="M-11 7 Q2 10 13 4" />
+          </g>
           </g>
         </g>
       </svg>

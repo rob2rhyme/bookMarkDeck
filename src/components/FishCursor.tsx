@@ -8,6 +8,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { setupBabies } from "@/components/cursorBabies";
 import type { CursorProps } from "@/lib/cursorSettings";
 
 export function FishCursor({
@@ -16,9 +17,16 @@ export function FishCursor({
   finHue = null,
   antennaHue = null,
   finSize = 1,
+  finFlap = 1,
   antennaSize = 1,
   blinkSpeed = 1,
   transition = 0.5,
+  jelly = false,
+  babies = false,
+  babyCount = 2,
+  babyGap = 16,
+  babySpread = 30,
+  babySize = 0.5,
 }: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const sizeRef = useRef(size);
@@ -26,27 +34,48 @@ export function FishCursor({
   const finHueRef = useRef(finHue);
   const antHueRef = useRef(antennaHue);
   const finSizeRef = useRef(finSize);
+  const finFlapRef = useRef(finFlap);
   const antSizeRef = useRef(antennaSize);
   const blinkSpeedRef = useRef(blinkSpeed);
   const transRef = useRef(transition);
+  const jellyRef = useRef(jelly);
+  const babiesRef = useRef(babies);
+  const babyCountRef = useRef(babyCount);
+  const babyGapRef = useRef(babyGap);
+  const babySpreadRef = useRef(babySpread);
+  const babySizeRef = useRef(babySize);
   useEffect(() => {
     sizeRef.current = size;
     hueRef.current = hue;
     finHueRef.current = finHue;
     antHueRef.current = antennaHue;
     finSizeRef.current = finSize;
+    finFlapRef.current = finFlap;
     antSizeRef.current = antennaSize;
     blinkSpeedRef.current = blinkSpeed;
     transRef.current = transition;
+    jellyRef.current = jelly;
+    babiesRef.current = babies;
+    babyCountRef.current = babyCount;
+    babyGapRef.current = babyGap;
+    babySpreadRef.current = babySpread;
+    babySizeRef.current = babySize;
   }, [
     size,
     hue,
     finHue,
     antennaHue,
     finSize,
+    finFlap,
     antennaSize,
     blinkSpeed,
     transition,
+    jelly,
+    babies,
+    babyCount,
+    babyGap,
+    babySpread,
+    babySize,
   ]);
 
   useEffect(() => {
@@ -59,6 +88,20 @@ export function FishCursor({
 
     const screen = svg.querySelector<SVGGElement>("#screen");
     if (!screen) return;
+
+    // Baby fish — trail behind the parent (rendered behind the body chain).
+    const babyGroup = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "g"
+    ) as SVGGElement;
+    screen.prepend(babyGroup);
+    const babyRig = setupBabies(babyGroup, "FishBabyRig", {
+      on: babiesRef,
+      count: babyCountRef,
+      gap: babyGapRef,
+      spread: babySpreadRef,
+      size: babySizeRef,
+    });
 
     // Body gradients animated through a shimmering aqua band.
     const bodyGradients = Array.from(
@@ -80,8 +123,8 @@ export function FishCursor({
     const xmlns = "http://www.w3.org/2000/svg";
     const xlinkns = "http://www.w3.org/1999/xlink";
 
-    // 🫧 Rising bubble particles
-    const BUBBLE_COUNT = 60;
+    // 🫧 Rising bubble particles (shared by the mother + babies)
+    const BUBBLE_COUNT = 140;
     type Bubble = {
       use: SVGUseElement;
       x: number;
@@ -90,6 +133,7 @@ export function FishCursor({
       vy: number;
       life: number;
       maxLife: number;
+      sizeF: number; // render size factor (1 = mother, <1 = baby)
     };
     const bubbles: Bubble[] = [];
 
@@ -115,6 +159,7 @@ export function FishCursor({
     let prevHeading = 0;
     let turnSmoothed = 0;
     let antPhase = 0;
+    let finFlapPhase = 0;
     // Blink state: frames until the next blink, and the current blink's
     // remaining frames / total duration (longer = a slow blink).
     let blinkWait = 60 + Math.random() * 120;
@@ -168,20 +213,30 @@ export function FishCursor({
         vy: 0,
         life: 0,
         maxLife: 1,
+        sizeF: 1,
       });
     }
 
     const run = () => {
       rafId = requestAnimationFrame(run);
 
-      // Shimmering aqua body — cycle hue gently within a teal/cyan band.
+      // Jelly: render the whole fish crystal-clear (translucent), pale aqua.
+      const jel = jellyRef.current;
+      screen.setAttribute("opacity", jel ? "0.4" : "1");
+
+      // Shimmering aqua body — cycle hue gently within a teal/cyan band. In
+      // jelly mode use a pale, low-saturation aqua so it reads as clear water.
       if (bodyGradients.length) {
         const base = hueRef.current ?? 175; // Auto centres on aqua (175)
+        const jh = hueRef.current ?? 195;
         bodyGradients.forEach((gradient) => {
           const stops = Array.from(gradient.querySelectorAll("stop"));
           stops.forEach((stop, stopIndex) => {
-            const h = base + 30 * Math.sin(frm * 6 + stopIndex * 1.2);
-            const color = `hsl(${h}, 72%, ${56 - stopIndex * 6}%)`;
+            const color = jel
+              ? `hsl(${jh}, 52%, ${86 - stopIndex * 7}%)`
+              : `hsl(${base + 30 * Math.sin(frm * 6 + stopIndex * 1.2)}, 72%, ${
+                  56 - stopIndex * 6
+                }%)`;
             stop.setAttribute("stop-color", color);
             stop.style.setProperty("stop-color", color);
           });
@@ -196,18 +251,27 @@ export function FishCursor({
         const stops = grad?.querySelectorAll<SVGStopElement>("stop");
         if (!stops) return;
         if (stops[0]) {
-          const c = `hsl(${h}, 85%, 68%)`;
+          const c = jel ? `hsl(${h}, 50%, 88%)` : `hsl(${h}, 85%, 68%)`;
           stops[0].setAttribute("stop-color", c);
           stops[0].style.setProperty("stop-color", c);
         }
         if (stops[1]) {
-          const c = `hsl(${h}, 88%, 40%)`;
+          const c = jel ? `hsl(${h}, 55%, 72%)` : `hsl(${h}, 88%, 40%)`;
           stops[1].setAttribute("stop-color", c);
           stops[1].style.setProperty("stop-color", c);
         }
       };
-      setAccent(finGrad, finHueRef.current ?? 190);
-      setAccent(antGrad, antHueRef.current ?? 190);
+      setAccent(finGrad, jel ? (finHueRef.current ?? 195) : (finHueRef.current ?? 190));
+      setAccent(antGrad, jel ? (antHueRef.current ?? 195) : (antHueRef.current ?? 190));
+
+      // Place the babies (trailing the tail) and capture their spots so they
+      // can blow their own bubbles below.
+      const headScale = 3.24 * sizeRef.current;
+      const activeBabies = babyRig.update(
+        elems[N - 1].x,
+        elems[N - 1].y,
+        headScale
+      );
 
       // 🫧 Bubbles — emitted near the head, drifting upward as they fade.
       if (bubbles.length && elems[0] && elems[1]) {
@@ -230,6 +294,23 @@ export function FishCursor({
             spawn.vy = -(0.6 + Math.random() * 0.6); // buoyant rise
             spawn.maxLife = 90 + Math.random() * 40;
             spawn.life = spawn.maxLife;
+            spawn.sizeF = 1;
+          }
+
+          // Baby fish blow their own (smaller) bubbles from their mouths.
+          for (const baby of activeBabies) {
+            const spawnB = bubbles.find((p) => p.life <= 0);
+            if (!spawnB) break;
+            const fwd = baby.h + Math.PI; // mouth faces forward (−x ⇒ +π)
+            const rel = Math.min(1, baby.s / headScale);
+            spawnB.x =
+              baby.x + Math.cos(fwd) * 12 * rel + (Math.random() - 0.5) * 5 * rel;
+            spawnB.y = baby.y + Math.sin(fwd) * 12 * rel;
+            spawnB.vx = (Math.random() - 0.5) * 0.3;
+            spawnB.vy = -(0.5 + Math.random() * 0.5);
+            spawnB.maxLife = 80 + Math.random() * 40;
+            spawnB.life = spawnB.maxLife;
+            spawnB.sizeF = rel;
           }
         }
 
@@ -242,7 +323,7 @@ export function FishCursor({
           p.vy *= 0.992;
 
           const alpha = Math.max(0, p.life / p.maxLife);
-          const scale = 0.4 + (1 - alpha) * 0.9; // grow slightly as they rise
+          const scale = (0.4 + (1 - alpha) * 0.9) * p.sizeF; // grow as they rise
           p.use.setAttribute(
             "transform",
             `translate(${p.x},${p.y}) scale(${scale})`
@@ -296,10 +377,23 @@ export function FishCursor({
         turnSmoothed = turnSmoothed * 0.88 + Math.abs(dh) * 0.12;
       }
 
-      // Fins — sized to the setting, held static (no flapping).
+      // Fins — sized to the setting, with a turn-reactive flap (the fins sweep
+      // vertically; the flap is gentle at rest and quickens/deepens while
+      // turning). finFlap = 0 keeps them static.
       if (finsGroup) {
         const fs = 1.75 * finSizeRef.current;
-        finsGroup.setAttribute("transform", `scale(${fs.toFixed(3)})`);
+        const flap = finFlapRef.current;
+        if (flap > 0) {
+          finFlapPhase += 0.25 + Math.min(0.9, turnSmoothed * 9);
+          const amp = flap * (0.16 + Math.min(0.5, turnSmoothed * 5));
+          const sy = fs * (1 + amp * Math.sin(finFlapPhase));
+          finsGroup.setAttribute(
+            "transform",
+            `scale(${fs.toFixed(3)} ${sy.toFixed(3)})`
+          );
+        } else {
+          finsGroup.setAttribute("transform", `scale(${fs.toFixed(3)})`);
+        }
       }
 
       // 🪡 Antennae flick — very active, and livelier still while turning. Each
@@ -453,6 +547,16 @@ export function FishCursor({
           {/* Forked caudal (tail) fin pointing backward (+x). */}
           <g id="FishTail" fill="url(#FishFinGrad)">
             <path d="M0 0 L15 -11 L9 0 L15 11 Z" />
+          </g>
+
+          {/* Baby-fish rig — a compact fish (head + body + forked tail) facing
+              -x. Built from the same symbols, so its antennae flick and eye
+              blink mirror the parent's live animation. */}
+          <g id="FishBabyRig">
+            <use href="#FishTail" transform="translate(17 0)" />
+            <use href="#FishBody" transform="translate(9 0)" />
+            <use href="#FishBody" transform="translate(3 0)" />
+            <use href="#FishHead" />
           </g>
 
           {/* Bubble prototype. */}
