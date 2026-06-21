@@ -81,13 +81,13 @@ const QUOTES: { text: string; author: string | null }[] = [
   { text: "When in doubt, ship a smaller thing.", author: null },
 ];
 
-// "Useful code of the day" — a rotating dev nugget that spans four flavours:
-// a copyable snippet, a coding tip, an editor/CLI shortcut, and a code challenge.
+// "Useful code of the day" — a rotating dev nugget that spans three flavours:
+// a copyable snippet, a coding tip, and an editor/CLI shortcut. (Code challenges
+// live in their own always-visible section below.)
 type Nugget =
   | { kind: "snippet"; lang: string; code: string; note: string }
   | { kind: "tip"; note: string }
-  | { kind: "shortcut"; keys: string; note: string }
-  | { kind: "challenge"; level: string; note: string };
+  | { kind: "shortcut"; keys: string; note: string };
 
 const NUGGETS: Nugget[] = [
   // ---- snippets ----
@@ -265,64 +265,38 @@ const NUGGETS: Nugget[] = [
     keys: "sudo !!",
     note: "Re-run your last command with sudo — !! repeats it.",
   },
-  // ---- challenges ----
-  {
-    kind: "challenge",
-    level: "Easy",
-    note: "Reverse a string without using .reverse().",
-  },
-  {
-    kind: "challenge",
-    level: "Easy",
-    note: "Write FizzBuzz for 1–100 in five lines or fewer.",
-  },
-  {
-    kind: "challenge",
-    level: "Easy",
-    note: "Check whether two strings are anagrams of each other.",
-  },
-  {
-    kind: "challenge",
-    level: "Easy",
-    note: "Group an array of objects by one of their keys — no libraries.",
-  },
-  {
-    kind: "challenge",
-    level: "Medium",
-    note: "Find the first non-repeating character in a string.",
-  },
-  {
-    kind: "challenge",
-    level: "Medium",
-    note: "Flatten a deeply nested array without Array.prototype.flat.",
-  },
-  {
-    kind: "challenge",
-    level: "Medium",
-    note: "Write a debounce(fn, ms) helper in under ten lines.",
-  },
-  {
-    kind: "challenge",
-    level: "Medium",
-    note: "Given an array and a target, return the two indices that sum to it.",
-  },
-  {
-    kind: "challenge",
-    level: "Medium",
-    note: "Decide if a string of (), [], {} brackets is balanced.",
-  },
-  {
-    kind: "challenge",
-    level: "Hard",
-    note: "Convert an integer (1–3999) to its Roman numeral.",
-  },
+];
+
+// Daily code challenges — surfaced in their own always-visible section so they
+// don't get buried in the rotating nugget pool.
+type Challenge = { level: "Easy" | "Medium" | "Hard"; prompt: string };
+
+const CHALLENGES: Challenge[] = [
+  { level: "Easy", prompt: "Reverse a string without using .reverse()." },
+  { level: "Easy", prompt: "Write FizzBuzz for 1–100 in five lines or fewer." },
+  { level: "Easy", prompt: "Check whether two strings are anagrams of each other." },
+  { level: "Easy", prompt: "Group an array of objects by one of their keys — no libraries." },
+  { level: "Easy", prompt: "Sum every number in a deeply nested array." },
+  { level: "Medium", prompt: "Find the first non-repeating character in a string." },
+  { level: "Medium", prompt: "Flatten a deeply nested array without Array.prototype.flat." },
+  { level: "Medium", prompt: "Write a debounce(fn, ms) helper in under ten lines." },
+  { level: "Medium", prompt: "Given an array and a target, return the two indices that sum to it." },
+  { level: "Medium", prompt: "Decide if a string of (), [], {} brackets is balanced." },
+  { level: "Medium", prompt: "Memoize a single-argument pure function." },
+  { level: "Hard", prompt: "Convert an integer (1–3999) to its Roman numeral." },
+  { level: "Hard", prompt: "Implement a tiny LRU cache with O(1) get and set." },
 ];
 
 const KIND_BADGE: Record<Nugget["kind"], { label: string; cls: string }> = {
   snippet: { label: "Snippet", cls: "border-emerald-500/40 text-emerald-300" },
   tip: { label: "Tip", cls: "border-sky-500/40 text-sky-300" },
   shortcut: { label: "Shortcut", cls: "border-violet-500/40 text-violet-300" },
-  challenge: { label: "Challenge", cls: "border-amber-500/40 text-amber-300" },
+};
+
+const LEVEL_BADGE: Record<Challenge["level"], string> = {
+  Easy: "border-emerald-500/40 text-emerald-300",
+  Medium: "border-amber-500/40 text-amber-300",
+  Hard: "border-rose-500/40 text-rose-300",
 };
 
 function dayOfYear(): number {
@@ -337,11 +311,13 @@ export function QuoteBox() {
   const [idx, setIdx] = useState(0);
   const [fading, setFading] = useState(false);
   const [nug, setNug] = useState(0);
+  const [chal, setChal] = useState(0);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setIdx(Math.floor(Math.random() * QUOTES.length));
     setNug(dayOfYear() % NUGGETS.length);
+    setChal(dayOfYear() % CHALLENGES.length);
   }, []);
 
   const next = useCallback(() => {
@@ -357,9 +333,15 @@ export function QuoteBox() {
     setNug((n) => (n + 1) % NUGGETS.length);
   }, []);
 
+  const nextChallenge = useCallback(
+    () => setChal((c) => (c + 1) % CHALLENGES.length),
+    []
+  );
+
   const quote = QUOTES[idx];
   const nugget = NUGGETS[nug];
   const badge = KIND_BADGE[nugget.kind];
+  const challenge = CHALLENGES[chal];
 
   const copy = useCallback(() => {
     if (nugget.kind !== "snippet") return;
@@ -443,20 +425,41 @@ export function QuoteBox() {
             </kbd>
             <p className="mt-2 text-[13px] text-slate-400">{nugget.note}</p>
           </>
-        ) : nugget.kind === "challenge" ? (
-          <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 px-3 py-2.5">
-            <p className="text-[14px] leading-relaxed text-slate-200">
-              {nugget.note}
-            </p>
-            <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wide text-amber-300/80">
-              {nugget.level} · try it in a scratch file
-            </p>
-          </div>
         ) : (
           <p className="text-[14px] leading-relaxed text-slate-300">
             {nugget.note}
           </p>
         )}
+      </div>
+
+      {/* Daily challenge — always visible, its own dedicated block */}
+      <div className="mt-6 rounded-xl border border-amber-500/25 bg-amber-950/10 p-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/90">
+              🧩 Daily challenge
+            </span>
+            <span
+              className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${LEVEL_BADGE[challenge.level]}`}
+            >
+              {challenge.level}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={nextChallenge}
+            aria-label="Show another challenge"
+            className="text-[12px] text-amber-200/70 transition hover:text-amber-100"
+          >
+            New ↺
+          </button>
+        </div>
+        <p className="text-[14px] leading-relaxed text-slate-100">
+          {challenge.prompt}
+        </p>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Spin up a scratch file and give it a go before your next break.
+        </p>
       </div>
     </section>
   );
