@@ -25,6 +25,8 @@ export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
   const [chal, setChal] = useState(0);
   const [fading, setFading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showSolution, setShowSolution] = useState(false);
+  const [solCopied, setSolCopied] = useState(false);
 
   useEffect(() => {
     setIdx(Math.floor(Math.random() * quotes.length));
@@ -52,7 +54,22 @@ export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
     setNug((n) => (n + 1) % nuggets.length);
   };
 
-  const nextChallenge = () => setChal((c) => (c + 1) % challenges.length);
+  const nextChallenge = () => {
+    setShowSolution(false);
+    setSolCopied(false);
+    setChal((c) => (c + 1) % challenges.length);
+  };
+
+  const copySolution = () => {
+    if (!challenge.solution) return;
+    navigator.clipboard?.writeText(challenge.solution).then(
+      () => {
+        setSolCopied(true);
+        setTimeout(() => setSolCopied(false), 1500);
+      },
+      () => {}
+    );
+  };
 
   const copy = () => {
     if (nugget.kind !== "snippet") return;
@@ -168,9 +185,42 @@ export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
         <p className="text-[14px] leading-relaxed text-slate-100">
           {challenge.prompt}
         </p>
-        <p className="mt-2 text-[11px] text-slate-500">
-          Spin up a scratch file and give it a go before your next break.
-        </p>
+
+        {challenge.solution ? (
+          <>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-[11px] text-slate-500">
+                Try it in a scratch file first.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowSolution((v) => !v)}
+                aria-expanded={showSolution}
+                className="shrink-0 text-[12px] font-medium text-amber-200/80 transition hover:text-amber-100"
+              >
+                {showSolution ? "Hide solution ▴" : "Show solution ▾"}
+              </button>
+            </div>
+            {showSolution && (
+              <div className="group relative mt-2">
+                <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2.5 text-[13px] leading-relaxed text-amber-100">
+                  <code>{challenge.solution}</code>
+                </pre>
+                <button
+                  type="button"
+                  onClick={copySolution}
+                  className="absolute right-1.5 top-1.5 rounded-md border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[11px] text-slate-300 opacity-0 transition hover:border-slate-500 hover:text-slate-100 focus:opacity-100 group-hover:opacity-100"
+                >
+                  {solCopied ? "Copied" : "Copy"}
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="mt-2 text-[11px] text-slate-500">
+            Spin up a scratch file and give it a go before your next break.
+          </p>
+        )}
       </div>
     </section>
   );

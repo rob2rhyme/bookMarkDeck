@@ -17,10 +17,19 @@ describe("focus content validators", () => {
     expect(isQuote(null)).toBe(false);
   });
 
-  it("isChallenge enforces the level enum", () => {
+  it("isChallenge enforces the level enum + optional solution", () => {
     expect(isChallenge({ level: "Easy", prompt: "p" })).toBe(true);
+    expect(isChallenge({ level: "Easy", prompt: "p", solution: "code" })).toBe(true);
+    expect(isChallenge({ level: "Easy", prompt: "p", solution: 5 })).toBe(false);
     expect(isChallenge({ level: "Insane", prompt: "p" })).toBe(false);
     expect(isChallenge({ level: "Hard", prompt: "" })).toBe(false);
+  });
+
+  it("every built-in challenge ships a non-empty solution", () => {
+    for (const c of DEFAULT_CHALLENGES) {
+      expect(typeof c.solution).toBe("string");
+      expect((c.solution ?? "").trim().length).toBeGreaterThan(0);
+    }
   });
 });
 
