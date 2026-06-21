@@ -27,6 +27,9 @@ export function FishCursor() {
       svg.querySelectorAll<SVGLinearGradientElement>(".fish-body-grad")
     );
 
+    // Fin group — its vertical scale is animated each frame to flap.
+    const finsGroup = svg.querySelector<SVGGElement>("#FishFins");
+
     const xmlns = "http://www.w3.org/2000/svg";
     const xlinkns = "http://www.w3.org/1999/xlink";
 
@@ -60,6 +63,12 @@ export function FishCursor() {
     let radm = radmForPointer();
     let frm = Math.random();
     let rad = 0;
+
+    // Fin-flap state: a steady beat whose cadence + depth rise with how hard
+    // the fish is turning.
+    let prevHeading = 0;
+    let flapPhase = 0;
+    let turnSmoothed = 0;
 
     const resize = () => {
       width = window.innerWidth;
@@ -193,6 +202,29 @@ export function FishCursor() {
           `translate(${(ep.x + e.x) / 2},${(ep.y + e.y) / 2}) rotate(${
             (180 / Math.PI) * a
           }) translate(0,0) scale(${s},${s})`
+        );
+      }
+
+      // 🪽 Fins flap — a steady beat that quickens + deepens as the fish turns.
+      if (finsGroup && elems[0] && elems[1]) {
+        const heading = Math.atan2(
+          elems[1].y - elems[0].y,
+          elems[1].x - elems[0].x
+        );
+        let dh = heading - prevHeading;
+        if (dh > Math.PI) dh -= 2 * Math.PI;
+        else if (dh < -Math.PI) dh += 2 * Math.PI;
+        prevHeading = heading;
+        // Smoothed magnitude of turning (radians/frame).
+        turnSmoothed = turnSmoothed * 0.88 + Math.abs(dh) * 0.12;
+
+        // Base cadence + extra while turning; amplitude (fold depth) likewise.
+        flapPhase += 0.22 + Math.min(2.0, turnSmoothed * 14);
+        const amp = 0.34 + Math.min(0.42, turnSmoothed * 5);
+        const flapY = 1 - amp * Math.abs(Math.sin(flapPhase));
+        finsGroup.setAttribute(
+          "transform",
+          `scale(1.75, ${(1.75 * flapY).toFixed(3)})`
         );
       }
 
