@@ -257,10 +257,11 @@ export function FishCursor() {
             <ellipse cx="0" cy="0" rx="7" ry="5.5" fill="url(#FishBodyGrad)" />
           </g>
 
-          {/* Dorsal + ventral fins, sweeping backward (+x). */}
-          <g id="FishFins" fill="url(#FishFinGrad)">
-            <path d="M0 -3 L9 -13 L3 -3 Z" />
-            <path d="M0 3 L9 13 L3 3 Z" />
+          {/* Dorsal + ventral fins, sweeping backward (+x). Large + spiky
+              (notched back edge) for a tougher silhouette; scaled up 75%. */}
+          <g id="FishFins" fill="url(#FishFinGrad)" transform="scale(1.75)">
+            <path d="M-2 -3 L16 -23 L10 -13 L13 -8 L6 -4 Z" />
+            <path d="M-2 3 L16 23 L10 13 L13 8 L6 4 Z" />
           </g>
 
           {/* Forked caudal (tail) fin pointing backward (+x). */}
