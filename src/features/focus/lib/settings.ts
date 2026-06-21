@@ -3,12 +3,6 @@
 
 import { isSoundId, type SoundId } from "@/features/focus/lib/sound";
 
-export type CursorStyle = "dragon" | "fish" | "off";
-
-export function isCursorStyle(v: unknown): v is CursorStyle {
-  return v === "dragon" || v === "fish" || v === "off";
-}
-
 export type FocusSettings = {
   // Timer durations (minutes)
   focus: number;
@@ -28,8 +22,6 @@ export type FocusSettings = {
   dailyGoalHours: number;
   // Mirror to-dos to Google Tasks (+ Calendar events for timed ones)
   todoGoogleSync: boolean;
-  // Decorative cursor overlay (synced across devices)
-  cursorStyle: CursorStyle;
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
@@ -46,7 +38,6 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   waterGoal: 8,
   dailyGoalHours: 4,
   todoGoogleSync: false,
-  cursorStyle: "dragon",
 };
 
 /** Coerce arbitrary stored/remote data into a valid, clamped settings object. */
@@ -72,8 +63,5 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     waterGoal: num(r.waterGoal, DEFAULT_SETTINGS.waterGoal, 1, 20),
     dailyGoalHours: num(r.dailyGoalHours, DEFAULT_SETTINGS.dailyGoalHours, 1, 16),
     todoGoogleSync: bool(r.todoGoogleSync, DEFAULT_SETTINGS.todoGoogleSync),
-    cursorStyle: isCursorStyle(r.cursorStyle)
-      ? r.cursorStyle
-      : DEFAULT_SETTINGS.cursorStyle,
   };
 }

@@ -3,8 +3,24 @@
 
 import { useEffect, useRef } from "react";
 
-export function DragonCursor() {
+import type { CursorProps } from "@/lib/cursorSettings";
+
+export function DragonCursor({
+  size = 1,
+  hue = null,
+  transition = 0.5,
+}: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  // Live settings, read inside the animation loop (so changes apply without
+  // tearing down the RAF).
+  const sizeRef = useRef(size);
+  const hueRef = useRef(hue);
+  const transRef = useRef(transition);
+  useEffect(() => {
+    sizeRef.current = size;
+    hueRef.current = hue;
+    transRef.current = transition;
+  }, [size, hue, transition]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -156,19 +172,20 @@ export function DragonCursor() {
       // compute hues per stop index, then apply to each gradient's
       // corresponding stop.
       if (bodyGradients.length) {
-        const baseHue = frm * 180; // same pace / pattern as before
-
+        const locked = hueRef.current;
         bodyGradients.forEach((gradient) => {
           const stops = Array.from(gradient.querySelectorAll("stop"));
 
           stops.forEach((stop, stopIndex) => {
-            // Same hue for the same stop index across all gradients
-            const hue = (baseHue + stopIndex * 90) % 360;
-            const saturation = 80;
-            const lightness = 55;
-            const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-
-            // Override both attribute- and style-based colors
+            // Auto (null): the original animated rainbow. Locked: a living
+            // shimmer around the chosen hue.
+            const h =
+              locked == null
+                ? (frm * 180 + stopIndex * 90) % 360
+                : (locked + stopIndex * 22 + 12 * Math.sin(frm * 6 + stopIndex) +
+                    360) %
+                  360;
+            const color = `hsl(${h}, 80%, 55%)`;
             stop.setAttribute("stop-color", color);
             stop.style.setProperty("stop-color", color);
           });
@@ -237,18 +254,24 @@ export function DragonCursor() {
       const ax = (Math.cos(3 * frm) * rad * width) / height;
       const ay = (Math.sin(4 * frm) * rad * height) / width;
 
-      e0.x += (ax + pointer.x - e0.x) / 10;
-      e0.y += (ay + pointer.y - e0.y) / 10;
+      // Transition: snappier (smaller divisor) ↔ smoother (larger). 0.5 = the
+      // original feel (10 / 4).
+      const headDiv = 15 - transRef.current * 10; // 5 (snappy) … 15 (smooth)
+      const segDiv = 5.75 - transRef.current * 3.5; // 2.25 … 5.75
+      const sizeMul = sizeRef.current;
+
+      e0.x += (ax + pointer.x - e0.x) / headDiv;
+      e0.y += (ay + pointer.y - e0.y) / headDiv;
 
       for (let i = 1; i < N; i++) {
         const e = elems[i];
         const ep = elems[i - 1];
         const a = Math.atan2(e.y - ep.y, e.x - ep.x);
 
-        e.x += (ep.x - e.x + (Math.cos(a) * (100 - i)) / 5) / 4;
-        e.y += (ep.y - e.y + (Math.sin(a) * (100 - i)) / 5) / 4;
+        e.x += (ep.x - e.x + (Math.cos(a) * (100 - i)) / 5) / segDiv;
+        e.y += (ep.y - e.y + (Math.sin(a) * (100 - i)) / 5) / segDiv;
 
-        const s = (162 + 4 * (1 - i)) / 50;
+        const s = ((162 + 4 * (1 - i)) / 50) * sizeMul;
 
         e.use?.setAttributeNS(
           null,

@@ -8,8 +8,22 @@
 
 import { useEffect, useRef } from "react";
 
-export function FishCursor() {
+import type { CursorProps } from "@/lib/cursorSettings";
+
+export function FishCursor({
+  size = 1,
+  hue = null,
+  transition = 0.5,
+}: CursorProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const sizeRef = useRef(size);
+  const hueRef = useRef(hue);
+  const transRef = useRef(transition);
+  useEffect(() => {
+    sizeRef.current = size;
+    hueRef.current = hue;
+    transRef.current = transition;
+  }, [size, hue, transition]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -125,11 +139,12 @@ export function FishCursor() {
 
       // Shimmering aqua body — cycle hue gently within a teal/cyan band.
       if (bodyGradients.length) {
+        const base = hueRef.current ?? 175; // Auto centres on aqua (175)
         bodyGradients.forEach((gradient) => {
           const stops = Array.from(gradient.querySelectorAll("stop"));
           stops.forEach((stop, stopIndex) => {
-            const hue = 175 + 30 * Math.sin(frm * 6 + stopIndex * 1.2); // ~145–205
-            const color = `hsl(${hue}, 72%, ${56 - stopIndex * 6}%)`;
+            const h = base + 30 * Math.sin(frm * 6 + stopIndex * 1.2);
+            const color = `hsl(${h}, 72%, ${56 - stopIndex * 6}%)`;
             stop.setAttribute("stop-color", color);
             stop.style.setProperty("stop-color", color);
           });
@@ -183,18 +198,23 @@ export function FishCursor() {
       const ax = (Math.cos(3 * frm) * rad * width) / height;
       const ay = (Math.sin(4 * frm) * rad * height) / width;
 
-      e0.x += (ax + pointer.x - e0.x) / 10;
-      e0.y += (ay + pointer.y - e0.y) / 10;
+      // Transition: snappier ↔ smoother. 0.5 = the original feel (10 / 4).
+      const headDiv = 15 - transRef.current * 10;
+      const segDiv = 5.75 - transRef.current * 3.5;
+      const sizeMul = sizeRef.current;
+
+      e0.x += (ax + pointer.x - e0.x) / headDiv;
+      e0.y += (ay + pointer.y - e0.y) / headDiv;
 
       for (let i = 1; i < N; i++) {
         const e = elems[i];
         const ep = elems[i - 1];
         const a = Math.atan2(e.y - ep.y, e.x - ep.x);
 
-        e.x += (ep.x - e.x + (Math.cos(a) * (100 - i)) / 5) / 4;
-        e.y += (ep.y - e.y + (Math.sin(a) * (100 - i)) / 5) / 4;
+        e.x += (ep.x - e.x + (Math.cos(a) * (100 - i)) / 5) / segDiv;
+        e.y += (ep.y - e.y + (Math.sin(a) * (100 - i)) / 5) / segDiv;
 
-        const s = (162 + 4 * (1 - i)) / 50;
+        const s = ((162 + 4 * (1 - i)) / 50) * sizeMul;
 
         e.use?.setAttributeNS(
           null,
