@@ -13,6 +13,11 @@ import {
   requestNotificationPermission,
 } from "@/features/focus/lib/notify";
 import { cancelPush, schedulePush } from "@/features/focus/lib/push";
+import {
+  cancelNativeTimerAlert,
+  ensureNativeNotifPermission,
+  scheduleNativeTimerAlert,
+} from "@/features/focus/lib/nativeNotify";
 import type { FocusSettings } from "@/features/focus/lib/settings";
 
 export type FocusMode = "focus" | "short" | "long";
@@ -95,6 +100,8 @@ export function useFocusTimer({
       cancelPush(pushIdRef.current);
       pushIdRef.current = null;
     }
+    // Cancel the native (Capacitor) time-sensitive alert too; no-op on the web.
+    cancelNativeTimerAlert();
   };
 
   useEffect(() => {
@@ -219,11 +226,17 @@ export function useFocusTimer({
       stopPush();
       const gen = pushGenRef.current;
       const m = modeRef.current;
+      const alertTitle =
+        m === "focus" ? "Focus session complete" : "Break over";
+      const alertBody =
+        m === "focus" ? "Nice work — time for a break." : "Back to focus.";
+      // Native time-sensitive local notification (breaks through Focus/DND on
+      // the iOS app); no-op on the plain web/PWA, where the push below covers it.
+      scheduleNativeTimerAlert(endTimeRef.current, alertTitle, alertBody);
       schedulePush({
         endTime: endTimeRef.current,
-        title: m === "focus" ? "Focus session complete" : "Break over",
-        body:
-          m === "focus" ? "Nice work — time for a break." : "Back to focus.",
+        title: alertTitle,
+        body: alertBody,
       }).then((id) => {
         if (pushGenRef.current === gen) {
           pushIdRef.current = id;
@@ -254,6 +267,7 @@ export function useFocusTimer({
   const start = useCallback(() => {
     initAudio(); // unlock audio from this user gesture
     requestNotificationPermission();
+    ensureNativeNotifPermission(); // native iOS app; no-op on the web
     startWithRef.current(secondsLeftRef.current);
   }, []);
 
