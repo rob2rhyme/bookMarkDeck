@@ -7,6 +7,13 @@ import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { Timer } from "@/components/icons";
+import { FocusCorrelationCard } from "@/features/habits/components/FocusCorrelationCard";
+import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
+import {
+  clearHabitFocusLink,
+  peekHabitFocusLink,
+  setHabitFocusLink,
+} from "@/features/habits/lib/focusLink";
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import { AiCreateModal } from "@/features/habits/components/AiCreateModal";
@@ -46,6 +53,21 @@ export function HabitsDashboard() {
 
   const h = useHabits(email, connected, onLog);
   const reminders = useHabitReminders(email, h.habits, h.statsByHabit, h.today);
+  const sessions = useFocusSessions(email, connected);
+
+  // Auto-check a habit when a focus session it launched completes today.
+  useEffect(() => {
+    if (!h.today || sessions.length === 0) return;
+    const link = peekHabitFocusLink();
+    if (!link || link.day !== h.today) return;
+    const completed = sessions.some(
+      (s) => s.day === h.today && (s.createdAt ?? "") >= link.at
+    );
+    if (!completed) return;
+    const habit = h.allHabits.find((x) => x.id === link.habitId);
+    clearHabitFocusLink(); // clear first so this can't loop
+    if (habit && !h.statsByHabit.get(habit.id)?.doneToday) h.toggleToday(habit);
+  }, [sessions, h.today, h.allHabits, h.statsByHabit, h.toggleToday]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
@@ -92,6 +114,7 @@ export function HabitsDashboard() {
 
   const launchFocus = (habit: Habit) => {
     setFocusTaskIntent(habit.name);
+    setHabitFocusLink(habit.id); // so completing the block auto-checks the habit
     router.push("/focus");
   };
 
@@ -389,6 +412,14 @@ export function HabitsDashboard() {
             today={h.today}
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
+          />
+
+          {/* The moat: how habits line up with focus output */}
+          <FocusCorrelationCard
+            habits={h.allHabits}
+            entries={h.entries}
+            sessions={sessions}
+            today={h.today}
           />
         </>
       )}
