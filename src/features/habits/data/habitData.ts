@@ -107,6 +107,8 @@ export async function saveEntry(
       day: entry.day,
       status: entry.status,
       count: entry.count,
+      note: entry.note ?? "",
+      at: entry.at ?? null,
       createdAt: entry.createdAt ?? serverTimestamp(),
       updatedAt: serverTimestamp(),
     },

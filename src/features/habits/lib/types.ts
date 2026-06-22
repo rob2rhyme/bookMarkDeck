@@ -38,6 +38,8 @@ export type HabitEntry = {
   day: string; // local YYYY-MM-DD
   status: EntryStatus;
   count: number; // measurable value; binary stores the target (≥1)
+  note?: string; // optional short note for the day
+  at?: string | null; // optional clock time "HH:MM" the habit was done
   createdAt: string | null;
 };
 

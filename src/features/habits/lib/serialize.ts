@@ -67,12 +67,16 @@ export function coerceEntry(id: string, raw: unknown): HabitEntry | null {
   const day = str(r.day).trim();
   if (!habitId || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
   const status: EntryStatus = r.status === "skipped" ? "skipped" : "done";
+  const note = typeof r.note === "string" ? r.note.slice(0, 280) : undefined;
+  const at = typeof r.at === "string" && /^\d{1,2}:\d{2}$/.test(r.at) ? r.at : undefined;
   return {
     id,
     habitId,
     day,
     status,
     count: Math.max(0, num(r.count, status === "done" ? 1 : 0)),
+    ...(note ? { note } : {}),
+    ...(at ? { at } : {}),
     createdAt: typeof r.createdAt === "string" ? r.createdAt : null,
   };
 }

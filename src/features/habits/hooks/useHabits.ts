@@ -243,6 +243,48 @@ export function useHabits(
     [today, removeEntry]
   );
 
+  /** Full "log today" editor: set status/count + optional note & clock time. */
+  const logDetail = useCallback(
+    (
+      habit: Habit,
+      detail: {
+        status: "done" | "skipped" | "clear";
+        count?: number;
+        note?: string;
+        at?: string | null;
+      }
+    ) => {
+      if (!today) return;
+      if (detail.status === "clear") {
+        removeEntry(entryId(habit.id, today));
+        return;
+      }
+      const target = habitTarget(habit);
+      const prev = todayEntry(habit.id);
+      const wasDone = prev?.status === "done" && prev.count >= target;
+      const count =
+        detail.status === "skipped"
+          ? 0
+          : Math.max(1, Math.round(detail.count ?? prev?.count ?? target));
+      const note = detail.note?.trim();
+      upsertEntry({
+        id: entryId(habit.id, today),
+        habitId: habit.id,
+        day: today,
+        status: detail.status,
+        count,
+        ...(note ? { note } : {}),
+        ...(detail.at ? { at: detail.at } : {}),
+        createdAt: prev?.createdAt ?? new Date().toISOString(),
+      });
+      if (detail.status === "done" && !wasDone)
+        onLog?.("habit_done", `Completed habit: ${habit.name}`);
+      if (detail.status === "skipped" && prev?.status !== "skipped")
+        onLog?.("habit_skipped", `Skipped habit: ${habit.name}`);
+    },
+    [today, todayEntry, upsertEntry, removeEntry, onLog]
+  );
+
   /* ----------------------------------------------------------- habits --- */
 
   const addHabit = useCallback(
@@ -353,6 +395,7 @@ export function useHabits(
     adjustToday,
     skipToday,
     clearToday,
+    logDetail,
     todayEntry,
     addHabit,
     updateHabit,

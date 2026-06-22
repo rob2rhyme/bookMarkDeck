@@ -6,13 +6,17 @@ import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { Timer } from "@/components/icons";
-import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
 import { HabitCard } from "@/features/habits/components/HabitCard";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
+import { InsightsPanel } from "@/features/habits/components/InsightsPanel";
+import {
+  type LogDetail,
+  LogDetailModal,
+} from "@/features/habits/components/LogDetailModal";
 import { hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
@@ -43,6 +47,7 @@ export function HabitsDashboard() {
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
 
   useEffect(() => {
     if (h.today) setSelectedDay((cur) => cur || h.today);
@@ -78,15 +83,6 @@ export function HabitsDashboard() {
   const dueCount = h.dueToday.length;
   const progress = dueCount === 0 ? 1 : h.doneTodayCount / dueCount;
 
-  // Habits completed on the selected calendar day (for the insight detail).
-  const selectedDoneNames = useMemo(() => {
-    if (!selectedDay) return [];
-    const ids = new Set(
-      h.entries.filter((e) => e.day === selectedDay && e.status === "done").map((e) => e.habitId)
-    );
-    return h.allHabits.filter((x) => ids.has(x.id)).map((x) => `${x.emoji} ${x.name}`);
-  }, [selectedDay, h.entries, h.allHabits]);
-
   const launchFocus = (habit: Habit) => {
     setFocusTaskIntent(habit.name);
     router.push("/focus");
@@ -106,6 +102,7 @@ export function HabitsDashboard() {
     onAdjust: h.adjustToday,
     onSkip: h.skipToday,
     onClear: h.clearToday,
+    onDetail: (habit: Habit) => setDetailHabit(habit),
   };
 
   const empty = h.hydrated && h.allHabits.length === 0;
@@ -216,6 +213,7 @@ export function HabitsDashboard() {
                     habit={habit}
                     stats={h.statsByHabit.get(habit.id)!}
                     skipped={false}
+                    entry={h.todayEntry(habit.id)}
                     {...cardHandlers}
                   />
                 ))}
@@ -231,6 +229,7 @@ export function HabitsDashboard() {
                           habit={habit}
                           stats={h.statsByHabit.get(habit.id)!}
                           skipped={isSkipped(habit.id)}
+                          entry={h.todayEntry(habit.id)}
                           {...cardHandlers}
                         />
                       ))}
@@ -327,29 +326,16 @@ export function HabitsDashboard() {
               ))}
           </section>
 
-          {/* Insights — heatmap of all completions */}
-          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-300">
-              Consistency
-            </h3>
-            <ContributionsCalendar
-              counts={h.dayCounts}
-              selected={selectedDay}
-              onSelect={setSelectedDay}
-            />
-            {selectedDay && (
-              <p className="mt-3 text-xs text-slate-400">
-                {selectedDoneNames.length === 0 ? (
-                  <span className="text-slate-500">No habits completed on this day.</span>
-                ) : (
-                  <>
-                    <span className="text-slate-300">{selectedDay}:</span>{" "}
-                    {selectedDoneNames.join(" · ")}
-                  </>
-                )}
-              </p>
-            )}
-          </section>
+          {/* Full analysis dashboard */}
+          <InsightsPanel
+            habits={h.habits}
+            statsByHabit={h.statsByHabit}
+            entries={h.entries}
+            dayCounts={h.dayCounts}
+            today={h.today}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+          />
         </>
       )}
 
@@ -372,6 +358,13 @@ export function HabitsDashboard() {
           habits.forEach((habit) => h.addHabit(habit));
         }}
         nextSortOrder={nextSortOrder}
+      />
+      <LogDetailModal
+        open={Boolean(detailHabit)}
+        onClose={() => setDetailHabit(null)}
+        habit={detailHabit}
+        entry={detailHabit ? h.todayEntry(detailHabit.id) : null}
+        onSave={(habit, detail: LogDetail) => h.logDetail(habit, detail)}
       />
     </div>
   );
