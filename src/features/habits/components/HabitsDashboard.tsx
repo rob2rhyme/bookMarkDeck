@@ -27,7 +27,7 @@ import {
   type LogDetail,
   LogDetailModal,
 } from "@/features/habits/components/LogDetailModal";
-import { hueColor, scheduleLabel } from "@/features/habits/lib/format";
+import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
@@ -341,7 +341,7 @@ export function HabitsDashboard() {
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-lg"
                       style={{ background: `${hueColor(habit.hue, "soft")}55` }}
                     >
-                      {habit.emoji}
+                      {habitEmoji(habit)}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-slate-100">{habit.name}</p>
@@ -382,7 +382,7 @@ export function HabitsDashboard() {
               h.archived.map((habit) => (
                 <div key={habit.id} className="flex items-center gap-3 border-t border-slate-800/60 py-2.5 opacity-70">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-lg">
-                    {habit.emoji}
+                    {habitEmoji(habit)}
                   </span>
                   <p className="min-w-0 flex-1 truncate text-sm text-slate-300">{habit.name}</p>
                   <button

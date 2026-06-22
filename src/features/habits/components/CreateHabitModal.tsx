@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
 import { WEEKDAY_LABELS } from "@/features/habits/lib/day";
-import { EMOJI_CHOICES, HUE_CHOICES, hueColor } from "@/features/habits/lib/format";
+import {
+  DEFAULT_HABIT_EMOJI,
+  EMOJI_CHOICES,
+  HUE_CHOICES,
+  hueColor,
+  suggestEmoji,
+} from "@/features/habits/lib/format";
 import type { Habit, HabitSchedule, HabitType } from "@/features/habits/lib/types";
 
 type CreateHabitModalProps = {
@@ -30,7 +36,9 @@ export function CreateHabitModal({
   nextSortOrder,
 }: CreateHabitModalProps) {
   const [name, setName] = useState("");
-  const [emoji, setEmoji] = useState("✅");
+  const [emoji, setEmoji] = useState(DEFAULT_HABIT_EMOJI);
+  // Once the user hand-picks an icon we stop auto-suggesting from the name.
+  const [emojiTouched, setEmojiTouched] = useState(false);
   const [hue, setHue] = useState(200);
   const [type, setType] = useState<HabitType>("binary");
   const [unit, setUnit] = useState("");
@@ -45,6 +53,7 @@ export function CreateHabitModal({
   // Reset the form whenever the modal (re)opens.
   useEffect(() => {
     if (!open) return;
+    setEmojiTouched(true); // editing or reopening: don't clobber existing choice
     if (initial) {
       setName(initial.name);
       setEmoji(initial.emoji);
@@ -60,7 +69,9 @@ export function CreateHabitModal({
       if (initial.schedule.type === "timesPerWeek") setPerWeek(initial.schedule.count);
     } else {
       setName("");
-      setEmoji("✅");
+      setEmoji(DEFAULT_HABIT_EMOJI);
+      setEmojiTouched(false); // fresh draft: let the name drive the icon
+
       setHue(200);
       setType("binary");
       setUnit("");
@@ -73,6 +84,16 @@ export function CreateHabitModal({
       setPerWeek(3);
     }
   }, [open, initial]);
+
+  const onNameChange = (value: string) => {
+    setName(value);
+    if (!emojiTouched) setEmoji(suggestEmoji(value) || DEFAULT_HABIT_EMOJI);
+  };
+
+  const pickEmoji = (e: string) => {
+    setEmoji(e);
+    setEmojiTouched(true);
+  };
 
   const toggleDay = (d: number) =>
     setDays((prev) =>
@@ -132,7 +153,7 @@ export function CreateHabitModal({
         type="text"
         value={name}
         autoFocus
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => onNameChange(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && save()}
         placeholder="e.g. Meditate"
         className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
@@ -160,7 +181,7 @@ export function CreateHabitModal({
           <button
             key={e}
             type="button"
-            onClick={() => setEmoji(e)}
+            onClick={() => pickEmoji(e)}
             aria-pressed={emoji === e}
             className={`flex h-8 w-8 items-center justify-center rounded-lg border text-lg transition ${
               emoji === e ? "border-blue-400 bg-blue-500/10" : "border-slate-800 hover:border-slate-600"

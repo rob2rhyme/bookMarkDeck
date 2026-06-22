@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
 import { correlateHabit, focusMinutesByDay } from "@/features/habits/lib/correlate";
+import { habitEmoji } from "@/features/habits/lib/format";
 import type { Habit, HabitEntry } from "@/features/habits/lib/types";
 
 type FocusCorrelationCardProps = {
@@ -57,7 +58,7 @@ export function FocusCorrelationCard({
             return (
               <li key={h.id} className="flex items-start gap-3">
                 <span className="mt-0.5 text-lg" aria-hidden="true">
-                  {h.emoji}
+                  {habitEmoji(h)}
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm text-slate-200">

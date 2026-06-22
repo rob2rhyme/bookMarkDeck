@@ -2,7 +2,7 @@
 
 import { Check, Note } from "@/components/icons";
 import { HabitRing } from "@/features/habits/components/HabitRing";
-import { hueColor, scheduleLabel } from "@/features/habits/lib/format";
+import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import {
   type Habit,
   type HabitEntry,
@@ -75,7 +75,7 @@ export function HabitCard({
             <Check className="h-5 w-5 text-emerald-300" />
           ) : (
             <span className="text-lg leading-none" aria-hidden="true">
-              {habit.emoji}
+              {habitEmoji(habit)}
             </span>
           )}
         </HabitRing>
