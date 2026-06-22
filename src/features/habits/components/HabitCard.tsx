@@ -39,6 +39,7 @@ export function HabitCard({
   const target = habitTarget(habit);
   const measurable = habit.type === "measurable";
   const step = habit.step ?? 1;
+  const sched = scheduleLabel(habit) + (habit.reminder ? ` · 🔔 ${habit.reminder}` : "");
   const progress = stats.doneToday
     ? 1
     : measurable
@@ -106,10 +107,10 @@ export function HabitCard({
             </span>
           ) : measurable ? (
             <span className="tabular-nums">
-              {stats.countToday}/{target} {habit.unit ?? ""} · {scheduleLabel(habit)}
+              {stats.countToday}/{target} {habit.unit ?? ""} · {sched}
             </span>
           ) : (
-            <>{scheduleLabel(habit)}</>
+            <>{sched}</>
           )}
         </p>
         {entry?.note && (

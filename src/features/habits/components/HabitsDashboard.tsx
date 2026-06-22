@@ -9,7 +9,9 @@ import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { Timer } from "@/components/icons";
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
+import { AiCreateModal } from "@/features/habits/components/AiCreateModal";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
+import { aiToHabit } from "@/features/habits/lib/coach";
 import { HabitCard } from "@/features/habits/components/HabitCard";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
@@ -20,6 +22,7 @@ import {
 } from "@/features/habits/components/LogDetailModal";
 import { hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import { useHabits } from "@/features/habits/hooks/useHabits";
+import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
 import type { Habit } from "@/features/habits/lib/types";
 
@@ -42,9 +45,12 @@ export function HabitsDashboard() {
   );
 
   const h = useHabits(email, connected, onLog);
+  const reminders = useHabitReminders(email, h.habits, h.statsByHabit, h.today);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
+  const [draft, setDraft] = useState<Habit | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -91,10 +97,18 @@ export function HabitsDashboard() {
 
   const openCreate = () => {
     setEditing(null);
+    setDraft(null);
     setCreateOpen(true);
   };
   const openEdit = (habit: Habit) => {
+    setDraft(null);
     setEditing(habit);
+    setCreateOpen(true);
+  };
+  const openAiDraft = (ai: Parameters<typeof aiToHabit>[0]) => {
+    const habit = aiToHabit(ai, crypto.randomUUID(), nextSortOrder, new Date().toISOString());
+    setEditing(null);
+    setDraft(habit);
     setCreateOpen(true);
   };
 
@@ -129,6 +143,13 @@ export function HabitsDashboard() {
           </Link>
           <button
             type="button"
+            onClick={() => setAiOpen(true)}
+            className="rounded-full border border-slate-700 px-3 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+          >
+            ✨ AI
+          </button>
+          <button
+            type="button"
             onClick={openCreate}
             className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
           >
@@ -148,6 +169,22 @@ export function HabitsDashboard() {
         </button>
       )}
 
+      {reminders.hasReminders && reminders.permission === "default" && (
+        <button
+          type="button"
+          onClick={reminders.requestPermission}
+          className="self-start rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-200 transition hover:border-blue-400"
+        >
+          🔔 Turn on reminders
+        </button>
+      )}
+      {reminders.hasReminders && reminders.permission === "denied" && (
+        <p className="text-xs text-slate-500">
+          Reminders are blocked in your browser settings — enable notifications
+          for this site to receive them.
+        </p>
+      )}
+
       {empty ? (
         <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-10 text-center">
           <p className="text-4xl">🌱</p>
@@ -165,6 +202,13 @@ export function HabitsDashboard() {
               className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-500"
             >
               Browse templates
+            </button>
+            <button
+              type="button"
+              onClick={() => setAiOpen(true)}
+              className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+            >
+              ✨ Describe with AI
             </button>
             <button
               type="button"
@@ -280,6 +324,7 @@ export function HabitsDashboard() {
                       <p className="truncate text-sm text-slate-100">{habit.name}</p>
                       <p className="truncate text-[11px] text-slate-500">
                         {scheduleLabel(habit)} · 🔥 {st.currentStreak} · {st.rate}%
+                        {habit.reminder ? ` · 🔔 ${habit.reminder}` : ""}
                       </p>
                     </div>
                     <button
@@ -350,11 +395,21 @@ export function HabitsDashboard() {
 
       <CreateHabitModal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => {
+          setCreateOpen(false);
+          setDraft(null);
+        }}
         onSave={(habit) => (editing ? h.updateHabit(habit) : h.addHabit(habit))}
         onDelete={(id) => h.removeHabit(id)}
-        initial={editing}
+        initial={editing ?? draft}
+        isEdit={Boolean(editing)}
         nextSortOrder={nextSortOrder}
+      />
+      <AiCreateModal
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        existingNames={h.allHabits.map((x) => x.name)}
+        onResult={openAiDraft}
       />
       <HabitOnboarding
         open={onboardOpen}

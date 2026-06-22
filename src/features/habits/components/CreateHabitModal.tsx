@@ -13,6 +13,8 @@ type CreateHabitModalProps = {
   onSave: (habit: Habit) => void;
   onDelete?: (id: string) => void;
   initial?: Habit | null;
+  /** Whether `initial` is an existing habit (edit) vs a fresh draft (create). */
+  isEdit?: boolean;
   nextSortOrder: number;
 };
 
@@ -24,6 +26,7 @@ export function CreateHabitModal({
   onSave,
   onDelete,
   initial,
+  isEdit = Boolean(initial),
   nextSortOrder,
 }: CreateHabitModalProps) {
   const [name, setName] = useState("");
@@ -37,6 +40,7 @@ export function CreateHabitModal({
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [perWeek, setPerWeek] = useState(3);
   const [identity, setIdentity] = useState("");
+  const [reminder, setReminder] = useState("");
 
   // Reset the form whenever the modal (re)opens.
   useEffect(() => {
@@ -50,6 +54,7 @@ export function CreateHabitModal({
       setTarget(initial.target ?? 8);
       setStep(initial.step ?? 1);
       setIdentity(initial.identity ?? "");
+      setReminder(initial.reminder ?? "");
       setKind(initial.schedule.type);
       if (initial.schedule.type === "weekdays") setDays(initial.schedule.days);
       if (initial.schedule.type === "timesPerWeek") setPerWeek(initial.schedule.count);
@@ -62,6 +67,7 @@ export function CreateHabitModal({
       setTarget(8);
       setStep(1);
       setIdentity("");
+      setReminder("");
       setKind("daily");
       setDays([1, 2, 3, 4, 5]);
       setPerWeek(3);
@@ -91,7 +97,7 @@ export function CreateHabitModal({
       step: type === "measurable" ? Math.max(1, Math.round(step)) : undefined,
       schedule,
       identity: identity.trim() || undefined,
-      reminder: initial?.reminder ?? null,
+      reminder: /^\d{1,2}:\d{2}$/.test(reminder) ? reminder : null,
       archived: initial?.archived ?? false,
       sortOrder: initial?.sortOrder ?? nextSortOrder,
       createdAt: initial?.createdAt ?? new Date().toISOString(),
@@ -115,7 +121,7 @@ export function CreateHabitModal({
       panelClassName="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
       <h2 id="habit-form-title" className="text-lg font-semibold tracking-tight text-slate-50">
-        {initial ? "Edit habit" : "New habit"}
+        {isEdit ? "Edit habit" : "New habit"}
       </h2>
 
       {/* Name */}
@@ -274,9 +280,35 @@ export function CreateHabitModal({
         </div>
       )}
 
+      {/* Reminder */}
+      <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        Reminder (optional)
+      </p>
+      <div className="flex items-center gap-2">
+        <input
+          type="time"
+          value={reminder}
+          onChange={(e) => setReminder(e.target.value)}
+          aria-label="Reminder time"
+          className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+        />
+        {reminder && (
+          <button
+            type="button"
+            onClick={() => setReminder("")}
+            className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+          >
+            Off
+          </button>
+        )}
+        <span className="text-[11px] text-slate-500">
+          A gentle push at this time on scheduled days.
+        </span>
+      </div>
+
       {/* Actions */}
       <div className="mt-6 flex gap-2">
-        {initial && onDelete && (
+        {isEdit && initial && onDelete && (
           <button
             type="button"
             onClick={() => {
@@ -301,7 +333,7 @@ export function CreateHabitModal({
           disabled={!name.trim()}
           className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
         >
-          {initial ? "Save" : "Add habit"}
+          {isEdit ? "Save" : "Add habit"}
         </button>
       </div>
     </Modal>
