@@ -60,7 +60,9 @@ export type ActivityType =
   | "journal"
   | "hydration"
   | "todo_added"
-  | "todo_done";
+  | "todo_done"
+  | "habit_done"
+  | "habit_skipped";
 
 export type ActivityEvent = {
   id: string;
