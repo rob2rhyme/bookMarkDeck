@@ -20,6 +20,7 @@ import {
 } from "@/features/habits/components/LogDetailModal";
 import { hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import { useHabits } from "@/features/habits/hooks/useHabits";
+import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
 import type { Habit } from "@/features/habits/lib/types";
 
@@ -42,6 +43,7 @@ export function HabitsDashboard() {
   );
 
   const h = useHabits(email, connected, onLog);
+  const reminders = useHabitReminders(email, h.habits, h.statsByHabit, h.today);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
@@ -146,6 +148,22 @@ export function HabitsDashboard() {
         >
           {connecting ? "Connecting…" : "Saved on this device · Connect to sync"}
         </button>
+      )}
+
+      {reminders.hasReminders && reminders.permission === "default" && (
+        <button
+          type="button"
+          onClick={reminders.requestPermission}
+          className="self-start rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-200 transition hover:border-blue-400"
+        >
+          🔔 Turn on reminders
+        </button>
+      )}
+      {reminders.hasReminders && reminders.permission === "denied" && (
+        <p className="text-xs text-slate-500">
+          Reminders are blocked in your browser settings — enable notifications
+          for this site to receive them.
+        </p>
       )}
 
       {empty ? (
@@ -280,6 +298,7 @@ export function HabitsDashboard() {
                       <p className="truncate text-sm text-slate-100">{habit.name}</p>
                       <p className="truncate text-[11px] text-slate-500">
                         {scheduleLabel(habit)} · 🔥 {st.currentStreak} · {st.rate}%
+                        {habit.reminder ? ` · 🔔 ${habit.reminder}` : ""}
                       </p>
                     </div>
                     <button
