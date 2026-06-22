@@ -13,6 +13,8 @@ type CreateHabitModalProps = {
   onSave: (habit: Habit) => void;
   onDelete?: (id: string) => void;
   initial?: Habit | null;
+  /** Whether `initial` is an existing habit (edit) vs a fresh draft (create). */
+  isEdit?: boolean;
   nextSortOrder: number;
 };
 
@@ -24,6 +26,7 @@ export function CreateHabitModal({
   onSave,
   onDelete,
   initial,
+  isEdit = Boolean(initial),
   nextSortOrder,
 }: CreateHabitModalProps) {
   const [name, setName] = useState("");
@@ -118,7 +121,7 @@ export function CreateHabitModal({
       panelClassName="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
       <h2 id="habit-form-title" className="text-lg font-semibold tracking-tight text-slate-50">
-        {initial ? "Edit habit" : "New habit"}
+        {isEdit ? "Edit habit" : "New habit"}
       </h2>
 
       {/* Name */}
@@ -305,7 +308,7 @@ export function CreateHabitModal({
 
       {/* Actions */}
       <div className="mt-6 flex gap-2">
-        {initial && onDelete && (
+        {isEdit && initial && onDelete && (
           <button
             type="button"
             onClick={() => {
@@ -330,7 +333,7 @@ export function CreateHabitModal({
           disabled={!name.trim()}
           className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
         >
-          {initial ? "Save" : "Add habit"}
+          {isEdit ? "Save" : "Add habit"}
         </button>
       </div>
     </Modal>

@@ -9,7 +9,9 @@ import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { Timer } from "@/components/icons";
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
+import { AiCreateModal } from "@/features/habits/components/AiCreateModal";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
+import { aiToHabit } from "@/features/habits/lib/coach";
 import { HabitCard } from "@/features/habits/components/HabitCard";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
@@ -47,6 +49,8 @@ export function HabitsDashboard() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
+  const [draft, setDraft] = useState<Habit | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -93,10 +97,18 @@ export function HabitsDashboard() {
 
   const openCreate = () => {
     setEditing(null);
+    setDraft(null);
     setCreateOpen(true);
   };
   const openEdit = (habit: Habit) => {
+    setDraft(null);
     setEditing(habit);
+    setCreateOpen(true);
+  };
+  const openAiDraft = (ai: Parameters<typeof aiToHabit>[0]) => {
+    const habit = aiToHabit(ai, crypto.randomUUID(), nextSortOrder, new Date().toISOString());
+    setEditing(null);
+    setDraft(habit);
     setCreateOpen(true);
   };
 
@@ -129,6 +141,13 @@ export function HabitsDashboard() {
           >
             Guide
           </Link>
+          <button
+            type="button"
+            onClick={() => setAiOpen(true)}
+            className="rounded-full border border-slate-700 px-3 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+          >
+            ✨ AI
+          </button>
           <button
             type="button"
             onClick={openCreate}
@@ -183,6 +202,13 @@ export function HabitsDashboard() {
               className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-500"
             >
               Browse templates
+            </button>
+            <button
+              type="button"
+              onClick={() => setAiOpen(true)}
+              className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+            >
+              ✨ Describe with AI
             </button>
             <button
               type="button"
@@ -369,11 +395,21 @@ export function HabitsDashboard() {
 
       <CreateHabitModal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => {
+          setCreateOpen(false);
+          setDraft(null);
+        }}
         onSave={(habit) => (editing ? h.updateHabit(habit) : h.addHabit(habit))}
         onDelete={(id) => h.removeHabit(id)}
-        initial={editing}
+        initial={editing ?? draft}
+        isEdit={Boolean(editing)}
         nextSortOrder={nextSortOrder}
+      />
+      <AiCreateModal
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        existingNames={h.allHabits.map((x) => x.name)}
+        onResult={openAiDraft}
       />
       <HabitOnboarding
         open={onboardOpen}
