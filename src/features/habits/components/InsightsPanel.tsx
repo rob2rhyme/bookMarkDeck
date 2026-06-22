@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
 import { aiWeeklyReview } from "@/features/habits/lib/coach";
 import { weekKeyOf } from "@/features/habits/lib/day";
-import { hueColor } from "@/features/habits/lib/format";
+import { habitEmoji, hueColor } from "@/features/habits/lib/format";
 import { weekdayPattern, weeklyBars } from "@/features/habits/lib/insights";
 import type { Habit, HabitEntry, HabitStats } from "@/features/habits/lib/types";
 
@@ -252,7 +252,7 @@ export function InsightsPanel({
             {perHabit.map(({ h, s }) => (
               <div key={h.id} className="flex items-center gap-3">
                 <span className="w-6 shrink-0 text-center text-base" aria-hidden="true">
-                  {h.emoji}
+                  {habitEmoji(h)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
@@ -288,7 +288,7 @@ export function InsightsPanel({
             <ul className="mt-1.5 flex flex-col gap-1">
               {dayDetail.map(({ habit, entry }) => (
                 <li key={entry.id} className="text-[12px] text-slate-300">
-                  <span aria-hidden="true">{habit.emoji}</span>{" "}
+                  <span aria-hidden="true">{habitEmoji(habit)}</span>{" "}
                   <span className={entry.status === "skipped" ? "text-slate-500 line-through" : ""}>
                     {habit.name}
                   </span>

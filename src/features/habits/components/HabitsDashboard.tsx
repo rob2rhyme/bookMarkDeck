@@ -7,6 +7,13 @@ import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { Timer } from "@/components/icons";
+import { FocusCorrelationCard } from "@/features/habits/components/FocusCorrelationCard";
+import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
+import {
+  clearHabitFocusLink,
+  peekHabitFocusLink,
+  setHabitFocusLink,
+} from "@/features/habits/lib/focusLink";
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import { AiCreateModal } from "@/features/habits/components/AiCreateModal";
@@ -20,7 +27,7 @@ import {
   type LogDetail,
   LogDetailModal,
 } from "@/features/habits/components/LogDetailModal";
-import { hueColor, scheduleLabel } from "@/features/habits/lib/format";
+import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
@@ -46,6 +53,21 @@ export function HabitsDashboard() {
 
   const h = useHabits(email, connected, onLog);
   const reminders = useHabitReminders(email, h.habits, h.statsByHabit, h.today);
+  const sessions = useFocusSessions(email, connected);
+
+  // Auto-check a habit when a focus session it launched completes today.
+  useEffect(() => {
+    if (!h.today || sessions.length === 0) return;
+    const link = peekHabitFocusLink();
+    if (!link || link.day !== h.today) return;
+    const completed = sessions.some(
+      (s) => s.day === h.today && (s.createdAt ?? "") >= link.at
+    );
+    if (!completed) return;
+    const habit = h.allHabits.find((x) => x.id === link.habitId);
+    clearHabitFocusLink(); // clear first so this can't loop
+    if (habit && !h.statsByHabit.get(habit.id)?.doneToday) h.toggleToday(habit);
+  }, [sessions, h.today, h.allHabits, h.statsByHabit, h.toggleToday]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
@@ -92,6 +114,7 @@ export function HabitsDashboard() {
 
   const launchFocus = (habit: Habit) => {
     setFocusTaskIntent(habit.name);
+    setHabitFocusLink(habit.id); // so completing the block auto-checks the habit
     router.push("/focus");
   };
 
@@ -318,7 +341,7 @@ export function HabitsDashboard() {
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-lg"
                       style={{ background: `${hueColor(habit.hue, "soft")}55` }}
                     >
-                      {habit.emoji}
+                      {habitEmoji(habit)}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-slate-100">{habit.name}</p>
@@ -359,7 +382,7 @@ export function HabitsDashboard() {
               h.archived.map((habit) => (
                 <div key={habit.id} className="flex items-center gap-3 border-t border-slate-800/60 py-2.5 opacity-70">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-lg">
-                    {habit.emoji}
+                    {habitEmoji(habit)}
                   </span>
                   <p className="min-w-0 flex-1 truncate text-sm text-slate-300">{habit.name}</p>
                   <button
@@ -389,6 +412,14 @@ export function HabitsDashboard() {
             today={h.today}
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
+          />
+
+          {/* The moat: how habits line up with focus output */}
+          <FocusCorrelationCard
+            habits={h.allHabits}
+            entries={h.entries}
+            sessions={sessions}
+            today={h.today}
           />
         </>
       )}

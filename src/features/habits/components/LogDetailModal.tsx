@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { habitEmoji } from "@/features/habits/lib/format";
 import { type Habit, type HabitEntry, habitTarget } from "@/features/habits/lib/types";
 
 export type LogDetail = {
@@ -69,7 +70,7 @@ export function LogDetailModal({
       panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
       <h2 id="habit-log-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-50">
-        <span aria-hidden="true">{habit.emoji}</span> {habit.name}
+        <span aria-hidden="true">{habitEmoji(habit)}</span> {habit.name}
       </h2>
 
       <div className="mt-4 flex gap-2">
