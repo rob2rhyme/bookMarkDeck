@@ -21,6 +21,7 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({ style: "jellysprite" }).style).toBe(
       "jellysprite"
     );
+    expect(normalizeCursorSettings({ style: "lobster" }).style).toBe("lobster");
     expect(normalizeCursorSettings({ style: "off" }).style).toBe("off");
     expect(normalizeCursorSettings({ style: "unicorn" }).style).toBe("fish");
   });
@@ -55,6 +56,9 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings({}).swimSpeed).toBe(1);
     expect(normalizeCursorSettings({ swimSpeed: 99 }).swimSpeed).toBe(3);
     expect(normalizeCursorSettings({ swimSpeed: 0 }).swimSpeed).toBe(0.25);
+    expect(normalizeCursorSettings({}).tailSpeed).toBe(1);
+    expect(normalizeCursorSettings({ tailSpeed: 9 }).tailSpeed).toBe(2);
+    expect(normalizeCursorSettings({ tailSpeed: -1 }).tailSpeed).toBe(0);
   });
 
   it("coerces babies (default false) and clamps/rounds babyCount to 1–6", () => {

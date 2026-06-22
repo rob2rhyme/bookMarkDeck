@@ -4,6 +4,7 @@ import { DragonCursor } from "@/components/DragonCursor";
 import { FishCursor } from "@/components/FishCursor";
 import { JellyfishCursor } from "@/components/JellyfishCursor";
 import { JellySpriteCursor } from "@/components/JellySpriteCursor";
+import { LobsterCursor } from "@/components/LobsterCursor";
 import { TurtleCursor } from "@/components/TurtleCursor";
 import { useCursorSettings } from "@/lib/cursorSettings";
 
@@ -27,6 +28,7 @@ export function CursorOverlay() {
     ripples: settings.ripples,
     bubbles: settings.bubbles,
     swimSpeed: settings.swimSpeed,
+    tailSpeed: settings.tailSpeed,
     babies: settings.babies,
     babyCount: settings.babyCount,
     babyGap: settings.babyGap,
@@ -38,6 +40,7 @@ export function CursorOverlay() {
   if (settings.style === "turtle") return <TurtleCursor {...props} />;
   if (settings.style === "jellyfish") return <JellyfishCursor {...props} />;
   if (settings.style === "jellysprite") return <JellySpriteCursor {...props} />;
+  if (settings.style === "lobster") return <LobsterCursor {...props} />;
   return <DragonCursor {...props} />;
 }
 
