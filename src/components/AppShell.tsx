@@ -8,8 +8,14 @@ import { useEffect, useRef, useState } from "react";
 
 import { CursorOverlay } from "@/components/CursorOverlay";
 import { CursorSettingsPanel } from "@/components/CursorSettingsPanel";
-import { Bookmark, Search, Timer } from "@/components/icons";
+import { Bookmark, Repeat, Search, Timer } from "@/components/icons";
 import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/CommandPalette";
+
+const DESTINATIONS = [
+  { href: "/", label: "Bookmarks", Icon: Bookmark },
+  { href: "/focus", label: "Focus", Icon: Timer },
+  { href: "/habits", label: "Habits", Icon: Repeat },
+] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -17,12 +23,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const avatarSrc = session?.user?.image ?? null;
   const avatarLabel = session?.user?.name ?? session?.user?.email ?? "Account";
 
-  // Show the "other" page's tab — hide the one you're already on. (When more
-  // tabs exist, the active page's tab hides and the rest show.)
-  const onFocus = pathname?.startsWith("/focus") ?? false;
-  const navTab = onFocus
-    ? { href: "/", label: "Bookmarks", Icon: Bookmark }
-    : { href: "/focus", label: "Focus", Icon: Timer };
+  // Which top-level pillar are we on? (Bookmarks is the default "/" home.)
+  const activeHref =
+    DESTINATIONS.find((d) => d.href !== "/" && pathname?.startsWith(d.href))
+      ?.href ?? "/";
+  // Desktop header shows the pillars you're NOT currently on.
+  const otherTabs = DESTINATIONS.filter((d) => d.href !== activeHref);
 
   // Account dropdown menu (holds Cursor settings + Sign out).
   const [menuOpen, setMenuOpen] = useState(false);
@@ -72,14 +78,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
               {session && (
                 <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                  <Link
-                    href={navTab.href}
-                    aria-label={navTab.label}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:px-3 sm:py-1.5 sm:text-sm"
-                  >
-                    <navTab.Icon className="h-4 w-4" />
-                    <span className="hidden sm:inline">{navTab.label}</span>
-                  </Link>
+                  {otherTabs.map((tab) => (
+                    <Link
+                      key={tab.href}
+                      href={tab.href}
+                      aria-label={tab.label}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:px-3 sm:py-1.5 sm:text-sm"
+                    >
+                      <tab.Icon className="h-4 w-4" />
+                      <span className="hidden sm:inline">{tab.label}</span>
+                    </Link>
+                  ))}
                   <div className="relative" ref={menuRef}>
                     <button
                       type="button"
@@ -185,22 +194,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           aria-label="Primary"
           className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-800/70 bg-slate-950/95 backdrop-blur sm:hidden"
         >
-          {[
-            { href: "/", label: "Bookmarks", Icon: Bookmark, active: !onFocus },
-            { href: "/focus", label: "Focus", Icon: Timer, active: onFocus },
-          ].map((tab) => (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              aria-current={tab.active ? "page" : undefined}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition ${
-                tab.active ? "text-blue-300" : "text-slate-400"
-              }`}
-            >
-              <tab.Icon className="h-5 w-5" />
-              {tab.label}
-            </Link>
-          ))}
+          {DESTINATIONS.map((tab) => {
+            const active = tab.href === activeHref;
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition ${
+                  active ? "text-blue-300" : "text-slate-400"
+                }`}
+              >
+                <tab.Icon className="h-5 w-5" />
+                {tab.label}
+              </Link>
+            );
+          })}
           <button
             type="button"
             onClick={() =>
