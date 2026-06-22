@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -119,13 +120,21 @@ export function HabitsDashboard() {
             Small, repeatable wins — the record of who you&apos;re becoming.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
-        >
-          + New habit
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            href="/habits/guide"
+            className="text-xs text-slate-400 underline-offset-2 transition hover:text-slate-200 hover:underline"
+          >
+            Guide
+          </Link>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+          >
+            + New habit
+          </button>
+        </div>
       </div>
 
       {email && !connected && (
