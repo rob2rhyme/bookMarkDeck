@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
-import { aiWeeklyReview } from "@/features/habits/lib/coach";
-import { weekKeyOf } from "@/features/habits/lib/day";
 import { habitEmoji, hueColor } from "@/features/habits/lib/format";
 import { weekdayPattern, weeklyBars } from "@/features/habits/lib/insights";
 import type { Habit, HabitEntry, HabitStats } from "@/features/habits/lib/types";
@@ -38,22 +36,6 @@ export function InsightsPanel({
   onSelectDay,
 }: InsightsPanelProps) {
   const [weekOffset, setWeekOffset] = useState(0);
-  const [review, setReview] = useState<string | null>(null);
-  const [reviewLoading, setReviewLoading] = useState(false);
-  const [reviewError, setReviewError] = useState<string | null>(null);
-
-  const reviewKey = today ? `bd:habit-review:v1:${weekKeyOf(today)}` : "";
-
-  // Show a cached review for the current week if we have one.
-  useEffect(() => {
-    if (!reviewKey) return;
-    try {
-      setReview(window.localStorage.getItem(reviewKey));
-    } catch {
-      setReview(null);
-    }
-    setReviewError(null);
-  }, [reviewKey]);
 
   const overall = useMemo(() => {
     let active = 0;
@@ -97,59 +79,11 @@ export function InsightsPanel({
       .filter((x): x is { habit: Habit; entry: HabitEntry } => Boolean(x.habit));
   }, [selectedDay, entries, habits]);
 
-  const runReview = async () => {
-    if (reviewLoading) return;
-    setReviewLoading(true);
-    setReviewError(null);
-    const payload = {
-      weekOf: today ? weekKeyOf(today) : "",
-      totals: overall,
-      thisWeek: bars
-        .filter((b) => !b.future)
-        .map((b) => ({ day: b.label, done: b.done, due: b.due })),
-      habits: perHabit.map(({ h, s }) => ({
-        name: h.name,
-        schedule: h.schedule.type,
-        completionRatePct: s.rate,
-        currentStreak: s.currentStreak,
-      })),
-    };
-    const text = await aiWeeklyReview(payload);
-    setReviewLoading(false);
-    if (!text) {
-      setReviewError(
-        "AI review is unavailable right now (the server needs an ANTHROPIC_API_KEY)."
-      );
-      return;
-    }
-    setReview(text);
-    try {
-      if (reviewKey) window.localStorage.setItem(reviewKey, text);
-    } catch {}
-  };
-
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
-          Analysis
-        </h3>
-        <button
-          type="button"
-          onClick={runReview}
-          disabled={reviewLoading || perHabit.length === 0}
-          className="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50"
-        >
-          {reviewLoading ? "Reviewing…" : review ? "✨ Refresh review" : "✨ AI weekly review"}
-        </button>
-      </div>
-
-      {reviewError && <p className="mb-3 text-[12px] text-amber-300">{reviewError}</p>}
-      {review && (
-        <div className="mb-5 whitespace-pre-line rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-sm leading-relaxed text-slate-200">
-          {review}
-        </div>
-      )}
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-300">
+        Analysis
+      </h3>
 
       {/* Summary tiles */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">

@@ -192,10 +192,10 @@ export default function HabitsGuidePage() {
           <h3 className="text-base font-semibold text-slate-50">Verify &amp; extend</h3>
           <p className="mt-1">
             Verify with <code>npm run typecheck</code>, <code>npm test</code>,
-            and <code>npm run build</code>, plus a manual smoke check. Deferred
-            for later passes: per-habit push reminders (reuse the focus{" "}
-            <code>push.ts</code> infra) and the AI &ldquo;coach&rdquo; layer (a
-            server-only <code>/api/coach</code> route).
+            and <code>npm run build</code>, plus a manual smoke check. Per-habit
+            push reminders and a focus↔habits correlation are built in; an AI
+            &ldquo;coach&rdquo; layer was prototyped and then removed to keep the
+            app key-free for now.
           </p>
         </div>
       </section>
