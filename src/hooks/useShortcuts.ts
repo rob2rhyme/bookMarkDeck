@@ -159,23 +159,32 @@ export function useShortcuts(userId?: string | null) {
         setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
         return;
       }
-      const localNativeOnly = shortcuts.filter((s) => {
-        const hasWeb = s.url.trim().length > 0;
-        const hasNative = Boolean(
-          s.localPath?.trim() || s.bundleId?.trim() || s.appUserModelId?.trim()
-        );
-        return !hasWeb && hasNative;
-      });
+      // Native targets (localPath / bundleId / appUserModelId) are device-only —
+      // Firestore strips them — so re-apply the local native fields onto the
+      // matching remote shortcut instead of letting the cloud copy erase them.
+      const localById = new Map(shortcuts.map((s) => [s.id, s]));
       const merged: ShortcutApp[] = [];
       const seenIds = new Set<string>();
-      // Remote is authoritative for URL-based shortcuts
+      // Remote is authoritative for URL/name/icon; preserve local native targets.
       normalized.forEach((item) => {
-        if (!seenIds.has(item.id)) {
-          seenIds.add(item.id);
-          merged.push(item);
-        }
+        if (seenIds.has(item.id)) return;
+        seenIds.add(item.id);
+        const local = localById.get(item.id);
+        merged.push(
+          local
+            ? {
+                ...item,
+                ...(local.localPath ? { localPath: local.localPath } : {}),
+                ...(local.bundleId ? { bundleId: local.bundleId } : {}),
+                ...(local.appUserModelId
+                  ? { appUserModelId: local.appUserModelId }
+                  : {}),
+              }
+            : item
+        );
       });
-      localNativeOnly.forEach((item) => {
+      // Keep any local-only shortcuts not present in the cloud (e.g. native-only).
+      shortcuts.forEach((item) => {
         if (!seenIds.has(item.id)) {
           seenIds.add(item.id);
           merged.push(item);
