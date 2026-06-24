@@ -254,6 +254,13 @@ export default function FolderPage() {
     });
   }, [searchPool, folderItems, bookmarkQuery]);
 
+  // Filter the direct subfolders by name while searching.
+  const filteredChildFolders = useMemo(() => {
+    const q = bookmarkQuery.trim().toLowerCase();
+    if (!q) return childFolders;
+    return childFolders.filter((folder) => folder.name.toLowerCase().includes(q));
+  }, [childFolders, bookmarkQuery]);
+
   const folderOptions = useMemo(() => {
     return makeFolderOptions(folders);
   }, [folders]);
@@ -543,93 +550,13 @@ export default function FolderPage() {
         </section>
       )}
 
-      {childFolders.length > 0 && (
-        <section className="mb-5 space-y-2">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-            Subfolders
-          </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {childFolders.map((folder) => {
-              return (
-                <FolderCard
-                  key={folder.id}
-                  name={folder.name}
-                  count={bookmarkCountByFolderId.get(folder.id) ?? 0}
-                  subfolderCount={childrenByParentId.get(folder.id)?.length ?? 0}
-                  previews={bookmarksByFolderId.get(folder.id) ?? []}
-                  childFolders={childPreviewByParentId.get(folder.id)}
-                  hasChildren={parentIdsWithChildren.has(folder.id)}
-                  isEmpty={(bookmarkCountByFolderId.get(folder.id) ?? 0) === 0}
-                  onOpen={() => {
-                    router.push(`/folders/${encodeURIComponent(folder.id)}`);
-                  }}
-                />
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {bookmarkSelectMode && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
-          <span className="text-xs text-slate-300">
-            {selectedBookmarkIds.length} bookmark
-            {selectedBookmarkIds.length !== 1 ? "s" : ""} selected
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedBookmarkIds.length === 0) return;
-              setBookmarkBulkTarget("__unstaged__");
-              setShowBulkMoveBookmarksModal(true);
-            }}
-            disabled={selectedBookmarkIds.length === 0}
-            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Move
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedBookmarkIds.length === 0) return;
-              setShowBulkDeleteBookmarksConfirm(true);
-            }}
-            disabled={selectedBookmarkIds.length === 0}
-            className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            onClick={selectAllBookmarks}
-            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
-          >
-            Select all
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedBookmarkIds([])}
-            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
-          >
-            Clear
-          </button>
-          <button
-            type="button"
-            onClick={clearSelectionAndExit}
-            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {searchPool.length === 0 ? (
+      {childFolders.length === 0 && searchPool.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
           No bookmarks in this folder yet.
         </div>
       ) : (
         <>
-          <div className="relative mb-4">
+          <div className="relative mb-5">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
@@ -639,14 +566,16 @@ export default function FolderPage() {
                 hasSubfolders
                   ? `Search ${subtreeItems.length} bookmark${
                       subtreeItems.length !== 1 ? "s" : ""
-                    } in this folder & subfolders…`
+                    } & ${childFolders.length} subfolder${
+                      childFolders.length !== 1 ? "s" : ""
+                    }…`
                   : `Search ${folderItems.length} bookmark${
                       folderItems.length !== 1 ? "s" : ""
                     } in this folder…`
               }
               aria-label={
                 hasSubfolders
-                  ? "Search bookmarks in this folder and subfolders"
+                  ? "Search bookmarks and subfolders"
                   : "Search bookmarks in this folder"
               }
               className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2 pl-9 pr-9 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -663,40 +592,123 @@ export default function FolderPage() {
             )}
           </div>
 
-          {searchActive && filteredItems.length === 0 ? (
+          {searchActive &&
+          filteredChildFolders.length === 0 &&
+          filteredItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
-              No bookmarks match “{bookmarkQuery.trim()}”.
-            </div>
-          ) : !searchActive && folderItems.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
-              No bookmarks directly in this folder. Search to find{" "}
-              {subtreeItems.length} in subfolders.
+              Nothing matches “{bookmarkQuery.trim()}”.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-              {(searchActive ? filteredItems : folderItems).map((bookmark) => (
-                <BookmarkCard
-                  key={bookmark.id}
-                  bookmark={bookmark}
-                  folderOptions={folderOptions}
-                  folderName={
-                    !bookmark.folderId || bookmark.folderId === currentFolder.id
-                      ? currentFolder.name
-                      : undefined
-                  }
-                  onUpdate={updateBookmark}
-                  onDelete={handleDelete}
-                  onRequestNewFolder={(onCreated) => {
-                    openNewFolderModal((folderId) => {
-                      onCreated(folderId);
-                    });
-                  }}
-                  selectMode={bookmarkSelectMode}
-                  isSelected={selectedBookmarkIds.includes(bookmark.id)}
-                  onToggleSelect={toggleBookmarkSelection}
-                />
-              ))}
-            </div>
+            <>
+              {filteredChildFolders.length > 0 && (
+                <section className="mb-5 space-y-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Subfolders
+                  </h2>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredChildFolders.map((folder) => (
+                      <FolderCard
+                        key={folder.id}
+                        name={folder.name}
+                        count={bookmarkCountByFolderId.get(folder.id) ?? 0}
+                        subfolderCount={childrenByParentId.get(folder.id)?.length ?? 0}
+                        previews={bookmarksByFolderId.get(folder.id) ?? []}
+                        childFolders={childPreviewByParentId.get(folder.id)}
+                        hasChildren={parentIdsWithChildren.has(folder.id)}
+                        isEmpty={(bookmarkCountByFolderId.get(folder.id) ?? 0) === 0}
+                        onOpen={() => {
+                          router.push(`/folders/${encodeURIComponent(folder.id)}`);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {bookmarkSelectMode && (
+                <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
+                  <span className="text-xs text-slate-300">
+                    {selectedBookmarkIds.length} bookmark
+                    {selectedBookmarkIds.length !== 1 ? "s" : ""} selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedBookmarkIds.length === 0) return;
+                      setBookmarkBulkTarget("__unstaged__");
+                      setShowBulkMoveBookmarksModal(true);
+                    }}
+                    disabled={selectedBookmarkIds.length === 0}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Move
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedBookmarkIds.length === 0) return;
+                      setShowBulkDeleteBookmarksConfirm(true);
+                    }}
+                    disabled={selectedBookmarkIds.length === 0}
+                    className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={selectAllBookmarks}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBookmarkIds([])}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearSelectionAndExit}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {(searchActive ? filteredItems : folderItems).length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                  {(searchActive ? filteredItems : folderItems).map((bookmark) => (
+                    <BookmarkCard
+                      key={bookmark.id}
+                      bookmark={bookmark}
+                      folderOptions={folderOptions}
+                      folderName={
+                        !bookmark.folderId || bookmark.folderId === currentFolder.id
+                          ? currentFolder.name
+                          : undefined
+                      }
+                      onUpdate={updateBookmark}
+                      onDelete={handleDelete}
+                      onRequestNewFolder={(onCreated) => {
+                        openNewFolderModal((folderId) => {
+                          onCreated(folderId);
+                        });
+                      }}
+                      selectMode={bookmarkSelectMode}
+                      isSelected={selectedBookmarkIds.includes(bookmark.id)}
+                      onToggleSelect={toggleBookmarkSelection}
+                    />
+                  ))}
+                </div>
+              ) : !searchActive && hasSubfolders ? (
+                <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-8 text-center text-sm text-slate-400">
+                  No bookmarks directly in this folder.
+                </div>
+              ) : null}
+            </>
           )}
         </>
       )}

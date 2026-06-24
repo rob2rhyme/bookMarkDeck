@@ -402,19 +402,16 @@ export function ShortcutIcon({
       )}
 
       {active && isTouch && (
-        <>
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+          onClick={onForceClose}
+        >
           <div
-            className="fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-sm"
-            onClick={onForceClose}
-            aria-hidden="true"
-          />
-          <div
-            className="fixed inset-x-0 bottom-0 z-[70] rounded-t-3xl border-t border-slate-800 bg-slate-950 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl"
+            className="w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-950 p-4 shadow-2xl ring-1 ring-white/5"
             role="menu"
             aria-label={`Shortcut actions for ${app.name}`}
+            onClick={(event) => event.stopPropagation()}
           >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-700" aria-hidden="true" />
-
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-slate-900 text-sm font-semibold text-slate-100">
                 {iconUrl && !iconLoadError ? (
@@ -492,7 +489,7 @@ export function ShortcutIcon({
               </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
