@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Pencil, Trash } from "@/components/icons";
 import { ShortcutApp } from "@/types/shortcut";
 import { hapticTap } from "@/utils/haptics";
+import { firstTargetLabel, hasAnyNativeTarget } from "@/utils/shortcutTargets";
 
 type Props = {
   app: ShortcutApp;
@@ -97,10 +98,7 @@ export function ShortcutIcon({
   const iconLoadError = iconUrl ? iconLoadErrorFor === iconUrl : false;
   const initial = firstLetterFromUrlOrName(app.url, app.name);
 
-  const hasNativeTarget =
-    Boolean(app.localPath?.trim()) ||
-    Boolean(app.bundleId?.trim()) ||
-    Boolean(app.appUserModelId?.trim());
+  const hasNativeTarget = hasAnyNativeTarget(app);
   const typeLabel = hasNativeTarget ? "Native" : "Web";
   const tileTypeBadge = hasNativeTarget ? "NATIVE" : "WEB";
   const tileBadgeClasses = hasNativeTarget
@@ -136,10 +134,7 @@ export function ShortcutIcon({
       }
     }
 
-    if (app.bundleId?.trim()) return app.bundleId.trim();
-    if (app.appUserModelId?.trim()) return app.appUserModelId.trim();
-    if (app.localPath?.trim()) return app.localPath.trim();
-    return "No target configured";
+    return firstTargetLabel(app) ?? "No target configured";
   }, [app]);
 
   const updateCardPosition = () => {
