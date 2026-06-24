@@ -249,12 +249,14 @@ const [shortcutQuery, setShortcutQuery] = useState("");
 const [shortcutName, setShortcutName] = useState("");
 const [shortcutUrl, setShortcutUrl] = useState("");
 const [shortcutLocalPath, setShortcutLocalPath] = useState("");
+const [shortcutBundleId, setShortcutBundleId] = useState("");
 const [shortcutIconValue, setShortcutIconValue] = useState("");
 const [shortcutIconTouched, setShortcutIconTouched] = useState(false);
 const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null);
 const [editName, setEditName] = useState("");
 const [editUrl, setEditUrl] = useState("");
 const [editLocalPath, setEditLocalPath] = useState("");
+const [editBundleId, setEditBundleId] = useState("");
   const [editIconValue, setEditIconValue] = useState("");
   const [editIconTouched, setEditIconTouched] = useState(false);
   const [undoState, setUndoState] = useState<{
@@ -925,7 +927,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     const trimmedName = shortcutName.trim();
     const trimmedUrl = shortcutUrl.trim();
     const trimmedLocalPath = shortcutLocalPath.trim();
-    if (!trimmedName || (!trimmedUrl && !trimmedLocalPath)) return;
+    const trimmedBundleId = shortcutBundleId.trim();
+    if (!trimmedName || (!trimmedUrl && !trimmedLocalPath && !trimmedBundleId)) return;
     const autoIcon = trimmedUrl ? getFaviconUrl(trimmedUrl) : "";
     const icon = shortcutIconTouched ? shortcutIconValue.trim() : autoIcon;
     addShortcut({
@@ -933,10 +936,12 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       url: trimmedUrl,
       icon: icon || undefined,
       localPath: trimmedLocalPath || undefined,
+      bundleId: trimmedBundleId || undefined,
     });
     setShortcutName("");
     setShortcutUrl("");
     setShortcutLocalPath("");
+    setShortcutBundleId("");
     setShortcutIconValue("");
     setShortcutIconTouched(false);
     setShowAddShortcutForm(false);
@@ -980,32 +985,43 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
   };
 
   const handleShortcutOpen = async (app: ShortcutApp) => {
+    const webTarget = app.url.trim();
+    const openWeb = () => {
+      if (webTarget) window.open(webTarget, "_blank", "noopener,noreferrer");
+    };
     const hasNativeTarget =
       Boolean(app.localPath?.trim()) ||
       Boolean(app.bundleId?.trim()) ||
       Boolean(app.appUserModelId?.trim());
 
     if (hasNativeTarget) {
+      // Try the native launcher; gracefully fall back to the website if the
+      // launcher is down or the open fails and a URL is available.
       const healthy = await launcherHealth();
-      if (!healthy) {
-        alert("Launcher not reachable. Start the local launcher and try again.");
+      if (healthy) {
+        try {
+          await launcherOpen({
+            localPath: app.localPath?.trim() || undefined,
+            bundleId: app.bundleId?.trim() || undefined,
+            appUserModelId: app.appUserModelId?.trim() || undefined,
+          });
+          return;
+        } catch (error) {
+          if (!webTarget) {
+            alert(error instanceof Error ? error.message : "Failed to open native app.");
+            return;
+          }
+        }
+      }
+      if (webTarget) {
+        openWeb();
         return;
       }
-      try {
-        await launcherOpen({
-          localPath: app.localPath?.trim() || undefined,
-          bundleId: app.bundleId?.trim() || undefined,
-          appUserModelId: app.appUserModelId?.trim() || undefined,
-        });
-      } catch (error) {
-        alert(error instanceof Error ? error.message : "Failed to open native app.");
-      }
+      alert("Launcher not reachable. Start the local launcher and try again.");
       return;
     }
 
-    const target = app.url.trim();
-    if (!target) return;
-    window.open(target, "_blank", "noopener,noreferrer");
+    openWeb();
   };
 
   const handleShortcutUpdate = (id: string, data: Partial<ShortcutApp>) => {
@@ -1017,6 +1033,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setEditName(app.name);
     setEditUrl(app.url);
     setEditLocalPath(app.localPath ?? "");
+    setEditBundleId(app.bundleId ?? "");
     setEditIconValue(app.icon ?? "");
     setEditIconTouched(false);
   };
@@ -1026,7 +1043,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     const trimmedName = editName.trim();
     const trimmedUrl = editUrl.trim();
     const trimmedLocalPath = editLocalPath.trim();
-    if (!trimmedName || (!trimmedUrl && !trimmedLocalPath)) return;
+    const trimmedBundleId = editBundleId.trim();
+    if (!trimmedName || (!trimmedUrl && !trimmedLocalPath && !trimmedBundleId)) return;
     const autoIcon = trimmedUrl ? getFaviconUrl(trimmedUrl) : "";
     const icon = editIconTouched ? editIconValue.trim() : autoIcon;
     handleShortcutUpdate(editingShortcut.id, {
@@ -1034,6 +1052,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       url: trimmedUrl,
       icon: icon || undefined,
       localPath: trimmedLocalPath || undefined,
+      bundleId: trimmedBundleId || undefined,
     });
     setEditingShortcut(null);
   };
@@ -1509,9 +1528,18 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     />
                     <input
                       type="text"
-                      placeholder="Path (native open, device-only)"
+                      placeholder="Path, e.g. /Applications/Slack.app (native, device-only)"
+                      aria-label="App path (native open, device-only)"
                       value={shortcutLocalPath}
                       onChange={(e) => setShortcutLocalPath(e.target.value)}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="macOS bundle ID, e.g. com.tinyspeck.slackmacgap"
+                      aria-label="macOS bundle ID (native open, device-only)"
+                      value={shortcutBundleId}
+                      onChange={(e) => setShortcutBundleId(e.target.value)}
                       className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                     <input
@@ -2130,9 +2158,18 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                 />
                 <input
                   type="text"
-                  placeholder="Path (native open, device-only)"
+                  placeholder="Path, e.g. /Applications/Slack.app (native, device-only)"
+                  aria-label="App path (native open, device-only)"
                   value={editLocalPath}
                   onChange={(e) => setEditLocalPath(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="macOS bundle ID, e.g. com.tinyspeck.slackmacgap"
+                  aria-label="macOS bundle ID (native open, device-only)"
+                  value={editBundleId}
+                  onChange={(e) => setEditBundleId(e.target.value)}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
                 <input
