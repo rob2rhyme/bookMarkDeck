@@ -8,6 +8,7 @@ import {
   saveShortcuts,
   FirestoreShortcutsPayload,
 } from "@/utils/firestoreShortcuts";
+import { hasAnyNativeTarget, normalizeTargets } from "@/utils/shortcutTargets";
 
 const BASE_STORAGE_KEY = "bookmarkdeck:shortcuts:v1";
 
@@ -17,18 +18,6 @@ function normalizeShortcut(raw: unknown, fallbackId?: string): ShortcutApp | nul
   const record = raw as Record<string, unknown>;
   const icon =
     typeof record.icon === "string" && record.icon.trim() ? record.icon.trim() : undefined;
-  const localPath =
-    typeof record.localPath === "string" && record.localPath.trim()
-      ? record.localPath.trim()
-      : undefined;
-  const bundleId =
-    typeof record.bundleId === "string" && record.bundleId.trim()
-      ? record.bundleId.trim()
-      : undefined;
-  const appUserModelId =
-    typeof record.appUserModelId === "string" && record.appUserModelId.trim()
-      ? record.appUserModelId.trim()
-      : undefined;
 
   const shortcut: ShortcutApp = {
     id:
@@ -39,14 +28,14 @@ function normalizeShortcut(raw: unknown, fallbackId?: string): ShortcutApp | nul
     url: typeof record.url === "string" ? record.url : "",
   };
 
-  const withNative = {
-    ...shortcut,
-    ...(localPath ? { localPath } : {}),
-    ...(bundleId ? { bundleId } : {}),
-    ...(appUserModelId ? { appUserModelId } : {}),
-  };
+  // Migrate legacy flat native fields into the per-platform `targets` map.
+  const targets = normalizeTargets(record as Partial<ShortcutApp>);
 
-  return icon ? { ...withNative, icon } : withNative;
+  return {
+    ...shortcut,
+    ...(targets ? { targets } : {}),
+    ...(icon ? { icon } : {}),
+  };
 }
 
 function normalizeShortcuts(raw: unknown): ShortcutApp[] {
@@ -54,17 +43,10 @@ function normalizeShortcuts(raw: unknown): ShortcutApp[] {
   return raw
     .map((item) => normalizeShortcut(item))
     .filter((shortcut): shortcut is ShortcutApp => Boolean(shortcut))
-    .filter(
-      (shortcut) => {
-        const hasWeb = shortcut.url.trim().length > 0;
-        const hasNative = Boolean(
-          shortcut.localPath?.trim() ||
-            shortcut.bundleId?.trim() ||
-            shortcut.appUserModelId?.trim()
-        );
-        return hasWeb || hasNative;
-      }
-    );
+    .filter((shortcut) => {
+      const hasWeb = shortcut.url.trim().length > 0;
+      return hasWeb || hasAnyNativeTarget(shortcut);
+    });
 }
 
 // Start empty to mirror bookmarks behavior (blank slate on fresh devices)
@@ -159,31 +141,24 @@ export function useShortcuts(userId?: string | null) {
         setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
         return;
       }
-      // Native targets (localPath / bundleId / appUserModelId) are device-only —
-      // Firestore strips them — so re-apply the local native fields onto the
-      // matching remote shortcut instead of letting the cloud copy erase them.
+      // Native targets now sync. Remote is authoritative for URL/name/icon, but
+      // merge per-platform targets so a target just set on this device (not yet
+      // pushed) isn't wiped, while targets from other devices are kept.
       const localById = new Map(shortcuts.map((s) => [s.id, s]));
       const merged: ShortcutApp[] = [];
       const seenIds = new Set<string>();
-      // Remote is authoritative for URL/name/icon; preserve local native targets.
       normalized.forEach((item) => {
         if (seenIds.has(item.id)) return;
         seenIds.add(item.id);
         const local = localById.get(item.id);
+        const mergedTargets = { ...item.targets, ...local?.targets };
         merged.push(
-          local
-            ? {
-                ...item,
-                ...(local.localPath ? { localPath: local.localPath } : {}),
-                ...(local.bundleId ? { bundleId: local.bundleId } : {}),
-                ...(local.appUserModelId
-                  ? { appUserModelId: local.appUserModelId }
-                  : {}),
-              }
+          Object.keys(mergedTargets).length
+            ? { ...item, targets: mergedTargets }
             : item
         );
       });
-      // Keep any local-only shortcuts not present in the cloud (e.g. native-only).
+      // Keep any local-only shortcuts not present in the cloud.
       shortcuts.forEach((item) => {
         if (!seenIds.has(item.id)) {
           seenIds.add(item.id);

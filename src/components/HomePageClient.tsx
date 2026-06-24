@@ -17,12 +17,18 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
-import { ShortcutApp } from "@/types/shortcut";
+import { ShortcutApp, ShortcutPlatform } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
+import {
+  cleanPlatformTarget,
+  detectPlatform,
+  firstTargetLabel,
+  targetForPlatform,
+} from "@/utils/shortcutTargets";
 
 function getHostname(rawUrl: string) {
   try {
@@ -251,6 +257,7 @@ const [shortcutName, setShortcutName] = useState("");
 const [shortcutUrl, setShortcutUrl] = useState("");
 const [shortcutLocalPath, setShortcutLocalPath] = useState("");
 const [shortcutBundleId, setShortcutBundleId] = useState("");
+const [shortcutAppUserModelId, setShortcutAppUserModelId] = useState("");
 const [shortcutIconValue, setShortcutIconValue] = useState("");
 const [shortcutIconTouched, setShortcutIconTouched] = useState(false);
 const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null);
@@ -258,6 +265,12 @@ const [editName, setEditName] = useState("");
 const [editUrl, setEditUrl] = useState("");
 const [editLocalPath, setEditLocalPath] = useState("");
 const [editBundleId, setEditBundleId] = useState("");
+const [editAppUserModelId, setEditAppUserModelId] = useState("");
+// Detected after mount to stay hydration-safe (navigator is undefined on the server).
+const [platform, setPlatform] = useState<ShortcutPlatform | "other">("other");
+useEffect(() => {
+  setPlatform(detectPlatform());
+}, []);
   const [editIconValue, setEditIconValue] = useState("");
   const [editIconTouched, setEditIconTouched] = useState(false);
   const [undoState, setUndoState] = useState<{
@@ -927,22 +940,29 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
   const handleAddShortcut = () => {
     const trimmedName = shortcutName.trim();
     const trimmedUrl = shortcutUrl.trim();
-    const trimmedLocalPath = shortcutLocalPath.trim();
-    const trimmedBundleId = shortcutBundleId.trim();
-    if (!trimmedName || (!trimmedUrl && !trimmedLocalPath && !trimmedBundleId)) return;
+    const target =
+      platform === "other"
+        ? undefined
+        : cleanPlatformTarget({
+            appPath: shortcutLocalPath,
+            bundleId: platform === "darwin" ? shortcutBundleId : undefined,
+            appUserModelId:
+              platform === "win32" ? shortcutAppUserModelId : undefined,
+          });
+    if (!trimmedName || (!trimmedUrl && !target)) return;
     const autoIcon = trimmedUrl ? getFaviconUrl(trimmedUrl) : "";
     const icon = shortcutIconTouched ? shortcutIconValue.trim() : autoIcon;
     addShortcut({
       name: trimmedName,
       url: trimmedUrl,
       icon: icon || undefined,
-      localPath: trimmedLocalPath || undefined,
-      bundleId: trimmedBundleId || undefined,
+      targets: target && platform !== "other" ? { [platform]: target } : undefined,
     });
     setShortcutName("");
     setShortcutUrl("");
     setShortcutLocalPath("");
     setShortcutBundleId("");
+    setShortcutAppUserModelId("");
     setShortcutIconValue("");
     setShortcutIconTouched(false);
     setShowAddShortcutForm(false);
@@ -990,21 +1010,19 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     const openWeb = () => {
       if (webTarget) window.open(webTarget, "_blank", "noopener,noreferrer");
     };
-    const hasNativeTarget =
-      Boolean(app.localPath?.trim()) ||
-      Boolean(app.bundleId?.trim()) ||
-      Boolean(app.appUserModelId?.trim());
+    // Pick the native target configured for this device's platform (if any).
+    const native = targetForPlatform(app, detectPlatform());
 
-    if (hasNativeTarget) {
+    if (native) {
       // Try the native launcher; gracefully fall back to the website if the
       // launcher is down or the open fails and a URL is available.
       const healthy = await launcherHealth();
       if (healthy) {
         try {
           await launcherOpen({
-            localPath: app.localPath?.trim() || undefined,
-            bundleId: app.bundleId?.trim() || undefined,
-            appUserModelId: app.appUserModelId?.trim() || undefined,
+            localPath: native.appPath,
+            bundleId: native.bundleId,
+            appUserModelId: native.appUserModelId,
           });
           return;
         } catch (error) {
@@ -1033,8 +1051,10 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setEditingShortcut(app);
     setEditName(app.name);
     setEditUrl(app.url);
-    setEditLocalPath(app.localPath ?? "");
-    setEditBundleId(app.bundleId ?? "");
+    const current = platform !== "other" ? app.targets?.[platform] : undefined;
+    setEditLocalPath(current?.appPath ?? "");
+    setEditBundleId(current?.bundleId ?? "");
+    setEditAppUserModelId(current?.appUserModelId ?? "");
     setEditIconValue(app.icon ?? "");
     setEditIconTouched(false);
   };
@@ -1043,17 +1063,31 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     if (!editingShortcut) return;
     const trimmedName = editName.trim();
     const trimmedUrl = editUrl.trim();
-    const trimmedLocalPath = editLocalPath.trim();
-    const trimmedBundleId = editBundleId.trim();
-    if (!trimmedName || (!trimmedUrl && !trimmedLocalPath && !trimmedBundleId)) return;
+    // Merge this platform's target into the shortcut's existing targets so
+    // native targets configured on other devices are preserved.
+    const target =
+      platform === "other"
+        ? undefined
+        : cleanPlatformTarget({
+            appPath: editLocalPath,
+            bundleId: platform === "darwin" ? editBundleId : undefined,
+            appUserModelId:
+              platform === "win32" ? editAppUserModelId : undefined,
+          });
+    const mergedTargets = { ...editingShortcut.targets };
+    if (platform !== "other") {
+      if (target) mergedTargets[platform] = target;
+      else delete mergedTargets[platform];
+    }
+    const targets = Object.keys(mergedTargets).length ? mergedTargets : undefined;
+    if (!trimmedName || (!trimmedUrl && !targets)) return;
     const autoIcon = trimmedUrl ? getFaviconUrl(trimmedUrl) : "";
     const icon = editIconTouched ? editIconValue.trim() : autoIcon;
     handleShortcutUpdate(editingShortcut.id, {
       name: trimmedName,
       url: trimmedUrl,
       icon: icon || undefined,
-      localPath: trimmedLocalPath || undefined,
-      bundleId: trimmedBundleId || undefined,
+      targets,
     });
     setEditingShortcut(null);
   };
@@ -1172,8 +1206,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       if (url) return `url:${url}`;
       if (s.id?.trim()) return `id:${s.id}`;
       const name = s.name?.trim() || "shortcut";
-      const localPath = s.localPath?.trim() || "";
-      return `native:${name}::${localPath}`;
+      const nativeLabel = firstTargetLabel(s) ?? "";
+      return `native:${name}::${nativeLabel}`;
     };
     const existingByKey = new Map(shortcuts.map((s) => [shortcutKey(s), s]));
     const merged: ShortcutApp[] = [...shortcuts];
@@ -1527,29 +1561,57 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       onChange={(e) => setShortcutUrl(e.target.value)}
                       className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
-                    <input
-                      type="text"
-                      placeholder="Path, e.g. /Applications/Slack.app (native, device-only)"
-                      aria-label="App path (native open, device-only)"
-                      value={shortcutLocalPath}
-                      onChange={(e) => setShortcutLocalPath(e.target.value)}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="macOS bundle ID, e.g. com.tinyspeck.slackmacgap"
-                      aria-label="macOS bundle ID (native open, device-only)"
-                      value={shortcutBundleId}
-                      onChange={(e) => setShortcutBundleId(e.target.value)}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                    <InstalledAppPicker
-                      onPick={(picked) => {
-                        setShortcutLocalPath(picked.localPath ?? "");
-                        setShortcutBundleId(picked.bundleId ?? "");
-                        if (!shortcutName.trim()) setShortcutName(picked.name);
-                      }}
-                    />
+                    {platform === "other" ? (
+                      <p className="text-xs text-slate-500">
+                        Native app open works on desktop (macOS, Windows, Linux)
+                        with the launcher running.
+                      </p>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          placeholder={
+                            platform === "win32"
+                              ? "Path, e.g. C:\\Program Files\\App\\app.exe"
+                              : platform === "linux"
+                                ? "Path, e.g. /usr/bin/slack"
+                                : "Path, e.g. /Applications/Slack.app"
+                          }
+                          aria-label="App path (native open)"
+                          value={shortcutLocalPath}
+                          onChange={(e) => setShortcutLocalPath(e.target.value)}
+                          className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                        {platform === "darwin" && (
+                          <input
+                            type="text"
+                            placeholder="macOS bundle ID, e.g. com.tinyspeck.slackmacgap"
+                            aria-label="macOS bundle ID (native open)"
+                            value={shortcutBundleId}
+                            onChange={(e) => setShortcutBundleId(e.target.value)}
+                            className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                        )}
+                        {platform === "win32" && (
+                          <input
+                            type="text"
+                            placeholder="Windows AppUserModelID"
+                            aria-label="Windows AppUserModelID (native open)"
+                            value={shortcutAppUserModelId}
+                            onChange={(e) => setShortcutAppUserModelId(e.target.value)}
+                            className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                        )}
+                        <InstalledAppPicker
+                          onPick={(picked) => {
+                            setShortcutLocalPath(picked.localPath ?? "");
+                            setShortcutBundleId(picked.bundleId ?? "");
+                            setShortcutAppUserModelId(picked.appUserModelId ?? "");
+                            if (!shortcutName.trim()) setShortcutName(picked.name);
+                          }}
+                        />
+                      </>
+                    )}
                     <input
                       type="text"
                       // UI-only label change; rendering already supports URLs or emoji.
@@ -2164,29 +2226,57 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   onChange={(e) => setEditUrl(e.target.value)}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
-                <input
-                  type="text"
-                  placeholder="Path, e.g. /Applications/Slack.app (native, device-only)"
-                  aria-label="App path (native open, device-only)"
-                  value={editLocalPath}
-                  onChange={(e) => setEditLocalPath(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="macOS bundle ID, e.g. com.tinyspeck.slackmacgap"
-                  aria-label="macOS bundle ID (native open, device-only)"
-                  value={editBundleId}
-                  onChange={(e) => setEditBundleId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-                <InstalledAppPicker
-                  onPick={(picked) => {
-                    setEditLocalPath(picked.localPath ?? "");
-                    setEditBundleId(picked.bundleId ?? "");
-                    if (!editName.trim()) setEditName(picked.name);
-                  }}
-                />
+                {platform === "other" ? (
+                  <p className="text-xs text-slate-500">
+                    Native app open works on desktop (macOS, Windows, Linux) with
+                    the launcher running.
+                  </p>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      placeholder={
+                        platform === "win32"
+                          ? "Path, e.g. C:\\Program Files\\App\\app.exe"
+                          : platform === "linux"
+                            ? "Path, e.g. /usr/bin/slack"
+                            : "Path, e.g. /Applications/Slack.app"
+                      }
+                      aria-label="App path (native open)"
+                      value={editLocalPath}
+                      onChange={(e) => setEditLocalPath(e.target.value)}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    {platform === "darwin" && (
+                      <input
+                        type="text"
+                        placeholder="macOS bundle ID, e.g. com.tinyspeck.slackmacgap"
+                        aria-label="macOS bundle ID (native open)"
+                        value={editBundleId}
+                        onChange={(e) => setEditBundleId(e.target.value)}
+                        className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                    )}
+                    {platform === "win32" && (
+                      <input
+                        type="text"
+                        placeholder="Windows AppUserModelID"
+                        aria-label="Windows AppUserModelID (native open)"
+                        value={editAppUserModelId}
+                        onChange={(e) => setEditAppUserModelId(e.target.value)}
+                        className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                    )}
+                    <InstalledAppPicker
+                      onPick={(picked) => {
+                        setEditLocalPath(picked.localPath ?? "");
+                        setEditBundleId(picked.bundleId ?? "");
+                        setEditAppUserModelId(picked.appUserModelId ?? "");
+                        if (!editName.trim()) setEditName(picked.name);
+                      }}
+                    />
+                  </>
+                )}
                 <input
                   type="text"
                   // UI-only label change; rendering already supports URLs or emoji.

@@ -2,6 +2,7 @@
 import { Timestamp, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { ShortcutApp } from "@/types/shortcut";
+import { normalizeTargets } from "@/utils/shortcutTargets";
 
 const userDocRef = (uid: string) => doc(db, "users", uid);
 
@@ -18,8 +19,14 @@ function sanitizeShortcut(raw: ShortcutApp): ShortcutApp {
   };
 
   const icon = typeof raw.icon === "string" && raw.icon.trim() ? raw.icon : undefined;
+  // Per-platform native targets are device-agnostic, so they roam via the cloud.
+  const targets = normalizeTargets(raw);
 
-  return icon ? { ...base, icon } : base;
+  return {
+    ...base,
+    ...(targets ? { targets } : {}),
+    ...(icon ? { icon } : {}),
+  };
 }
 
 export async function fetchShortcuts(userIdHint: string): Promise<FirestoreShortcutsPayload> {
