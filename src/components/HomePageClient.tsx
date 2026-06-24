@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { FolderCard } from "@/components/FolderCard";
 import { ShortcutIcon } from "@/components/ShortcutIcon";
+import { InstalledAppPicker } from "@/components/InstalledAppPicker";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -1542,6 +1543,13 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       onChange={(e) => setShortcutBundleId(e.target.value)}
                       className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
+                    <InstalledAppPicker
+                      onPick={(picked) => {
+                        setShortcutLocalPath(picked.localPath ?? "");
+                        setShortcutBundleId(picked.bundleId ?? "");
+                        if (!shortcutName.trim()) setShortcutName(picked.name);
+                      }}
+                    />
                     <input
                       type="text"
                       // UI-only label change; rendering already supports URLs or emoji.
@@ -2171,6 +2179,13 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   value={editBundleId}
                   onChange={(e) => setEditBundleId(e.target.value)}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <InstalledAppPicker
+                  onPick={(picked) => {
+                    setEditLocalPath(picked.localPath ?? "");
+                    setEditBundleId(picked.bundleId ?? "");
+                    if (!editName.trim()) setEditName(picked.name);
+                  }}
                 />
                 <input
                   type="text"

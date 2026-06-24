@@ -59,6 +59,83 @@ function startServer({ port = DEFAULT_PORT, https: httpsConfig } = {}) {
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
+  app.get("/apps", (req, res) => {
+    const token = req.get("X-BookmarkDeck-Token");
+    if (!TOKEN || token !== TOKEN) {
+      return res.status(401).send("Invalid token");
+    }
+
+    const platform = os.platform();
+
+    if (platform === "darwin") {
+      const script = [
+        'for dir in /Applications /Applications/Utilities "$HOME/Applications" /System/Applications; do',
+        '  [ -d "$dir" ] || continue;',
+        '  for app in "$dir"/*.app; do',
+        '    [ -e "$app" ] || continue;',
+        '    bid=$(mdls -name kMDItemCFBundleIdentifier -raw "$app" 2>/dev/null);',
+        '    name=$(basename "$app" .app);',
+        `    printf '%s\\t%s\\t%s\\n' "$name" "$bid" "$app";`,
+        "  done;",
+        "done",
+      ].join("\n");
+
+      return execFile(
+        "/bin/bash",
+        ["-c", script],
+        { maxBuffer: 4 * 1024 * 1024 },
+        (err, stdout) => {
+          if (err) return res.status(500).send(err.message);
+          const seen = new Set();
+          const apps = [];
+          for (const line of String(stdout).split("\n")) {
+            const [name, bundleId, localPath] = line.split("\t");
+            if (!name || !localPath || seen.has(localPath)) continue;
+            seen.add(localPath);
+            apps.push({
+              name,
+              bundleId: bundleId && bundleId !== "(null)" ? bundleId : undefined,
+              localPath,
+            });
+          }
+          apps.sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+          );
+          res.json({ platform, apps });
+        }
+      );
+    }
+
+    if (platform === "win32") {
+      const ps =
+        "Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress";
+      return execFile(
+        "powershell.exe",
+        ["-NoProfile", "-NonInteractive", "-Command", ps],
+        { maxBuffer: 4 * 1024 * 1024 },
+        (err, stdout) => {
+          if (err) return res.status(500).send(err.message);
+          let parsed = [];
+          try {
+            parsed = JSON.parse(String(stdout).trim() || "[]");
+          } catch {
+            parsed = [];
+          }
+          const list = Array.isArray(parsed) ? parsed : [parsed];
+          const apps = list
+            .filter((item) => item && item.Name && item.AppID)
+            .map((item) => ({ name: item.Name, appUserModelId: item.AppID }))
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+            );
+          res.json({ platform, apps });
+        }
+      );
+    }
+
+    return res.json({ platform, apps: [] });
+  });
+
   app.post("/open", (req, res) => {
     const token = req.get("X-BookmarkDeck-Token");
     if (!TOKEN || token !== TOKEN) {
