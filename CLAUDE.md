@@ -5,7 +5,7 @@ Source of truth for working in this repo. If code and this file disagree, fix th
 ## What this app is
 
 **Bookmark Deck** — a calm, private home for the sites and apps you use most: bookmarks
-(organized into nestable folders), app shortcuts, and a desktop launcher. It is being grown
+(organized into nestable folders) and app shortcuts (web links). It is being grown
 into a **focused-work hub** (see `FOCUS-INTEGRATION.md`): bookmarks (resources) → focus
 sessions (the work) → a record of progress. *Connection over breadth.*
 
@@ -17,7 +17,6 @@ sessions (the work) → a record of progress. *Connection over breadth.*
 - **Tailwind CSS v4** (utility classes; dark slate theme).
 - Deployed on **Vercel**. CSP + security headers set in `next.config.ts`.
 - Also in the repo (do **not** disturb when doing web work):
-  - `launcher-desktop/` — an **Electron** tray app (separate package, its own lockfile).
   - `src/utils/googleDriveSync.ts` — a **Google Drive sync** path.
 
 ## Auth — dual-layer (important)
@@ -92,8 +91,8 @@ next-auth set — the Firebase keys are omitted; see Phase 0b in `FOCUS-INTEGRAT
 - `npm run dev` — dev server.
 - `npm run lint` → `tsc --noEmit` · `npm run typecheck` → `tsc --noEmit` · `npm run build` → `next build`.
 - **There is no automated test suite** (no Jest/Vitest, no `test` script). "Verify" = lint +
-  typecheck + build, plus a **manual smoke check**: login, bookmark sync, Drive sync, desktop launcher.
-- CI: `.github/workflows/ci.yml` runs `typecheck` + `build` (root) and `npm ci` (launcher) on
+  typecheck + build, plus a **manual smoke check**: login, bookmark sync, Drive sync.
+- CI: `.github/workflows/ci.yml` runs `typecheck` + `build` (root) on
   PRs/pushes to `main`, with dummy env vars. Vercel builds previews.
 
 ## Dependency security note

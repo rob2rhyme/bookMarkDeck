@@ -441,15 +441,6 @@ export function FocusDashboard() {
         <QuoteBox email={email} connected={connected} />
       </div>
 
-      <div className="mt-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
-        >
-          Back to bookmarks
-        </Link>
-      </div>
-
       <FocusSettingsModal
         open={settingsOpen}
         settings={settings}

@@ -45,29 +45,6 @@ export default function FaqPage() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-slate-50">Do native app shortcuts sync?</h2>
-          <p>
-            Cloud sync stores shortcut name/URL/icon. Native-only target fields are device-local by design and are
-            not synced to Firestore.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Do I need the local launcher?</h2>
-          <p>
-            Only for opening native desktop apps from shortcut cards. Web URLs work without it.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-slate-50">Why do I see “Launcher not reachable”?</h2>
-          <p>
-            The local helper is not running, not reachable on configured host/port/protocol, or token values do not
-            match. See <code>TROUBLESHOOTING.md</code>.
-          </p>
-        </div>
-
-        <div>
           <h2 className="text-lg font-semibold text-slate-50">Do you run analytics?</h2>
           <p>No analytics SDK is currently integrated in the app code.</p>
         </div>

@@ -2,7 +2,7 @@
 
 Bookmark Deck is a privacy-first bookmark manager built with Next.js (App Router), TypeScript, and Tailwind.
 
-It supports local-first bookmark management, optional Firebase sync, route-based folder pages, bookmark bulk actions, and optional native app launching through a local desktop helper.
+It supports local-first bookmark management, optional Firebase sync, route-based folder pages, bookmark bulk actions, and web app shortcuts.
 
 ## Overview
 
@@ -67,13 +67,11 @@ On folder pages (`/folders/*`):
 - Backup payload can include both bookmarks and shortcuts.
 - Download backup JSON from the app.
 
-### App Shortcuts and Native Launcher
+### App Shortcuts
 
-- App shortcuts support web URLs and optional native targets (local path / bundle ID / AUMID).
-- Shortcut cards expose target badges (`Web` / `Native`) and launcher requirement hints.
-- Native launching requires a local launcher service (`launcher-desktop`).
-- Token-based handshake is required between web app and launcher.
-- If launcher is offline, UI reports: `Launcher not reachable`.
+- App shortcuts are quick links to the web apps you use most (name, URL, icon).
+- Clicking a shortcut opens its URL in a new browser tab.
+- Shortcuts cache locally and sync (name / URL / icon) via Firestore like bookmarks.
 
 ### UI System
 
@@ -189,16 +187,6 @@ Acceptance:
 - Reorder persists after refresh.
 - No conflicts with bulk select/edit/delete flows.
 
-### D. Platform-Aware Shortcuts UX
-
-1. Expand shortcut capability badges and states.
-2. Add inline launcher troubleshooting CTA.
-3. Improve failure copy and retry path for local launcher checks.
-
-Acceptance:
-- Users can immediately see which shortcuts require launcher.
-- Native failures are actionable without guesswork.
-
 ### E. Icon Library for Bookmarks and Shortcuts
 
 1. Add icon-picker modal with curated SVG icon tokens.
@@ -229,9 +217,8 @@ Acceptance:
 
 ### I. Security and Hardening
 
-1. Tighten CSP rules for production once launcher endpoint strategy is finalized.
-2. Document launcher token rotation flow.
-3. Add optional integrity checks for local launcher responses.
+1. Periodically review CSP rules for production.
+2. Keep dependency overrides patched and verified against firebase/grpc.
 
 ### J. QA and Release
 
@@ -269,7 +256,6 @@ src/
     haptics.ts
     parseBookmarkHtml.ts
     bookmarksToHtml.ts
-    launcherClient.ts
     firestoreBookmarks.ts
     firestoreShortcuts.ts
 ```
@@ -284,46 +270,11 @@ src/
 - `npm run typecheck` - TypeScript validation
 - `npm run lint` - ESLint
 
-### Desktop launcher (`launcher-desktop/`)
-
-- `npm run start` - start Electron launcher app
-- `npm run server` - start launcher HTTP/HTTPS server
-- `npm run dev` - alias for launcher server
-
-## Launcher Setup Notes
-
-1. Start launcher with token (in `launcher-desktop/`):
-
-```bash
-BOOKMARKDECK_LAUNCHER_TOKEN=your-token npm run start
-```
-
-2. Set matching web token (repo root `.env.local`):
-
-```bash
-NEXT_PUBLIC_BOOKMARKDECK_LAUNCHER_TOKEN=your-token
-```
-
-3. Optional connection settings:
-
-```bash
-NEXT_PUBLIC_LAUNCHER_HOST=127.0.0.1
-NEXT_PUBLIC_LAUNCHER_PORT=47831
-NEXT_PUBLIC_LAUNCHER_PROTOCOL=http
-```
-
-For HTTPS deployments and deeper launcher diagnostics, see `TROUBLESHOOTING.md`.
-
 ## Known Issues / Notes
 
 - `baseline-browser-mapping` warning may appear during lint/build when the dataset is stale. It is non-fatal.
   - Suggested update: `npm i baseline-browser-mapping@latest -D`
 - Current PWA service worker is intentionally conservative and does not cache `/api/*`.
-- Browsers cannot open local desktop apps directly.
-  - Native open requires the local launcher helper running on the device.
-- Security note:
-  - Launcher pairing token must match between launcher process and web env.
-  - Keep this token device-local; do not share it publicly.
 
 ## Privacy Summary
 
