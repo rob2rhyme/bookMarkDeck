@@ -218,17 +218,41 @@ export default function FolderPage() {
     });
   }, [bookmarks, currentFolder]);
 
-  // Search within this folder's bookmarks (title / url / note / tags).
+  // All bookmarks in this folder *and* every nested subfolder (the whole subtree).
+  const subtreeItems = useMemo(() => {
+    if (!currentFolder) return folderItems;
+    const descendantIds = new Set<string>();
+    const queue = [...(childrenByParentId.get(currentFolder.id) ?? [])];
+    while (queue.length) {
+      const node = queue.shift()!;
+      if (descendantIds.has(node.id)) continue;
+      descendantIds.add(node.id);
+      const kids = childrenByParentId.get(node.id);
+      if (kids) queue.push(...kids);
+    }
+    if (descendantIds.size === 0) return folderItems;
+    const nested = bookmarks.filter(
+      (bookmark) => bookmark.folderId && descendantIds.has(bookmark.folderId)
+    );
+    return [...folderItems, ...nested];
+  }, [currentFolder, folderItems, childrenByParentId, bookmarks]);
+
+  const hasSubfolders = childFolders.length > 0;
+  // With subfolders, search spans the whole subtree; otherwise just this folder.
+  const searchPool = hasSubfolders ? subtreeItems : folderItems;
+  const searchActive = bookmarkQuery.trim() !== "";
+
+  // Search across the active scope (title / url / note / tags).
   const filteredItems = useMemo(() => {
     const q = bookmarkQuery.trim().toLowerCase();
     if (!q) return folderItems;
-    return folderItems.filter((bookmark) => {
+    return searchPool.filter((bookmark) => {
       const hay = `${bookmark.title} ${bookmark.url} ${bookmark.note ?? ""} ${
         (bookmark.tags ?? []).join(" ")
       }`.toLowerCase();
       return hay.includes(q);
     });
-  }, [folderItems, bookmarkQuery]);
+  }, [searchPool, folderItems, bookmarkQuery]);
 
   const folderOptions = useMemo(() => {
     return makeFolderOptions(folders);
@@ -599,7 +623,7 @@ export default function FolderPage() {
         </div>
       )}
 
-      {folderItems.length === 0 ? (
+      {searchPool.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
           No bookmarks in this folder yet.
         </div>
@@ -611,10 +635,20 @@ export default function FolderPage() {
               type="text"
               value={bookmarkQuery}
               onChange={(e) => setBookmarkQuery(e.target.value)}
-              placeholder={`Search ${folderItems.length} bookmark${
-                folderItems.length !== 1 ? "s" : ""
-              } in this folder…`}
-              aria-label="Search bookmarks in this folder"
+              placeholder={
+                hasSubfolders
+                  ? `Search ${subtreeItems.length} bookmark${
+                      subtreeItems.length !== 1 ? "s" : ""
+                    } in this folder & subfolders…`
+                  : `Search ${folderItems.length} bookmark${
+                      folderItems.length !== 1 ? "s" : ""
+                    } in this folder…`
+              }
+              aria-label={
+                hasSubfolders
+                  ? "Search bookmarks in this folder and subfolders"
+                  : "Search bookmarks in this folder"
+              }
               className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2 pl-9 pr-9 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
             {bookmarkQuery && (
@@ -629,18 +663,27 @@ export default function FolderPage() {
             )}
           </div>
 
-          {filteredItems.length === 0 ? (
+          {searchActive && filteredItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
               No bookmarks match “{bookmarkQuery.trim()}”.
             </div>
+          ) : !searchActive && folderItems.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
+              No bookmarks directly in this folder. Search to find{" "}
+              {subtreeItems.length} in subfolders.
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-              {filteredItems.map((bookmark) => (
+              {(searchActive ? filteredItems : folderItems).map((bookmark) => (
                 <BookmarkCard
                   key={bookmark.id}
                   bookmark={bookmark}
                   folderOptions={folderOptions}
-                  folderName={currentFolder.name}
+                  folderName={
+                    !bookmark.folderId || bookmark.folderId === currentFolder.id
+                      ? currentFolder.name
+                      : undefined
+                  }
                   onUpdate={updateBookmark}
                   onDelete={handleDelete}
                   onRequestNewFolder={(onCreated) => {

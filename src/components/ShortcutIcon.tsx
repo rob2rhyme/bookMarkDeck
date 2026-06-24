@@ -13,11 +13,16 @@ type Props = {
   pinned: boolean;
   onRequestHoverOpen: () => void;
   onRequestTogglePinned: (keepOpenWhenUnpinned: boolean) => void;
+  onRequestOpenMenu: () => void;
   onRequestClose: () => void;
+  onForceClose: () => void;
   onOpen: () => void | Promise<void>;
   onEdit: () => void;
   onDelete: () => void;
 };
+
+const LONG_PRESS_MS = 450;
+const MOVE_CANCEL_PX = 10;
 
 type HoverCardPosition = {
   left: number;
@@ -64,7 +69,9 @@ export function ShortcutIcon({
   pinned,
   onRequestHoverOpen,
   onRequestTogglePinned,
+  onRequestOpenMenu,
   onRequestClose,
+  onForceClose,
   onOpen,
   onEdit,
   onDelete,
@@ -73,10 +80,14 @@ export function ShortcutIcon({
   const iconButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastPointerTypeRef = useRef<string>("mouse");
   const closeTimeoutRef = useRef<number | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressFiredRef = useRef(false);
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const [iconLoadErrorFor, setIconLoadErrorFor] = useState<string | null>(null);
   const [cardPosition, setCardPosition] = useState<HoverCardPosition>({ left: 0, top: 0 });
   const [pointerInsideRegion, setPointerInsideRegion] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
 
   const iconIsUrl =
     typeof app.icon === "string" &&
@@ -100,6 +111,12 @@ export function ShortcutIcon({
     if (closeTimeoutRef.current === null) return;
     window.clearTimeout(closeTimeoutRef.current);
     closeTimeoutRef.current = null;
+  };
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current === null) return;
+    window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
   };
 
   const queueClose = () => {
@@ -154,7 +171,16 @@ export function ShortcutIcon({
   };
 
   useEffect(() => {
-    if (!active) return;
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(hover: none) and (pointer: coarse)");
+    const update = () => setIsTouch(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!active || isTouch) return;
 
     updateCardPosition();
 
@@ -168,11 +194,12 @@ export function ShortcutIcon({
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
     };
-  }, [active]);
+  }, [active, isTouch]);
 
   useEffect(() => {
     return () => {
       clearCloseTimer();
+      clearLongPress();
     };
   }, []);
 
@@ -182,16 +209,22 @@ export function ShortcutIcon({
       data-shortcut-hover-root="true"
       className="relative w-full max-w-[160px] justify-self-center"
       onPointerEnter={() => {
+        if (isTouch) return;
         clearCloseTimer();
         setPointerInsideRegion(true);
         onRequestHoverOpen();
       }}
-      onPointerLeave={queueClose}
+      onPointerLeave={() => {
+        if (isTouch) return;
+        queueClose();
+      }}
       onFocusCapture={() => {
+        if (isTouch) return;
         clearCloseTimer();
         onRequestHoverOpen();
       }}
       onBlurCapture={(event) => {
+        if (isTouch) return;
         const next = event.relatedTarget as Node | null;
         if (next && wrapperRef.current?.contains(next)) return;
         queueClose();
@@ -202,21 +235,48 @@ export function ShortcutIcon({
         type="button"
         onPointerDown={(event) => {
           lastPointerTypeRef.current = event.pointerType;
+          const isTouchLike = event.pointerType === "touch" || event.pointerType === "pen";
+          if (!isTouchLike) return;
+          longPressFiredRef.current = false;
+          pressStartRef.current = { x: event.clientX, y: event.clientY };
+          clearLongPress();
+          longPressTimerRef.current = window.setTimeout(() => {
+            longPressFiredRef.current = true;
+            hapticTap();
+            onRequestOpenMenu();
+          }, LONG_PRESS_MS);
         }}
+        onPointerMove={(event) => {
+          if (longPressTimerRef.current === null) return;
+          const start = pressStartRef.current;
+          if (!start) return;
+          if (
+            Math.abs(event.clientX - start.x) > MOVE_CANCEL_PX ||
+            Math.abs(event.clientY - start.y) > MOVE_CANCEL_PX
+          ) {
+            clearLongPress();
+          }
+        }}
+        onPointerUp={clearLongPress}
+        onPointerCancel={clearLongPress}
         onClick={() => {
-          hapticTap();
-
           const pointerType = lastPointerTypeRef.current;
           const isTouchLike = pointerType === "touch" || pointerType === "pen";
 
-          if (isTouchLike && active && pinned) {
-            onRequestClose();
+          if (isTouchLike) {
+            if (longPressFiredRef.current) {
+              longPressFiredRef.current = false;
+              return;
+            }
+            hapticTap();
+            void onOpen();
             return;
           }
 
+          hapticTap();
           onRequestTogglePinned(pointerInsideRegion);
         }}
-        className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/70 text-slate-100 shadow-sm ring-1 ring-white/5 transition hover:-translate-y-0.5 hover:border-blue-500/60 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95"
+        className="relative flex aspect-square w-full select-none items-center justify-center overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/70 text-slate-100 shadow-sm ring-1 ring-white/5 transition [-webkit-touch-callout:none] hover:-translate-y-0.5 hover:border-blue-500/60 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95"
         aria-label={`Shortcut: ${app.name}`}
         aria-expanded={active}
         aria-haspopup="menu"
@@ -248,7 +308,7 @@ export function ShortcutIcon({
         </span>
       </button>
 
-      {active && (
+      {active && !isTouch && (
         <div
           className="fixed z-[70] w-[248px] rounded-2xl border border-slate-800 bg-slate-950/95 p-3 shadow-2xl ring-1 ring-white/5"
           style={{ left: `${cardPosition.left}px`, top: `${cardPosition.top}px` }}
@@ -339,6 +399,100 @@ export function ShortcutIcon({
             </button>
           </div>
         </div>
+      )}
+
+      {active && isTouch && (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-sm"
+            onClick={onForceClose}
+            aria-hidden="true"
+          />
+          <div
+            className="fixed inset-x-0 bottom-0 z-[70] rounded-t-3xl border-t border-slate-800 bg-slate-950 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl"
+            role="menu"
+            aria-label={`Shortcut actions for ${app.name}`}
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-700" aria-hidden="true" />
+
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-slate-900 text-sm font-semibold text-slate-100">
+                {iconUrl && !iconLoadError ? (
+                  <img
+                    src={iconUrl}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 object-contain"
+                    loading="lazy"
+                    onError={() => {
+                      if (iconUrl) setIconLoadErrorFor(iconUrl);
+                    }}
+                  />
+                ) : app.icon ? (
+                  <span aria-hidden="true">{app.icon}</span>
+                ) : (
+                  <span>{initial}</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-100">{app.name}</p>
+                <p className="truncate text-xs text-slate-400">{hostOrTarget}</p>
+              </div>
+              <span className="shrink-0 rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200">
+                {typeLabel}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  hapticTap();
+                  onForceClose();
+                  void onOpen();
+                }}
+                className="flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/70 px-2 py-3 text-slate-100 transition active:scale-95"
+                aria-label={`Open ${app.name}`}
+                role="menuitem"
+              >
+                <ExternalLink className="h-5 w-5" />
+                <span className="text-xs font-semibold">Open</span>
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  hapticTap();
+                  onForceClose();
+                  onEdit();
+                }}
+                className="flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/70 px-2 py-3 text-slate-100 transition active:scale-95"
+                aria-label={`Edit ${app.name}`}
+                role="menuitem"
+              >
+                <Pencil className="h-5 w-5" />
+                <span className="text-xs font-semibold">Edit</span>
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  hapticTap();
+                  onForceClose();
+                  onDelete();
+                }}
+                className="flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/70 px-2 py-3 text-red-300 transition active:scale-95"
+                aria-label={`Delete ${app.name}`}
+                role="menuitem"
+              >
+                <Trash className="h-5 w-5" />
+                <span className="text-xs font-semibold">Delete</span>
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
