@@ -16,6 +16,41 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Appearance font stacks — system fonts only (no network fetch). The applier
+     points --app-font-family at one of these. Each maps to a FONT_FAMILIES key
+     in appearanceSettings.tsx. */
+  --app-font-system: var(--font-geist-sans), system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --app-font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
+  --app-font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, monospace;
+  --app-font-rounded: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+    "Quicksand", system-ui, sans-serif;
+  /* Fancy system stacks — degrade to a generic family on any platform. */
+  --app-font-classic: "Palatino", "Palatino Linotype", "Book Antiqua", Georgia,
+    serif;
+  --app-font-elegant: "Didot", "Bodoni MT", "Hoefler Text", Garamond,
+    "Times New Roman", serif;
+  --app-font-slab: "Rockwell", "Rockwell Nova", "Roboto Slab", "Courier Bold",
+    Georgia, serif;
+  --app-font-humanist: "Optima", "Candara", "Gill Sans", "Gill Sans MT",
+    "Segoe UI", system-ui, sans-serif;
+  --app-font-handwritten: "Segoe Script", "Bradley Hand", "Chalkboard SE",
+    "Comic Sans MS", "Apple Chancery", cursive;
+  --app-font-typewriter: "American Typewriter", "Courier New", Courier,
+    ui-monospace, monospace;
+  --app-font-display: "Impact", "Haettenschweiler", "Arial Narrow Bold",
+    "Franklin Gothic Bold", fantasy;
+  /* "custom" falls back to the system stack until a font is uploaded; the
+     provider overrides this on :root at runtime once a FontFace registers. */
+  --app-font-custom: var(--app-font-system);
+}
+
+/* Global text scale: scaling the root font-size scales every rem-based size
+   (text + spacing + icons). 100% = the browser's 16px rem base. */
+html {
+  font-size: calc(100% * var(--app-font-scale, 1));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,10 +68,13 @@ body {
   color: #f8fafc; /* text-slate-50 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-size: 15px;
+  font-size: 0.9375rem; /* 15px at 100% — rem so the Appearance scale reaches it */
   line-height: 1.625; /* leading-relaxed */
-  font-family: var(--font-geist-sans), system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(
+    --app-font-family,
+    var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif
+  );
 }
 
 @layer base {
@@ -48,12 +86,12 @@ body {
   }
 
   .card-title {
-    font-size: 16px; /* text-[16px] */
+    font-size: 1rem; /* 16px at 100% (rem so it scales) */
     font-weight: 600; /* font-semibold */
   }
 
   .card-subtle {
-    font-size: 13px; /* text-[13px] */
+    font-size: 0.8125rem; /* 13px at 100% (rem so it scales) */
     color: #94a3b8; /* text-slate-400 */
   }
 
@@ -90,10 +128,37 @@ body {
   }
 }
 
+/* Arbitrary px text utilities (text-[11px] …) compile to fixed px — unlike the
+   named scale (text-sm …, which are rem) — so on their own they'd ignore the
+   Appearance text-scale. Redefine them in rem: identical at 100%, but now they
+   scale with the root font-size, making the size control truly project-wide.
+   (Must precede the mobile block below so that block can still override them.) */
+.text-\[9px\] {
+  font-size: 0.5625rem;
+}
+.text-\[10px\] {
+  font-size: 0.625rem;
+}
+.text-\[11px\] {
+  font-size: 0.6875rem;
+}
+.text-\[12px\] {
+  font-size: 0.75rem;
+}
+.text-\[13px\] {
+  font-size: 0.8125rem;
+}
+.text-\[14px\] {
+  font-size: 0.875rem;
+}
+.text-\[15px\] {
+  font-size: 0.9375rem;
+}
+
 /* Larger, more legible text on small screens (phones + portrait tablets).
    Bumps Tailwind's font-size tokens — which every text-* utility references —
-   plus the handful of fixed-px text utilities. Spacing, layout widths, and
-   desktop sizing are deliberately left untouched. */
+   plus the handful of fixed-px text utilities (kept in rem so they still scale).
+   Spacing, layout widths, and desktop sizing are deliberately left untouched. */
 @media (max-width: 767px) {
   :root {
     --text-xs: 0.8125rem; /* 13px (from 12) */
@@ -104,30 +169,30 @@ body {
   }
 
   body {
-    font-size: 16px;
+    font-size: 1rem; /* 16px at 100% */
   }
 
-  /* Fixed-px utilities can't read the tokens above — bump them directly. */
+  /* Fixed-px utilities can't read the tokens above — bump them directly (rem). */
   .text-\[9px\] {
-    font-size: 11px;
+    font-size: 0.6875rem; /* 11px */
   }
   .text-\[10px\] {
-    font-size: 12px;
+    font-size: 0.75rem; /* 12px */
   }
   .text-\[11px\] {
-    font-size: 13px;
+    font-size: 0.8125rem; /* 13px */
   }
   .text-\[12px\] {
-    font-size: 13px;
+    font-size: 0.8125rem; /* 13px */
   }
   .text-\[13px\] {
-    font-size: 14px;
+    font-size: 0.875rem; /* 14px */
   }
   .text-\[14px\] {
-    font-size: 15px;
+    font-size: 0.9375rem; /* 15px */
   }
   .text-\[15px\] {
-    font-size: 16px;
+    font-size: 1rem; /* 16px */
   }
 }
 

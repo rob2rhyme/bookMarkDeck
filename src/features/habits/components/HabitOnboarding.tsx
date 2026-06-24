@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { Emoji } from "@/components/icons";
 import { hueColor } from "@/features/habits/lib/format";
 import {
   HABIT_TEMPLATES,
@@ -15,15 +16,33 @@ type HabitOnboardingProps = {
   open: boolean;
   onClose: () => void;
   onAddMany: (habits: Habit[]) => void;
+  /** Optional: "I'll add my own" opens the create flow instead of just closing. */
+  onCustom?: () => void;
   nextSortOrder: number;
 };
 
 const GROUPS = ["Health", "Focus", "Mind", "Home"] as const;
 
+/** Plain one-liner so a template explains itself before it's picked. */
+function templateSummary(t: HabitTemplate): string {
+  const sched =
+    t.schedule.type === "daily"
+      ? "every day"
+      : t.schedule.type === "weekdays"
+        ? "weekdays"
+        : `${t.schedule.count}× a week`;
+  const measure =
+    t.type === "measurable" && t.target
+      ? `${t.target} ${t.unit ?? ""}`.trim()
+      : null;
+  return measure ? `${measure} · ${sched}` : sched;
+}
+
 export function HabitOnboarding({
   open,
   onClose,
   onAddMany,
+  onCustom,
   nextSortOrder,
 }: HabitOnboardingProps) {
   const [picked, setPicked] = useState<HabitTemplate[]>([]);
@@ -72,15 +91,20 @@ export function HabitOnboarding({
                   type="button"
                   onClick={() => toggle(t)}
                   aria-pressed={on}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+                  className={`flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition ${
                     on
                       ? "border-blue-400/70 bg-blue-500/10 text-blue-100"
                       : "border-slate-700 text-slate-300 hover:border-slate-500"
                   }`}
                   style={on ? { boxShadow: `inset 0 0 0 9999px ${hueColor(t.hue, "soft")}33` } : undefined}
                 >
-                  <span aria-hidden="true">{t.emoji}</span>
-                  {t.name}
+                  <span className="flex items-center gap-1.5 text-sm">
+                    <Emoji>{t.emoji}</Emoji>
+                    {t.name}
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    {templateSummary(t)}
+                  </span>
                 </button>
               );
             })}
@@ -91,7 +115,7 @@ export function HabitOnboarding({
       <div className="mt-6 flex gap-2">
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => (onCustom ? onCustom() : onClose())}
           className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500"
         >
           I&apos;ll add my own

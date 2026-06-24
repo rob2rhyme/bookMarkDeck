@@ -15,7 +15,11 @@ import {
   todayKey,
 } from "@/features/focus/data/focusData";
 import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
-import type { JournalEntry, JournalNote } from "@/features/focus/lib/types";
+import type {
+  JournalEntry,
+  JournalNote,
+  JournalNoteKind,
+} from "@/features/focus/lib/types";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
 
@@ -62,7 +66,8 @@ function loadNotes(email?: string | null): JournalNote[] {
         day: typeof n.day === "string" ? n.day : "",
         text: typeof n.text === "string" ? n.text : "",
         createdAt: typeof n.createdAt === "string" ? n.createdAt : null,
-      }))
+        kind: n.kind === "dream" ? "dream" : "note",
+      } satisfies JournalNote))
       .filter((n) => n.text.trim().length > 0);
   } catch {
     return [];
@@ -118,37 +123,70 @@ export function useFocusJournal(
 
   // Mood (one per day) — merge-written so it never wipes notes.
   const setMood = useCallback(
-    (mood: MoodKey | null) => {
+    (mood: MoodKey | null, day: string = today) => {
       setEntries((prev) => {
-        const existing = prev.find((e) => e.day === today);
+        const existing = prev.find((e) => e.day === day);
         const updated: JournalEntry = existing
           ? { ...existing, mood }
-          : { day: today, note: "", mood };
+          : { day, note: "", mood };
         return existing
-          ? prev.map((e) => (e.day === today ? updated : e))
+          ? prev.map((e) => (e.day === day ? updated : e))
           : [...prev, updated];
       });
-      if (canSync && email) saveMood(email, today, mood).catch(() => {});
-      if (mood) onLog?.("mood", `Felt ${MOOD_BY_KEY[mood].label.toLowerCase()}`);
+      if (canSync && email) saveMood(email, day, mood).catch(() => {});
+      // Activity log is today-scoped; don't log backdated mood as "today".
+      if (mood && day === today)
+        onLog?.("mood", `Felt ${MOOD_BY_KEY[mood].label.toLowerCase()}`);
     },
     [today, canSync, email, onLog]
   );
 
   const addNote = useCallback(
-    (text: string) => {
+    (text: string, kind: JournalNoteKind = "note", day: string = today) => {
       const trimmed = text.trim();
       if (!trimmed) return;
       const note: JournalNote = {
         id: crypto.randomUUID(),
-        day: today,
+        day,
         text: trimmed,
         createdAt: new Date().toISOString(),
+        kind,
       };
       setNotes((prev) => [note, ...prev]);
       if (canSync && email) addNoteRemote(email, note).catch(() => {});
-      onLog?.("journal", "Added a journal note");
+      // Activity log is today-scoped; don't log backdated entries as "today".
+      if (day === today)
+        onLog?.(
+          "journal",
+          kind === "dream" ? "Recorded a dream" : "Added a journal note"
+        );
     },
     [today, canSync, email, onLog]
+  );
+
+  const editNote = useCallback(
+    (id: string, text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      if (id.startsWith(LEGACY_PREFIX)) {
+        const day = id.slice(LEGACY_PREFIX.length);
+        setEntries((prev) =>
+          prev.map((e) => (e.day === day ? { ...e, note: trimmed } : e))
+        );
+        if (canSync && email) setJournalNote(email, day, trimmed).catch(() => {});
+        return;
+      }
+      setNotes((prev) => {
+        const next = prev.map((n) =>
+          n.id === id ? { ...n, text: trimmed } : n
+        );
+        const updated = next.find((n) => n.id === id);
+        if (canSync && email && updated)
+          addNoteRemote(email, updated).catch(() => {});
+        return next;
+      });
+    },
+    [canSync, email]
   );
 
   const removeNote = useCallback(
@@ -252,6 +290,7 @@ export function useFocusJournal(
     moodByDay,
     notesByDay,
     addNote,
+    editNote,
     removeNote,
     restoreNote,
     pullFromCloud,

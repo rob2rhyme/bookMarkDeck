@@ -25,11 +25,14 @@ export type JournalEntry = {
   mood: MoodKey | null;
 };
 
+export type JournalNoteKind = "note" | "dream";
+
 export type JournalNote = {
   id: string;
   day: string; // YYYY-MM-DD
   text: string;
   createdAt: string | null; // ISO timestamp (null for migrated legacy notes)
+  kind?: JournalNoteKind; // default "note"; "dream" = dream-log entry
 };
 
 export type Todo = {

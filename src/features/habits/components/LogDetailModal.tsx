@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { Emoji } from "@/components/icons";
 import { habitEmoji } from "@/features/habits/lib/format";
 import { type Habit, type HabitEntry, habitTarget } from "@/features/habits/lib/types";
 
@@ -18,7 +19,9 @@ type LogDetailModalProps = {
   onClose: () => void;
   habit: Habit | null;
   entry: HabitEntry | null;
-  onSave: (habit: Habit, detail: LogDetail) => void;
+  /** Local YYYY-MM-DD for "today" — the default + max selectable date. */
+  today: string;
+  onSave: (habit: Habit, detail: LogDetail, day: string) => void;
 };
 
 export function LogDetailModal({
@@ -26,12 +29,14 @@ export function LogDetailModal({
   onClose,
   habit,
   entry,
+  today,
   onSave,
 }: LogDetailModalProps) {
   const [status, setStatus] = useState<"done" | "skipped">("done");
   const [count, setCount] = useState(1);
   const [note, setNote] = useState("");
   const [at, setAt] = useState("");
+  const [date, setDate] = useState(today);
 
   useEffect(() => {
     if (!open || !habit) return;
@@ -40,10 +45,12 @@ export function LogDetailModal({
     setCount(entry && entry.status === "done" ? entry.count : target);
     setNote(entry?.note ?? "");
     setAt(entry?.at ?? "");
-  }, [open, habit, entry]);
+    setDate(today);
+  }, [open, habit, entry, today]);
 
   if (!habit) return null;
   const measurable = habit.type === "measurable";
+  const isBackdated = date !== today;
 
   const seg = (active: boolean) =>
     `flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
@@ -52,13 +59,18 @@ export function LogDetailModal({
         : "border-slate-700 text-slate-300 hover:border-slate-500"
     }`;
 
+  const day = date || today;
   const save = () => {
-    onSave(habit, {
-      status,
-      count: measurable ? Math.max(1, Math.round(count)) : undefined,
-      note: note.trim() || undefined,
-      at: /^\d{1,2}:\d{2}$/.test(at) ? at : null,
-    });
+    onSave(
+      habit,
+      {
+        status,
+        count: measurable ? Math.max(1, Math.round(count)) : undefined,
+        note: note.trim() || undefined,
+        at: /^\d{1,2}:\d{2}$/.test(at) ? at : null,
+      },
+      day
+    );
     onClose();
   };
 
@@ -70,10 +82,26 @@ export function LogDetailModal({
       panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
       <h2 id="habit-log-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-50">
-        <span aria-hidden="true">{habitEmoji(habit)}</span> {habit.name}
+        <Emoji>{habitEmoji(habit)}</Emoji> {habit.name}
       </h2>
 
-      <div className="mt-4 flex gap-2">
+      <label className="mt-4 block text-xs text-slate-400">
+        Date
+        <input
+          type="date"
+          value={date}
+          max={today}
+          onChange={(e) => setDate(e.target.value || today)}
+          className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+        />
+      </label>
+      {isBackdated && (
+        <p className="mt-1 text-[11px] text-amber-300/90">
+          Backdating to {date} — set the values for that day.
+        </p>
+      )}
+
+      <div className="mt-3 flex gap-2">
         <button type="button" className={seg(status === "done")} onClick={() => setStatus("done")}>
           ✓ Done
         </button>
@@ -117,11 +145,11 @@ export function LogDetailModal({
       </label>
 
       <div className="mt-6 flex gap-2">
-        {entry && (
+        {(entry || isBackdated) && (
           <button
             type="button"
             onClick={() => {
-              onSave(habit, { status: "clear" });
+              onSave(habit, { status: "clear" }, day);
               onClose();
             }}
             className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:border-slate-500"

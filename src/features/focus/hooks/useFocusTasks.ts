@@ -118,6 +118,22 @@ export function useFocusTasks(
     [canSync, email, onLog]
   );
 
+  const renameTask = useCallback(
+    (id: string, text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      setTasks((prev) => {
+        const next = prev.map((t) =>
+          t.id === id ? { ...t, text: trimmed } : t
+        );
+        const updated = next.find((t) => t.id === id);
+        if (canSync && email && updated) saveTask(email, updated).catch(() => {});
+        return next;
+      });
+    },
+    [canSync, email]
+  );
+
   const toggleDone = useCallback(
     (id: string) => {
       setTasks((prev) => {
@@ -173,6 +189,7 @@ export function useFocusTasks(
     activeTask,
     setActiveTaskId,
     addTask,
+    renameTask,
     toggleDone,
     removeTask,
     restoreTask,

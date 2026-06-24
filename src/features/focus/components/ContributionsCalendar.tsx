@@ -103,10 +103,13 @@ export function ContributionsCalendar({
 
   return (
     <div>
+      {/* Scrolls only when the grid can't fit (mobile); on wide screens the whole
+          year shows. px keeps the first/last column's selection ring from being
+          clipped at the edges. */}
       <div ref={scrollRef} className="overflow-x-auto pb-2">
-        <div className="inline-flex flex-col gap-1">
+        <div className="inline-flex flex-col gap-1 px-[3px]">
           {/* Month labels — each spills right over its column. */}
-          <div className="flex gap-[3px] pl-[2px]">
+          <div className="flex gap-[3px]">
             {weeks.map((w, i) => {
               const prev = i > 0 ? weeks[i - 1].month : -1;
               const showLabel = w.month !== prev;
@@ -162,13 +165,6 @@ export function ContributionsCalendar({
 
       {/* Footer: help link + legend. */}
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => setShowHelp((v) => !v)}
-          className="text-[11px] text-slate-400 underline-offset-2 transition hover:text-slate-200 hover:underline"
-        >
-          Learn how we count contributions
-        </button>
         <div className="flex items-center gap-1 text-[11px] text-slate-400">
           <span>Less</span>
           {LEVEL_CLASS.map((cls, i) => (

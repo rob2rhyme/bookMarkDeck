@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { authConfig } from "@/auth/auth.config";
-import { HabitsDashboard } from "@/features/habits/components/HabitsDashboard";
+import { HabitsRoute } from "@/features/habits/components/HabitsRoute";
 
 export default async function HabitsPage() {
   const session = await getServerSession(authConfig);
@@ -11,5 +11,5 @@ export default async function HabitsPage() {
     redirect("/login");
   }
 
-  return <HabitsDashboard />;
+  return <HabitsRoute />;
 }

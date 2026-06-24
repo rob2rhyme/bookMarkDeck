@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { IconAction } from "@/components/IconAction";
 import {
   Check,
+  Emoji,
   Eye,
   EyeOff,
   ExternalLink,
@@ -461,7 +462,7 @@ export function BookmarkCard({
               />
             ) : shouldShowIconText ? (
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold uppercase text-slate-100">
-                {viewIconValue}
+                <Emoji>{viewIconValue}</Emoji>
               </span>
             ) : (
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold uppercase text-slate-100">

@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
 import { Skeleton } from "@/components/Skeleton";
-import { type MoodKey } from "@/features/focus/lib/mood";
+import {
+  MOOD_BY_KEY,
+  MOOD_SCORE,
+  type MoodKey,
+} from "@/features/focus/lib/mood";
 
 type AnalysisPanelProps = {
   available: boolean;
@@ -96,6 +100,42 @@ export function AnalysisPanel({
         .slice(0, 3),
     [weekTaskMin, taskNameById]
   );
+
+  // Mood trend across the same 7 days. Each logged day becomes a point (x = the
+  // bar's column centre, y = its valence score). Consecutive logged days are
+  // joined into line segments; missing days create gaps. The SVG viewBox is
+  // 0..100 × 0..36 and stretches to fit (non-scaling strokes keep the line crisp).
+  const mood = useMemo(() => {
+    const n = last7.length || 1;
+    const Y_PAD = 5;
+    const Y_SPAN = 36 - Y_PAD * 2;
+    const points = last7.map((d, i) => {
+      const key = moodByDay[d.key];
+      if (!key) return null;
+      const score = MOOD_SCORE[key];
+      return {
+        x: ((i + 0.5) / n) * 100,
+        y: Y_PAD + (1 - (score - 1) / 8) * Y_SPAN,
+        tint: MOOD_BY_KEY[key].tint,
+        label: MOOD_BY_KEY[key].label,
+      };
+    });
+    // Break into segments of consecutive present points.
+    const segments: { x: number; y: number }[][] = [];
+    let run: { x: number; y: number }[] = [];
+    for (const p of points) {
+      if (p) run.push({ x: p.x, y: p.y });
+      else if (run.length) {
+        segments.push(run);
+        run = [];
+      }
+    }
+    if (run.length) segments.push(run);
+    const dots = points.filter(
+      (p): p is NonNullable<typeof p> => p !== null
+    );
+    return { segments, dots, hasAny: dots.length > 0 };
+  }, [last7, moodByDay]);
 
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
@@ -214,7 +254,7 @@ export function AnalysisPanel({
           <div className="flex h-24 items-end gap-2">
             {last7.map((d) => {
               const h = Math.round((d.sessions / maxSessions) * 100);
-              const mood = moodByDay[d.key];
+              const dayMood = moodByDay[d.key];
               return (
                 <div
                   key={d.key}
@@ -238,7 +278,7 @@ export function AnalysisPanel({
                     />
                   </div>
                   <span className="flex h-4 items-center justify-center leading-none">
-                    {mood && <MoodIcon mood={mood} className="h-4 w-4" />}
+                    {dayMood && <MoodIcon mood={dayMood} className="h-4 w-4" />}
                   </span>
                   <span
                     className={`text-[11px] ${
@@ -251,6 +291,46 @@ export function AnalysisPanel({
               );
             })}
           </div>
+
+          {/* Mood trend line — over the same 7 days. */}
+          {mood.hasAny && (
+            <div className="mt-4">
+              <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
+                Mood trend
+              </p>
+              <div className="relative h-9 w-full">
+                <svg
+                  className="absolute inset-0 h-full w-full"
+                  viewBox="0 0 100 36"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  {mood.segments.map((seg, i) =>
+                    seg.length === 1 ? null : (
+                      <polyline
+                        key={i}
+                        points={seg.map((p) => `${p.x},${p.y}`).join(" ")}
+                        fill="none"
+                        stroke="#818cf8"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    )
+                  )}
+                </svg>
+                {mood.dots.map((p, i) => (
+                  <span
+                    key={i}
+                    title={p.label}
+                    className={`absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current ${p.tint}`}
+                    style={{ left: `${p.x}%`, top: `${(p.y / 36) * 100}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Weekly summary */}
           <div className="mt-6 flex items-baseline justify-between">

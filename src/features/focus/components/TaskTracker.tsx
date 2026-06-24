@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Check, X } from "@/components/icons";
+import { Check, Pencil, X } from "@/components/icons";
 import type { FocusTask } from "@/features/focus/lib/types";
 
 type Bucket = { sessions: number; focusMin: number };
@@ -14,6 +14,7 @@ type TaskTrackerProps = {
   byTask: Record<string, Bucket>;
   onSelect: (id: string) => void;
   onAdd: (text: string) => void;
+  onRename: (id: string, text: string) => void;
   onToggleDone: (id: string) => void;
   onRemove: (task: FocusTask) => void;
 };
@@ -31,16 +32,32 @@ export function TaskTracker({
   byTask,
   onSelect,
   onAdd,
+  onRename,
   onToggleDone,
   onRemove,
 }: TaskTrackerProps) {
   const [draft, setDraft] = useState("");
   const [showDone, setShowDone] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     onAdd(draft);
     setDraft("");
+  };
+
+  const startEdit = (task: FocusTask) => {
+    setEditingId(task.id);
+    setEditDraft(task.text);
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDraft("");
+  };
+  const commitEdit = () => {
+    if (editingId && editDraft.trim()) onRename(editingId, editDraft);
+    cancelEdit();
   };
 
   return (
@@ -101,38 +118,86 @@ export function TaskTracker({
                   {active && <span className="h-1.5 w-1.5 rounded-full bg-slate-950" />}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => onSelect(task.id)}
-                  className="min-w-0 flex-1 text-left"
-                >
-                  <span className="block truncate text-sm text-slate-100">
-                    {task.text}
-                  </span>
-                  {stat && stat.focusMin > 0 && (
-                    <span className="text-xs text-slate-500">
-                      {fmtTime(stat.focusMin)} · {stat.sessions}{" "}
-                      {stat.sessions === 1 ? "session" : "sessions"}
-                    </span>
-                  )}
-                </button>
+                {editingId === task.id ? (
+                  <>
+                    <input
+                      type="text"
+                      value={editDraft}
+                      autoFocus
+                      onChange={(e) => setEditDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitEdit();
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelEdit();
+                        }
+                      }}
+                      aria-label="Edit task"
+                      className="min-w-0 flex-1 rounded-md border border-blue-400/70 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={commitEdit}
+                      aria-label="Save task"
+                      className="shrink-0 text-emerald-400 transition hover:text-emerald-300"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      aria-label="Cancel edit"
+                      className="shrink-0 text-slate-500 transition hover:text-slate-300"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(task.id)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <span className="block truncate text-sm text-slate-100">
+                        {task.text}
+                      </span>
+                      {stat && stat.focusMin > 0 && (
+                        <span className="text-xs text-slate-500">
+                          {fmtTime(stat.focusMin)} · {stat.sessions}{" "}
+                          {stat.sessions === 1 ? "session" : "sessions"}
+                        </span>
+                      )}
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => onToggleDone(task.id)}
-                  aria-label="Mark task done"
-                  className="shrink-0 text-slate-600 opacity-0 transition hover:text-emerald-300 focus:opacity-100 group-hover:opacity-100"
-                >
-                  <Check className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRemove(task)}
-                  aria-label="Remove task"
-                  className="shrink-0 text-slate-600 opacity-0 transition hover:text-slate-300 focus:opacity-100 group-hover:opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(task)}
+                      aria-label="Edit task"
+                      className="shrink-0 text-slate-600 opacity-0 transition hover:text-blue-300 focus:opacity-100 group-hover:opacity-100"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onToggleDone(task.id)}
+                      aria-label="Mark task done"
+                      className="shrink-0 text-slate-600 opacity-0 transition hover:text-emerald-300 focus:opacity-100 group-hover:opacity-100"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(task)}
+                      aria-label="Remove task"
+                      className="shrink-0 text-slate-600 opacity-0 transition hover:text-slate-300 focus:opacity-100 group-hover:opacity-100"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
               </li>
             );
           })

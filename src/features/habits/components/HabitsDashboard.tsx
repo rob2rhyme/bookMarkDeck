@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
-import { Timer } from "@/components/icons";
+import { Emoji, Timer } from "@/components/icons";
 import { FocusCorrelationCard } from "@/features/habits/components/FocusCorrelationCard";
 import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
 import {
@@ -123,12 +123,23 @@ export function HabitsDashboard() {
     setCreateOpen(true);
   };
 
+  const removeHabitConfirmed = (habit: Habit) => {
+    const ok =
+      typeof window === "undefined" ||
+      window.confirm(
+        `Delete “${habit.name}”? This removes the habit for good. Its history is left untouched.`
+      );
+    if (ok) h.removeHabit(habit.id);
+  };
+
   const cardHandlers = {
     onToggle: h.toggleToday,
     onAdjust: h.adjustToday,
     onSkip: h.skipToday,
     onClear: h.clearToday,
+    onUndo: h.undoToday,
     onDetail: (habit: Habit) => setDetailHabit(habit),
+    onEdit: openEdit,
   };
 
   const empty = h.hydrated && h.allHabits.length === 0;
@@ -264,6 +275,7 @@ export function HabitsDashboard() {
                     stats={h.statsByHabit.get(habit.id)!}
                     skipped={false}
                     entry={h.todayEntry(habit.id)}
+                    canUndo={h.undoableIds.has(habit.id)}
                     {...cardHandlers}
                   />
                 ))}
@@ -280,6 +292,7 @@ export function HabitsDashboard() {
                           stats={h.statsByHabit.get(habit.id)!}
                           skipped={isSkipped(habit.id)}
                           entry={h.todayEntry(habit.id)}
+                          canUndo={h.undoableIds.has(habit.id)}
                           {...cardHandlers}
                         />
                       ))}
@@ -315,7 +328,7 @@ export function HabitsDashboard() {
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-lg"
                       style={{ background: `${hueColor(habit.hue, "soft")}55` }}
                     >
-                      {habitEmoji(habit)}
+                      <Emoji>{habitEmoji(habit)}</Emoji>
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-slate-100">{habit.name}</p>
@@ -347,6 +360,14 @@ export function HabitsDashboard() {
                     >
                       Edit
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => removeHabitConfirmed(habit)}
+                      aria-label={`Delete ${habit.name}`}
+                      className="rounded-full px-2 py-1 text-[11px] text-red-400/80 transition hover:bg-red-950/40 hover:text-red-300"
+                    >
+                      Delete
+                    </button>
                   </div>
                 );
               })}
@@ -356,7 +377,7 @@ export function HabitsDashboard() {
               h.archived.map((habit) => (
                 <div key={habit.id} className="flex items-center gap-3 border-t border-slate-800/60 py-2.5 opacity-70">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-lg">
-                    {habitEmoji(habit)}
+                    <Emoji>{habitEmoji(habit)}</Emoji>
                   </span>
                   <p className="min-w-0 flex-1 truncate text-sm text-slate-300">{habit.name}</p>
                   <button
@@ -386,6 +407,8 @@ export function HabitsDashboard() {
             today={h.today}
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
+            onRemoveEntry={(habit, entry) => h.clearEntryFor(habit, entry.day)}
+            onLogEntry={(habit, day, detail) => h.logEntryFor(habit, day, detail)}
           />
 
           {/* The moat: how habits line up with focus output */}
@@ -423,7 +446,12 @@ export function HabitsDashboard() {
         onClose={() => setDetailHabit(null)}
         habit={detailHabit}
         entry={detailHabit ? h.todayEntry(detailHabit.id) : null}
-        onSave={(habit, detail: LogDetail) => h.logDetail(habit, detail)}
+        today={h.today}
+        onSave={(habit, detail: LogDetail, day) =>
+          day === h.today
+            ? h.logDetail(habit, detail)
+            : h.logEntryFor(habit, day, detail)
+        }
       />
     </div>
   );

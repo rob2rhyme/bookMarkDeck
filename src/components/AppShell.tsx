@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
+import { AppearanceSettingsPanel } from "@/components/AppearanceSettingsPanel";
 import { CursorOverlay } from "@/components/CursorOverlay";
 import { CursorSettingsPanel } from "@/components/CursorSettingsPanel";
 import { Bookmark, Repeat, Search, Timer } from "@/components/icons";
@@ -33,6 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Account dropdown menu (holds Cursor settings + Sign out).
   const [menuOpen, setMenuOpen] = useState(false);
   const [cursorOpen, setCursorOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!menuOpen) return;
@@ -58,6 +60,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <CursorSettingsPanel
         open={cursorOpen}
         onClose={() => setCursorOpen(false)}
+      />
+      <AppearanceSettingsPanel
+        open={appearanceOpen}
+        onClose={() => setAppearanceOpen(false)}
       />
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-24 pt-8 sm:px-6 sm:pb-12 lg:px-8 lg:pt-12">
         <header className="mb-8 flex flex-col gap-4 sm:mb-10">
@@ -136,9 +142,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           role="menuitem"
                           onClick={() => {
                             setMenuOpen(false);
-                            setCursorOpen(true);
+                            setAppearanceOpen(true);
                           }}
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-200 transition hover:bg-slate-800"
+                        >
+                          🅰 Appearance…
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setCursorOpen(true);
+                          }}
+                          className="flex w-full items-center gap-2 border-t border-slate-800/60 px-4 py-2.5 text-left text-sm text-slate-200 transition hover:bg-slate-800"
                         >
                           🐟 Cursor settings…
                         </button>

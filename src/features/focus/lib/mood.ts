@@ -39,6 +39,20 @@ export const MOOD_BY_KEY: Record<MoodKey, Mood> = MOODS.reduce(
   {} as Record<MoodKey, Mood>
 );
 
+// Rough valence ranking (1 = hardest … 9 = best) used to plot the mood trend
+// line in the analysis chart. Order-only; the spacing isn't meant to be precise.
+export const MOOD_SCORE: Record<MoodKey, number> = {
+  great: 9,
+  excited: 8,
+  good: 7,
+  calm: 6,
+  okay: 5,
+  tired: 4,
+  anxious: 3,
+  low: 2,
+  stressed: 1,
+};
+
 export function isMoodKey(value: unknown): value is MoodKey {
   return typeof value === "string" && MOODS.some((m) => m.key === value);
 }

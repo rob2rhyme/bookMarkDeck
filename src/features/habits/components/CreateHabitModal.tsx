@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { Emoji } from "@/components/icons";
 import { WEEKDAY_LABELS } from "@/features/habits/lib/day";
 import {
   DEFAULT_HABIT_EMOJI,
@@ -145,187 +146,227 @@ export function CreateHabitModal({
         {isEdit ? "Edit habit" : "New habit"}
       </h2>
 
-      {/* Name */}
+      {/* Name + live auto-icon */}
       <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
         Name
       </label>
-      <input
-        type="text"
-        value={name}
-        autoFocus
-        onChange={(e) => onNameChange(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && save()}
-        placeholder="e.g. Meditate"
-        className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
-      />
-
-      {/* Identity */}
-      <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
-        Identity (optional)
-      </label>
-      <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2">
-        <span className="shrink-0 text-sm text-slate-500">Become someone who</span>
+      <div className="mt-1 flex items-center gap-2">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-950/60 text-lg"
+          aria-hidden="true"
+          title="Icon (change under Add details)"
+        >
+          <Emoji>{emoji}</Emoji>
+        </span>
         <input
           type="text"
-          value={identity}
-          onChange={(e) => setIdentity(e.target.value)}
-          placeholder="stays calm"
-          className="w-full bg-transparent text-sm text-slate-100 outline-none"
+          value={name}
+          autoFocus
+          onChange={(e) => onNameChange(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && save()}
+          placeholder="e.g. Meditate"
+          className="w-full flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
         />
       </div>
+      <p className="mt-1.5 text-[11px] text-slate-500">
+        Tiny and doable wins. New habits default to a daily yes/no — fine-tune
+        anything under “Add details”.
+      </p>
 
-      {/* Emoji */}
-      <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Icon</p>
-      <div className="flex flex-wrap gap-1.5">
-        {EMOJI_CHOICES.map((e) => (
-          <button
-            key={e}
-            type="button"
-            onClick={() => pickEmoji(e)}
-            aria-pressed={emoji === e}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg border text-lg transition ${
-              emoji === e ? "border-blue-400 bg-blue-500/10" : "border-slate-800 hover:border-slate-600"
-            }`}
-          >
-            {e}
-          </button>
-        ))}
-      </div>
+      {/* Everything else, tucked away for beginners; opens automatically when
+          editing an existing habit so power users see all fields. */}
+      <details open={isEdit} className="group mt-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-slate-600">
+          <span>Add details</span>
+          <span className="text-xs text-slate-500">
+            <span className="group-open:hidden">Show ▾</span>
+            <span className="hidden group-open:inline">Hide ▴</span>
+          </span>
+        </summary>
 
-      {/* Colour */}
-      <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Colour</p>
-      <div className="flex flex-wrap gap-2">
-        {HUE_CHOICES.map((h) => (
-          <button
-            key={h}
-            type="button"
-            onClick={() => setHue(h)}
-            aria-pressed={hue === h}
-            aria-label={`Colour ${h}`}
-            className={`h-7 w-7 rounded-full border-2 transition ${
-              hue === h ? "border-white" : "border-transparent"
-            }`}
-            style={{ background: hueColor(h, "ring") }}
-          />
-        ))}
-      </div>
-
-      {/* Type */}
-      <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Type</p>
-      <div className="flex gap-2">
-        <button type="button" className={seg(type === "binary")} onClick={() => setType("binary")}>
-          Yes / no
-        </button>
-        <button type="button" className={seg(type === "measurable")} onClick={() => setType("measurable")}>
-          Measurable
-        </button>
-      </div>
-      {type === "measurable" && (
-        <div className="mt-2 flex gap-2">
-          <label className="flex-1 text-xs text-slate-400">
-            Target
-            <input
-              type="number"
-              min={1}
-              value={target}
-              onChange={(e) => setTarget(Number(e.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-400"
-            />
+        <div className="mt-3">
+          {/* Identity */}
+          <label className="block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Identity (optional)
           </label>
-          <label className="flex-1 text-xs text-slate-400">
-            Unit
+          <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2">
+            <span className="shrink-0 text-sm text-slate-500">Become someone who</span>
             <input
               type="text"
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              placeholder="cups"
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-400"
+              value={identity}
+              onChange={(e) => setIdentity(e.target.value)}
+              placeholder="stays calm"
+              className="w-full bg-transparent text-sm text-slate-100 outline-none"
             />
-          </label>
-          <label className="w-20 text-xs text-slate-400">
-            Step
-            <input
-              type="number"
-              min={1}
-              value={step}
-              onChange={(e) => setStep(Number(e.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-400"
-            />
-          </label>
-        </div>
-      )}
+          </div>
 
-      {/* Schedule */}
-      <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Schedule</p>
-      <div className="flex gap-2">
-        <button type="button" className={seg(kind === "daily")} onClick={() => setKind("daily")}>
-          Every day
-        </button>
-        <button type="button" className={seg(kind === "weekdays")} onClick={() => setKind("weekdays")}>
-          Specific days
-        </button>
-        <button type="button" className={seg(kind === "timesPerWeek")} onClick={() => setKind("timesPerWeek")}>
-          × / week
-        </button>
-      </div>
-      {kind === "weekdays" && (
-        <div className="mt-2 flex gap-1">
-          {WEEKDAY_LABELS.map((label, d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => toggleDay(d)}
-              aria-pressed={days.includes(d)}
-              className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition ${
-                days.includes(d)
-                  ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
-                  : "border-slate-800 text-slate-400 hover:border-slate-600"
-              }`}
-            >
-              {label[0]}
+          {/* Emoji */}
+          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Icon</p>
+          <div className="flex flex-wrap gap-1.5">
+            {EMOJI_CHOICES.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => pickEmoji(e)}
+                aria-pressed={emoji === e}
+                className={`flex h-8 w-8 items-center justify-center rounded-lg border text-lg transition ${
+                  emoji === e ? "border-blue-400 bg-blue-500/10" : "border-slate-800 hover:border-slate-600"
+                }`}
+              >
+                <Emoji>{e}</Emoji>
+              </button>
+            ))}
+          </div>
+
+          {/* Colour */}
+          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Colour</p>
+          <div className="flex flex-wrap gap-2">
+            {HUE_CHOICES.map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => setHue(h)}
+                aria-pressed={hue === h}
+                aria-label={`Colour ${h}`}
+                className={`h-7 w-7 rounded-full border-2 transition ${
+                  hue === h ? "border-white" : "border-transparent"
+                }`}
+                style={{ background: hueColor(h, "ring") }}
+              />
+            ))}
+          </div>
+
+          {/* Type */}
+          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Type</p>
+          <div className="flex gap-2">
+            <button type="button" className={seg(type === "binary")} onClick={() => setType("binary")}>
+              Yes / no
             </button>
-          ))}
-        </div>
-      )}
-      {kind === "timesPerWeek" && (
-        <div className="mt-2 flex items-center gap-3">
-          <input
-            type="range"
-            min={1}
-            max={7}
-            value={perWeek}
-            onChange={(e) => setPerWeek(Number(e.target.value))}
-            className="w-full accent-blue-500"
-          />
-          <span className="w-20 shrink-0 text-sm text-slate-300 tabular-nums">{perWeek}× / week</span>
-        </div>
-      )}
+            <button type="button" className={seg(type === "measurable")} onClick={() => setType("measurable")}>
+              Measurable
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            {type === "binary"
+              ? "Yes / no — one tap: did it or not."
+              : "Measurable — track an amount like cups or minutes toward a target."}
+          </p>
+          {type === "measurable" && (
+            <>
+              <div className="mt-2 flex gap-2">
+                <label className="flex-1 text-xs text-slate-400">
+                  Target
+                  <input
+                    type="number"
+                    min={1}
+                    value={target}
+                    onChange={(e) => setTarget(Number(e.target.value))}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-400"
+                  />
+                </label>
+                <label className="flex-1 text-xs text-slate-400">
+                  Unit
+                  <input
+                    type="text"
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    placeholder="cups"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-400"
+                  />
+                </label>
+                <label className="w-20 text-xs text-slate-400">
+                  Step
+                  <input
+                    type="number"
+                    min={1}
+                    value={step}
+                    onChange={(e) => setStep(Number(e.target.value))}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-400"
+                  />
+                </label>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Step = how much each − / + button adds.
+              </p>
+            </>
+          )}
 
-      {/* Reminder */}
-      <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-        Reminder (optional)
-      </p>
-      <div className="flex items-center gap-2">
-        <input
-          type="time"
-          value={reminder}
-          onChange={(e) => setReminder(e.target.value)}
-          aria-label="Reminder time"
-          className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
-        />
-        {reminder && (
-          <button
-            type="button"
-            onClick={() => setReminder("")}
-            className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
-          >
-            Off
-          </button>
-        )}
-        <span className="text-[11px] text-slate-500">
-          A gentle push at this time on scheduled days.
-        </span>
-      </div>
+          {/* Schedule */}
+          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Schedule</p>
+          <div className="flex gap-2">
+            <button type="button" className={seg(kind === "daily")} onClick={() => setKind("daily")}>
+              Every day
+            </button>
+            <button type="button" className={seg(kind === "weekdays")} onClick={() => setKind("weekdays")}>
+              Specific days
+            </button>
+            <button type="button" className={seg(kind === "timesPerWeek")} onClick={() => setKind("timesPerWeek")}>
+              Times a week
+            </button>
+          </div>
+          {kind === "weekdays" && (
+            <div className="mt-2 flex gap-1">
+              {WEEKDAY_LABELS.map((label, d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => toggleDay(d)}
+                  aria-pressed={days.includes(d)}
+                  aria-label={label}
+                  className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition ${
+                    days.includes(d)
+                      ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                      : "border-slate-800 text-slate-400 hover:border-slate-600"
+                  }`}
+                >
+                  {label.slice(0, 2)}
+                </button>
+              ))}
+            </div>
+          )}
+          {kind === "timesPerWeek" && (
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={7}
+                value={perWeek}
+                onChange={(e) => setPerWeek(Number(e.target.value))}
+                className="w-full accent-blue-500"
+              />
+              <span className="w-24 shrink-0 text-sm text-slate-300 tabular-nums">
+                {perWeek}× a week
+              </span>
+            </div>
+          )}
+
+          {/* Reminder */}
+          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Reminder (optional)
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="time"
+              value={reminder}
+              onChange={(e) => setReminder(e.target.value)}
+              aria-label="Reminder time"
+              className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+            />
+            {reminder && (
+              <button
+                type="button"
+                onClick={() => setReminder("")}
+                className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+              >
+                Off
+              </button>
+            )}
+            <span className="text-[11px] text-slate-500">
+              A gentle push at this time on scheduled days.
+            </span>
+          </div>
+        </div>
+      </details>
 
       {/* Actions */}
       <div className="mt-6 flex gap-2">

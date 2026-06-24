@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from "react";
+import { Emoji } from "@/components/icons";
 import { ShortcutApp } from "@/types/shortcut";
 import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
 
@@ -113,7 +114,7 @@ export function ShortcutCard({ app, onDelete, onEdit }: Props) {
               }}
             />
           ) : app.icon ? (
-            <span aria-hidden="true">{app.icon}</span>
+            <Emoji>{app.icon}</Emoji>
           ) : (
             <span className="text-[13px] font-semibold uppercase tracking-wide text-slate-100">
               {initial}

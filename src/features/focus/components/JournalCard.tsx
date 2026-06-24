@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-import { Trash2 } from "@/components/icons";
+import { Pencil, Trash2 } from "@/components/icons";
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
 import { todayKey } from "@/features/focus/data/focusData";
 import { MOODS, type MoodKey } from "@/features/focus/lib/mood";
-import type { JournalNote } from "@/features/focus/lib/types";
+import type { JournalNote, JournalNoteKind } from "@/features/focus/lib/types";
 
 const MAX_NOTE = 2000;
 
@@ -37,11 +37,13 @@ type DayNotes = { day: string; notes: JournalNote[] };
 
 type JournalCardProps = {
   mood: MoodKey | null;
+  moodByDay: Record<string, MoodKey>;
   notesByDay: DayNotes[];
-  onAddNote: (text: string) => void;
+  onAddNote: (text: string, kind?: JournalNoteKind, day?: string) => void;
+  onEditNote: (id: string, text: string) => void;
   onRemoveNote: (note: JournalNote) => void;
   onRemoveNotes: (notes: JournalNote[]) => void;
-  onMoodChange: (mood: MoodKey | null) => void;
+  onMoodChange: (mood: MoodKey | null, day?: string) => void;
   highlight?: boolean;
 };
 
@@ -50,14 +52,66 @@ function NoteRow({
   selectMode,
   selected,
   onToggle,
+  onEdit,
   onRemove,
 }: {
   note: JournalNote;
   selectMode: boolean;
   selected: boolean;
   onToggle: (id: string) => void;
+  onEdit: (id: string, text: string) => void;
   onRemove: (note: JournalNote) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(note.text);
+
+  const startEdit = () => {
+    setDraft(note.text);
+    setEditing(true);
+  };
+  const commit = () => {
+    if (draft.trim()) onEdit(note.id, draft);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <li className="rounded-lg border border-blue-400/50 bg-slate-950/40 px-3 py-2">
+        <textarea
+          value={draft}
+          autoFocus
+          rows={3}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setEditing(false);
+            }
+          }}
+          aria-label="Edit note"
+          className="w-full resize-y rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 focus:border-blue-400 focus:outline-none"
+        />
+        <div className="mt-2 flex justify-end gap-2 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="rounded-md px-2.5 py-1 text-slate-400 transition hover:text-slate-200"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={commit}
+            disabled={!draft.trim()}
+            className="rounded-md bg-blue-600 px-2.5 py-1 text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <li className="group flex items-start justify-between gap-3 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2">
       <label className="flex min-w-0 items-start gap-2">
@@ -71,9 +125,14 @@ function NoteRow({
           />
         )}
         <span className="min-w-0">
-          {note.createdAt && (
-            <span className="mb-0.5 block text-[11px] tabular-nums text-slate-500">
-              {timeOf(note.createdAt)}
+          {(note.createdAt || note.kind === "dream") && (
+            <span className="mb-0.5 flex items-center gap-1.5 text-[11px] tabular-nums text-slate-500">
+              {note.kind === "dream" && (
+                <span className="rounded bg-indigo-500/15 px-1 text-[10px] font-medium text-indigo-300">
+                  🌙 Dream
+                </span>
+              )}
+              {note.createdAt && timeOf(note.createdAt)}
             </span>
           )}
           <span className="block whitespace-pre-wrap break-words text-sm text-slate-200">
@@ -82,14 +141,24 @@ function NoteRow({
         </span>
       </label>
       {!selectMode && (
-        <button
-          type="button"
-          onClick={() => onRemove(note)}
-          aria-label="Delete note"
-          className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={startEdit}
+            aria-label="Edit note"
+            className="text-slate-600 opacity-0 transition hover:text-blue-300 focus:opacity-100 group-hover:opacity-100"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(note)}
+            aria-label="Delete note"
+            className="text-slate-600 opacity-0 transition hover:text-red-300 focus:opacity-100 group-hover:opacity-100"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
     </li>
   );
@@ -97,14 +166,22 @@ function NoteRow({
 
 export function JournalCard({
   mood,
+  moodByDay,
   notesByDay,
   onAddNote,
+  onEditNote,
   onRemoveNote,
   onRemoveNotes,
   onMoodChange,
   highlight,
 }: JournalCardProps) {
+  const today = todayKey();
+  const [logDate, setLogDate] = useState(today);
+  const backdated = logDate !== today;
+  const activeMood = backdated ? moodByDay[logDate] ?? null : mood;
   const [draft, setDraft] = useState("");
+  const [kind, setKind] = useState<JournalNoteKind>("note");
+  const [noteFilter, setNoteFilter] = useState<JournalNoteKind | "all">("all");
   const [justAdded, setJustAdded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -113,20 +190,28 @@ export function JournalCard({
   const trimmed = draft.trim();
   const tooLong = draft.length > MAX_NOTE;
   const canAdd = trimmed.length > 0 && !tooLong;
+  const isDream = kind === "dream";
 
   const add = () => {
     if (!canAdd) return;
-    onAddNote(draft);
+    onAddNote(draft, kind, logDate);
     setDraft("");
     setJustAdded(true);
   };
 
-  const today = todayKey();
-  const todayNotes = notesByDay.find((d) => d.day === today)?.notes ?? [];
-  const earlier = notesByDay.filter((d) => d.day !== today);
-  const earlierCount = earlier.reduce((sum, d) => sum + d.notes.length, 0);
   const allNotes = notesByDay.flatMap((d) => d.notes);
   const hasNotes = allNotes.length > 0;
+  const hasDreams = allNotes.some((n) => n.kind === "dream");
+  const matches = (n: JournalNote) =>
+    noteFilter === "all" || (n.kind ?? "note") === noteFilter;
+  const todayNotes = (
+    notesByDay.find((d) => d.day === today)?.notes ?? []
+  ).filter(matches);
+  const earlier = notesByDay
+    .filter((d) => d.day !== today)
+    .map((d) => ({ day: d.day, notes: d.notes.filter(matches) }))
+    .filter((d) => d.notes.length > 0);
+  const earlierCount = earlier.reduce((sum, d) => sum + d.notes.length, 0);
 
   const toggleNote = (id: string) =>
     setSelectedIds((prev) => {
@@ -156,6 +241,7 @@ export function JournalCard({
     selectMode,
     selected: selectedIds.has(n.id),
     onToggle: toggleNote,
+    onEdit: onEditNote,
     onRemove: onRemoveNote,
   });
 
@@ -176,16 +262,42 @@ export function JournalCard({
         )}
       </div>
 
+      {/* Date — defaults to today; pick a past day to backfill mood/notes. */}
+      <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+        <span>For</span>
+        <input
+          type="date"
+          value={logDate}
+          max={today}
+          onChange={(e) => setLogDate(e.target.value || today)}
+          aria-label="Journal date"
+          className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-400"
+        />
+        {backdated ? (
+          <button
+            type="button"
+            onClick={() => setLogDate(today)}
+            className="text-amber-300/90 underline-offset-2 hover:underline"
+          >
+            backdating · back to today
+          </button>
+        ) : (
+          <span className="text-slate-600">today</span>
+        )}
+      </div>
+
       {/* Mood picker */}
-      <p className="mb-2 mt-4 text-xs text-slate-500">How are you feeling?</p>
+      <p className="mb-2 mt-4 text-xs text-slate-500">
+        {backdated ? `How did you feel on ${logDate}?` : "How are you feeling?"}
+      </p>
       <div className="flex flex-wrap gap-2">
         {MOODS.map((m) => {
-          const active = mood === m.key;
+          const active = activeMood === m.key;
           return (
             <button
               key={m.key}
               type="button"
-              onClick={() => onMoodChange(active ? null : m.key)}
+              onClick={() => onMoodChange(active ? null : m.key, logDate)}
               aria-pressed={active}
               title={m.label}
               className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm transition ${
@@ -201,20 +313,50 @@ export function JournalCard({
         })}
       </div>
 
-      {/* Add a note */}
+      {/* Note vs. dream */}
+      <div className="mt-4 inline-flex rounded-full border border-slate-700 p-0.5 text-xs font-medium">
+        <button
+          type="button"
+          aria-pressed={!isDream}
+          onClick={() => setKind("note")}
+          className={`rounded-full px-3 py-1 transition ${
+            !isDream ? "bg-blue-600 text-white" : "text-slate-300 hover:text-slate-100"
+          }`}
+        >
+          📝 Note
+        </button>
+        <button
+          type="button"
+          aria-pressed={isDream}
+          onClick={() => setKind("dream")}
+          className={`rounded-full px-3 py-1 transition ${
+            isDream ? "bg-indigo-600 text-white" : "text-slate-300 hover:text-slate-100"
+          }`}
+        >
+          🌙 Dream
+        </button>
+      </div>
+
+      {/* Add an entry */}
       <textarea
         value={draft}
         onChange={(e) => {
           setDraft(e.target.value);
           setJustAdded(false);
         }}
-        placeholder="What did you work on? Anything on your mind?"
+        placeholder={
+          isDream
+            ? "What did you dream? People, places, how it felt…"
+            : "What did you work on? Anything on your mind?"
+        }
         rows={3}
         maxLength={MAX_NOTE + 200}
-        className={`mt-4 w-full resize-y rounded-lg border bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none ${
+        className={`mt-2 w-full resize-y rounded-lg border bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none ${
           tooLong
             ? "border-red-500/70 focus:border-red-400"
-            : "border-slate-700 focus:border-blue-400"
+            : isDream
+              ? "border-slate-700 focus:border-indigo-400"
+              : "border-slate-700 focus:border-blue-400"
         }`}
       />
       <div className="mt-2 flex items-center justify-between gap-3">
@@ -230,18 +372,22 @@ export function JournalCard({
           {tooLong
             ? `${draft.length} / ${MAX_NOTE} — too long`
             : justAdded
-              ? "Added ✓"
+              ? "Saved ✓"
               : trimmed.length > 0
-                ? "Press Add to save this note"
-                : "Add as many notes as you like today"}
+                ? `Press Add to save this ${isDream ? "dream" : "note"}`
+                : isDream
+                  ? "Jot it down before it fades"
+                  : "Add as many notes as you like today"}
         </span>
         <button
           type="button"
           onClick={add}
           disabled={!canAdd}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-40 ${
+            isDream ? "bg-indigo-600 hover:bg-indigo-500" : "bg-blue-600 hover:bg-blue-500"
+          }`}
         >
-          Add note
+          {isDream ? "Add dream" : "Add note"}
         </button>
       </div>
 
@@ -287,6 +433,33 @@ export function JournalCard({
               Select
             </button>
           )}
+        </div>
+      )}
+
+      {/* Filter (only once there are dreams to filter by) */}
+      {hasDreams && !selectMode && (
+        <div className="mt-4 flex gap-1.5 text-xs">
+          {(
+            [
+              ["all", "All"],
+              ["note", "Notes"],
+              ["dream", "🌙 Dreams"],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={noteFilter === k}
+              onClick={() => setNoteFilter(k)}
+              className={`rounded-full border px-2.5 py-0.5 font-medium transition ${
+                noteFilter === k
+                  ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                  : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
 

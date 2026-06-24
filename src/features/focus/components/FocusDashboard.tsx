@@ -16,6 +16,7 @@ import { FocusSettingsModal } from "@/features/focus/components/FocusSettingsMod
 import { HydrationHistory } from "@/features/focus/components/HydrationHistory";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
 import { JournalCard } from "@/features/focus/components/JournalCard";
+import { LogPastSessionModal } from "@/features/focus/components/LogPastSessionModal";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
 import { TaskTracker } from "@/features/focus/components/TaskTracker";
@@ -80,6 +81,7 @@ export function FocusDashboard() {
   }, []);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pastSessionOpen, setPastSessionOpen] = useState(false);
   const [journalPrompt, setJournalPrompt] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -309,6 +311,7 @@ export function FocusDashboard() {
           byTask={stats.byTask}
           onSelect={tasks.setActiveTaskId}
           onAdd={tasks.addTask}
+          onRename={tasks.renameTask}
           onToggleDone={tasks.toggleDone}
           onRemove={removeTaskWithUndo}
         />
@@ -348,7 +351,19 @@ export function FocusDashboard() {
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      {stats.available && (
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setPastSessionOpen(true)}
+            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+          >
+            ＋ Log a past session
+          </button>
+        </div>
+      )}
+
+      <div className="mt-3 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <AnalysisPanel
           available={stats.available}
           loaded={stats.loaded}
@@ -373,12 +388,14 @@ export function FocusDashboard() {
         />
         <JournalCard
           mood={journal.todayMood}
+          moodByDay={journal.moodByDay}
           notesByDay={journal.notesByDay}
           onAddNote={journal.addNote}
+          onEditNote={journal.editNote}
           onRemoveNote={removeNoteWithUndo}
           onRemoveNotes={removeNotesWithUndo}
-          onMoodChange={(m) => {
-            journal.setMood(m);
+          onMoodChange={(m, day) => {
+            journal.setMood(m, day);
             setJournalPrompt(false);
           }}
           highlight={journalPrompt}
@@ -439,6 +456,16 @@ export function FocusDashboard() {
         onUpdate={update}
         onReset={reset}
         onClose={() => setSettingsOpen(false)}
+      />
+
+      <LogPastSessionModal
+        open={pastSessionOpen}
+        onClose={() => setPastSessionOpen(false)}
+        today={todayKey()}
+        tasks={[...tasks.activeTasks, ...tasks.doneTasks]}
+        onSave={(focusMin, day, taskId) =>
+          stats.addSession(focusMin, day, taskId)
+        }
       />
 
       <UndoToast state={undo.state} onUndo={undo.undo} onDismiss={undo.dismiss} />

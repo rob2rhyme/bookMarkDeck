@@ -98,3 +98,89 @@ function pretty(key: string): string {
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
+
+export type DayState = "done" | "skipped" | "missed" | "off";
+
+export type HabitMomentum = {
+  /** Most recent day the habit was successfully completed, or null. */
+  lastDoneDay: string | null;
+  lastDoneCount: number;
+  /** Per-day states over the trailing window, oldest → newest. */
+  strip: { key: string; state: DayState }[];
+  /** Scheduled days hit / scheduled in the window (daily/weekdays only). */
+  windowDone: number;
+  windowDue: number;
+  /** Successes / scheduled-so-far this (Sun-anchored) week. */
+  thisWeekDone: number;
+  thisWeekDue: number;
+};
+
+/**
+ * Per-habit recency + cadence for the expandable detail view. For
+ * times-a-week habits there's no daily obligation, so non-done days read as
+ * "off" (never "missed") and the window rate is left at zero — the weekly
+ * count is the meaningful figure instead.
+ */
+export function habitMomentum(
+  habit: Habit,
+  entries: HabitEntry[],
+  today: string,
+  windowDays = 14
+): HabitMomentum {
+  const target = habitTarget(habit);
+  const weekly = habit.schedule.type === "timesPerWeek";
+  const byDay = new Map<string, HabitEntry>();
+  for (const e of entries) {
+    if (e.habitId === habit.id) byDay.set(e.day, e);
+  }
+  const isSuccess = (e?: HabitEntry) =>
+    Boolean(e && e.status === "done" && e.count >= target);
+
+  let lastDoneDay: string | null = null;
+  let lastDoneCount = 0;
+  for (const [day, e] of byDay) {
+    if (isSuccess(e) && (!lastDoneDay || day > lastDoneDay)) {
+      lastDoneDay = day;
+      lastDoneCount = e.count;
+    }
+  }
+
+  const strip: { key: string; state: DayState }[] = [];
+  let windowDone = 0;
+  let windowDue = 0;
+  for (let i = windowDays - 1; i >= 0; i--) {
+    const key = addDays(today, -i);
+    const e = byDay.get(key);
+    const due = isDueOn(habit, key);
+    let state: DayState;
+    if (isSuccess(e)) state = "done";
+    else if (e?.status === "skipped") state = "skipped";
+    else if (due && !weekly) state = "missed";
+    else state = "off";
+    if (due && !weekly) {
+      windowDue++;
+      if (state === "done") windowDone++;
+    }
+    strip.push({ key, state });
+  }
+
+  const weekStart = weekKeyOf(today);
+  let thisWeekDone = 0;
+  let thisWeekDue = 0;
+  for (let i = 0; i < 7; i++) {
+    const key = addDays(weekStart, i);
+    if (key > today) break;
+    if (isDueOn(habit, key) && !weekly) thisWeekDue++;
+    if (isSuccess(byDay.get(key))) thisWeekDone++;
+  }
+
+  return {
+    lastDoneDay,
+    lastDoneCount,
+    strip,
+    windowDone,
+    windowDue,
+    thisWeekDone,
+    thisWeekDue,
+  };
+}

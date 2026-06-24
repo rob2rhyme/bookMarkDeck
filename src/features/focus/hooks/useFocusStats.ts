@@ -75,6 +75,23 @@ export function useFocusStats(
     [canSync, email]
   );
 
+  /** Backfill: add a focus session for any day (date + minutes + optional task). */
+  const addSession = useCallback(
+    (focusMin: number, day: string, taskId: string | null) => {
+      if (!canSync || !email || !day) return;
+      const record: FocusSessionRecord = {
+        id: crypto.randomUUID(),
+        focusMin: Math.max(1, Math.round(focusMin)),
+        day,
+        taskId: taskId || null,
+        createdAt: new Date().toISOString(),
+      };
+      setSessions((prev) => [...prev, record]);
+      restoreSessionRemote(email, record).catch(() => {});
+    },
+    [canSync, email]
+  );
+
   const byDay = useMemo(() => {
     const map: Record<string, DayBucket> = {};
     for (const s of sessions) {
@@ -204,6 +221,7 @@ export function useFocusStats(
     sessions,
     removeSession,
     restoreSession,
+    addSession,
     todaySessions: today.sessions,
     todayFocusMin: today.focusMin,
     last7,

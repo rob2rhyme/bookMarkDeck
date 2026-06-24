@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Note } from "@/components/icons";
+import { Check, Emoji, Note } from "@/components/icons";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import {
@@ -19,6 +19,8 @@ type HabitCardProps = {
   onAdjust: (h: Habit, delta: number) => void;
   onSkip: (h: Habit) => void;
   onClear: (h: Habit) => void;
+  onUndo?: (h: Habit) => void;
+  canUndo?: boolean;
   onDetail?: (h: Habit) => void;
   onEdit?: (h: Habit) => void;
 };
@@ -32,6 +34,8 @@ export function HabitCard({
   onAdjust,
   onSkip,
   onClear,
+  onUndo,
+  canUndo,
   onDetail,
   onEdit,
 }: HabitCardProps) {
@@ -74,8 +78,8 @@ export function HabitCard({
           {stats.doneToday ? (
             <Check className="h-5 w-5 text-emerald-300" />
           ) : (
-            <span className="text-lg leading-none" aria-hidden="true">
-              {habitEmoji(habit)}
+            <span className="text-lg leading-none">
+              <Emoji>{habitEmoji(habit)}</Emoji>
             </span>
           )}
         </HabitRing>
@@ -121,8 +125,19 @@ export function HabitCard({
         )}
       </div>
 
-      {/* Right side: measurable stepper, else a skip affordance. */}
+      {/* Right side: undo (after a tap), measurable stepper, skip affordance. */}
       <div className="flex shrink-0 items-center gap-1.5">
+        {canUndo && onUndo && !skipped && (
+          <button
+            type="button"
+            onClick={() => onUndo(habit)}
+            aria-label={`Undo last change to ${habit.name}`}
+            title="Undo last change"
+            className="rounded-full border border-slate-700 px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:border-slate-500 hover:bg-slate-800/60 hover:text-slate-200"
+          >
+            ↩ Undo
+          </button>
+        )}
         {measurable && !skipped && (
           <div className="flex items-center gap-1">
             <button

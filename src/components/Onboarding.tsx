@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { Emoji } from "@/components/icons";
 
 const SEEN_KEY = "bd:onboarded:v1";
 
@@ -50,9 +51,9 @@ export function Onboarding() {
       <ul className="mt-5 flex flex-col gap-4">
         {TIPS.map((t) => (
           <li key={t.title} className="flex gap-3">
-            <span className="text-xl leading-none" aria-hidden="true">
+            <Emoji className="text-xl leading-none">
               {t.icon}
-            </span>
+            </Emoji>
             <div>
               <p className="text-sm font-medium text-slate-100">{t.title}</p>
               <p className="text-[13px] text-slate-400">{t.body}</p>

@@ -5,9 +5,21 @@ type IconProps = {
   className?: string;
 };
 
+// Icons size in `em` so they track the surrounding text (text scale), then an
+// inline style applies the independent icon multiplier on top. The h-/w- class
+// is kept for layout fallbacks, but the inline width/height wins. `middle`
+// alignment stops the SVG (which defaults to baseline) from riding high in its
+// line box — the fix for icons appearing un-centered in inline contexts.
+const ICON_SIZE_STYLE: React.CSSProperties = {
+  width: "calc(1em * var(--app-icon-scale, 1))",
+  height: "calc(1em * var(--app-icon-scale, 1))",
+  verticalAlign: "middle",
+};
+
 function baseProps(className?: string): SVGProps<SVGSVGElement> {
   return {
     className: className ?? "h-5 w-5",
+    style: ICON_SIZE_STYLE,
     fill: "none",
     stroke: "currentColor",
     strokeWidth: 2,
@@ -15,6 +27,35 @@ function baseProps(className?: string): SVGProps<SVGSVGElement> {
     strokeLinejoin: "round",
     'aria-hidden': true,
   };
+}
+
+// A scalable emoji glyph: tracks text size like everything else, plus the
+// independent emoji multiplier. Use for prominent emoji spots.
+export function Emoji({
+  children,
+  className,
+  ...rest
+}: React.HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      aria-hidden="true"
+      {...rest}
+      className={className}
+      style={{
+        fontSize: "calc(1em * var(--app-emoji-scale, 1))",
+        // Tight, middle-aligned box so the glyph centers in rings/badges
+        // instead of riding high on the baseline.
+        lineHeight: 1,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        verticalAlign: "middle",
+        ...rest.style,
+      }}
+    >
+      {children}
+    </span>
+  );
 }
 
 export function ArrowLeft({ className }: IconProps) {
@@ -38,6 +79,7 @@ export function StarFilled({ className }: IconProps) {
     <svg
       viewBox="0 0 24 24"
       className={className ?? "h-5 w-5"}
+      style={ICON_SIZE_STYLE}
       fill="currentColor"
       stroke="currentColor"
       strokeWidth="1.4"

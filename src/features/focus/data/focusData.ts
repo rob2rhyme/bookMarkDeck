@@ -301,7 +301,8 @@ export async function fetchNotes(emailHint: string): Promise<JournalNote[]> {
         day: typeof data.day === "string" ? data.day : "",
         text: typeof data.text === "string" ? data.text : "",
         createdAt: timestampToIso(data.createdAt),
-      };
+        kind: data.kind === "dream" ? "dream" : "note",
+      } satisfies JournalNote;
     })
     .filter((n) => n.text.trim().length > 0);
 }
@@ -315,6 +316,7 @@ export async function addNote(
     day: note.day,
     text: note.text,
     createdAt: note.createdAt ?? serverTimestamp(),
+    kind: note.kind ?? "note",
   });
 }
 
@@ -537,7 +539,8 @@ export function subscribeNotes(
                 day: typeof data.day === "string" ? data.day : "",
                 text: typeof data.text === "string" ? data.text : "",
                 createdAt: timestampToIso(data.createdAt),
-              };
+                kind: data.kind === "dream" ? "dream" : "note",
+              } satisfies JournalNote;
             })
             .filter((n) => n.text.trim().length > 0)
         ),
