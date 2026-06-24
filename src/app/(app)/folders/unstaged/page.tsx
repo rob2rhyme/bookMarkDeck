@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { BookmarkCard } from "@/components/BookmarkCard";
-import { ArrowLeft, X } from "@/components/icons";
+import { ArrowLeft, Search, X } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { Bookmark } from "@/types/bookmark";
 import { makeFolderOptions } from "@/utils/folderOptions";
@@ -36,6 +36,7 @@ export default function UnstagedFolderPage() {
     type: "delete" | "bulkDelete";
     snapshot: Bookmark[];
   } | null>(null);
+  const [bookmarkQuery, setBookmarkQuery] = useState("");
 
   const folderOptions = useMemo(() => {
     return makeFolderOptions(folders);
@@ -53,6 +54,17 @@ export default function UnstagedFolderPage() {
         (bookmark.folderId === undefined && !normalizeFolderName(bookmark.folder ?? ""))
     );
   }, [bookmarks]);
+
+  const filteredItems = useMemo(() => {
+    const q = bookmarkQuery.trim().toLowerCase();
+    if (!q) return unstagedItems;
+    return unstagedItems.filter((bookmark) => {
+      const hay = `${bookmark.title} ${bookmark.url} ${bookmark.note ?? ""} ${
+        (bookmark.tags ?? []).join(" ")
+      }`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [unstagedItems, bookmarkQuery]);
 
   const addFolderOption = (name: string) => {
     const normalized = normalizeFolderName(name);
@@ -79,7 +91,7 @@ export default function UnstagedFolderPage() {
   };
 
   const selectAllBookmarks = () => {
-    setSelectedBookmarkIds(Array.from(new Set(unstagedItems.map((item) => item.id))));
+    setSelectedBookmarkIds(Array.from(new Set(filteredItems.map((item) => item.id))));
   };
 
   const applyMoveToSelection = (targetFolderId?: string) => {
@@ -229,25 +241,57 @@ export default function UnstagedFolderPage() {
           No bookmarks in Unstaged.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-          {unstagedItems.map((bookmark) => (
-            <BookmarkCard
-              key={bookmark.id}
-              bookmark={bookmark}
-              folderOptions={folderOptions}
-              onUpdate={updateBookmark}
-              onDelete={handleDelete}
-              onRequestNewFolder={(onCreated) => {
-                openNewFolderModal((folderId) => {
-                  onCreated(folderId);
-                });
-              }}
-              selectMode={bookmarkSelectMode}
-              isSelected={selectedBookmarkIds.includes(bookmark.id)}
-              onToggleSelect={toggleBookmarkSelection}
+        <>
+          <div className="relative mb-4">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              value={bookmarkQuery}
+              onChange={(e) => setBookmarkQuery(e.target.value)}
+              placeholder={`Search ${unstagedItems.length} unstaged bookmark${
+                unstagedItems.length !== 1 ? "s" : ""
+              }…`}
+              aria-label="Search unstaged bookmarks"
+              className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2 pl-9 pr-9 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
-          ))}
-        </div>
+            {bookmarkQuery && (
+              <button
+                type="button"
+                onClick={() => setBookmarkQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {filteredItems.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
+              No bookmarks match “{bookmarkQuery.trim()}”.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              {filteredItems.map((bookmark) => (
+                <BookmarkCard
+                  key={bookmark.id}
+                  bookmark={bookmark}
+                  folderOptions={folderOptions}
+                  onUpdate={updateBookmark}
+                  onDelete={handleDelete}
+                  onRequestNewFolder={(onCreated) => {
+                    openNewFolderModal((folderId) => {
+                      onCreated(folderId);
+                    });
+                  }}
+                  selectMode={bookmarkSelectMode}
+                  isSelected={selectedBookmarkIds.includes(bookmark.id)}
+                  onToggleSelect={toggleBookmarkSelection}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {showBulkMoveBookmarksModal && (

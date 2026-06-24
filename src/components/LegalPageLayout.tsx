@@ -11,7 +11,7 @@ type Props = {
 export function LegalPageLayout({ title, lastUpdated, children }: Props) {
   return (
     <div className="mx-auto w-full max-w-4xl px-1 sm:px-2">
-      <section className="rounded-2xl border border-slate-800/70 bg-slate-950/35 p-6 shadow-2xl ring-1 ring-white/5 backdrop-blur-md sm:p-8">
+      <section className="rounded-2xl border border-slate-800/70 bg-slate-950/35 p-4 shadow-2xl ring-1 ring-white/5 backdrop-blur-md sm:p-8">
         <div className="mb-4">
           <Link
             href="/"

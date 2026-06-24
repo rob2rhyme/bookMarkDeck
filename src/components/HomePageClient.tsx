@@ -245,6 +245,7 @@ export function HomePageClient() {
   const [newTags, setNewTags] = useState(""); // NEW
   const [showAddForm, setShowAddForm] = useState(false);
 const [showAddShortcutForm, setShowAddShortcutForm] = useState(false);
+const [shortcutQuery, setShortcutQuery] = useState("");
 const [shortcutName, setShortcutName] = useState("");
 const [shortcutUrl, setShortcutUrl] = useState("");
 const [shortcutLocalPath, setShortcutLocalPath] = useState("");
@@ -665,6 +666,15 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     syncToCloudShortcuts,
     isSyncing: isSyncingShortcuts,
   } = useShortcuts(userId);
+
+  // Search across app shortcuts (name / url).
+  const filteredShortcuts = useMemo(() => {
+    const q = shortcutQuery.trim().toLowerCase();
+    if (!q) return shortcuts;
+    return shortcuts.filter((app) =>
+      `${app.name} ${app.url}`.toLowerCase().includes(q)
+    );
+  }, [shortcuts, shortcutQuery]);
 
   useEffect(() => {
     if (!activeShortcutId) return;
@@ -1525,24 +1535,57 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               No shortcuts yet. Add one to jump into your favorite apps faster.
             </div>
           ) : (
-            <div className="bd-tile-grid w-full [--tile-gap:12px] [--tile-max:102px] [--tile-min:82px] sm:[--tile-gap:14px] sm:[--tile-min:88px] lg:[--tile-min:94px]">
-              {shortcuts.map((app) => (
-                <ShortcutIcon
-                  key={app.id}
-                  app={app}
-                  active={activeShortcutId === app.id}
-                  pinned={activeShortcutId === app.id && activeShortcutPinned}
-                  onRequestHoverOpen={() => handleShortcutHoverOpen(app.id)}
-                  onRequestTogglePinned={(keepOpenWhenUnpinned) =>
-                    handleShortcutTogglePinned(app.id, keepOpenWhenUnpinned)
-                  }
-                  onRequestClose={() => handleShortcutRequestClose(app.id)}
-                  onOpen={() => void handleShortcutOpen(app)}
-                  onDelete={() => handleShortcutDelete(app.id)}
-                  onEdit={() => handleStartShortcutEdit(app)}
-                />
-              ))}
-            </div>
+            <>
+              {shortcuts.length > 1 && (
+                <div className="relative mb-3">
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
+                    🔍
+                  </span>
+                  <input
+                    type="text"
+                    placeholder={`Search ${shortcuts.length} shortcuts…`}
+                    value={shortcutQuery}
+                    onChange={(e) => setShortcutQuery(e.target.value)}
+                    aria-label="Search app shortcuts"
+                    className="h-10 w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-2 pl-9 pr-9 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  {shortcutQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setShortcutQuery("")}
+                      aria-label="Clear shortcut search"
+                      className="absolute inset-y-0 right-2 flex items-center justify-center rounded-full px-2 text-slate-500 transition hover:bg-slate-800/70 hover:text-slate-100"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
+              {filteredShortcuts.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">
+                  No shortcuts match “{shortcutQuery.trim()}”.
+                </div>
+              ) : (
+                <div className="bd-tile-grid w-full [--tile-gap:12px] [--tile-max:1fr] [--tile-min:108px] sm:[--tile-gap:14px] sm:[--tile-min:120px] lg:[--tile-min:132px]">
+                  {filteredShortcuts.map((app) => (
+                    <ShortcutIcon
+                      key={app.id}
+                      app={app}
+                      active={activeShortcutId === app.id}
+                      pinned={activeShortcutId === app.id && activeShortcutPinned}
+                      onRequestHoverOpen={() => handleShortcutHoverOpen(app.id)}
+                      onRequestTogglePinned={(keepOpenWhenUnpinned) =>
+                        handleShortcutTogglePinned(app.id, keepOpenWhenUnpinned)
+                      }
+                      onRequestClose={() => handleShortcutRequestClose(app.id)}
+                      onOpen={() => void handleShortcutOpen(app)}
+                      onDelete={() => handleShortcutDelete(app.id)}
+                      onEdit={() => handleStartShortcutEdit(app)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
 

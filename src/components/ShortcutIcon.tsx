@@ -180,7 +180,7 @@ export function ShortcutIcon({
     <div
       ref={wrapperRef}
       data-shortcut-hover-root="true"
-      className="relative w-full max-w-[var(--tile-max,102px)] justify-self-start"
+      className="relative w-full max-w-[160px] justify-self-center"
       onPointerEnter={() => {
         clearCloseTimer();
         setPointerInsideRegion(true);
@@ -227,18 +227,18 @@ export function ShortcutIcon({
             alt=""
             width={48}
             height={48}
-            className="block h-[58%] w-[58%] max-h-12 max-w-12 rounded-lg object-contain"
+            className="block h-[58%] w-[58%] max-h-16 max-w-16 rounded-lg object-contain"
             loading="lazy"
             onError={() => {
               if (iconUrl) setIconLoadErrorFor(iconUrl);
             }}
           />
         ) : app.icon ? (
-          <span className="text-xl" aria-hidden="true">
+          <span className="text-3xl" aria-hidden="true">
             {app.icon}
           </span>
         ) : (
-          <span className="text-xs font-semibold uppercase tracking-wide">{initial}</span>
+          <span className="text-base font-semibold uppercase tracking-wide">{initial}</span>
         )}
 
         <span

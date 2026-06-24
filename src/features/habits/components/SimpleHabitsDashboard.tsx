@@ -13,7 +13,7 @@ import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { HabitsViewToggle } from "@/features/habits/components/HabitsViewToggle";
-import { ChevronUp, DotsHorizontal, Emoji } from "@/components/icons";
+import { ChevronUp, DotsVertical, Emoji } from "@/components/icons";
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import {
@@ -202,7 +202,7 @@ function ManageRow({
           aria-label={`Options for ${habit.name}`}
           className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
         >
-          <DotsHorizontal className="h-4 w-4" />
+          <DotsVertical className="h-4 w-4" />
         </button>
         {open && (
           <div className="absolute right-0 z-30 mt-1 w-40 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl">
@@ -474,7 +474,7 @@ export function SimpleHabitsDashboard() {
       ) : (
         <>
           {/* Summary ring */}
-          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
+          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
             <div className="flex items-center gap-5">
               <HabitRing
                 progress={progress}
@@ -506,7 +506,7 @@ export function SimpleHabitsDashboard() {
           </section>
 
           {/* Today — the hero */}
-          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
+          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
                 Today
@@ -556,7 +556,7 @@ export function SimpleHabitsDashboard() {
 
           {/* Your habits — compact manager */}
           {h.habits.length > 0 && (
-            <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
+            <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
               <div className="mb-1 flex items-center justify-between">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
                   Your habits
@@ -583,14 +583,17 @@ export function SimpleHabitsDashboard() {
             </section>
           )}
 
-          {/* Insights — deferred until there's data, then collapsed by default */}
+          {/* Insights — deferred until there's data, then collapsed by default.
+              On mobile the wrapper drops its own horizontal padding so the inner
+              panels (already full-width cards) bleed wider; desktop keeps the
+              padded card (sm:p-8) unchanged. */}
           {showAnalytics ? (
-            <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
+            <section className="rounded-2xl border border-transparent bg-transparent p-0 shadow-none sm:border-slate-800/70 sm:bg-slate-900/85 sm:p-8 sm:shadow-sm">
               <button
                 type="button"
                 onClick={() => setInsightsOpen((o) => !o)}
                 aria-expanded={insightsOpen}
-                className="flex w-full items-center justify-between gap-2 text-left"
+                className="flex w-full items-center justify-between gap-2 px-1 text-left sm:px-0"
               >
                 <span className="text-sm font-semibold uppercase tracking-wide text-slate-300">
                   Insights &amp; history

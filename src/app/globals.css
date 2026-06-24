@@ -256,7 +256,11 @@ body {
     );
     gap: var(--tile-gap, 12px);
     justify-items: start;
-    justify-content: start;
+    /* Center the block of fixed-width tiles so leftover space is split evenly
+       on both sides; tiles still fill left-to-right with even gaps, and the last
+       row ends wherever it lands. (auto-fit collapses empty tracks, so this
+       centers the filled tiles, not phantom columns.) */
+    justify-content: center;
     align-items: start;
     align-content: start;
   }

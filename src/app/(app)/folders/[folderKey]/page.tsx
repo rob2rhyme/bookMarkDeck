@@ -14,6 +14,7 @@ import {
   CheckSquare,
   FolderPlus,
   Pencil,
+  Search,
   Trash2,
   X,
 } from "@/components/icons";
@@ -120,6 +121,7 @@ export default function FolderPage() {
     type: "delete" | "bulkDelete";
     snapshot: Bookmark[];
   } | null>(null);
+  const [bookmarkQuery, setBookmarkQuery] = useState("");
 
   const breadcrumbs = useMemo(() => {
     if (!currentFolder) return [];
@@ -216,6 +218,18 @@ export default function FolderPage() {
     });
   }, [bookmarks, currentFolder]);
 
+  // Search within this folder's bookmarks (title / url / note / tags).
+  const filteredItems = useMemo(() => {
+    const q = bookmarkQuery.trim().toLowerCase();
+    if (!q) return folderItems;
+    return folderItems.filter((bookmark) => {
+      const hay = `${bookmark.title} ${bookmark.url} ${bookmark.note ?? ""} ${
+        (bookmark.tags ?? []).join(" ")
+      }`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [folderItems, bookmarkQuery]);
+
   const folderOptions = useMemo(() => {
     return makeFolderOptions(folders);
   }, [folders]);
@@ -292,7 +306,7 @@ export default function FolderPage() {
   };
 
   const selectAllBookmarks = () => {
-    setSelectedBookmarkIds(Array.from(new Set(folderItems.map((bookmark) => bookmark.id))));
+    setSelectedBookmarkIds(Array.from(new Set(filteredItems.map((bookmark) => bookmark.id))));
   };
 
   const applyMoveToSelection = (targetFolderId?: string) => {
@@ -590,26 +604,58 @@ export default function FolderPage() {
           No bookmarks in this folder yet.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-          {folderItems.map((bookmark) => (
-            <BookmarkCard
-              key={bookmark.id}
-              bookmark={bookmark}
-              folderOptions={folderOptions}
-              folderName={currentFolder.name}
-              onUpdate={updateBookmark}
-              onDelete={handleDelete}
-              onRequestNewFolder={(onCreated) => {
-                openNewFolderModal((folderId) => {
-                  onCreated(folderId);
-                });
-              }}
-              selectMode={bookmarkSelectMode}
-              isSelected={selectedBookmarkIds.includes(bookmark.id)}
-              onToggleSelect={toggleBookmarkSelection}
+        <>
+          <div className="relative mb-4">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              value={bookmarkQuery}
+              onChange={(e) => setBookmarkQuery(e.target.value)}
+              placeholder={`Search ${folderItems.length} bookmark${
+                folderItems.length !== 1 ? "s" : ""
+              } in this folder…`}
+              aria-label="Search bookmarks in this folder"
+              className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2 pl-9 pr-9 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
-          ))}
-        </div>
+            {bookmarkQuery && (
+              <button
+                type="button"
+                onClick={() => setBookmarkQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {filteredItems.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
+              No bookmarks match “{bookmarkQuery.trim()}”.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              {filteredItems.map((bookmark) => (
+                <BookmarkCard
+                  key={bookmark.id}
+                  bookmark={bookmark}
+                  folderOptions={folderOptions}
+                  folderName={currentFolder.name}
+                  onUpdate={updateBookmark}
+                  onDelete={handleDelete}
+                  onRequestNewFolder={(onCreated) => {
+                    openNewFolderModal((folderId) => {
+                      onCreated(folderId);
+                    });
+                  }}
+                  selectMode={bookmarkSelectMode}
+                  isSelected={selectedBookmarkIds.includes(bookmark.id)}
+                  onToggleSelect={toggleBookmarkSelection}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {showBulkMoveBookmarksModal && (

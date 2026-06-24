@@ -247,7 +247,7 @@ export function JournalCard({
 
   return (
     <section
-      className={`rounded-2xl border p-6 shadow-sm transition sm:p-8 ${
+      className={`rounded-2xl border p-4 shadow-sm transition sm:p-8 ${
         highlight
           ? "border-blue-500/50 bg-blue-950/20"
           : "border-slate-800/70 bg-slate-900/85"

@@ -65,8 +65,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         open={appearanceOpen}
         onClose={() => setAppearanceOpen(false)}
       />
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-24 pt-8 sm:px-6 sm:pb-12 lg:px-8 lg:pt-12">
-        <header className="mb-8 flex flex-col gap-4 sm:mb-10">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-0 pb-24 pt-8 sm:px-6 sm:pb-12 lg:px-8 lg:pt-12">
+        <header className="mb-8 flex flex-col gap-4 px-3 sm:mb-10 sm:px-0">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
               <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
@@ -84,12 +84,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
               {session && (
                 <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                  {/* Top nav tabs are redundant with the mobile bottom nav, so
+                      they only show from sm up. */}
                   {otherTabs.map((tab) => (
                     <Link
                       key={tab.href}
                       href={tab.href}
                       aria-label={tab.label}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:px-3 sm:py-1.5 sm:text-sm"
+                      className="hidden items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:inline-flex sm:px-3 sm:py-1.5 sm:text-sm"
                     >
                       <tab.Icon className="h-4 w-4" />
                       <span className="hidden sm:inline">{tab.label}</span>
@@ -182,7 +184,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex flex-1 flex-col">{children}</div>
 
-        <footer className="mt-12 mt-auto flex w-full flex-col items-center gap-2 text-sm text-slate-400">
+        <footer className="mt-12 mt-auto flex w-full flex-col items-center gap-2 px-3 text-sm text-slate-400 sm:px-0">
           <div className="flex w-full max-w-5xl items-center gap-3 text-[11px] text-slate-500">
             <span className="h-px flex-1 bg-slate-800" />
             <span className="shrink-0">Info</span>
@@ -218,11 +220,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition ${
+                className={`flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-medium transition ${
                   active ? "text-blue-300" : "text-slate-400"
                 }`}
               >
-                <tab.Icon className="h-5 w-5" />
+                <tab.Icon className="h-6 w-6" />
                 {tab.label}
               </Link>
             );
@@ -232,9 +234,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() =>
               window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))
             }
-            className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium text-slate-400 transition hover:text-slate-200"
+            className="flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-medium text-slate-400 transition hover:text-slate-200"
           >
-            <Search className="h-5 w-5" />
+            <Search className="h-6 w-6" />
             Search
           </button>
         </nav>

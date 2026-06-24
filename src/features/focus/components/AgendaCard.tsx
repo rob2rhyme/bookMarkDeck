@@ -78,7 +78,7 @@ export function AgendaCard({
   })();
 
   return (
-    <section className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-950/40 via-slate-900/90 to-indigo-950/40 p-6 shadow-lg shadow-violet-950/30 sm:p-8">
+    <section className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-950/40 via-slate-900/90 to-indigo-950/40 p-4 shadow-lg shadow-violet-950/30 sm:p-8">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-violet-200">
           Agenda · Google Calendar

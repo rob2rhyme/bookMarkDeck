@@ -140,7 +140,7 @@ export function TodoList({
   const today = todayKey();
 
   return (
-    <div className="flex flex-col rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-950/50 via-slate-900/90 to-indigo-950/40 p-6 shadow-lg shadow-blue-950/40 sm:p-8">
+    <div className="flex flex-col rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-950/50 via-slate-900/90 to-indigo-950/40 p-4 shadow-lg shadow-blue-950/40 sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-blue-200">
           <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-500/15 text-blue-300">

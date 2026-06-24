@@ -230,7 +230,7 @@ export function HabitsDashboard() {
       ) : (
         <>
           {/* Summary */}
-          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
+          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
             <div className="flex items-center gap-5">
               <HabitRing
                 progress={progress}
@@ -304,7 +304,7 @@ export function HabitsDashboard() {
           )}
 
           {/* All habits / manage */}
-          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-6 shadow-sm sm:p-8">
+          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
                 All habits

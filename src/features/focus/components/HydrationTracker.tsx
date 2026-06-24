@@ -163,7 +163,7 @@ export function HydrationTracker({
 
   return (
     <section
-      className={`rounded-2xl border p-6 shadow-sm transition sm:p-8 ${
+      className={`rounded-2xl border p-4 shadow-sm transition sm:p-8 ${
         reminding
           ? "border-sky-500/60 bg-sky-950/30"
           : "border-slate-800/70 bg-slate-900/85"

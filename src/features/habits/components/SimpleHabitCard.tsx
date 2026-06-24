@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Check, DotsHorizontal, Emoji, Note, Timer } from "@/components/icons";
+import { Check, DotsVertical, Emoji, Note, Timer } from "@/components/icons";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import { type Habit, type HabitStats, habitTarget } from "@/features/habits/lib/types";
@@ -196,7 +196,7 @@ export function SimpleHabitCard({
             aria-label={`More options for ${habit.name}`}
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
           >
-            <DotsHorizontal className="h-4 w-4" />
+            <DotsVertical className="h-4 w-4" />
           </button>
           {menuOpen && (
             <div className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl">
