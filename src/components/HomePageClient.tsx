@@ -741,6 +741,16 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setActiveShortcutId(null);
   };
 
+  const handleShortcutOpenMenu = (id: string) => {
+    setActiveShortcutId(id);
+    setActiveShortcutPinned(true);
+  };
+
+  const handleShortcutForceClose = () => {
+    setActiveShortcutId(null);
+    setActiveShortcutPinned(false);
+  };
+
   const trending = useMemo(() => {
     const scored = filtered.map((b) => {
       const hits = b.hits ?? 0;
@@ -1577,7 +1587,9 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       onRequestTogglePinned={(keepOpenWhenUnpinned) =>
                         handleShortcutTogglePinned(app.id, keepOpenWhenUnpinned)
                       }
+                      onRequestOpenMenu={() => handleShortcutOpenMenu(app.id)}
                       onRequestClose={() => handleShortcutRequestClose(app.id)}
+                      onForceClose={handleShortcutForceClose}
                       onOpen={() => void handleShortcutOpen(app)}
                       onDelete={() => handleShortcutDelete(app.id)}
                       onEdit={() => handleStartShortcutEdit(app)}
