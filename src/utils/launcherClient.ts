@@ -15,6 +15,13 @@ type LauncherTarget = {
   appUserModelId?: string;
 };
 
+export type InstalledApp = {
+  name: string;
+  bundleId?: string;
+  localPath?: string;
+  appUserModelId?: string;
+};
+
 function getLauncherProtocol() {
   if (
     LAUNCHER_PROTOCOL_ENV === "http" ||
@@ -98,6 +105,32 @@ export async function launcherHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function launcherListApps(): Promise<InstalledApp[]> {
+  if (typeof window === "undefined") return [];
+  const token = ensureLauncherToken();
+  const url = `${getBaseUrl()}/apps`;
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: "GET",
+      mode: "cors",
+      cache: "no-store",
+      headers: { "X-BookmarkDeck-Token": token },
+    },
+    10000
+  );
+  if (res.status === 401) {
+    throw new Error("Launcher token mismatch.");
+  }
+  if (!res.ok) {
+    throw new Error("Launcher could not list installed apps.");
+  }
+  const data = (await res.json().catch(() => null)) as
+    | { apps?: InstalledApp[] }
+    | null;
+  return Array.isArray(data?.apps) ? data!.apps : [];
 }
 
 export async function launcherOpen(target: LauncherTarget): Promise<void> {
