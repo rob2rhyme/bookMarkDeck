@@ -11,10 +11,7 @@ const baseCsp = [
   "frame-ancestors 'none'",
 ];
 
-const connectSrc =
-  process.env.NODE_ENV === "production"
-    ? "connect-src 'self' https: https://127.0.0.1:47831 https://localhost:47831"
-    : "connect-src 'self' http://127.0.0.1:47831 http://localhost:47831 https://127.0.0.1:47831 https://localhost:47831 https:";
+const connectSrc = "connect-src 'self' https:";
 
 const csp = [...baseCsp, connectSrc].join("; ");
 

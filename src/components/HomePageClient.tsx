@@ -10,25 +10,17 @@ import { useRouter } from "next/navigation";
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { FolderCard } from "@/components/FolderCard";
 import { ShortcutIcon } from "@/components/ShortcutIcon";
-import { InstalledAppPicker } from "@/components/InstalledAppPicker";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
-import { ShortcutApp, ShortcutPlatform } from "@/types/shortcut";
+import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
-import { launcherHealth, launcherOpen } from "@/utils/launcherClient";
-import {
-  cleanPlatformTarget,
-  detectPlatform,
-  firstTargetLabel,
-  targetForPlatform,
-} from "@/utils/shortcutTargets";
 
 function getHostname(rawUrl: string) {
   try {
@@ -81,106 +73,6 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-function CopyIconButton({ value, tooltip }: { value: string; tooltip: string }) {
-  const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const setCopiedState = () => {
-    setCopied(true);
-    if (timeoutRef.current !== null) {
-      window.clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = window.setTimeout(() => {
-      setCopied(false);
-      timeoutRef.current = null;
-    }, 1500);
-  };
-
-  const fallbackCopy = () => {
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.setAttribute("readonly", "true");
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand("copy");
-      setCopiedState();
-    } finally {
-      document.body.removeChild(textarea);
-    }
-  };
-
-  const handleCopy = async () => {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      try {
-        await navigator.clipboard.writeText(value);
-        setCopiedState();
-        return;
-      } catch {
-        // fall through to legacy copy
-      }
-    }
-    fallbackCopy();
-  };
-
-  const tooltipText = copied ? "Copied!" : tooltip;
-
-  return (
-    <div className="group relative flex items-center">
-      <button
-        type="button"
-        onClick={handleCopy}
-        className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 transition hover:bg-slate-800/70 hover:text-white ${
-          copied ? "text-green-400" : ""
-        }`}
-        aria-label={tooltip}
-      >
-        {copied ? (
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M5 12l4 4L19 6" />
-          </svg>
-        ) : (
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M9 9h9v11H9z" />
-            <path d="M6 4h9v3H6z" />
-          </svg>
-        )}
-      </button>
-      <div className="pointer-events-none absolute -top-9 right-0 z-10 translate-y-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-100 opacity-0 shadow-lg transition duration-150 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
-        {tooltipText}
-        <div className="absolute -bottom-1 right-2 h-2 w-2 rotate-45 border-b border-r border-slate-700 bg-slate-900" />
-      </div>
-    </div>
-  );
-}
 
 export function HomePageClient() {
   const router = useRouter();
@@ -255,22 +147,11 @@ const [showAddShortcutForm, setShowAddShortcutForm] = useState(false);
 const [shortcutQuery, setShortcutQuery] = useState("");
 const [shortcutName, setShortcutName] = useState("");
 const [shortcutUrl, setShortcutUrl] = useState("");
-const [shortcutLocalPath, setShortcutLocalPath] = useState("");
-const [shortcutBundleId, setShortcutBundleId] = useState("");
-const [shortcutAppUserModelId, setShortcutAppUserModelId] = useState("");
 const [shortcutIconValue, setShortcutIconValue] = useState("");
 const [shortcutIconTouched, setShortcutIconTouched] = useState(false);
 const [editingShortcut, setEditingShortcut] = useState<ShortcutApp | null>(null);
 const [editName, setEditName] = useState("");
 const [editUrl, setEditUrl] = useState("");
-const [editLocalPath, setEditLocalPath] = useState("");
-const [editBundleId, setEditBundleId] = useState("");
-const [editAppUserModelId, setEditAppUserModelId] = useState("");
-// Detected after mount to stay hydration-safe (navigator is undefined on the server).
-const [platform, setPlatform] = useState<ShortcutPlatform | "other">("other");
-useEffect(() => {
-  setPlatform(detectPlatform());
-}, []);
   const [editIconValue, setEditIconValue] = useState("");
   const [editIconTouched, setEditIconTouched] = useState(false);
   const [undoState, setUndoState] = useState<{
@@ -284,7 +165,6 @@ const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showBackups, setShowBackups] = useState(false);
   const [activeFolderKey, setActiveFolderKey] = useState<string | null>(null);
   const [activeFolderLabel, setActiveFolderLabel] = useState<string>("Unstaged");
-const [showShortcutInfo, setShowShortcutInfo] = useState(false);
 const [activeShortcutId, setActiveShortcutId] = useState<string | null>(null);
 const [activeShortcutPinned, setActiveShortcutPinned] = useState(false);
 const [showNewFolderModal, setShowNewFolderModal] = useState(false);
@@ -456,17 +336,6 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setSelectedFolderKeys((prev) => prev.filter((key) => key !== folderId));
     setShowDeleteFolderConfirm(false);
   };
-
-  useEffect(() => {
-    if (!showShortcutInfo) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setShowShortcutInfo(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showShortcutInfo]);
 
   // Open the add-bookmark form when arriving via the ⌘K command palette.
   useEffect(() => {
@@ -940,29 +809,16 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
   const handleAddShortcut = () => {
     const trimmedName = shortcutName.trim();
     const trimmedUrl = shortcutUrl.trim();
-    const target =
-      platform === "other"
-        ? undefined
-        : cleanPlatformTarget({
-            appPath: shortcutLocalPath,
-            bundleId: platform === "darwin" ? shortcutBundleId : undefined,
-            appUserModelId:
-              platform === "win32" ? shortcutAppUserModelId : undefined,
-          });
-    if (!trimmedName || (!trimmedUrl && !target)) return;
-    const autoIcon = trimmedUrl ? getFaviconUrl(trimmedUrl) : "";
+    if (!trimmedName || !trimmedUrl) return;
+    const autoIcon = getFaviconUrl(trimmedUrl);
     const icon = shortcutIconTouched ? shortcutIconValue.trim() : autoIcon;
     addShortcut({
       name: trimmedName,
       url: trimmedUrl,
       icon: icon || undefined,
-      targets: target && platform !== "other" ? { [platform]: target } : undefined,
     });
     setShortcutName("");
     setShortcutUrl("");
-    setShortcutLocalPath("");
-    setShortcutBundleId("");
-    setShortcutAppUserModelId("");
     setShortcutIconValue("");
     setShortcutIconTouched(false);
     setShowAddShortcutForm(false);
@@ -1005,42 +861,10 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     deleteShortcut(id);
   };
 
-  const handleShortcutOpen = async (app: ShortcutApp) => {
-    const webTarget = app.url.trim();
-    const openWeb = () => {
-      if (webTarget) window.open(webTarget, "_blank", "noopener,noreferrer");
-    };
-    // Pick the native target configured for this device's platform (if any).
-    const native = targetForPlatform(app, detectPlatform());
-
-    if (native) {
-      // Try the native launcher; gracefully fall back to the website if the
-      // launcher is down or the open fails and a URL is available.
-      const healthy = await launcherHealth();
-      if (healthy) {
-        try {
-          await launcherOpen({
-            localPath: native.appPath,
-            bundleId: native.bundleId,
-            appUserModelId: native.appUserModelId,
-          });
-          return;
-        } catch (error) {
-          if (!webTarget) {
-            alert(error instanceof Error ? error.message : "Failed to open native app.");
-            return;
-          }
-        }
-      }
-      if (webTarget) {
-        openWeb();
-        return;
-      }
-      alert("Launcher not reachable. Start the local launcher and try again.");
-      return;
-    }
-
-    openWeb();
+  const handleShortcutOpen = (app: ShortcutApp) => {
+    const target = app.url.trim();
+    if (!target) return;
+    window.open(target, "_blank", "noopener,noreferrer");
   };
 
   const handleShortcutUpdate = (id: string, data: Partial<ShortcutApp>) => {
@@ -1051,10 +875,6 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setEditingShortcut(app);
     setEditName(app.name);
     setEditUrl(app.url);
-    const current = platform !== "other" ? app.targets?.[platform] : undefined;
-    setEditLocalPath(current?.appPath ?? "");
-    setEditBundleId(current?.bundleId ?? "");
-    setEditAppUserModelId(current?.appUserModelId ?? "");
     setEditIconValue(app.icon ?? "");
     setEditIconTouched(false);
   };
@@ -1063,31 +883,13 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     if (!editingShortcut) return;
     const trimmedName = editName.trim();
     const trimmedUrl = editUrl.trim();
-    // Merge this platform's target into the shortcut's existing targets so
-    // native targets configured on other devices are preserved.
-    const target =
-      platform === "other"
-        ? undefined
-        : cleanPlatformTarget({
-            appPath: editLocalPath,
-            bundleId: platform === "darwin" ? editBundleId : undefined,
-            appUserModelId:
-              platform === "win32" ? editAppUserModelId : undefined,
-          });
-    const mergedTargets = { ...editingShortcut.targets };
-    if (platform !== "other") {
-      if (target) mergedTargets[platform] = target;
-      else delete mergedTargets[platform];
-    }
-    const targets = Object.keys(mergedTargets).length ? mergedTargets : undefined;
-    if (!trimmedName || (!trimmedUrl && !targets)) return;
-    const autoIcon = trimmedUrl ? getFaviconUrl(trimmedUrl) : "";
+    if (!trimmedName || !trimmedUrl) return;
+    const autoIcon = getFaviconUrl(trimmedUrl);
     const icon = editIconTouched ? editIconValue.trim() : autoIcon;
     handleShortcutUpdate(editingShortcut.id, {
       name: trimmedName,
       url: trimmedUrl,
       icon: icon || undefined,
-      targets,
     });
     setEditingShortcut(null);
   };
@@ -1206,8 +1008,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       if (url) return `url:${url}`;
       if (s.id?.trim()) return `id:${s.id}`;
       const name = s.name?.trim() || "shortcut";
-      const nativeLabel = firstTargetLabel(s) ?? "";
-      return `native:${name}::${nativeLabel}`;
+      return `name:${name}`;
     };
     const existingByKey = new Map(shortcuts.map((s) => [shortcutKey(s), s]));
     const merged: ShortcutApp[] = [...shortcuts];
@@ -1497,14 +1298,6 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               <span className="text-xs text-slate-500">Open common tools fast</span>
               <button
                 type="button"
-                onClick={() => setShowShortcutInfo(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-[12px] font-semibold text-slate-200 transition hover:border-blue-400 hover:text-white"
-                aria-label="Shortcut path help"
-              >
-                i
-              </button>
-              <button
-                type="button"
                 onClick={() =>
                   setShowAddShortcutForm((v) => {
                     const next = !v;
@@ -1561,57 +1354,6 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       onChange={(e) => setShortcutUrl(e.target.value)}
                       className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
-                    {platform === "other" ? (
-                      <p className="text-xs text-slate-500">
-                        Native app open works on desktop (macOS, Windows, Linux)
-                        with the launcher running.
-                      </p>
-                    ) : (
-                      <>
-                        <input
-                          type="text"
-                          placeholder={
-                            platform === "win32"
-                              ? "Path, e.g. C:\\Program Files\\App\\app.exe"
-                              : platform === "linux"
-                                ? "Path, e.g. /usr/bin/slack"
-                                : "Path, e.g. /Applications/Slack.app"
-                          }
-                          aria-label="App path (native open)"
-                          value={shortcutLocalPath}
-                          onChange={(e) => setShortcutLocalPath(e.target.value)}
-                          className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        />
-                        {platform === "darwin" && (
-                          <input
-                            type="text"
-                            placeholder="macOS bundle ID, e.g. com.tinyspeck.slackmacgap"
-                            aria-label="macOS bundle ID (native open)"
-                            value={shortcutBundleId}
-                            onChange={(e) => setShortcutBundleId(e.target.value)}
-                            className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                          />
-                        )}
-                        {platform === "win32" && (
-                          <input
-                            type="text"
-                            placeholder="Windows AppUserModelID"
-                            aria-label="Windows AppUserModelID (native open)"
-                            value={shortcutAppUserModelId}
-                            onChange={(e) => setShortcutAppUserModelId(e.target.value)}
-                            className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                          />
-                        )}
-                        <InstalledAppPicker
-                          onPick={(picked) => {
-                            setShortcutLocalPath(picked.localPath ?? "");
-                            setShortcutBundleId(picked.bundleId ?? "");
-                            setShortcutAppUserModelId(picked.appUserModelId ?? "");
-                            if (!shortcutName.trim()) setShortcutName(picked.name);
-                          }}
-                        />
-                      </>
-                    )}
                     <input
                       type="text"
                       // UI-only label change; rendering already supports URLs or emoji.
@@ -2221,62 +1963,11 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                 />
                 <input
                   type="text"
-                  placeholder="https:// or myapp://"
+                  placeholder="https://app.example.com"
                   value={editUrl}
                   onChange={(e) => setEditUrl(e.target.value)}
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
-                {platform === "other" ? (
-                  <p className="text-xs text-slate-500">
-                    Native app open works on desktop (macOS, Windows, Linux) with
-                    the launcher running.
-                  </p>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      placeholder={
-                        platform === "win32"
-                          ? "Path, e.g. C:\\Program Files\\App\\app.exe"
-                          : platform === "linux"
-                            ? "Path, e.g. /usr/bin/slack"
-                            : "Path, e.g. /Applications/Slack.app"
-                      }
-                      aria-label="App path (native open)"
-                      value={editLocalPath}
-                      onChange={(e) => setEditLocalPath(e.target.value)}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                    {platform === "darwin" && (
-                      <input
-                        type="text"
-                        placeholder="macOS bundle ID, e.g. com.tinyspeck.slackmacgap"
-                        aria-label="macOS bundle ID (native open)"
-                        value={editBundleId}
-                        onChange={(e) => setEditBundleId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                      />
-                    )}
-                    {platform === "win32" && (
-                      <input
-                        type="text"
-                        placeholder="Windows AppUserModelID"
-                        aria-label="Windows AppUserModelID (native open)"
-                        value={editAppUserModelId}
-                        onChange={(e) => setEditAppUserModelId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                      />
-                    )}
-                    <InstalledAppPicker
-                      onPick={(picked) => {
-                        setEditLocalPath(picked.localPath ?? "");
-                        setEditBundleId(picked.bundleId ?? "");
-                        setEditAppUserModelId(picked.appUserModelId ?? "");
-                        if (!editName.trim()) setEditName(picked.name);
-                      }}
-                    />
-                  </>
-                )}
                 <input
                   type="text"
                   // UI-only label change; rendering already supports URLs or emoji.
@@ -2946,126 +2637,6 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
             </div>
           </div>
         )}
-        {showShortcutInfo && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
-            onClick={() => setShowShortcutInfo(false)}
-          >
-            <div
-              className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="How to add native app shortcuts"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-100">
-                  How to add native app shortcuts
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowShortcutInfo(false)}
-                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  Close
-                </button>
-              </div>
-              <div className="max-h-[80vh] space-y-4 overflow-y-auto pr-1 text-sm text-slate-300">
-                <p>
-                  Use “Path” when you want the Open button to launch a native desktop app via the local launcher.
-                  If you only have a website, leave Path empty and use URL.
-                </p>
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    macOS examples
-                  </p>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs text-slate-400">Installed app (most apps):</p>
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
-                        <span className="truncate font-mono text-sm text-slate-200">
-                          /Applications/Canva.app
-                        </span>
-                        <CopyIconButton value="/Applications/Canva.app" tooltip="Copy path" />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400">Built-in system app:</p>
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
-                        <span className="truncate font-mono text-sm text-slate-200">
-                          /System/Applications/Notes.app
-                        </span>
-                        <CopyIconButton value="/System/Applications/Notes.app" tooltip="Copy path" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      Tip: You can locate an app by right-clicking it in Finder → Get Info, or by using Spotlight and dragging the app into Terminal.
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Windows examples
-                  </p>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs text-slate-400">Common install path:</p>
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
-                        <span className="truncate font-mono text-sm text-slate-200">
-                          C:\Program Files\Canva\Canva.exe
-                        </span>
-                        <CopyIconButton
-                          value="C:\\Program Files\\Canva\\Canva.exe"
-                          tooltip="Copy path"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      Store apps may require an AppUserModelId instead of a file path (advanced).
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    ChromeOS / Linux notes
-                  </p>
-                  <div className="space-y-2">
-                    <p className="text-xs text-slate-400">
-                      ChromeOS does not expose native app paths in the same way. Use web URLs or Progressive Web Apps (PWAs) instead.
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      Linux often uses .desktop entries; path support depends on the launcher implementation.
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Launcher Pairing Token (dev)
-                  </p>
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
-                    <span className="truncate font-mono text-sm text-slate-200">
-                      dev-token-change-me
-                    </span>
-                    <CopyIconButton value="dev-token-change-me" tooltip="Copy token" />
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    This must match the token your local launcher is started with. Keep this token device-local (do not store in cloud sync).
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowShortcutInfo(false)}
-                  className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-700"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
     </>
   );
 }

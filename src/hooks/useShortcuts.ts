@@ -8,7 +8,6 @@ import {
   saveShortcuts,
   FirestoreShortcutsPayload,
 } from "@/utils/firestoreShortcuts";
-import { hasAnyNativeTarget, normalizeTargets } from "@/utils/shortcutTargets";
 
 const BASE_STORAGE_KEY = "bookmarkdeck:shortcuts:v1";
 
@@ -28,14 +27,7 @@ function normalizeShortcut(raw: unknown, fallbackId?: string): ShortcutApp | nul
     url: typeof record.url === "string" ? record.url : "",
   };
 
-  // Migrate legacy flat native fields into the per-platform `targets` map.
-  const targets = normalizeTargets(record as Partial<ShortcutApp>);
-
-  return {
-    ...shortcut,
-    ...(targets ? { targets } : {}),
-    ...(icon ? { icon } : {}),
-  };
+  return icon ? { ...shortcut, icon } : shortcut;
 }
 
 function normalizeShortcuts(raw: unknown): ShortcutApp[] {
@@ -43,10 +35,7 @@ function normalizeShortcuts(raw: unknown): ShortcutApp[] {
   return raw
     .map((item) => normalizeShortcut(item))
     .filter((shortcut): shortcut is ShortcutApp => Boolean(shortcut))
-    .filter((shortcut) => {
-      const hasWeb = shortcut.url.trim().length > 0;
-      return hasWeb || hasAnyNativeTarget(shortcut);
-    });
+    .filter((shortcut) => shortcut.url.trim().length > 0);
 }
 
 // Start empty to mirror bookmarks behavior (blank slate on fresh devices)
@@ -141,24 +130,14 @@ export function useShortcuts(userId?: string | null) {
         setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
         return;
       }
-      // Native targets now sync. Remote is authoritative for URL/name/icon, but
-      // merge per-platform targets so a target just set on this device (not yet
-      // pushed) isn't wiped, while targets from other devices are kept.
-      const localById = new Map(shortcuts.map((s) => [s.id, s]));
+      // Remote is authoritative; keep any local-only shortcuts not yet in the cloud.
       const merged: ShortcutApp[] = [];
       const seenIds = new Set<string>();
       normalized.forEach((item) => {
         if (seenIds.has(item.id)) return;
         seenIds.add(item.id);
-        const local = localById.get(item.id);
-        const mergedTargets = { ...item.targets, ...local?.targets };
-        merged.push(
-          Object.keys(mergedTargets).length
-            ? { ...item, targets: mergedTargets }
-            : item
-        );
+        merged.push(item);
       });
-      // Keep any local-only shortcuts not present in the cloud.
       shortcuts.forEach((item) => {
         if (!seenIds.has(item.id)) {
           seenIds.add(item.id);

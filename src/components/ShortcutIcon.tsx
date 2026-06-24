@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Pencil, Trash } from "@/components/icons";
 import { ShortcutApp } from "@/types/shortcut";
 import { hapticTap } from "@/utils/haptics";
-import { firstTargetLabel, hasAnyNativeTarget } from "@/utils/shortcutTargets";
 
 type Props = {
   app: ShortcutApp;
@@ -98,13 +97,6 @@ export function ShortcutIcon({
   const iconLoadError = iconUrl ? iconLoadErrorFor === iconUrl : false;
   const initial = firstLetterFromUrlOrName(app.url, app.name);
 
-  const hasNativeTarget = hasAnyNativeTarget(app);
-  const typeLabel = hasNativeTarget ? "Native" : "Web";
-  const tileTypeBadge = hasNativeTarget ? "NATIVE" : "WEB";
-  const tileBadgeClasses = hasNativeTarget
-    ? "border-blue-400/30 bg-blue-500/15 text-blue-300"
-    : "border-emerald-400/30 bg-emerald-500/15 text-emerald-300";
-
   const clearCloseTimer = () => {
     if (closeTimeoutRef.current === null) return;
     window.clearTimeout(closeTimeoutRef.current);
@@ -134,7 +126,7 @@ export function ShortcutIcon({
       }
     }
 
-    return firstTargetLabel(app) ?? "No target configured";
+    return app.url || "No URL configured";
   }, [app]);
 
   const updateCardPosition = () => {
@@ -295,12 +287,6 @@ export function ShortcutIcon({
         ) : (
           <span className="text-base font-semibold uppercase tracking-wide">{initial}</span>
         )}
-
-        <span
-          className={`pointer-events-none absolute right-2 top-2 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide backdrop-blur-sm ${tileBadgeClasses}`}
-        >
-          {tileTypeBadge}
-        </span>
       </button>
 
       {active && !isTouch && (
@@ -339,9 +325,6 @@ export function ShortcutIcon({
               <p className="truncate text-xs font-semibold text-slate-100">{app.name}</p>
               <p className="truncate text-[11px] text-slate-400">{hostOrTarget}</p>
             </div>
-            <span className="shrink-0 rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200">
-              {typeLabel}
-            </span>
           </div>
 
           <div className="mb-2 h-px bg-slate-800" />
@@ -431,9 +414,6 @@ export function ShortcutIcon({
                 <p className="truncate text-sm font-semibold text-slate-100">{app.name}</p>
                 <p className="truncate text-xs text-slate-400">{hostOrTarget}</p>
               </div>
-              <span className="shrink-0 rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200">
-                {typeLabel}
-              </span>
             </div>
 
             <div className="grid grid-cols-3 gap-3">

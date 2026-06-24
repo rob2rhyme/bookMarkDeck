@@ -30,24 +30,10 @@ export default function PrivacyPage() {
           </li>
         </ul>
 
-        <h2 className="mt-6 text-lg font-semibold text-slate-50">Native launcher and device-local fields</h2>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Native app launching is optional and requires a locally running launcher helper.</li>
-          <li>
-            Launcher pairing token is read from local environment configuration and is not synced through
-            Bookmark Deck cloud sync.
-          </li>
-          <li>
-            Native-only shortcut targeting fields (for example local path, macOS bundle ID, Windows
-            AppUserModelId) are intended to remain device-local and are not persisted to Firestore.
-          </li>
-        </ul>
-
         <h2 className="mt-6 text-lg font-semibold text-slate-50">How we use the data</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>Render and organize bookmarks, folders, tags, notes, and shortcuts.</li>
           <li>Support optional sync and restore workflows across your signed-in devices.</li>
-          <li>Provide optional native launch actions through your local helper service.</li>
         </ul>
 
         <h2 className="mt-6 text-lg font-semibold text-slate-50">Analytics and tracking</h2>

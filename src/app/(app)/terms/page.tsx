@@ -30,14 +30,6 @@ export default function TermsPage() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-slate-50">Native launcher (optional)</h2>
-          <p>
-            Native app opening depends on a local helper process you run on your device. Browser-only mode cannot
-            open desktop apps directly. You must configure matching launcher tokens locally.
-          </p>
-        </div>
-
-        <div>
           <h2 className="text-lg font-semibold text-slate-50">Acceptable use</h2>
           <p>
             Do not use the service for unlawful activity, malware distribution, unauthorized access attempts,
