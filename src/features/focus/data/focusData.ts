@@ -58,6 +58,7 @@ export type ActivityType =
   | "task_done"
   | "mood"
   | "journal"
+  | "dream"
   | "hydration"
   | "todo_added"
   | "todo_done"

@@ -8,8 +8,6 @@ import { todayKey } from "@/features/focus/data/focusData";
 import { MOODS, type MoodKey } from "@/features/focus/lib/mood";
 import type { JournalNote, JournalNoteKind } from "@/features/focus/lib/types";
 
-const MAX_NOTE = 2000;
-
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -188,8 +186,7 @@ export function JournalCard({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const trimmed = draft.trim();
-  const tooLong = draft.length > MAX_NOTE;
-  const canAdd = trimmed.length > 0 && !tooLong;
+  const canAdd = trimmed.length > 0;
   const isDream = kind === "dream";
 
   const add = () => {
@@ -350,34 +347,23 @@ export function JournalCard({
             : "What did you work on? Anything on your mind?"
         }
         rows={3}
-        maxLength={MAX_NOTE + 200}
         className={`mt-2 w-full resize-y rounded-lg border bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none ${
-          tooLong
-            ? "border-red-500/70 focus:border-red-400"
-            : isDream
-              ? "border-slate-700 focus:border-indigo-400"
-              : "border-slate-700 focus:border-blue-400"
+          isDream
+            ? "border-slate-700 focus:border-indigo-400"
+            : "border-slate-700 focus:border-blue-400"
         }`}
       />
       <div className="mt-2 flex items-center justify-between gap-3">
         <span
-          className={`text-xs ${
-            tooLong
-              ? "text-red-400"
-              : justAdded
-                ? "text-emerald-300"
-                : "text-slate-500"
-          }`}
+          className={`text-xs ${justAdded ? "text-emerald-300" : "text-slate-500"}`}
         >
-          {tooLong
-            ? `${draft.length} / ${MAX_NOTE} — too long`
-            : justAdded
-              ? "Saved ✓"
-              : trimmed.length > 0
-                ? `Press Add to save this ${isDream ? "dream" : "note"}`
-                : isDream
-                  ? "Jot it down before it fades"
-                  : "Add as many notes as you like today"}
+          {justAdded
+            ? "Saved ✓"
+            : trimmed.length > 0
+              ? `Press Add to save this ${isDream ? "dream" : "note"}`
+              : isDream
+                ? "Jot it down before it fades"
+                : "Add as many notes as you like today"}
         </span>
         <button
           type="button"

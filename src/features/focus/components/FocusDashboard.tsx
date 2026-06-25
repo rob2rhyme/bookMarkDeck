@@ -11,6 +11,7 @@ import {
   type ActivityRef,
 } from "@/features/focus/components/ActivityHistory";
 import { AnalysisPanel } from "@/features/focus/components/AnalysisPanel";
+import { DreamPanel } from "@/features/focus/components/DreamPanel";
 import { FocusSettingsModal } from "@/features/focus/components/FocusSettingsModal";
 import { HydrationHistory } from "@/features/focus/components/HydrationHistory";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
@@ -400,6 +401,8 @@ export function FocusDashboard() {
           highlight={journalPrompt}
         />
       </div>
+
+      <DreamPanel notesByDay={journal.notesByDay} />
 
       <div className="mt-5">
         <ActivityHistory
