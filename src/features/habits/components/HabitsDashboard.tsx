@@ -26,6 +26,11 @@ import {
   LogDetailModal,
 } from "@/features/habits/components/LogDetailModal";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
+import {
+  areaIconByName,
+  DEFAULT_AREA_ICON,
+  deriveAreas,
+} from "@/features/habits/lib/areas";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
@@ -100,17 +105,8 @@ export function HabitsDashboard() {
     h.allHabits.reduce((m, x) => Math.max(m, x.sortOrder), -1) + 1;
 
   // Areas (categories) — derived from the habits that carry an `area` label.
-  const areas = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          h.allHabits
-            .map((x) => x.area?.trim())
-            .filter((a): a is string => Boolean(a))
-        )
-      ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
-    [h.allHabits]
-  );
+  const areas = useMemo(() => deriveAreas(h.allHabits), [h.allHabits]);
+  const areaIcons = useMemo(() => areaIconByName(h.allHabits), [h.allHabits]);
   const hasAreas = areas.length > 0;
   const someUncategorized = h.habits.some((x) => !x.area?.trim());
   const visibleHabits = h.habits.filter((x) => {
@@ -344,7 +340,7 @@ export function HabitsDashboard() {
             {hasAreas && (
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {([["", "All"]] as [string, string][])
-                  .concat(areas.map((a) => [a, a]))
+                  .concat(areas.map((a) => [a.name, `${a.icon} ${a.name}`]))
                   .concat(someUncategorized ? [["__none__", "No area"]] : [])
                   .map(([value, label]) => (
                     <button
@@ -379,7 +375,9 @@ export function HabitsDashboard() {
                         {habit.name}
                         {habit.area?.trim() && (
                           <span className="ml-2 rounded-full border border-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
-                            {habit.area.trim()}
+                            {(habit.areaIcon?.trim() || DEFAULT_AREA_ICON) +
+                              " " +
+                              habit.area.trim()}
                           </span>
                         )}
                       </p>
@@ -479,7 +477,8 @@ export function HabitsDashboard() {
         onDelete={(id) => h.removeHabit(id)}
         initial={editing}
         nextSortOrder={nextSortOrder}
-        existingAreas={areas}
+        existingAreas={areas.map((a) => a.name)}
+        areaIcons={areaIcons}
       />
       <HabitOnboarding
         open={onboardOpen}

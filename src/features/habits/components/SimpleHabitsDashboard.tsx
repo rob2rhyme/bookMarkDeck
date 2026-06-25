@@ -32,6 +32,11 @@ import {
 } from "@/features/habits/components/LogDetailModal";
 import { SimpleHabitCard } from "@/features/habits/components/SimpleHabitCard";
 import { SyncStatusChip } from "@/features/habits/components/SyncStatusChip";
+import {
+  areaIconByName,
+  DEFAULT_AREA_ICON,
+  deriveAreas,
+} from "@/features/habits/lib/areas";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
 import { useHabits } from "@/features/habits/hooks/useHabits";
@@ -187,7 +192,16 @@ function ManageRow({
         <Emoji>{habitEmoji(habit)}</Emoji>
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-slate-100">{habit.name}</p>
+        <p className="truncate text-sm text-slate-100">
+          {habit.name}
+          {habit.area?.trim() && (
+            <span className="ml-2 rounded-full border border-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+              {(habit.areaIcon?.trim() || DEFAULT_AREA_ICON) +
+                " " +
+                habit.area.trim()}
+            </span>
+          )}
+        </p>
         <p className="truncate text-[11px] text-slate-500">
           {scheduleLabel(habit)}
           {streak > 0 ? ` · 🔥 ${streak}` : ""}
@@ -287,6 +301,7 @@ export function SimpleHabitsDashboard() {
   const [selectedDay, setSelectedDay] = useState("");
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [areaFilter, setAreaFilter] = useState(""); // "" = all, "__none__" = no area
 
   useEffect(() => {
     if (h.today) setSelectedDay((cur) => cur || h.today);
@@ -340,7 +355,17 @@ export function SimpleHabitsDashboard() {
     sortMode,
     h.statsByHabit
   );
-  const manageHabits = sortHabits(h.habits, sortMode, h.statsByHabit);
+  const sortedManage = sortHabits(h.habits, sortMode, h.statsByHabit);
+  // Areas (categories) — same model as the classic view.
+  const areas = useMemo(() => deriveAreas(h.allHabits), [h.allHabits]);
+  const areaIcons = useMemo(() => areaIconByName(h.allHabits), [h.allHabits]);
+  const hasAreas = areas.length > 0;
+  const someUncategorized = h.habits.some((x) => !x.area?.trim());
+  const manageHabits = sortedManage.filter((x) => {
+    if (!areaFilter) return true;
+    if (areaFilter === "__none__") return !x.area?.trim();
+    return x.area?.trim() === areaFilter;
+  });
   const dueCount = h.dueToday.length;
   const progress = dueCount === 0 ? 1 : h.doneTodayCount / dueCount;
 
@@ -567,6 +592,28 @@ export function SimpleHabitsDashboard() {
                   </span>
                 )}
               </div>
+              {hasAreas && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {([["", "All"]] as [string, string][])
+                    .concat(areas.map((a) => [a.name, `${a.icon} ${a.name}`]))
+                    .concat(someUncategorized ? [["__none__", "No area"]] : [])
+                    .map(([value, label]) => (
+                      <button
+                        key={value || "all"}
+                        type="button"
+                        aria-pressed={areaFilter === value}
+                        onClick={() => setAreaFilter(value)}
+                        className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
+                          areaFilter === value
+                            ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                            : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                </div>
+              )}
               <div className="flex flex-col divide-y divide-slate-800/60">
                 {manageHabits.map((habit) => (
                   <ManageRow
@@ -646,6 +693,8 @@ export function SimpleHabitsDashboard() {
         onDelete={(id) => h.removeHabit(id)}
         initial={editing}
         nextSortOrder={nextSortOrder}
+        existingAreas={areas.map((a) => a.name)}
+        areaIcons={areaIcons}
       />
       <HabitOnboarding
         open={onboardOpen}

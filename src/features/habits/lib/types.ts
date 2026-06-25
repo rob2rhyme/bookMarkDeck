@@ -24,6 +24,7 @@ export type Habit = {
   schedule: HabitSchedule;
   identity?: string; // "become someone who…"
   area?: string; // optional category/grouping label (e.g. "Health", "Work")
+  areaIcon?: string; // emoji shown for the habit's area
   reminder?: string | null; // "HH:MM" — stored for a later reminders pass
   archived: boolean;
   sortOrder: number;
