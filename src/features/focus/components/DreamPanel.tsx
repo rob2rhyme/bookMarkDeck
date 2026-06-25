@@ -1,0 +1,242 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
+import { todayKey } from "@/features/focus/data/focusData";
+import type { JournalNote } from "@/features/focus/lib/types";
+
+// A self-contained dream-tracking surface: recall stats, a recall heatmap, and a
+// searchable dreams-only timeline. All derived from the journal notes already in
+// memory — no schema change, no network, nothing leaves the device.
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+type DayNotes = { day: string; notes: JournalNote[] };
+
+type DreamPanelProps = {
+  notesByDay: DayNotes[];
+};
+
+function shiftKey(key: string, deltaDays: number): string {
+  const [y, m, d] = key.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + deltaDays);
+  const yy = dt.getFullYear();
+  const mm = (dt.getMonth() + 1).toString().padStart(2, "0");
+  const dd = dt.getDate().toString().padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+function dayLabel(key: string, today: string): string {
+  if (key === today) return "Today";
+  if (key === shiftKey(today, -1)) return "Yesterday";
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${WEEKDAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${d}`;
+}
+
+function timeOf(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  let h = d.getHours();
+  const min = d.getMinutes().toString().padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${min} ${ampm}`;
+}
+
+export function DreamPanel({ notesByDay }: DreamPanelProps) {
+  const [query, setQuery] = useState("");
+  const [selectedDay, setSelectedDay] = useState("");
+
+  const dreams = useMemo(
+    () =>
+      notesByDay
+        .flatMap((d) => d.notes)
+        .filter((n) => n.kind === "dream" && n.day),
+    [notesByDay]
+  );
+
+  const { counts, dreamDays } = useMemo(() => {
+    const counts = new Map<string, number>();
+    const dreamDays = new Set<string>();
+    for (const n of dreams) {
+      dreamDays.add(n.day);
+      counts.set(n.day, (counts.get(n.day) ?? 0) + 1);
+    }
+    return { counts, dreamDays };
+  }, [dreams]);
+
+  const stats = useMemo(() => {
+    const today = todayKey();
+    const recall = (n: number) => {
+      let c = 0;
+      for (let i = 0; i < n; i++) if (dreamDays.has(shiftKey(today, -i))) c++;
+      return c;
+    };
+
+    // Current streak: consecutive days with a dream, anchored at today (or
+    // yesterday, so a day not yet logged doesn't zero an active run).
+    let current = 0;
+    let cursor: string | null = dreamDays.has(today)
+      ? today
+      : dreamDays.has(shiftKey(today, -1))
+        ? shiftKey(today, -1)
+        : null;
+    while (cursor && dreamDays.has(cursor)) {
+      current++;
+      cursor = shiftKey(cursor, -1);
+    }
+
+    // Longest streak across the whole history.
+    let longest = 0;
+    let run = 0;
+    let prev: string | null = null;
+    for (const day of [...dreamDays].sort()) {
+      run = prev && shiftKey(prev, 1) === day ? run + 1 : 1;
+      if (run > longest) longest = run;
+      prev = day;
+    }
+
+    return { recall7: recall(7), recall30: recall(30), current, longest };
+  }, [dreamDays]);
+
+  const today = todayKey();
+
+  const timeline = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = dreams.filter((n) => {
+      if (selectedDay && n.day !== selectedDay) return false;
+      if (q && !n.text.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    const time = (n: JournalNote) =>
+      n.createdAt ? new Date(n.createdAt).getTime() : 0;
+    const byDay = new Map<string, JournalNote[]>();
+    for (const n of filtered) {
+      const bucket = byDay.get(n.day);
+      if (bucket) bucket.push(n);
+      else byDay.set(n.day, [n]);
+    }
+    return [...byDay.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([day, list]) => ({
+        day,
+        notes: [...list].sort((a, b) => time(b) - time(a)),
+      }));
+  }, [dreams, query, selectedDay]);
+
+  // No dreams yet → stay out of the way entirely (mirrors the journal's own
+  // "only show the dream filter once dreams exist" stance).
+  if (dreams.length === 0) return null;
+
+  const STAT_TILES = [
+    { label: "Recall · 7d", value: `${stats.recall7}/7` },
+    { label: "Recall · 30d", value: `${stats.recall30}/30` },
+    {
+      label: "Current streak",
+      value: `${stats.current}${stats.current > 0 ? " 🌙" : ""}`,
+    },
+    { label: "Longest streak", value: String(stats.longest) },
+  ];
+
+  return (
+    <section className="mt-5 rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-300">
+        🌙 Dream log
+      </h3>
+
+      {/* Recall stats */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {STAT_TILES.map((s) => (
+          <div key={s.label} className="rounded-xl bg-slate-950/50 px-3 py-3">
+            <p className="text-[11px] text-slate-500">{s.label}</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-slate-50">
+              {s.value}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-center text-[11px] text-slate-400">
+        {dreams.length} dream{dreams.length === 1 ? "" : "s"} across{" "}
+        {dreamDays.size} night{dreamDays.size === 1 ? "" : "s"}
+      </p>
+
+      {/* Recall heatmap — a lit square is a night a dream was logged. */}
+      <div className="mt-6">
+        <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+          Recall heatmap
+        </p>
+        <ContributionsCalendar
+          counts={counts}
+          selected={selectedDay}
+          onSelect={(day) =>
+            setSelectedDay((cur) => (cur === day ? "" : day))
+          }
+        />
+      </div>
+
+      {/* Search + day filter */}
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search your dreams…"
+          aria-label="Search dreams"
+          className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-400"
+        />
+        {selectedDay && (
+          <button
+            type="button"
+            onClick={() => setSelectedDay("")}
+            className="shrink-0 rounded-full border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-200 transition hover:border-indigo-300/60"
+          >
+            {dayLabel(selectedDay, today)} · clear
+          </button>
+        )}
+      </div>
+
+      {/* Dreams-only timeline */}
+      <div className="mt-4 flex flex-col gap-4">
+        {timeline.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+            No dreams match your search.
+          </p>
+        ) : (
+          timeline.map((d) => (
+            <div key={d.day}>
+              <p className="mb-2 text-xs font-medium text-slate-400">
+                {dayLabel(d.day, today)}
+              </p>
+              <ul className="flex flex-col gap-2">
+                {d.notes.map((n) => (
+                  <li
+                    key={n.id}
+                    className="rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
+                  >
+                    {n.createdAt && (
+                      <span className="mb-0.5 block text-[11px] tabular-nums text-slate-500">
+                        {timeOf(n.createdAt)}
+                      </span>
+                    )}
+                    <span className="block whitespace-pre-wrap break-words text-sm text-slate-200">
+                      {n.text}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+export default DreamPanel;

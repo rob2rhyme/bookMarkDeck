@@ -157,7 +157,7 @@ export function useFocusJournal(
       // Activity log is today-scoped; don't log backdated entries as "today".
       if (day === today)
         onLog?.(
-          "journal",
+          kind === "dream" ? "dream" : "journal",
           kind === "dream" ? "Recorded a dream" : "Added a journal note"
         );
     },
