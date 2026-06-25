@@ -28,6 +28,7 @@ import {
   normalizeSettings,
 } from "@/features/focus/lib/settings";
 import { isMoodKey } from "@/features/focus/lib/mood";
+import { coerceDreamFields } from "@/features/focus/lib/types";
 import type {
   FocusSessionRecord,
   FocusTask,
@@ -303,6 +304,7 @@ export async function fetchNotes(emailHint: string): Promise<JournalNote[]> {
         text: typeof data.text === "string" ? data.text : "",
         createdAt: timestampToIso(data.createdAt),
         kind: data.kind === "dream" ? "dream" : "note",
+        ...coerceDreamFields(data),
       } satisfies JournalNote;
     })
     .filter((n) => n.text.trim().length > 0);
@@ -313,11 +315,14 @@ export async function addNote(
   note: JournalNote
 ): Promise<void> {
   const uid = await uidFor(emailHint);
+  // Only persist structured dream fields when meaningful (Firestore rejects undefined).
+  const details = coerceDreamFields(note);
   await setDoc(doc(notesCol(uid), note.id), {
     day: note.day,
     text: note.text,
     createdAt: note.createdAt ?? serverTimestamp(),
     kind: note.kind ?? "note",
+    ...details,
   });
 }
 
@@ -541,6 +546,7 @@ export function subscribeNotes(
                 text: typeof data.text === "string" ? data.text : "",
                 createdAt: timestampToIso(data.createdAt),
                 kind: data.kind === "dream" ? "dream" : "note",
+                ...coerceDreamFields(data),
               } satisfies JournalNote;
             })
             .filter((n) => n.text.trim().length > 0)

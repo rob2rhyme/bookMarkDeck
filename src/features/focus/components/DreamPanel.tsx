@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
+import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { JournalNote } from "@/features/focus/lib/types";
 
@@ -53,6 +54,7 @@ function timeOf(iso: string | null): string {
 export function DreamPanel({ notesByDay }: DreamPanelProps) {
   const [query, setQuery] = useState("");
   const [selectedDay, setSelectedDay] = useState("");
+  const [selectedTag, setSelectedTag] = useState("");
 
   const dreams = useMemo(
     () =>
@@ -106,12 +108,43 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
     return { recall7: recall(7), recall30: recall(30), current, longest };
   }, [dreamDays]);
 
+  // Qualitative attributes: lucidity rate, vividness, nightmares, recurring tags.
+  const insights = useMemo(() => {
+    const total = dreams.length;
+    const lucidCount = dreams.filter((d) => d.lucid).length;
+    const nightmareCount = dreams.filter((d) => d.nightmare).length;
+    const vivid = dreams
+      .map((d) => d.vividness)
+      .filter((v): v is number => typeof v === "number");
+    const avgVivid = vivid.length
+      ? Math.round((vivid.reduce((a, b) => a + b, 0) / vivid.length) * 10) / 10
+      : 0;
+    const tagFreq = new Map<string, number>();
+    for (const d of dreams)
+      for (const t of d.tags ?? []) tagFreq.set(t, (tagFreq.get(t) ?? 0) + 1);
+    const topTags = [...tagFreq.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 12);
+    return {
+      lucidRate: total ? Math.round((lucidCount / total) * 100) : 0,
+      avgVivid,
+      nightmareCount,
+      topTags,
+      hasAttrs:
+        lucidCount > 0 ||
+        nightmareCount > 0 ||
+        vivid.length > 0 ||
+        tagFreq.size > 0,
+    };
+  }, [dreams]);
+
   const today = todayKey();
 
   const timeline = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = dreams.filter((n) => {
       if (selectedDay && n.day !== selectedDay) return false;
+      if (selectedTag && !(n.tags ?? []).includes(selectedTag)) return false;
       if (q && !n.text.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -129,7 +162,7 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
         day,
         notes: [...list].sort((a, b) => time(b) - time(a)),
       }));
-  }, [dreams, query, selectedDay]);
+  }, [dreams, query, selectedDay, selectedTag]);
 
   // No dreams yet → stay out of the way entirely (mirrors the journal's own
   // "only show the dream filter once dreams exist" stance).
@@ -181,7 +214,63 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
         />
       </div>
 
-      {/* Search + day filter */}
+      {/* Dream insights — lucidity, vividness, nightmares, recurring themes. */}
+      {insights.hasAttrs && (
+        <div className="mt-6">
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+            Dream insights
+          </p>
+          <div className="flex flex-wrap gap-2 text-xs text-slate-300">
+            <span className="rounded-lg bg-slate-950/50 px-2.5 py-1.5">
+              ✨ Lucid{" "}
+              <span className="font-semibold tabular-nums text-indigo-200">
+                {insights.lucidRate}%
+              </span>
+            </span>
+            {insights.avgVivid > 0 && (
+              <span className="rounded-lg bg-slate-950/50 px-2.5 py-1.5">
+                Avg vividness{" "}
+                <span className="font-semibold tabular-nums text-amber-200">
+                  {insights.avgVivid}/5
+                </span>
+              </span>
+            )}
+            <span className="rounded-lg bg-slate-950/50 px-2.5 py-1.5">
+              😱 Nightmares{" "}
+              <span className="font-semibold tabular-nums text-red-200">
+                {insights.nightmareCount}
+              </span>
+            </span>
+          </div>
+          {insights.topTags.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-[11px] text-slate-500">Recurring themes</p>
+              <div className="flex flex-wrap gap-1.5">
+                {insights.topTags.map(([tag, count]) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={selectedTag === tag}
+                    onClick={() =>
+                      setSelectedTag((cur) => (cur === tag ? "" : tag))
+                    }
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium transition ${
+                      selectedTag === tag
+                        ? "border-indigo-400/70 bg-indigo-500/15 text-indigo-200"
+                        : "border-slate-700 text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                    }`}
+                  >
+                    #{tag}{" "}
+                    <span className="tabular-nums text-slate-500">{count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Search + active filters */}
       <div className="mt-6 flex flex-wrap items-center gap-2">
         <input
           type="text"
@@ -200,13 +289,22 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
             {dayLabel(selectedDay, today)} · clear
           </button>
         )}
+        {selectedTag && (
+          <button
+            type="button"
+            onClick={() => setSelectedTag("")}
+            className="shrink-0 rounded-full border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-200 transition hover:border-indigo-300/60"
+          >
+            #{selectedTag} · clear
+          </button>
+        )}
       </div>
 
       {/* Dreams-only timeline */}
       <div className="mt-4 flex flex-col gap-4">
         {timeline.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
-            No dreams match your search.
+            No dreams match these filters.
           </p>
         ) : (
           timeline.map((d) => (
@@ -228,6 +326,7 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
                     <span className="block whitespace-pre-wrap break-words text-sm text-slate-200">
                       {n.text}
                     </span>
+                    <DreamBadges note={n} onTagClick={setSelectedTag} />
                   </li>
                 ))}
               </ul>
