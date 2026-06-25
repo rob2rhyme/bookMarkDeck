@@ -27,13 +27,39 @@ export type JournalEntry = {
 
 export type JournalNoteKind = "note" | "dream";
 
+/** Optional structured attributes for a dream entry (all device-agnostic, synced). */
+export type DreamDetails = {
+  tags?: string[]; // freeform themes: people, places, motifs
+  lucid?: boolean; // aware it was a dream
+  vividness?: number; // 1..5
+  nightmare?: boolean;
+};
+
 export type JournalNote = {
   id: string;
   day: string; // YYYY-MM-DD
   text: string;
   createdAt: string | null; // ISO timestamp (null for migrated legacy notes)
   kind?: JournalNoteKind; // default "note"; "dream" = dream-log entry
-};
+} & DreamDetails;
+
+/** Validate/normalize raw dream fields from storage; only keeps meaningful values. */
+export function coerceDreamFields(data: unknown): DreamDetails {
+  const r = (data ?? {}) as Record<string, unknown>;
+  const out: DreamDetails = {};
+  if (Array.isArray(r.tags)) {
+    const tags = r.tags
+      .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      .map((t) => t.trim());
+    if (tags.length) out.tags = tags;
+  }
+  if (r.lucid === true) out.lucid = true;
+  if (r.nightmare === true) out.nightmare = true;
+  if (typeof r.vividness === "number" && r.vividness >= 1 && r.vividness <= 5) {
+    out.vividness = Math.round(r.vividness);
+  }
+  return out;
+}
 
 export type Todo = {
   id: string;

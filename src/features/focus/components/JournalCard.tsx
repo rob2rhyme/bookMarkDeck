@@ -3,10 +3,15 @@
 import { useState } from "react";
 
 import { Pencil, Trash2 } from "@/components/icons";
+import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
 import { todayKey } from "@/features/focus/data/focusData";
 import { MOODS, type MoodKey } from "@/features/focus/lib/mood";
-import type { JournalNote, JournalNoteKind } from "@/features/focus/lib/types";
+import type {
+  DreamDetails,
+  JournalNote,
+  JournalNoteKind,
+} from "@/features/focus/lib/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -37,7 +42,12 @@ type JournalCardProps = {
   mood: MoodKey | null;
   moodByDay: Record<string, MoodKey>;
   notesByDay: DayNotes[];
-  onAddNote: (text: string, kind?: JournalNoteKind, day?: string) => void;
+  onAddNote: (
+    text: string,
+    kind?: JournalNoteKind,
+    day?: string,
+    details?: DreamDetails
+  ) => void;
   onEditNote: (id: string, text: string) => void;
   onRemoveNote: (note: JournalNote) => void;
   onRemoveNotes: (notes: JournalNote[]) => void;
@@ -136,6 +146,7 @@ function NoteRow({
           <span className="block whitespace-pre-wrap break-words text-sm text-slate-200">
             {note.text}
           </span>
+          {note.kind === "dream" && <DreamBadges note={note} />}
         </span>
       </label>
       {!selectMode && (
@@ -179,6 +190,11 @@ export function JournalCard({
   const activeMood = backdated ? moodByDay[logDate] ?? null : mood;
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState<JournalNoteKind>("note");
+  // Dream-only structured attributes for the entry being composed.
+  const [lucid, setLucid] = useState(false);
+  const [nightmare, setNightmare] = useState(false);
+  const [vividness, setVividness] = useState(0); // 0 = unset
+  const [tagsInput, setTagsInput] = useState("");
   const [noteFilter, setNoteFilter] = useState<JournalNoteKind | "all">("all");
   const [justAdded, setJustAdded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -189,10 +205,29 @@ export function JournalCard({
   const canAdd = trimmed.length > 0;
   const isDream = kind === "dream";
 
+  const resetDreamDetails = () => {
+    setLucid(false);
+    setNightmare(false);
+    setVividness(0);
+    setTagsInput("");
+  };
+
   const add = () => {
     if (!canAdd) return;
-    onAddNote(draft, kind, logDate);
+    const details: DreamDetails | undefined = isDream
+      ? {
+          lucid: lucid || undefined,
+          nightmare: nightmare || undefined,
+          vividness: vividness || undefined,
+          tags: tagsInput
+            .split(",")
+            .map((t) => t.trim().toLowerCase())
+            .filter(Boolean),
+        }
+      : undefined;
+    onAddNote(draft, kind, logDate, details);
     setDraft("");
+    resetDreamDetails();
     setJustAdded(true);
   };
 
@@ -353,6 +388,62 @@ export function JournalCard({
             : "border-slate-700 focus:border-blue-400"
         }`}
       />
+
+      {/* Dream attributes — optional, only while composing a dream. */}
+      {isDream && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <button
+            type="button"
+            aria-pressed={lucid}
+            onClick={() => setLucid((v) => !v)}
+            className={`rounded-full border px-2.5 py-1 font-medium transition ${
+              lucid
+                ? "border-indigo-400/70 bg-indigo-500/15 text-indigo-200"
+                : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+            }`}
+          >
+            ✨ Lucid
+          </button>
+          <button
+            type="button"
+            aria-pressed={nightmare}
+            onClick={() => setNightmare((v) => !v)}
+            className={`rounded-full border px-2.5 py-1 font-medium transition ${
+              nightmare
+                ? "border-red-400/70 bg-red-500/15 text-red-200"
+                : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+            }`}
+          >
+            😱 Nightmare
+          </button>
+          <span className="flex items-center gap-1 text-slate-500">
+            <span className="text-[11px]">Vividness</span>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-label={`Vividness ${n} of 5`}
+                aria-pressed={vividness === n}
+                onClick={() => setVividness((cur) => (cur === n ? 0 : n))}
+                className={`text-sm leading-none transition ${
+                  n <= vividness ? "text-amber-300" : "text-slate-600 hover:text-slate-400"
+                }`}
+              >
+                ●
+              </button>
+            ))}
+          </span>
+          <input
+            type="text"
+            value={tagsInput}
+            onChange={(e) => setTagsInput(e.target.value)}
+            placeholder="tags: people, places, themes"
+            aria-label="Dream tags (comma-separated)"
+            className="min-w-[8rem] flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-400"
+          />
+        </div>
+      )}
+
       <div className="mt-2 flex items-center justify-between gap-3">
         <span
           className={`text-xs ${justAdded ? "text-emerald-300" : "text-slate-500"}`}

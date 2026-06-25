@@ -15,10 +15,12 @@ import {
   todayKey,
 } from "@/features/focus/data/focusData";
 import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
-import type {
-  JournalEntry,
-  JournalNote,
-  JournalNoteKind,
+import {
+  coerceDreamFields,
+  type DreamDetails,
+  type JournalEntry,
+  type JournalNote,
+  type JournalNoteKind,
 } from "@/features/focus/lib/types";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
@@ -67,6 +69,7 @@ function loadNotes(email?: string | null): JournalNote[] {
         text: typeof n.text === "string" ? n.text : "",
         createdAt: typeof n.createdAt === "string" ? n.createdAt : null,
         kind: n.kind === "dream" ? "dream" : "note",
+        ...coerceDreamFields(n),
       } satisfies JournalNote))
       .filter((n) => n.text.trim().length > 0);
   } catch {
@@ -142,7 +145,12 @@ export function useFocusJournal(
   );
 
   const addNote = useCallback(
-    (text: string, kind: JournalNoteKind = "note", day: string = today) => {
+    (
+      text: string,
+      kind: JournalNoteKind = "note",
+      day: string = today,
+      details?: DreamDetails
+    ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
       const note: JournalNote = {
@@ -151,6 +159,8 @@ export function useFocusJournal(
         text: trimmed,
         createdAt: new Date().toISOString(),
         kind,
+        // Structured attributes only apply to dreams.
+        ...(kind === "dream" ? coerceDreamFields(details) : {}),
       };
       setNotes((prev) => [note, ...prev]);
       if (canSync && email) addNoteRemote(email, note).catch(() => {});
