@@ -56,6 +56,10 @@ export function coerceHabit(id: string, raw: unknown): Habit | null {
     identity: typeof r.identity === "string" ? r.identity : undefined,
     area:
       typeof r.area === "string" && r.area.trim() ? r.area.trim() : undefined,
+    areaIcon:
+      typeof r.areaIcon === "string" && r.areaIcon.trim()
+        ? r.areaIcon.trim()
+        : undefined,
     reminder: typeof r.reminder === "string" ? r.reminder : null,
     archived: Boolean(r.archived),
     sortOrder: num(r.sortOrder, 0),
@@ -100,6 +104,7 @@ export function habitToDoc(h: Habit): Record<string, unknown> {
   if (h.step !== undefined) doc.step = h.step;
   if (h.identity !== undefined) doc.identity = h.identity;
   if (h.area !== undefined) doc.area = h.area;
+  if (h.areaIcon !== undefined) doc.areaIcon = h.areaIcon;
   if (h.createdAt) doc.createdAt = h.createdAt;
   return doc;
 }

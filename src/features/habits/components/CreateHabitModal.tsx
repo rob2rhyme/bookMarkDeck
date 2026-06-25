@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
 import { Emoji } from "@/components/icons";
+import {
+  AREA_ICON_CHOICES,
+  DEFAULT_AREA_ICON,
+} from "@/features/habits/lib/areas";
 import { WEEKDAY_LABELS } from "@/features/habits/lib/day";
 import {
   DEFAULT_HABIT_EMOJI,
@@ -25,6 +29,8 @@ type CreateHabitModalProps = {
   nextSortOrder: number;
   /** Existing area names, offered as quick-pick suggestions. */
   existingAreas?: string[];
+  /** Existing area → icon, to prefill the icon when reusing an area name. */
+  areaIcons?: Map<string, string>;
 };
 
 type SchedKind = "daily" | "weekdays" | "timesPerWeek";
@@ -38,9 +44,11 @@ export function CreateHabitModal({
   isEdit = Boolean(initial),
   nextSortOrder,
   existingAreas = [],
+  areaIcons,
 }: CreateHabitModalProps) {
   const [name, setName] = useState("");
   const [area, setArea] = useState("");
+  const [areaIcon, setAreaIcon] = useState(DEFAULT_AREA_ICON);
   const [emoji, setEmoji] = useState(DEFAULT_HABIT_EMOJI);
   // Once the user hand-picks an icon we stop auto-suggesting from the name.
   const [emojiTouched, setEmojiTouched] = useState(false);
@@ -69,6 +77,7 @@ export function CreateHabitModal({
       setStep(initial.step ?? 1);
       setIdentity(initial.identity ?? "");
       setArea(initial.area ?? "");
+      setAreaIcon(initial.areaIcon?.trim() || DEFAULT_AREA_ICON);
       setReminder(initial.reminder ?? "");
       setKind(initial.schedule.type);
       if (initial.schedule.type === "weekdays") setDays(initial.schedule.days);
@@ -85,6 +94,7 @@ export function CreateHabitModal({
       setStep(1);
       setIdentity("");
       setArea("");
+      setAreaIcon(DEFAULT_AREA_ICON);
       setReminder("");
       setKind("daily");
       setDays([1, 2, 3, 4, 5]);
@@ -100,6 +110,13 @@ export function CreateHabitModal({
   const pickEmoji = (e: string) => {
     setEmoji(e);
     setEmojiTouched(true);
+  };
+
+  const onAreaChange = (value: string) => {
+    setArea(value);
+    // Reuse the existing icon when typing/picking a known area name.
+    const known = areaIcons?.get(value.trim());
+    if (known) setAreaIcon(known);
   };
 
   const toggleDay = (d: number) =>
@@ -126,6 +143,7 @@ export function CreateHabitModal({
       schedule,
       identity: identity.trim() || undefined,
       area: area.trim() || undefined,
+      areaIcon: area.trim() ? areaIcon : undefined,
       reminder: /^\d{1,2}:\d{2}$/.test(reminder) ? reminder : null,
       archived: initial?.archived ?? false,
       sortOrder: initial?.sortOrder ?? nextSortOrder,
@@ -211,20 +229,49 @@ export function CreateHabitModal({
           <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
             Area (optional)
           </label>
-          <input
-            type="text"
-            value={area}
-            onChange={(e) => setArea(e.target.value)}
-            list="habit-area-suggestions"
-            placeholder="e.g. Health, Work, Learning"
-            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
-          />
+          <div className="mt-1 flex items-center gap-2">
+            {area.trim() && (
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-950/60 text-lg"
+                aria-hidden="true"
+              >
+                <Emoji>{areaIcon}</Emoji>
+              </span>
+            )}
+            <input
+              type="text"
+              value={area}
+              onChange={(e) => onAreaChange(e.target.value)}
+              list="habit-area-suggestions"
+              placeholder="e.g. Health, Work, Learning"
+              className="w-full flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+            />
+          </div>
           {existingAreas.length > 0 && (
             <datalist id="habit-area-suggestions">
               {existingAreas.map((a) => (
                 <option key={a} value={a} />
               ))}
             </datalist>
+          )}
+          {area.trim() && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {AREA_ICON_CHOICES.map((ic) => (
+                <button
+                  key={ic}
+                  type="button"
+                  onClick={() => setAreaIcon(ic)}
+                  aria-pressed={areaIcon === ic}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg border text-base transition ${
+                    areaIcon === ic
+                      ? "border-blue-400 bg-blue-500/10"
+                      : "border-slate-800 hover:border-slate-600"
+                  }`}
+                >
+                  <Emoji>{ic}</Emoji>
+                </button>
+              ))}
+            </div>
           )}
           <p className="mt-1 text-[11px] text-slate-500">
             Group related habits under a category to filter them later.
