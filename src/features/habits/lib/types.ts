@@ -23,6 +23,7 @@ export type Habit = {
   step?: number; // measurable +/- increment (default 1)
   schedule: HabitSchedule;
   identity?: string; // "become someone who…"
+  area?: string; // optional category/grouping label (e.g. "Health", "Work")
   reminder?: string | null; // "HH:MM" — stored for a later reminders pass
   archived: boolean;
   sortOrder: number;
