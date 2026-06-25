@@ -14,7 +14,7 @@ import {
   flushPendingDeletes,
   queueDelete,
   unqueueDelete,
-} from "@/features/focus/lib/pendingDeletes";
+} from "@/utils/pendingDeletes";
 import type { Todo } from "@/features/focus/lib/types";
 
 type LogActivity = (type: ActivityType, summary: string) => void;

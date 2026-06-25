@@ -8,6 +8,12 @@ import {
   saveShortcuts,
   FirestoreShortcutsPayload,
 } from "@/utils/firestoreShortcuts";
+import {
+  clearPendingDeletes,
+  pendingDeleteIds,
+  queueDelete,
+  unqueueDelete,
+} from "@/utils/pendingDeletes";
 
 const BASE_STORAGE_KEY = "bookmarkdeck:shortcuts:v1";
 
@@ -106,10 +112,15 @@ export function useShortcuts(userId?: string | null) {
 
   const deleteShortcut = (id: string) => {
     setShortcuts((prev) => prev.filter((s) => s.id !== id));
+    // Remember the deletion so a later sync-from-cloud can't resurrect it
+    // before the deletion is pushed back to the cloud.
+    queueDelete("shortcuts", userId, id);
   };
 
   const restoreFromSnapshot = (snapshot: ShortcutApp[]) => {
-    setShortcuts(normalizeShortcuts(snapshot));
+    const restored = normalizeShortcuts(snapshot);
+    restored.forEach((s) => unqueueDelete("shortcuts", userId, s.id));
+    setShortcuts(restored);
   };
 
   const syncFromCloudShortcuts = async (userIdHint: string | null | undefined) => {
@@ -130,16 +141,19 @@ export function useShortcuts(userId?: string | null) {
         setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
         return;
       }
-      // Remote is authoritative; keep any local-only shortcuts not yet in the cloud.
+      // Remote is authoritative; keep any local-only shortcuts not yet in the
+      // cloud, but drop anything deleted locally and not yet pushed so the pull
+      // can't resurrect it.
+      const pending = pendingDeleteIds("shortcuts", userId);
       const merged: ShortcutApp[] = [];
       const seenIds = new Set<string>();
       normalized.forEach((item) => {
-        if (seenIds.has(item.id)) return;
+        if (seenIds.has(item.id) || pending.has(item.id)) return;
         seenIds.add(item.id);
         merged.push(item);
       });
       shortcuts.forEach((item) => {
-        if (!seenIds.has(item.id)) {
+        if (!seenIds.has(item.id) && !pending.has(item.id)) {
           seenIds.add(item.id);
           merged.push(item);
         }
@@ -165,6 +179,9 @@ export function useShortcuts(userId?: string | null) {
     setSyncError(null);
     try {
       await saveShortcuts(userIdHint, shortcuts);
+      // The pushed array already omits deleted shortcuts — the cloud now
+      // matches local, so the pending-deletes queue can be cleared.
+      clearPendingDeletes("shortcuts", userId);
       setLastSyncedAt(new Date().toISOString());
     } catch (err) {
       setSyncError(
