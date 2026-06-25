@@ -338,6 +338,14 @@ export function HabitsDashboard() {
                 </button>
               )}
             </div>
+            {/* Nudge once there are habits but no areas yet. */}
+            {!hasAreas && h.habits.length > 0 && (
+              <p className="mb-3 text-[11px] text-slate-500">
+                Tip: give a habit an{" "}
+                <span className="text-slate-300">Area</span> (Edit → Area) to
+                group and filter them.
+              </p>
+            )}
             {/* Area filter — only once habits carry area labels. */}
             {hasAreas && (
               <div className="mb-3 flex flex-wrap gap-1.5">
