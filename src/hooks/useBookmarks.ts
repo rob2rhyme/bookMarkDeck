@@ -9,6 +9,12 @@ import {
   saveBookmarks,
   type FirestoreBookmarkBackup,
 } from "@/utils/firestoreBookmarks";
+import {
+  clearPendingDeletes,
+  pendingDeleteIds,
+  queueDelete,
+  unqueueDelete,
+} from "@/utils/pendingDeletes";
 import { ShortcutApp } from "@/types/shortcut";
 
 const BASE_STORAGE_KEY_V1 = "bookmarkdeck:v1";
@@ -436,9 +442,11 @@ export function useBookmarks(userId?: string | null) {
 
   const deleteBookmark = (id: string) => {
     setBookmarks((prev) => prev.filter((bookmark) => bookmark.id !== id));
+    queueDelete("bookmarks", userId, id);
   };
 
   const clearAll = () => {
+    bookmarks.forEach((bookmark) => queueDelete("bookmarks", userId, bookmark.id));
     setBookmarks([]);
   };
 
@@ -528,6 +536,7 @@ export function useBookmarks(userId?: string | null) {
     }
 
     setFolders((prev) => prev.filter((folder) => folder.id !== folderId));
+    queueDelete("folders", userId, folderId);
     setBookmarks((prev) =>
       prev.map((bookmark) =>
         bookmark.folderId === folderId
@@ -563,6 +572,7 @@ export function useBookmarks(userId?: string | null) {
       )
     );
     setFolders((prev) => prev.filter((folder) => folder.id !== sourceFolderId));
+    queueDelete("folders", userId, sourceFolderId);
     return { ok: true };
   };
 
@@ -592,9 +602,27 @@ export function useBookmarks(userId?: string | null) {
             }
           : migrateLegacyData(normalizedBookmarks);
 
-      setBookmarks(nextState.bookmarks);
-      setFolders(nextState.folders);
-      saveToStorage(nextState.bookmarks, nextState.folders, userIdHint);
+      // Remote is authoritative, but: drop anything deleted locally and not yet
+      // pushed (so the pull can't resurrect it), and keep local-only items not
+      // present remotely (so an un-synced local addition isn't lost).
+      const pendingB = pendingDeleteIds("bookmarks", userId);
+      const pendingF = pendingDeleteIds("folders", userId);
+
+      const mergedBookmarks = nextState.bookmarks.filter((b) => !pendingB.has(b.id));
+      const seenB = new Set(mergedBookmarks.map((b) => b.id));
+      bookmarks.forEach((b) => {
+        if (!seenB.has(b.id) && !pendingB.has(b.id)) mergedBookmarks.push(b);
+      });
+
+      const mergedFolders = nextState.folders.filter((f) => !pendingF.has(f.id));
+      const seenF = new Set(mergedFolders.map((f) => f.id));
+      folders.forEach((f) => {
+        if (!seenF.has(f.id) && !pendingF.has(f.id)) mergedFolders.push(f);
+      });
+
+      setBookmarks(mergedBookmarks);
+      setFolders(mergedFolders);
+      saveToStorage(mergedBookmarks, mergedFolders, userIdHint);
       setLastSyncedAt(remote.updatedAt ?? new Date().toISOString());
       await refreshBackups(userIdHint);
     } catch (err) {
@@ -618,6 +646,9 @@ export function useBookmarks(userId?: string | null) {
     setSyncError(null);
     try {
       await saveBookmarks(userIdHint, bookmarks, folders, shortcuts);
+      // The pushed arrays already omit deleted items — cloud matches local now.
+      clearPendingDeletes("bookmarks", userId);
+      clearPendingDeletes("folders", userId);
       setLastSyncedAt(new Date().toISOString());
     } catch (err) {
       setSyncError(
@@ -629,14 +660,15 @@ export function useBookmarks(userId?: string | null) {
   };
 
   const restoreFromSnapshot = (snapshot: Bookmark[]) => {
-    setBookmarks(
-      normalizeBookmarks(
-        snapshot.map((bookmark) => ({
-          ...bookmark,
-          pinned: typeof bookmark.pinned === "boolean" ? bookmark.pinned : false,
-        }))
-      )
+    const restored = normalizeBookmarks(
+      snapshot.map((bookmark) => ({
+        ...bookmark,
+        pinned: typeof bookmark.pinned === "boolean" ? bookmark.pinned : false,
+      }))
     );
+    // Undo of a delete/clear: these ids are back, so cancel any queued deletion.
+    restored.forEach((b) => unqueueDelete("bookmarks", userId, b.id));
+    setBookmarks(restored);
   };
 
   return {
