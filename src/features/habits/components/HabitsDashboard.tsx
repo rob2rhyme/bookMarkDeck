@@ -17,6 +17,7 @@ import {
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
+import { HabitsViewToggle } from "@/features/habits/components/HabitsViewToggle";
 import { HabitCard } from "@/features/habits/components/HabitCard";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
@@ -164,7 +165,7 @@ export function HabitsDashboard() {
   return (
     <div className="flex flex-col gap-6">
       {/* Heading */}
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-slate-50">
             Habits
@@ -173,7 +174,8 @@ export function HabitsDashboard() {
             Small, repeatable wins — the record of who you&apos;re becoming.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2">
+          <HabitsViewToggle />
           <Link
             href="/habits/guide"
             className="text-xs text-slate-400 underline-offset-2 transition hover:text-slate-200 hover:underline"

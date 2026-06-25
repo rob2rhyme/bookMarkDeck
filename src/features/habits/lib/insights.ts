@@ -3,7 +3,7 @@
 // Pure aggregations for the habit analysis dashboard. Derived from the entry log
 // + schedules so the charts can't drift from reality. No React, no Firebase.
 
-import { WEEKDAY_LABELS, addDays, parseDay, weekKeyOf, weekdayOf } from "@/features/habits/lib/day";
+import { WEEKDAY_LABELS, addDays, dayKeyFor, parseDay, weekKeyOf, weekdayOf } from "@/features/habits/lib/day";
 import { isDueOn } from "@/features/habits/lib/streak";
 import { type Habit, type HabitEntry, habitTarget } from "@/features/habits/lib/types";
 
@@ -28,6 +28,17 @@ export type WeekBar = {
   future: boolean;
 };
 
+/**
+ * habitId → the local day a habit was created (or null when unknown). Used to
+ * avoid counting a habit as "due" on days before it existed, which would crush
+ * completion rates for new trackers.
+ */
+function createdDayIndex(habits: Habit[]): Map<string, string | null> {
+  return new Map(
+    habits.map((h) => [h.id, h.createdAt ? dayKeyFor(new Date(h.createdAt)) : null])
+  );
+}
+
 /** The 7 days of the week containing `today + weekOffset*7` (Sun-anchored). */
 export function weeklyBars(
   habits: Habit[],
@@ -36,6 +47,7 @@ export function weeklyBars(
   weekOffset: number
 ): { bars: WeekBar[]; rangeLabel: string } {
   const success = successIndex(habits, entries);
+  const created = createdDayIndex(habits);
   const anchor = addDays(today, weekOffset * 7);
   const start = weekKeyOf(anchor);
   const bars: WeekBar[] = [];
@@ -46,6 +58,8 @@ export function weeklyBars(
     let done = 0;
     if (!future) {
       for (const h of habits) {
+        const cd = created.get(h.id);
+        if (cd && key < cd) continue; // habit didn't exist yet
         if (!isDueOn(h, key)) continue;
         due++;
         if (success.has(`${h.id}_${key}`)) done++;
@@ -75,12 +89,15 @@ export function weekdayPattern(
   windowDays = 84
 ): WeekdayStat[] {
   const success = successIndex(habits, entries);
+  const created = createdDayIndex(habits);
   const due = new Array(7).fill(0);
   const done = new Array(7).fill(0);
   for (let i = 0; i < windowDays; i++) {
     const key = addDays(today, -i);
     const wd = weekdayOf(key);
     for (const h of habits) {
+      const cd = created.get(h.id);
+      if (cd && key < cd) continue; // habit didn't exist yet
       if (!isDueOn(h, key)) continue;
       due[wd]++;
       if (success.has(`${h.id}_${key}`)) done[wd]++;
