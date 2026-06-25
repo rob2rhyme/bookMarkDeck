@@ -10,6 +10,11 @@ import {
   subscribeTasks,
   touchTask,
 } from "@/features/focus/data/focusData";
+import {
+  flushPendingDeletes,
+  queueDelete,
+  unqueueDelete,
+} from "@/utils/pendingDeletes";
 import type { FocusTask } from "@/features/focus/lib/types";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
@@ -69,10 +74,23 @@ export function useFocusTasks(
 
   useEffect(() => {
     if (!canSync || !email) return;
-    // Seed the cloud with local-only tasks added before connecting so the live
-    // snapshot won't drop them, then subscribe for real-time updates.
-    pushToCloud().catch(() => {});
-    return subscribeTasks(email, setTasks);
+    // Replay offline deletions and seed local-only tasks to the cloud BEFORE
+    // subscribing — otherwise the first live snapshot resurrects deleted tasks
+    // or reverts edits made before the connection settled.
+    let cancelled = false;
+    let unsub = () => {};
+    (async () => {
+      await flushPendingDeletes("tasks", email, (id) => deleteTask(email, id));
+      await pushToCloud();
+    })()
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) unsub = subscribeTasks(email, setTasks);
+      });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
@@ -153,12 +171,14 @@ export function useFocusTasks(
     (id: string) => {
       setTasks((prev) => prev.filter((t) => t.id !== id));
       if (canSync && email) deleteTask(email, id).catch(() => {});
+      else queueDelete("tasks", email, id); // replay on next connect
     },
     [canSync, email]
   );
 
   const restoreTask = useCallback(
     (task: FocusTask) => {
+      unqueueDelete("tasks", email, task.id);
       setTasks((prev) => (prev.some((t) => t.id === task.id) ? prev : [...prev, task]));
       if (canSync && email) saveTask(email, task).catch(() => {});
     },
