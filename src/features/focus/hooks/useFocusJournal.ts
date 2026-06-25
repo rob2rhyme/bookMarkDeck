@@ -16,6 +16,11 @@ import {
 } from "@/features/focus/data/focusData";
 import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
 import {
+  flushPendingDeletes,
+  queueDelete,
+  unqueueDelete,
+} from "@/features/focus/lib/pendingDeletes";
+import {
   coerceDreamFields,
   type DreamDetails,
   type JournalEntry,
@@ -112,12 +117,24 @@ export function useFocusJournal(
 
   useEffect(() => {
     if (!canSync || !email) return;
-    // Seed the cloud with anything created before connecting so the live
-    // snapshots don't drop local-only entries, then subscribe for real-time.
-    pushToCloud().catch(() => {});
-    const unsubJournal = subscribeJournal(email, setEntries);
-    const unsubNotes = subscribeNotes(email, setNotes);
+    // Replay offline note deletions and seed local-only entries to the cloud
+    // BEFORE subscribing — otherwise the first live snapshot resurrects deleted
+    // notes and drops local-only entries.
+    let cancelled = false;
+    let unsubJournal = () => {};
+    let unsubNotes = () => {};
+    (async () => {
+      await flushPendingDeletes("notes", email, (id) => deleteNoteRemote(email, id));
+      await pushToCloud();
+    })()
+      .catch(() => {})
+      .finally(() => {
+        if (cancelled) return;
+        unsubJournal = subscribeJournal(email, setEntries);
+        unsubNotes = subscribeNotes(email, setNotes);
+      });
     return () => {
+      cancelled = true;
       unsubJournal();
       unsubNotes();
     };
@@ -211,6 +228,8 @@ export function useFocusJournal(
       }
       setNotes((prev) => prev.filter((n) => n.id !== id));
       if (canSync && email) deleteNoteRemote(email, id).catch(() => {});
+      // Not connected → remember to delete from the cloud on next connect.
+      else queueDelete("notes", email, id);
     },
     [canSync, email]
   );
@@ -225,6 +244,7 @@ export function useFocusJournal(
         if (canSync && email) setJournalNote(email, day, note.text).catch(() => {});
         return;
       }
+      unqueueDelete("notes", email, note.id); // un-delete if it was queued
       setNotes((prev) =>
         prev.some((n) => n.id === note.id) ? prev : [note, ...prev]
       );

@@ -10,6 +10,11 @@ import {
   subscribeTodos,
   todayKey,
 } from "@/features/focus/data/focusData";
+import {
+  flushPendingDeletes,
+  queueDelete,
+  unqueueDelete,
+} from "@/features/focus/lib/pendingDeletes";
 import type { Todo } from "@/features/focus/lib/types";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
@@ -83,11 +88,25 @@ export function useTodos(
     setTodos(await fetchTodos(email));
   }, [canSync, email]);
 
-  // On connect: seed local-only items to the cloud, then subscribe live.
+  // On connect: replay any offline deletions and seed local-only items to the
+  // cloud BEFORE subscribing — otherwise the first live snapshot overwrites
+  // local state (resurrecting deletes / reverting just-toggled items).
   useEffect(() => {
     if (!canSync || !email) return;
-    pushToCloud().catch(() => {});
-    return subscribeTodos(email, setTodos);
+    let cancelled = false;
+    let unsub = () => {};
+    (async () => {
+      await flushPendingDeletes("todos", email, (id) => deleteTodo(email, id));
+      await pushToCloud();
+    })()
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) unsub = subscribeTodos(email, setTodos);
+      });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
@@ -169,12 +188,15 @@ export function useTodos(
     (id: string) => {
       setTodos((prev) => prev.filter((t) => t.id !== id));
       if (canSync && email) deleteTodo(email, id).catch(() => {});
+      // Not connected → remember to delete from the cloud on next connect.
+      else queueDelete("todos", email, id);
     },
     [canSync, email]
   );
 
   const restoreTodo = useCallback(
     (todo: Todo) => {
+      unqueueDelete("todos", email, todo.id); // un-delete if it was queued
       setTodos((prev) =>
         prev.some((t) => t.id === todo.id) ? prev : [todo, ...prev]
       );
