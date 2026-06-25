@@ -198,6 +198,58 @@ export function CreateHabitModal({
         anything under “Add details”.
       </p>
 
+      {/* Area / category — a primary field so habits get grouped from the start. */}
+      <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        Area (optional)
+      </label>
+      <div className="mt-1 flex items-center gap-2">
+        {area.trim() && (
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-950/60 text-lg"
+            aria-hidden="true"
+          >
+            <Emoji>{areaIcon}</Emoji>
+          </span>
+        )}
+        <input
+          type="text"
+          value={area}
+          onChange={(e) => onAreaChange(e.target.value)}
+          list="habit-area-suggestions"
+          placeholder="e.g. Health, Work, Learning"
+          className="w-full flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+        />
+      </div>
+      {existingAreas.length > 0 && (
+        <datalist id="habit-area-suggestions">
+          {existingAreas.map((a) => (
+            <option key={a} value={a} />
+          ))}
+        </datalist>
+      )}
+      {area.trim() && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {AREA_ICON_CHOICES.map((ic) => (
+            <button
+              key={ic}
+              type="button"
+              onClick={() => setAreaIcon(ic)}
+              aria-pressed={areaIcon === ic}
+              className={`flex h-7 w-7 items-center justify-center rounded-lg border text-base transition ${
+                areaIcon === ic
+                  ? "border-blue-400 bg-blue-500/10"
+                  : "border-slate-800 hover:border-slate-600"
+              }`}
+            >
+              <Emoji>{ic}</Emoji>
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="mt-1 text-[11px] text-slate-500">
+        Group related habits under a category to filter them later.
+      </p>
+
       {/* Everything else, tucked away for beginners; opens automatically when
           editing an existing habit so power users see all fields. */}
       <details open={isEdit} className="group mt-4">
@@ -224,58 +276,6 @@ export function CreateHabitModal({
               className="w-full bg-transparent text-sm text-slate-100 outline-none"
             />
           </div>
-
-          {/* Area / category */}
-          <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
-            Area (optional)
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            {area.trim() && (
-              <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-950/60 text-lg"
-                aria-hidden="true"
-              >
-                <Emoji>{areaIcon}</Emoji>
-              </span>
-            )}
-            <input
-              type="text"
-              value={area}
-              onChange={(e) => onAreaChange(e.target.value)}
-              list="habit-area-suggestions"
-              placeholder="e.g. Health, Work, Learning"
-              className="w-full flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
-            />
-          </div>
-          {existingAreas.length > 0 && (
-            <datalist id="habit-area-suggestions">
-              {existingAreas.map((a) => (
-                <option key={a} value={a} />
-              ))}
-            </datalist>
-          )}
-          {area.trim() && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {AREA_ICON_CHOICES.map((ic) => (
-                <button
-                  key={ic}
-                  type="button"
-                  onClick={() => setAreaIcon(ic)}
-                  aria-pressed={areaIcon === ic}
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg border text-base transition ${
-                    areaIcon === ic
-                      ? "border-blue-400 bg-blue-500/10"
-                      : "border-slate-800 hover:border-slate-600"
-                  }`}
-                >
-                  <Emoji>{ic}</Emoji>
-                </button>
-              ))}
-            </div>
-          )}
-          <p className="mt-1 text-[11px] text-slate-500">
-            Group related habits under a category to filter them later.
-          </p>
 
           {/* Emoji */}
           <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Icon</p>

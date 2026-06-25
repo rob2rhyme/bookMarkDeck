@@ -592,6 +592,13 @@ export function SimpleHabitsDashboard() {
                   </span>
                 )}
               </div>
+              {!hasAreas && h.habits.length > 0 && (
+                <p className="mb-3 text-[11px] text-slate-500">
+                  Tip: give a habit an{" "}
+                  <span className="text-slate-300">Area</span> to group and
+                  filter them — open a habit&apos;s ⋯ menu → Edit.
+                </p>
+              )}
               {hasAreas && (
                 <div className="mb-3 flex flex-wrap gap-1.5">
                   {([["", "All"]] as [string, string][])
