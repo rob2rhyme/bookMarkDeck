@@ -23,6 +23,8 @@ type CreateHabitModalProps = {
   /** Whether `initial` is an existing habit (edit) vs a fresh draft (create). */
   isEdit?: boolean;
   nextSortOrder: number;
+  /** Existing area names, offered as quick-pick suggestions. */
+  existingAreas?: string[];
 };
 
 type SchedKind = "daily" | "weekdays" | "timesPerWeek";
@@ -35,8 +37,10 @@ export function CreateHabitModal({
   initial,
   isEdit = Boolean(initial),
   nextSortOrder,
+  existingAreas = [],
 }: CreateHabitModalProps) {
   const [name, setName] = useState("");
+  const [area, setArea] = useState("");
   const [emoji, setEmoji] = useState(DEFAULT_HABIT_EMOJI);
   // Once the user hand-picks an icon we stop auto-suggesting from the name.
   const [emojiTouched, setEmojiTouched] = useState(false);
@@ -64,6 +68,7 @@ export function CreateHabitModal({
       setTarget(initial.target ?? 8);
       setStep(initial.step ?? 1);
       setIdentity(initial.identity ?? "");
+      setArea(initial.area ?? "");
       setReminder(initial.reminder ?? "");
       setKind(initial.schedule.type);
       if (initial.schedule.type === "weekdays") setDays(initial.schedule.days);
@@ -79,6 +84,7 @@ export function CreateHabitModal({
       setTarget(8);
       setStep(1);
       setIdentity("");
+      setArea("");
       setReminder("");
       setKind("daily");
       setDays([1, 2, 3, 4, 5]);
@@ -119,6 +125,7 @@ export function CreateHabitModal({
       step: type === "measurable" ? Math.max(1, Math.round(step)) : undefined,
       schedule,
       identity: identity.trim() || undefined,
+      area: area.trim() || undefined,
       reminder: /^\d{1,2}:\d{2}$/.test(reminder) ? reminder : null,
       archived: initial?.archived ?? false,
       sortOrder: initial?.sortOrder ?? nextSortOrder,
@@ -199,6 +206,29 @@ export function CreateHabitModal({
               className="w-full bg-transparent text-sm text-slate-100 outline-none"
             />
           </div>
+
+          {/* Area / category */}
+          <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Area (optional)
+          </label>
+          <input
+            type="text"
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            list="habit-area-suggestions"
+            placeholder="e.g. Health, Work, Learning"
+            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+          />
+          {existingAreas.length > 0 && (
+            <datalist id="habit-area-suggestions">
+              {existingAreas.map((a) => (
+                <option key={a} value={a} />
+              ))}
+            </datalist>
+          )}
+          <p className="mt-1 text-[11px] text-slate-500">
+            Group related habits under a category to filter them later.
+          </p>
 
           {/* Emoji */}
           <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Icon</p>

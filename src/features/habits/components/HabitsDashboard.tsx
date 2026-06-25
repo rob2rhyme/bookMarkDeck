@@ -73,6 +73,7 @@ export function HabitsDashboard() {
   const [selectedDay, setSelectedDay] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
+  const [areaFilter, setAreaFilter] = useState(""); // "" = all, "__none__" = no area
 
   useEffect(() => {
     if (h.today) setSelectedDay((cur) => cur || h.today);
@@ -97,6 +98,26 @@ export function HabitsDashboard() {
 
   const nextSortOrder =
     h.allHabits.reduce((m, x) => Math.max(m, x.sortOrder), -1) + 1;
+
+  // Areas (categories) — derived from the habits that carry an `area` label.
+  const areas = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          h.allHabits
+            .map((x) => x.area?.trim())
+            .filter((a): a is string => Boolean(a))
+        )
+      ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
+    [h.allHabits]
+  );
+  const hasAreas = areas.length > 0;
+  const someUncategorized = h.habits.some((x) => !x.area?.trim());
+  const visibleHabits = h.habits.filter((x) => {
+    if (!areaFilter) return true;
+    if (areaFilter === "__none__") return !x.area?.trim();
+    return x.area?.trim() === areaFilter;
+  });
 
   const isSkipped = (id: string) => h.todayEntry(id)?.status === "skipped";
   const pending = h.dueToday.filter(
@@ -319,8 +340,31 @@ export function HabitsDashboard() {
                 </button>
               )}
             </div>
+            {/* Area filter — only once habits carry area labels. */}
+            {hasAreas && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {([["", "All"]] as [string, string][])
+                  .concat(areas.map((a) => [a, a]))
+                  .concat(someUncategorized ? [["__none__", "No area"]] : [])
+                  .map(([value, label]) => (
+                    <button
+                      key={value || "all"}
+                      type="button"
+                      aria-pressed={areaFilter === value}
+                      onClick={() => setAreaFilter(value)}
+                      className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
+                        areaFilter === value
+                          ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                          : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+              </div>
+            )}
             <div className="flex flex-col divide-y divide-slate-800/60">
-              {h.habits.map((habit) => {
+              {visibleHabits.map((habit) => {
                 const st = h.statsByHabit.get(habit.id)!;
                 return (
                   <div key={habit.id} className="flex items-center gap-3 py-2.5">
@@ -331,7 +375,14 @@ export function HabitsDashboard() {
                       <Emoji>{habitEmoji(habit)}</Emoji>
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-slate-100">{habit.name}</p>
+                      <p className="truncate text-sm text-slate-100">
+                        {habit.name}
+                        {habit.area?.trim() && (
+                          <span className="ml-2 rounded-full border border-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+                            {habit.area.trim()}
+                          </span>
+                        )}
+                      </p>
                       <p className="truncate text-[11px] text-slate-500">
                         {scheduleLabel(habit)} · 🔥 {st.currentStreak} · {st.rate}%
                         {habit.reminder ? ` · 🔔 ${habit.reminder}` : ""}
@@ -428,6 +479,7 @@ export function HabitsDashboard() {
         onDelete={(id) => h.removeHabit(id)}
         initial={editing}
         nextSortOrder={nextSortOrder}
+        existingAreas={areas}
       />
       <HabitOnboarding
         open={onboardOpen}
