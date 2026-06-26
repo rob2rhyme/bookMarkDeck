@@ -16,9 +16,13 @@ import {
 } from "@/features/focus/data/focusData";
 import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
 import {
+  clearPendingUpserts,
   flushPendingDeletes,
+  pendingUpsertIds,
   queueDelete,
+  queueUpsert,
   unqueueDelete,
+  unqueueUpsert,
 } from "@/utils/pendingDeletes";
 import {
   coerceDreamFields,
@@ -125,7 +129,25 @@ export function useFocusJournal(
     let unsubNotes = () => {};
     (async () => {
       await flushPendingDeletes("notes", email, (id) => deleteNoteRemote(email, id));
-      await pushToCloud();
+      // Push ONLY what changed while offline — never blindly re-upload the whole
+      // local cache (that clobbers newer cloud edits and resurrects notes deleted
+      // on another device).
+      const noteUps = pendingUpsertIds("notes", email);
+      if (noteUps.size)
+        await Promise.all(
+          notes
+            .filter((n) => noteUps.has(n.id))
+            .map((n) => addNoteRemote(email, n).catch(() => {}))
+        );
+      const moodUps = pendingUpsertIds("moods", email);
+      if (moodUps.size)
+        await Promise.all(
+          entries
+            .filter((e) => moodUps.has(e.day))
+            .map((e) => saveMood(email, e.day, e.mood).catch(() => {}))
+        );
+      clearPendingUpserts("notes", email);
+      clearPendingUpserts("moods", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -154,6 +176,7 @@ export function useFocusJournal(
           : [...prev, updated];
       });
       if (canSync && email) saveMood(email, day, mood).catch(() => {});
+      else queueUpsert("moods", email, day);
       // Activity log is today-scoped; don't log backdated mood as "today".
       if (mood && day === today)
         onLog?.("mood", `Felt ${MOOD_BY_KEY[mood].label.toLowerCase()}`);
@@ -181,6 +204,7 @@ export function useFocusJournal(
       };
       setNotes((prev) => [note, ...prev]);
       if (canSync && email) addNoteRemote(email, note).catch(() => {});
+      else queueUpsert("notes", email, note.id);
       // Activity log is today-scoped; don't log backdated entries as "today".
       if (day === today)
         onLog?.(
@@ -210,6 +234,7 @@ export function useFocusJournal(
         const updated = next.find((n) => n.id === id);
         if (canSync && email && updated)
           addNoteRemote(email, updated).catch(() => {});
+        else if (updated) queueUpsert("notes", email, id);
         return next;
       });
     },
@@ -228,8 +253,12 @@ export function useFocusJournal(
       }
       setNotes((prev) => prev.filter((n) => n.id !== id));
       if (canSync && email) deleteNoteRemote(email, id).catch(() => {});
-      // Not connected → remember to delete from the cloud on next connect.
-      else queueDelete("notes", email, id);
+      // Not connected → remember to delete from the cloud on next connect, and
+      // drop any pending offline upsert so the flush won't re-create it.
+      else {
+        queueDelete("notes", email, id);
+        unqueueUpsert("notes", email, id);
+      }
     },
     [canSync, email]
   );
@@ -249,6 +278,7 @@ export function useFocusJournal(
         prev.some((n) => n.id === note.id) ? prev : [note, ...prev]
       );
       if (canSync && email) addNoteRemote(email, note).catch(() => {});
+      else queueUpsert("notes", email, note.id);
     },
     [canSync, email]
   );

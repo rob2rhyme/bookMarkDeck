@@ -11,9 +11,13 @@ import {
   touchTask,
 } from "@/features/focus/data/focusData";
 import {
+  clearPendingUpserts,
   flushPendingDeletes,
+  pendingUpsertIds,
   queueDelete,
+  queueUpsert,
   unqueueDelete,
+  unqueueUpsert,
 } from "@/utils/pendingDeletes";
 import type { FocusTask } from "@/features/focus/lib/types";
 
@@ -81,7 +85,16 @@ export function useFocusTasks(
     let unsub = () => {};
     (async () => {
       await flushPendingDeletes("tasks", email, (id) => deleteTask(email, id));
-      await pushToCloud();
+      // Push ONLY tasks changed while offline, not the whole local cache (which
+      // would clobber newer cloud edits / resurrect cloud deletes).
+      const ups = pendingUpsertIds("tasks", email);
+      if (ups.size)
+        await Promise.all(
+          tasks
+            .filter((t) => ups.has(t.id))
+            .map((t) => saveTask(email, t).catch(() => {}))
+        );
+      clearPendingUpserts("tasks", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -131,6 +144,7 @@ export function useFocusTasks(
       setTasks((prev) => [...prev, task]);
       setActiveTaskId(task.id);
       if (canSync && email) saveTask(email, task).catch(() => {});
+      else queueUpsert("tasks", email, task.id);
       onLog?.("task_added", `Added task: ${trimmed}`);
     },
     [canSync, email, onLog]
@@ -146,6 +160,7 @@ export function useFocusTasks(
         );
         const updated = next.find((t) => t.id === id);
         if (canSync && email && updated) saveTask(email, updated).catch(() => {});
+        else if (updated) queueUpsert("tasks", email, id);
         return next;
       });
     },
@@ -160,6 +175,7 @@ export function useFocusTasks(
         );
         const updated = next.find((t) => t.id === id);
         if (canSync && email && updated) saveTask(email, updated).catch(() => {});
+        else if (updated) queueUpsert("tasks", email, id);
         if (updated?.done) onLog?.("task_done", `Completed: ${updated.text}`);
         return next;
       });
@@ -171,7 +187,11 @@ export function useFocusTasks(
     (id: string) => {
       setTasks((prev) => prev.filter((t) => t.id !== id));
       if (canSync && email) deleteTask(email, id).catch(() => {});
-      else queueDelete("tasks", email, id); // replay on next connect
+      // Offline → replay the delete on next connect; drop any pending upsert.
+      else {
+        queueDelete("tasks", email, id);
+        unqueueUpsert("tasks", email, id);
+      }
     },
     [canSync, email]
   );
@@ -181,6 +201,7 @@ export function useFocusTasks(
       unqueueDelete("tasks", email, task.id);
       setTasks((prev) => (prev.some((t) => t.id === task.id) ? prev : [...prev, task]));
       if (canSync && email) saveTask(email, task).catch(() => {});
+      else queueUpsert("tasks", email, task.id);
     },
     [canSync, email]
   );
@@ -191,6 +212,7 @@ export function useFocusTasks(
         prev.map((t) => (t.id === id ? { ...t, lastUsedAt: isoTime } : t))
       );
       if (canSync && email) touchTask(email, id, isoTime).catch(() => {});
+      else queueUpsert("tasks", email, id);
     },
     [canSync, email]
   );

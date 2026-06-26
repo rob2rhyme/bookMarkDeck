@@ -11,9 +11,13 @@ import {
   todayKey,
 } from "@/features/focus/data/focusData";
 import {
+  clearPendingUpserts,
   flushPendingDeletes,
+  pendingUpsertIds,
   queueDelete,
+  queueUpsert,
   unqueueDelete,
+  unqueueUpsert,
 } from "@/utils/pendingDeletes";
 import type { Todo } from "@/features/focus/lib/types";
 
@@ -97,7 +101,16 @@ export function useTodos(
     let unsub = () => {};
     (async () => {
       await flushPendingDeletes("todos", email, (id) => deleteTodo(email, id));
-      await pushToCloud();
+      // Push ONLY items changed while offline, not the whole local cache (which
+      // would clobber newer cloud edits / resurrect cloud deletes).
+      const ups = pendingUpsertIds("todos", email);
+      if (ups.size)
+        await Promise.all(
+          todos
+            .filter((t) => ups.has(t.id))
+            .map((t) => saveTodo(email, t).catch(() => {}))
+        );
+      clearPendingUpserts("todos", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -127,6 +140,7 @@ export function useTodos(
       };
       setTodos((prev) => [todo, ...prev]);
       if (canSync && email) saveTodo(email, todo).catch(() => {});
+      else queueUpsert("todos", email, todo.id);
       onLog?.("todo_added", `Added to-do: ${trimmed}`);
       return todo;
     },
@@ -140,6 +154,7 @@ export function useTodos(
         const next = prev.map((t) => (t.id === id ? { ...t, ...ids } : t));
         const updated = next.find((t) => t.id === id);
         if (canSync && email && updated) saveTodo(email, updated).catch(() => {});
+        else if (updated) queueUpsert("todos", email, id);
         return next;
       });
     },
@@ -154,6 +169,7 @@ export function useTodos(
         );
         const updated = next.find((t) => t.id === id);
         if (canSync && email && updated) saveTodo(email, updated).catch(() => {});
+        else if (updated) queueUpsert("todos", email, id);
         if (updated?.done) onLog?.("todo_done", `Completed to-do: ${updated.text}`);
         return next;
       });
@@ -177,6 +193,8 @@ export function useTodos(
         const updated = next.find((t) => t.id === id);
         if (canSync && email && updated && updated.text.length > 0) {
           saveTodo(email, updated).catch(() => {});
+        } else if (updated && updated.text.length > 0) {
+          queueUpsert("todos", email, id);
         }
         return next;
       });
@@ -188,8 +206,12 @@ export function useTodos(
     (id: string) => {
       setTodos((prev) => prev.filter((t) => t.id !== id));
       if (canSync && email) deleteTodo(email, id).catch(() => {});
-      // Not connected → remember to delete from the cloud on next connect.
-      else queueDelete("todos", email, id);
+      // Not connected → remember to delete on next connect; drop any pending
+      // offline upsert so the flush won't re-create it.
+      else {
+        queueDelete("todos", email, id);
+        unqueueUpsert("todos", email, id);
+      }
     },
     [canSync, email]
   );
@@ -201,6 +223,7 @@ export function useTodos(
         prev.some((t) => t.id === todo.id) ? prev : [todo, ...prev]
       );
       if (canSync && email) saveTodo(email, todo).catch(() => {});
+      else queueUpsert("todos", email, todo.id);
     },
     [canSync, email]
   );
