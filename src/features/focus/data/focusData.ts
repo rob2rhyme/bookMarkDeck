@@ -155,8 +155,9 @@ export async function logSession(
   emailHint: string,
   focusMin: number,
   day: string,
-  taskId?: string | null
-): Promise<void> {
+  taskId?: string | null,
+  intention?: string
+): Promise<string> {
   const uid = await uidFor(emailHint);
   const id = crypto.randomUUID();
   const payload: Record<string, unknown> = {
@@ -165,7 +166,23 @@ export async function logSession(
     createdAt: serverTimestamp(),
   };
   if (taskId) payload.taskId = taskId;
+  if (intention?.trim()) payload.intention = intention.trim();
   await setDoc(doc(sessionsCol(uid), id), payload);
+  return id;
+}
+
+/** Attach/replace a session's intention or reflection note (merge-written). */
+export async function updateSessionMeta(
+  emailHint: string,
+  id: string,
+  patch: { intention?: string; reflection?: string }
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const fields: Record<string, unknown> = {};
+  if (patch.intention !== undefined) fields.intention = patch.intention.trim();
+  if (patch.reflection !== undefined) fields.reflection = patch.reflection.trim();
+  if (Object.keys(fields).length === 0) return;
+  await setDoc(doc(sessionsCol(uid), id), fields, { merge: true });
 }
 
 export async function countSessionsForDay(
@@ -198,6 +215,8 @@ export async function fetchSessions(
       day: typeof data.day === "string" ? data.day : "",
       taskId: typeof data.taskId === "string" ? data.taskId : null,
       createdAt,
+      ...(typeof data.intention === "string" ? { intention: data.intention } : {}),
+      ...(typeof data.reflection === "string" ? { reflection: data.reflection } : {}),
     };
   });
 }
@@ -223,6 +242,8 @@ export async function restoreSession(
     createdAt: record.createdAt ?? serverTimestamp(),
   };
   if (record.taskId) payload.taskId = record.taskId;
+  if (record.intention?.trim()) payload.intention = record.intention.trim();
+  if (record.reflection?.trim()) payload.reflection = record.reflection.trim();
   await setDoc(doc(sessionsCol(uid), record.id), payload);
 }
 
@@ -497,6 +518,8 @@ export function subscribeSessions(
               day: typeof data.day === "string" ? data.day : "",
               taskId: typeof data.taskId === "string" ? data.taskId : null,
               createdAt: timestampToIso(data.createdAt),
+              ...(typeof data.intention === "string" ? { intention: data.intention } : {}),
+              ...(typeof data.reflection === "string" ? { reflection: data.reflection } : {}),
             };
           })
         ),

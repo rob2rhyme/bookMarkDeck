@@ -134,10 +134,12 @@ export function ActivityHistory({
     for (const s of sessions) {
       if (!s.day) continue;
       const taskName = s.taskId ? taskNameById[s.taskId] : null;
+      const focus = s.intention?.trim() || (taskName ? `on ${taskName}` : "");
+      const reflection = s.reflection?.trim() ? ` — ${s.reflection.trim()}` : "";
       push(s.day, {
         id: `session-${s.id}`,
         type: "focus",
-        text: `Focused ${hoursLabel(s.focusMin)}${taskName ? ` on ${taskName}` : ""}`,
+        text: `Focused ${hoursLabel(s.focusMin)}${focus ? ` ${focus}` : ""}${reflection}`,
         createdAt: s.createdAt,
         sort: s.createdAt ? new Date(s.createdAt).getTime() : 0,
         focusMin: s.focusMin,

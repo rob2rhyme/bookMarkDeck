@@ -53,6 +53,7 @@ export type HabitStats = {
   longestStreak: number;
   totalDone: number;
   rate: number; // 0–100, completion % over the last 30 scheduled (non-skipped) days
+  strength: number; // 0–100, exponentially-decayed momentum (recent days weigh more)
   weekDone?: number; // timesPerWeek: successes in the current week
   weekTarget?: number; // timesPerWeek: target per week
 };

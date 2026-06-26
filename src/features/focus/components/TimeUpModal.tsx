@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import type { FocusMode } from "@/features/focus/hooks/useFocusTimer";
 import type { FocusSettings } from "@/features/focus/lib/settings";
@@ -10,6 +10,8 @@ type TimeUpModalProps = {
   /** The mode that just finished, or null when nothing is pending. */
   completedMode: FocusMode | null;
   settings: FocusSettings;
+  /** Save a reflection note onto the focus block that just finished. */
+  onReflect?: (text: string) => void;
   onClose: () => void;
 };
 
@@ -19,10 +21,22 @@ const CHIME_GAP_MS = 3000;
 export function TimeUpModal({
   completedMode,
   settings,
+  onReflect,
   onClose,
 }: TimeUpModalProps) {
   const open = completedMode !== null;
   const isFocusEnd = completedMode === "focus";
+  const [reflection, setReflection] = useState("");
+
+  useEffect(() => {
+    if (!open) setReflection("");
+  }, [open]);
+
+  const close = () => {
+    const text = reflection.trim();
+    if (isFocusEnd && text && onReflect) onReflect(text);
+    onClose();
+  };
 
   // Repeat a loud chime + vibrate while open so it's hard to miss, even if the
   // tab was backgrounded when the timer fired and the user just came back.
@@ -51,7 +65,7 @@ export function TimeUpModal({
     }, CHIME_GAP_MS);
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Enter") onClose();
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
 
@@ -65,7 +79,7 @@ export function TimeUpModal({
 
   return (
     <div
-      onClick={onClose}
+      onClick={close}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
     >
       <div
@@ -98,9 +112,20 @@ export function TimeUpModal({
             : "Ready to get back to it?"}
         </p>
 
+        {isFocusEnd && onReflect && (
+          <textarea
+            value={reflection}
+            onChange={(e) => setReflection(e.target.value)}
+            placeholder="How did it go? (optional reflection)"
+            aria-label="Session reflection"
+            rows={2}
+            className="mt-5 w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-left text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-400"
+          />
+        )}
+
         <button
           type="button"
-          onClick={onClose}
+          onClick={close}
           autoFocus
           className={`mt-6 w-full rounded-full px-6 py-3 text-sm font-semibold text-white shadow-sm transition ${
             isFocusEnd
@@ -108,7 +133,7 @@ export function TimeUpModal({
               : "bg-emerald-600 hover:bg-emerald-500"
           }`}
         >
-          Dismiss
+          {isFocusEnd && reflection.trim() ? "Save & dismiss" : "Dismiss"}
         </button>
       </div>
     </div>

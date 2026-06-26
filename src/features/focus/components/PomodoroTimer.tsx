@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { TimeUpModal } from "@/features/focus/components/TimeUpModal";
 import {
   FocusMode,
@@ -53,6 +55,7 @@ export function PomodoroTimer({
   activeTaskName,
   onFocusComplete,
 }: PomodoroTimerProps) {
+  const [intention, setIntention] = useState("");
   const {
     mode,
     display,
@@ -61,6 +64,7 @@ export function PomodoroTimer({
     untilLongBreak,
     progress,
     alert,
+    setReflection,
     dismissAlert,
     toggle,
     reset,
@@ -70,6 +74,7 @@ export function PomodoroTimer({
     email,
     connected,
     activeTaskId,
+    intention,
     onFocusComplete,
   });
 
@@ -110,6 +115,18 @@ export function PomodoroTimer({
           "No task selected — pick one to track time."
         )}
       </p>
+
+      {/* Intention — logged with this focus block (Session-style). */}
+      {mode === "focus" && (
+        <input
+          type="text"
+          value={intention}
+          onChange={(e) => setIntention(e.target.value)}
+          placeholder="What's your intention for this block? (optional)"
+          aria-label="Focus intention"
+          className="mt-3 w-full max-w-xs rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-center text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-400"
+        />
+      )}
 
       {/* Circular progress */}
       <div className="relative mt-4 flex items-center justify-center">
@@ -182,6 +199,7 @@ export function PomodoroTimer({
       <TimeUpModal
         completedMode={alert}
         settings={settings}
+        onReflect={setReflection}
         onClose={dismissAlert}
       />
     </div>
