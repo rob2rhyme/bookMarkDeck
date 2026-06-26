@@ -6,6 +6,13 @@
 /** Binary = one tap done/not-done. Measurable = a value toward a daily target. */
 export type HabitType = "binary" | "measurable";
 
+/**
+ * Build = do it (more/consistent is better; success = met the target).
+ * Quit = avoid/reduce it (less is better; binary success = stayed clean,
+ * measurable success = stayed at or under the daily limit).
+ */
+export type HabitDirection = "build" | "quit";
+
 /** Schedule cadence. `days` uses 0=Sun … 6=Sat (JS getDay convention). */
 export type HabitSchedule =
   | { type: "daily" }
@@ -18,8 +25,9 @@ export type Habit = {
   emoji: string;
   hue: number; // accent hue 0–360
   type: HabitType;
+  direction?: HabitDirection; // default "build"; "quit" = avoid/reduce
   unit?: string; // measurable only, e.g. "cups", "pages"
-  target?: number; // measurable daily target; binary is implicitly 1
+  target?: number; // build: daily target (min); quit: daily limit (max); binary = 1
   step?: number; // measurable +/- increment (default 1)
   schedule: HabitSchedule;
   identity?: string; // "become someone who…"

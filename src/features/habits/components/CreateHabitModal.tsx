@@ -16,7 +16,12 @@ import {
   hueColor,
   suggestEmoji,
 } from "@/features/habits/lib/format";
-import type { Habit, HabitSchedule, HabitType } from "@/features/habits/lib/types";
+import type {
+  Habit,
+  HabitDirection,
+  HabitSchedule,
+  HabitType,
+} from "@/features/habits/lib/types";
 
 type CreateHabitModalProps = {
   open: boolean;
@@ -53,6 +58,7 @@ export function CreateHabitModal({
   // Once the user hand-picks an icon we stop auto-suggesting from the name.
   const [emojiTouched, setEmojiTouched] = useState(false);
   const [hue, setHue] = useState(200);
+  const [direction, setDirection] = useState<HabitDirection>("build");
   const [type, setType] = useState<HabitType>("binary");
   const [unit, setUnit] = useState("");
   const [target, setTarget] = useState(8);
@@ -71,6 +77,7 @@ export function CreateHabitModal({
       setName(initial.name);
       setEmoji(initial.emoji);
       setHue(initial.hue);
+      setDirection(initial.direction ?? "build");
       setType(initial.type);
       setUnit(initial.unit ?? "");
       setTarget(initial.target ?? 8);
@@ -88,6 +95,7 @@ export function CreateHabitModal({
       setEmojiTouched(false); // fresh draft: let the name drive the icon
 
       setHue(200);
+      setDirection("build");
       setType("binary");
       setUnit("");
       setTarget(8);
@@ -137,6 +145,7 @@ export function CreateHabitModal({
       emoji,
       hue,
       type,
+      direction,
       unit: type === "measurable" ? unit.trim() || "x" : undefined,
       target: type === "measurable" ? Math.max(1, Math.round(target)) : undefined,
       step: type === "measurable" ? Math.max(1, Math.round(step)) : undefined,
@@ -313,6 +322,22 @@ export function CreateHabitModal({
             ))}
           </div>
 
+          {/* Direction — build it up, or quit / cut it down */}
+          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Goal</p>
+          <div className="flex gap-2">
+            <button type="button" className={seg(direction === "build")} onClick={() => setDirection("build")}>
+              🌱 Build
+            </button>
+            <button type="button" className={seg(direction === "quit")} onClick={() => setDirection("quit")}>
+              🚫 Quit / reduce
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            {direction === "build"
+              ? "Build it up — a streak counts the days you did it."
+              : "Quit or cut down — a streak counts the days you stayed clean / under your limit."}
+          </p>
+
           {/* Type */}
           <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Type</p>
           <div className="flex gap-2">
@@ -332,7 +357,7 @@ export function CreateHabitModal({
             <>
               <div className="mt-2 flex gap-2">
                 <label className="flex-1 text-xs text-slate-400">
-                  Target
+                  {direction === "quit" ? "Daily limit" : "Target"}
                   <input
                     type="number"
                     min={1}

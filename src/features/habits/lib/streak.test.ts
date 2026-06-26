@@ -118,6 +118,22 @@ describe("computeStats — timesPerWeek", () => {
   });
 });
 
+describe("computeStats — quit direction", () => {
+  it("binary quit: a logged day = stayed clean = streak", () => {
+    const habit = mk({ direction: "quit" });
+    const s = computeStats(habit, [e("2026-06-19"), e("2026-06-18")], TODAY);
+    expect(s.currentStreak).toBe(2);
+  });
+
+  it("measurable quit: success = at or under the daily limit", () => {
+    const habit = mk({ direction: "quit", type: "measurable", target: 2 });
+    const under = computeStats(habit, [e("2026-06-19", "done", 1)], TODAY);
+    expect(under.doneToday).toBe(true); // 1 ≤ 2
+    const over = computeStats(habit, [e("2026-06-19", "done", 3)], TODAY);
+    expect(over.doneToday).toBe(false); // 3 > 2 — slipped
+  });
+});
+
 describe("computeStats — strength", () => {
   it("is 0 with no completions and rises with consistency", () => {
     const none = computeStats(mk(), [], TODAY);
