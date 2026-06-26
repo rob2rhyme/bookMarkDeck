@@ -33,6 +33,9 @@ export const EMOJI_CHOICES = [
   "🧹", "🍳", "📵", "🥗", "💪", "🚶", "🦷", "💊", "🌱", "☀️",
   "🎸", "🎨", "💰", "📝", "🛏️", "🚭", "🧴", "🐟",
   "🍷", "🥃", "🍽️", "👨‍👩‍👧‍👦", "🏊", "🥾", "💨", "🦏",
+  // Grooming & self-care
+  "👂", "💅", "✂️", "👃", "🪒", "🚿", "🛁", "💄",
+  "🧼", "🧔", "👓", "👅", "🌸", "💇",
 ];
 
 export const HUE_CHOICES = [200, 150, 250, 170, 220, 30, 270, 45, 0, 320, 100, 190];
@@ -43,6 +46,22 @@ export const DEFAULT_HABIT_EMOJI = "✅";
 // Keyword → emoji, most specific first. Each entry's keywords are matched as
 // substrings against the lower-cased habit name; the first hit wins.
 const EMOJI_KEYWORDS: ReadonlyArray<readonly [string[], string]> = [
+  // Grooming & self-care — kept first so "brush hair" beats "brush" → teeth.
+  [["ear flush", "ear clean", "clean ear", "ear wax", "earwax"], "👂"],
+  [["nail trim", "trim nail", "nails", "manicure", "pedicure"], "💅"],
+  [["haircut", "hair cut", "cut hair", "trim hair"], "✂️"],
+  [["nostril", "nose hair", "nose trim", "trim nose"], "👃"],
+  [["shave", "shaving", "razor"], "🪒"],
+  [["shower", "showering"], "🚿"],
+  [["bath", "bathe", "soak"], "🛁"],
+  [["moisturize", "moisturise", "skincare", "skin care", "lotion"], "🧴"],
+  [["makeup", "make-up"], "💄"],
+  [["wash face", "face wash", "cleanser", "soap"], "🧼"],
+  [["beard", "mustache", "moustache", "stubble"], "🧔"],
+  [["glasses", "contact lens", "spectacles"], "👓"],
+  [["tongue scrap", "tongue clean", "scrape tongue"], "👅"],
+  [["perfume", "cologne", "fragrance"], "🌸"],
+  [["comb", "brush hair", "hair brush"], "💇"],
   [["wine"], "🍷"],
   [["whiskey", "whisky", "rum", "vodka", "tequila", "cocktail", "booze", "alcohol", "beer", "drink"], "🥃"],
   [["vape", "vpe", "nicotine", "cigarette", "cigar"], "💨"],
