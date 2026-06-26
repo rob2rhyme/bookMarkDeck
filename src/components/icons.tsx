@@ -151,6 +151,25 @@ export function Trash2({ className }: IconProps) {
   return <Trash className={className} />;
 }
 
+export function Archive({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <rect x="3" y="3" width="18" height="5" rx="1" />
+      <path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+      <path d="M10 12h4" />
+    </svg>
+  );
+}
+
+export function SkipForward({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M5 5l11 7-11 7Z" />
+      <path d="M19 5v14" />
+    </svg>
+  );
+}
+
 export function FolderPlus({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...baseProps(className)}>

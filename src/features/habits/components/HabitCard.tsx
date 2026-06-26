@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Emoji, Note } from "@/components/icons";
+import { Check, Emoji, Note, Pencil, SkipForward } from "@/components/icons";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import {
@@ -162,9 +162,12 @@ export function HabitCard({
           <button
             type="button"
             onClick={() => onSkip(habit)}
-            className="rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
+            aria-label={`Skip ${habit.name} today`}
+            title="Skip today"
+            className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
           >
-            Skip
+            <SkipForward className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Skip</span>
           </button>
         )}
         {onDetail && (
@@ -183,9 +186,11 @@ export function HabitCard({
             type="button"
             onClick={() => onEdit(habit)}
             aria-label={`Edit ${habit.name}`}
-            className="rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
+            title="Edit"
+            className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
           >
-            Edit
+            <Pencil className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Edit</span>
           </button>
         )}
       </div>
