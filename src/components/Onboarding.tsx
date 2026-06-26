@@ -7,8 +7,7 @@ import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
 import { Emoji } from "@/components/icons";
-
-const SEEN_KEY = "bd:onboarded:v1";
+import { fetchUiFlag, getCachedFlag, markUiFlag } from "@/lib/uiPrefs";
 
 const TIPS = [
   { icon: "🔖", title: "Collect & organise", body: "Add the sites you use most and group them into nestable folders." },
@@ -20,19 +19,20 @@ export function Onboarding() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      if (localStorage.getItem(SEEN_KEY) !== "1") setOpen(true);
-    } catch {
-      /* ignore */
-    }
+    if (getCachedFlag("welcomeSeen")) return; // instant: this device knows
+    let cancelled = false;
+    // Confirm against the cloud before showing — so a returning user whose
+    // localStorage was evicted doesn't see the welcome again.
+    fetchUiFlag("welcomeSeen").then((seen) => {
+      if (!cancelled && !seen) setOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const close = () => {
-    try {
-      localStorage.setItem(SEEN_KEY, "1");
-    } catch {
-      /* ignore */
-    }
+    markUiFlag("welcomeSeen");
     setOpen(false);
   };
 
