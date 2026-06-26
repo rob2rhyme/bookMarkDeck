@@ -483,11 +483,14 @@ export function HabitsDashboard() {
                   ))}
               </div>
             )}
-            <div className="flex flex-col divide-y divide-slate-800/60">
+            <div className="flex flex-col gap-2">
               {visibleHabits.map((habit) => {
                 const st = h.statsByHabit.get(habit.id)!;
                 return (
-                  <div key={habit.id} className="flex items-center gap-3 py-2.5">
+                  <div
+                    key={habit.id}
+                    className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5"
+                  >
                     <span
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-lg"
                       style={{ background: `${hueColor(habit.hue, "soft")}55` }}

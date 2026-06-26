@@ -8,7 +8,12 @@ import { useSession } from "next-auth/react";
 import { ChevronUp, DotsVertical, ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { makeFolderOptions } from "@/utils/folderOptions";
-import { baseKey, buildOrganizePlan, planHasChanges } from "@/utils/autoOrganize";
+import {
+  baseKey,
+  buildOrganizePlan,
+  folderIconFor,
+  planHasChanges,
+} from "@/utils/autoOrganize";
 import type { Folder } from "@/types/folder";
 
 type SortMode = "name" | "count";
@@ -677,14 +682,15 @@ export default function FolderManagementPage() {
     const childCount = childrenByParent.get(option.id)?.length ?? 0;
     const hasMergeTarget = folderOptions.some((o) => o.id !== option.id);
     const menuOpen = openMenuId === option.id;
+    const { icon, label } = folderIconFor(displayName);
 
     return (
       <div
         key={option.id}
-        className="relative z-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 py-2 pr-3"
+        className="relative z-0 flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 py-2 pr-3"
         style={{ paddingLeft: 12 + depth * 22 }}
       >
-        <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {hasChildren && onToggle ? (
             <button
               type="button"
@@ -700,12 +706,15 @@ export default function FolderManagementPage() {
           ) : (
             <span className="h-5 w-5 shrink-0" aria-hidden="true" />
           )}
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800/60 text-base leading-none">
+            {icon}
+          </span>
           <div className="min-w-0">
             <p
               className="truncate text-sm font-semibold text-slate-100"
               title={option.label}
             >
-              {displayName}
+              {label}
             </p>
             <p className="text-xs text-slate-400">
               {count} bookmark{count !== 1 ? "s" : ""}
@@ -716,7 +725,7 @@ export default function FolderManagementPage() {
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center gap-2">
+        <div className="relative z-10 flex shrink-0 items-center gap-2">
           {/* Desktop: full row of icon buttons (unchanged). */}
           <div className="hidden items-center gap-2 sm:flex">
           <Link
