@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -34,13 +34,18 @@ import {
   DEFAULT_AREA_ICON,
   deriveAreas,
 } from "@/features/habits/lib/areas";
-import { entriesToCsv, habitsToJson } from "@/features/habits/lib/exportHabits";
+import {
+  entriesToCsv,
+  habitsFromJson,
+  habitsToJson,
+} from "@/features/habits/lib/exportHabits";
+import { Modal } from "@/components/Modal";
 import { downloadText } from "@/utils/download";
 import { fetchUiFlag, markUiFlag } from "@/lib/uiPrefs";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
-import type { Habit } from "@/features/habits/lib/types";
+import type { Habit, HabitEntry } from "@/features/habits/lib/types";
 
 export function HabitsDashboard() {
   const { data: session } = useSession();
@@ -84,6 +89,54 @@ export function HabitsDashboard() {
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
   const [notesHabit, setNotesHabit] = useState<Habit | null>(null);
   const [areaFilter, setAreaFilter] = useState(""); // "" = all, "__none__" = no area
+
+  // Import-from-JSON: a hidden file input, a preview to confirm, a result note.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importPreview, setImportPreview] = useState<{
+    fileName: string;
+    habits: Habit[];
+    entries: HabitEntry[];
+    newHabits: number;
+    newEntries: number;
+  } | null>(null);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!importMsg) return;
+    const t = setTimeout(() => setImportMsg(null), 6000);
+    return () => clearTimeout(t);
+  }, [importMsg]);
+
+  const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    const parsed = habitsFromJson(await file.text());
+    if (!parsed) {
+      setImportMsg("That file didn’t look like a habits JSON export.");
+      return;
+    }
+    const haveH = new Set(h.allHabits.map((x) => x.id));
+    const haveE = new Set(h.entries.map((x) => x.id));
+    setImportPreview({
+      fileName: file.name,
+      habits: parsed.habits,
+      entries: parsed.entries,
+      newHabits: parsed.habits.filter((x) => !haveH.has(x.id)).length,
+      newEntries: parsed.entries.filter((x) => !haveE.has(x.id)).length,
+    });
+  };
+
+  const applyImport = () => {
+    if (!importPreview) return;
+    const res = h.importData(importPreview.habits, importPreview.entries);
+    setImportPreview(null);
+    setImportMsg(
+      res.addedHabits + res.addedEntries === 0
+        ? "Nothing new to import — it was all already here."
+        : `Imported ${res.addedHabits} habit${res.addedHabits === 1 ? "" : "s"} and ${res.addedEntries} log${res.addedEntries === 1 ? "" : "s"}.`
+    );
+  };
 
   // How many noted days each habit has — to surface its note timeline.
   const noteCounts = useMemo(() => {
@@ -232,6 +285,12 @@ export function HabitsDashboard() {
         </p>
       )}
 
+      {importMsg && (
+        <p className="self-start rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300">
+          {importMsg}
+        </p>
+      )}
+
       {empty ? (
         <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-10 text-center">
           <p className="text-4xl">🌱</p>
@@ -368,6 +427,20 @@ export function HabitsDashboard() {
                 >
                   JSON
                 </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="transition hover:text-slate-300"
+                >
+                  Import
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={onImportFile}
+                  className="hidden"
+                />
                 {h.archived.length > 0 && (
                   <button
                     type="button"
@@ -575,6 +648,70 @@ export function HabitsDashboard() {
         entries={h.entries}
         today={h.today}
       />
+      <Modal
+        open={Boolean(importPreview)}
+        onClose={() => setImportPreview(null)}
+        labelledBy="habit-import-title"
+        panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
+      >
+        {importPreview && (
+          <>
+            <h2
+              id="habit-import-title"
+              className="text-lg font-semibold tracking-tight text-slate-50"
+            >
+              Import habits
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              From{" "}
+              <span className="text-slate-200">{importPreview.fileName}</span>
+            </p>
+            <ul className="mt-4 flex flex-col gap-1.5 text-sm text-slate-300">
+              <li>
+                <span className="tabular-nums text-slate-100">
+                  {importPreview.newHabits}
+                </span>{" "}
+                new habit{importPreview.newHabits === 1 ? "" : "s"}{" "}
+                <span className="text-slate-500">
+                  ({importPreview.habits.length} in file)
+                </span>
+              </li>
+              <li>
+                <span className="tabular-nums text-slate-100">
+                  {importPreview.newEntries}
+                </span>{" "}
+                new log{importPreview.newEntries === 1 ? "" : "s"}{" "}
+                <span className="text-slate-500">
+                  ({importPreview.entries.length} in file)
+                </span>
+              </li>
+            </ul>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Your current habits and logs are kept — anything already here is
+              skipped.
+            </p>
+            <div className="mt-6 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setImportPreview(null)}
+                className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyImport}
+                disabled={
+                  importPreview.newHabits + importPreview.newEntries === 0
+                }
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+              >
+                Import
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

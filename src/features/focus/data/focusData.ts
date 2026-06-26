@@ -30,12 +30,16 @@ import {
 import { isMoodKey } from "@/features/focus/lib/mood";
 import { coerceDreamFields } from "@/features/focus/lib/types";
 import type {
+  FocusBackup,
   FocusSessionRecord,
   FocusTask,
   JournalEntry,
   JournalNote,
+  ScoreRecord,
   Todo,
 } from "@/features/focus/lib/types";
+
+export type { ScoreRecord } from "@/features/focus/lib/types";
 import { type MoodKey } from "@/features/focus/lib/mood";
 
 const tasksCol = (uid: string) => collection(db, "users", uid, "focusTasks");
@@ -76,18 +80,6 @@ export type ActivityEvent = {
   createdAt: string | null;
 };
 
-// One answered quiz question — the input to the Scores history (points earned,
-// per-topic breakdown). Lives in users/{uid}/focusScores.
-export type ScoreRecord = {
-  id: string;
-  topic: string;
-  level: string;
-  correct: boolean;
-  points: number; // earned (0 when wrong)
-  question: string;
-  day: string;
-  createdAt: string | null;
-};
 
 function timestampToIso(value: unknown): string | null {
   if (value && typeof (value as { toDate?: unknown }).toDate === "function") {
@@ -476,6 +468,63 @@ export async function logScore(
 export async function deleteScore(emailHint: string, id: string): Promise<void> {
   const uid = await uidFor(emailHint);
   await deleteDoc(doc(scoresCol(uid), id));
+}
+
+/* ------------------------------------------------------------ import ----- */
+
+/** Write a score at a known id (import/restore) — id-preserving, idempotent. */
+async function putScore(emailHint: string, r: ScoreRecord): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(scoresCol(uid), r.id),
+    {
+      topic: r.topic,
+      level: r.level,
+      correct: r.correct,
+      points: r.points,
+      question: r.question,
+      day: r.day,
+      createdAt: r.createdAt ?? serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+/** Write a session at a known id (import/restore) — id-preserving, idempotent. */
+async function putSession(
+  emailHint: string,
+  s: FocusSessionRecord
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const payload: Record<string, unknown> = {
+    focusMin: s.focusMin,
+    day: s.day,
+    createdAt: s.createdAt ?? serverTimestamp(),
+  };
+  if (s.taskId) payload.taskId = s.taskId;
+  if (s.intention?.trim()) payload.intention = s.intention.trim();
+  if (s.reflection?.trim()) payload.reflection = s.reflection.trim();
+  await setDoc(doc(sessionsCol(uid), s.id), payload, { merge: true });
+}
+
+/**
+ * Restore a focus JSON backup into the user's cloud data. Every write is
+ * id-preserving, so re-importing the same file is idempotent (no duplicates).
+ * Best-effort: one failed write doesn't abort the rest.
+ */
+export async function restoreFocusBackup(
+  emailHint: string,
+  b: FocusBackup
+): Promise<void> {
+  await Promise.allSettled([
+    ...b.tasks.map((t) => saveTask(emailHint, t)),
+    ...b.sessions.map((s) => putSession(emailHint, s)),
+    ...b.notes.map((n) => addNote(emailHint, n)),
+    ...b.moods.map((m) => saveMood(emailHint, m.day, m.mood)),
+    ...b.hydration.map((h) => saveHydration(emailHint, h.day, h.cups)),
+    ...b.todos.map((t) => saveTodo(emailHint, t)),
+    ...b.scores.map((s) => putScore(emailHint, s)),
+  ]);
 }
 
 /* --------------------------------------------------- realtime listeners --- */

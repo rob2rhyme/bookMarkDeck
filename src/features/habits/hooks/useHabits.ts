@@ -458,6 +458,43 @@ export function useHabits(
     [canSync, email]
   );
 
+  /**
+   * Merge imported habits + entries (from a JSON backup) into the tracker,
+   * non-destructively: anything whose id already exists is skipped, so a restore
+   * never overwrites current data. New records persist to the cloud when synced.
+   * Returns counts for a confirmation/result message.
+   */
+  const importData = useCallback(
+    (inHabits: Habit[], inEntries: HabitEntry[]) => {
+      const haveH = new Set(habits.map((h) => h.id));
+      const newH = inHabits.filter((h) => !haveH.has(h.id));
+      const haveE = new Set(entries.map((e) => e.id));
+      const newE = inEntries.filter((e) => !haveE.has(e.id));
+
+      if (newH.length)
+        setHabits((prev) => {
+          const ids = new Set(prev.map((h) => h.id));
+          return [...prev, ...newH.filter((h) => !ids.has(h.id))];
+        });
+      if (newE.length)
+        setEntries((prev) => {
+          const ids = new Set(prev.map((e) => e.id));
+          return [...prev, ...newE.filter((e) => !ids.has(e.id))];
+        });
+      if (canSync && email) {
+        newH.forEach((h) => saveHabit(email, h).catch(() => {}));
+        newE.forEach((e) => saveEntry(email, e).catch(() => {}));
+      }
+      return {
+        addedHabits: newH.length,
+        addedEntries: newE.length,
+        skipped:
+          inHabits.length - newH.length + (inEntries.length - newE.length),
+      };
+    },
+    [habits, entries, canSync, email]
+  );
+
   const updateHabit = useCallback(
     (habit: Habit) => {
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? habit : h)));
@@ -662,6 +699,7 @@ export function useHabits(
     logDetail,
     todayEntry,
     addHabit,
+    importData,
     updateHabit,
     removeHabit,
     setArchived,

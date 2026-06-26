@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import type { ScoreRecord } from "@/features/focus/data/focusData";
+import type { ScoreRecord } from "@/features/focus/lib/types";
 import { isTopicId, topicEmoji, topicLabel } from "@/features/focus/lib/topics";
 
 type TopicAgg = { points: number; correct: number; answered: number };
