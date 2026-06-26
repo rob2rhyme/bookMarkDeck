@@ -23,6 +23,7 @@ import {
 } from "@/features/habits/lib/focusLink";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
 import { FocusCorrelationCard } from "@/features/habits/components/FocusCorrelationCard";
+import { HabitNotesModal } from "@/features/habits/components/HabitNotesModal";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { InsightsPanel } from "@/features/habits/components/InsightsPanel";
@@ -151,16 +152,20 @@ function ManageRow({
   habit,
   streak,
   strength,
+  noteCount,
   onEdit,
   onFocus,
+  onNotes,
   onArchive,
   onDelete,
 }: {
   habit: Habit;
   streak: number;
   strength: number;
+  noteCount: number;
   onEdit: (h: Habit) => void;
   onFocus: (h: Habit) => void;
+  onNotes: (h: Habit) => void;
   onArchive: (h: Habit) => void;
   onDelete: (h: Habit) => void;
 }) {
@@ -213,6 +218,7 @@ function ManageRow({
           {scheduleLabel(habit)}
           {streak > 0 ? ` · 🔥 ${streak}` : ""}
           {` · 💪 ${strength}%`}
+          {noteCount > 0 ? ` · 🗒 ${noteCount}` : ""}
         </p>
       </div>
       <div className="relative" ref={ref}>
@@ -242,6 +248,15 @@ function ManageRow({
             >
               Start focus
             </button>
+            {noteCount > 0 && (
+              <button
+                type="button"
+                onClick={() => run(() => onNotes(habit))}
+                className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
+              >
+                🗒 Notes ({noteCount})
+              </button>
+            )}
             <button
               type="button"
               onClick={() => run(() => onArchive(habit))}
@@ -308,7 +323,17 @@ export function SimpleHabitsDashboard() {
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState("");
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
+  const [notesHabit, setNotesHabit] = useState<Habit | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(false);
+
+  // How many noted days each habit has — to surface its note timeline.
+  const noteCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of h.entries) {
+      if (e.note?.trim()) m.set(e.habitId, (m.get(e.habitId) ?? 0) + 1);
+    }
+    return m;
+  }, [h.entries]);
   const [areaFilter, setAreaFilter] = useState(""); // "" = all, "__none__" = no area
 
   useEffect(() => {
@@ -636,8 +661,10 @@ export function SimpleHabitsDashboard() {
                     habit={habit}
                     streak={h.statsByHabit.get(habit.id)?.currentStreak ?? 0}
                     strength={h.statsByHabit.get(habit.id)?.strength ?? 0}
+                    noteCount={noteCounts.get(habit.id) ?? 0}
                     onEdit={openEdit}
                     onFocus={launchFocus}
+                    onNotes={setNotesHabit}
                     onArchive={(x) => h.setArchived(x.id, true)}
                     onDelete={removeHabitConfirmed}
                   />
@@ -740,6 +767,13 @@ export function SimpleHabitsDashboard() {
             ? h.logDetail(habit, detail)
             : h.logEntryFor(habit, day, detail)
         }
+      />
+      <HabitNotesModal
+        open={Boolean(notesHabit)}
+        onClose={() => setNotesHabit(null)}
+        habit={notesHabit}
+        entries={h.entries}
+        today={h.today}
       />
     </div>
   );

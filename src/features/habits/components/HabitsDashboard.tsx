@@ -19,6 +19,7 @@ import { todayKey } from "@/features/habits/lib/day";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
 import { HabitsViewToggle } from "@/features/habits/components/HabitsViewToggle";
 import { HabitCard } from "@/features/habits/components/HabitCard";
+import { HabitNotesModal } from "@/features/habits/components/HabitNotesModal";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { InsightsPanel } from "@/features/habits/components/InsightsPanel";
@@ -81,7 +82,17 @@ export function HabitsDashboard() {
   const [selectedDay, setSelectedDay] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
+  const [notesHabit, setNotesHabit] = useState<Habit | null>(null);
   const [areaFilter, setAreaFilter] = useState(""); // "" = all, "__none__" = no area
+
+  // How many noted days each habit has — to surface its note timeline.
+  const noteCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of h.entries) {
+      if (e.note?.trim()) m.set(e.habitId, (m.get(e.habitId) ?? 0) + 1);
+    }
+    return m;
+  }, [h.entries]);
 
   useEffect(() => {
     if (h.today) setSelectedDay((cur) => cur || h.today);
@@ -430,6 +441,18 @@ export function HabitsDashboard() {
                         {scheduleLabel(habit)} · 🔥 {st.currentStreak} · {st.rate}%
                         {" · 💪 "}{st.strength}%
                         {habit.reminder ? ` · 🔔 ${habit.reminder}` : ""}
+                        {(noteCounts.get(habit.id) ?? 0) > 0 && (
+                          <>
+                            {" · "}
+                            <button
+                              type="button"
+                              onClick={() => setNotesHabit(habit)}
+                              className="underline-offset-2 transition hover:text-slate-300 hover:underline"
+                            >
+                              🗒 {noteCounts.get(habit.id)}
+                            </button>
+                          </>
+                        )}
                       </p>
                     </div>
                     <button
@@ -549,6 +572,13 @@ export function HabitsDashboard() {
             ? h.logDetail(habit, detail)
             : h.logEntryFor(habit, day, detail)
         }
+      />
+      <HabitNotesModal
+        open={Boolean(notesHabit)}
+        onClose={() => setNotesHabit(null)}
+        habit={notesHabit}
+        entries={h.entries}
+        today={h.today}
       />
     </div>
   );
