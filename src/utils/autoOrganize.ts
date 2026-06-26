@@ -101,6 +101,19 @@ export function dominantCategory(folderBookmarks: Bookmark[]): Category | null {
   return top.n >= 2 && top.n / categorized >= 0.5 ? top.cat : null;
 }
 
+/**
+ * A friendly icon + clean label for a folder row: its leading badge emoji if it
+ * has one, else the emoji of the category its name implies, else a plain folder.
+ */
+export function folderIconFor(name: string): { icon: string; label: string } {
+  const stripped = name.replace(/^[^\p{L}\p{N}]+\s*/u, "");
+  if (stripped && stripped.length < name.length) {
+    const prefix = name.slice(0, name.length - stripped.length).trim();
+    if (prefix) return { icon: prefix, label: stripped };
+  }
+  return { icon: categoryForFolderName(name)?.emoji ?? "📁", label: name };
+}
+
 /** Strip a leading emoji/badge + lowercase, so "🛠 Dev" and "dev" compare equal. */
 export function baseKey(name: string): string {
   return name
