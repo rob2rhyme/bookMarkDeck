@@ -8,12 +8,7 @@ import { useSession } from "next-auth/react";
 import { ChevronUp, DotsVertical, ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { makeFolderOptions } from "@/utils/folderOptions";
-import {
-  baseKey,
-  buildOrganizePlan,
-  planHasChanges,
-  type OrganizePlan,
-} from "@/utils/autoOrganize";
+import { baseKey, buildOrganizePlan, planHasChanges } from "@/utils/autoOrganize";
 import type { Folder } from "@/types/folder";
 
 type SortMode = "name" | "count";
@@ -75,6 +70,44 @@ function Modal({ open, title, onClose, children }: ModalProps) {
   );
 }
 
+function OptionToggle({
+  checked,
+  onChange,
+  title,
+  hint,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  title: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-slate-800/40"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm text-slate-200">{title}</span>
+        <span className="block text-[11px] text-slate-500">{hint}</span>
+      </span>
+      <span
+        className={`relative h-5 w-9 shrink-0 rounded-full transition ${
+          checked ? "bg-blue-600" : "bg-slate-700"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+            checked ? "left-[18px]" : "left-0.5"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
 function collectDescendantFolderIds(
   sourceId: string,
   folders: Array<{ id: string; parentId: string | null }>
@@ -113,7 +146,11 @@ export default function FolderManagementPage() {
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [organizePlan, setOrganizePlan] = useState<OrganizePlan | null>(null);
+  const [organizeOpen, setOrganizeOpen] = useState(false);
+  const [excludedCats, setExcludedCats] = useState<Set<string>>(new Set());
+  const [refileLoose, setRefileLoose] = useState(true);
+  const [mergeEnabled, setMergeEnabled] = useState(true);
+  const [applying, setApplying] = useState(false);
   const [notice, setNotice] = useState<
     { type: "success" | "error"; message: string } | null
   >(null);
@@ -279,6 +316,21 @@ export default function FolderManagementPage() {
       document.removeEventListener("keydown", onKey);
     };
   }, [openMenuId]);
+
+  // Lock scroll + Escape-to-close for the Auto-organize overlay.
+  useEffect(() => {
+    if (!organizeOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !applying) setOrganizeOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [organizeOpen, applying]);
 
   const closeRenameModal = () => {
     setRenameFolderId(null);
@@ -499,79 +551,119 @@ export default function FolderManagementPage() {
     closeMoveModal();
   };
 
+  const organizePlan = useMemo(
+    () =>
+      organizeOpen ? buildOrganizePlan(bookmarks, folders, { refileLoose }) : null,
+    [organizeOpen, bookmarks, folders, refileLoose]
+  );
+
   const handleAutoOrganize = () => {
-    const plan = buildOrganizePlan(bookmarks, folders);
-    if (!planHasChanges(plan)) {
+    if (!planHasChanges(buildOrganizePlan(bookmarks, folders, { refileLoose: true }))) {
       setNotice({
         type: "success",
         message: "Folders already look tidy — nothing to organize.",
       });
       return;
     }
-    setOrganizePlan(plan);
+    setExcludedCats(new Set());
+    setRefileLoose(true);
+    setMergeEnabled(true);
+    setOrganizeOpen(true);
   };
+
+  const toggleCat = (key: string) =>
+    setExcludedCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  // Live totals for the selected categories (drives the metrics + footer).
+  const organizeSummary = useMemo(() => {
+    if (!organizePlan)
+      return { folders: 0, bookmarks: 0, newParents: 0, cats: 0, merges: 0 };
+    let f = 0;
+    let b = 0;
+    let newParents = 0;
+    let cats = 0;
+    organizePlan.categories.forEach((c) => {
+      if (excludedCats.has(c.key)) return;
+      cats += 1;
+      f += c.folders.length;
+      b += c.bookmarks.length;
+      if (c.parentIsNew) newParents += 1;
+    });
+    return {
+      folders: f,
+      bookmarks: b,
+      newParents,
+      cats,
+      merges: mergeEnabled ? organizePlan.merges.length : 0,
+    };
+  }, [organizePlan, excludedCats, mergeEnabled]);
 
   const applyOrganize = () => {
-    if (!organizePlan) return;
+    if (!organizePlan || applying) return;
+    setApplying(true);
     const plan = organizePlan;
-    let merged = 0;
-    let renamed = 0;
-    let created = 0;
-    let moved = 0;
+    // Defer so "Applying…" paints before the synchronous (batched) work.
+    setTimeout(() => {
+      let merged = 0;
+      let nested = 0;
+      let refiled = 0;
+      let created = 0;
+      let badged = 0;
 
-    // 1) Merge duplicate folders into their survivor.
-    plan.merges.forEach((m) => {
-      if (mergeFolder(m.sourceId, m.targetId).ok) merged += 1;
-    });
+      if (mergeEnabled)
+        plan.merges.forEach((m) => {
+          if (mergeFolder(m.sourceId, m.targetId).ok) merged += 1;
+        });
 
-    // 2) Badge matched existing category folders.
-    plan.renames.forEach((r) => {
-      if (updateFolder(r.folderId, { name: r.to }).ok) renamed += 1;
-    });
+      plan.categories.forEach((c) => {
+        if (excludedCats.has(c.key)) return;
+        let parentId = c.parentFolderId ?? null;
+        if (c.parentIsNew) {
+          const folder = addFolder({ name: c.parentName, parentId: null });
+          if (folder) {
+            parentId = folder.id;
+            created += 1;
+          } else {
+            parentId =
+              folders.find(
+                (f) => !f.parentId && baseKey(f.name) === baseKey(c.parentName)
+              )?.id ?? null;
+          }
+        } else if (c.parentRename && parentId) {
+          if (updateFolder(parentId, { name: c.parentRename.to }).ok) badged += 1;
+        }
+        if (!parentId) return;
+        const pid = parentId;
+        c.folders.forEach((f) => {
+          if (updateFolder(f.id, { parentId: pid }).ok) nested += 1;
+        });
+        c.bookmarks.forEach((bk) => {
+          updateBookmark(bk.id, { folderId: pid });
+          refiled += 1;
+        });
+      });
 
-    // 3) Create missing category folders; map plan keys → real ids.
-    const keyToId = new Map<string, string>();
-    plan.creates.forEach((c) => {
-      const folder = addFolder({ name: c.name, parentId: null });
-      if (folder) {
-        keyToId.set(c.key, folder.id);
-        created += 1;
-      } else {
-        // Name already exists at top level — reuse it.
-        const existing = folders.find(
-          (f) => !f.parentId && baseKey(f.name) === baseKey(c.name)
-        );
-        if (existing) keyToId.set(c.key, existing.id);
-      }
-    });
-
-    // 4) Refile bookmarks.
-    plan.moves.forEach((mv) => {
-      const targetId = mv.targetKey.startsWith("new:")
-        ? keyToId.get(mv.targetKey)
-        : mv.targetKey;
-      if (targetId) {
-        updateBookmark(mv.bookmarkId, { folderId: targetId });
-        moved += 1;
-      }
-    });
-
-    setOrganizePlan(null);
-    setNotice({
-      type: "success",
-      message: `Organized · ${moved} refiled · ${created} created · ${merged} merged · ${renamed} badged. Sync to cloud to keep it.`,
-    });
+      setApplying(false);
+      setOrganizeOpen(false);
+      setNotice({
+        type: "success",
+        message: `Organized · ${nested} folders nested · ${refiled} refiled · ${created} groups created · ${merged} merged · ${badged} badged. Sync to cloud to keep it.`,
+      });
+    }, 40);
   };
 
-  // Moves grouped by destination, for the preview.
-  const organizeMovesByTarget = useMemo(() => {
-    if (!organizePlan) return [];
-    const map = new Map<string, number>();
-    organizePlan.moves.forEach((m) => {
-      map.set(m.targetName, (map.get(m.targetName) ?? 0) + 1);
-    });
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
-  }, [organizePlan]);
+  const folderCoverage = organizePlan
+    ? organizeSummary.folders + organizePlan.unmatchedFolders
+    : 0;
+  const folderCoveragePct =
+    folderCoverage > 0
+      ? Math.round((organizeSummary.folders / folderCoverage) * 100)
+      : 0;
 
   const renderRow = (
     option: FolderOption,
@@ -1046,119 +1138,198 @@ export default function FolderManagementPage() {
         </div>
       </Modal>
 
-      <Modal
-        open={organizePlan !== null}
-        title="Auto-organize preview"
-        onClose={() => setOrganizePlan(null)}
-      >
-        {organizePlan && (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-400">
-              Nothing changes until you apply. Bookmarks that don&apos;t match a
-              category stay where they are.
-            </p>
-
-            <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-              {organizePlan.merges.length > 0 && (
-                <div>
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Merge {organizePlan.merges.length} duplicate folder
-                    {organizePlan.merges.length !== 1 ? "s" : ""}
-                  </p>
-                  <ul className="space-y-1">
-                    {organizePlan.merges.map((m) => (
-                      <li key={m.sourceId} className="text-xs text-slate-300">
-                        🔀 <span className="text-slate-100">{m.sourceName}</span> →{" "}
-                        <span className="text-slate-100">{m.targetName}</span>
-                        {m.count > 0 ? (
-                          <span className="text-slate-500"> ({m.count})</span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {organizePlan.creates.length > 0 && (
-                <div>
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Create {organizePlan.creates.length} folder
-                    {organizePlan.creates.length !== 1 ? "s" : ""}
-                  </p>
-                  <ul className="flex flex-wrap gap-1.5">
-                    {organizePlan.creates.map((c) => (
-                      <li
-                        key={c.key}
-                        className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200"
-                      >
-                        {c.name}{" "}
-                        <span className="text-slate-500 tabular-nums">{c.count}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {organizePlan.renames.length > 0 && (
-                <div>
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Badge {organizePlan.renames.length} existing folder
-                    {organizePlan.renames.length !== 1 ? "s" : ""}
-                  </p>
-                  <ul className="space-y-1">
-                    {organizePlan.renames.map((r) => (
-                      <li key={r.folderId} className="text-xs text-slate-300">
-                        🏷 <span className="text-slate-100">{r.to}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {organizeMovesByTarget.length > 0 && (
-                <div>
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Refile {organizePlan.moves.length} bookmark
-                    {organizePlan.moves.length !== 1 ? "s" : ""}
-                  </p>
-                  <ul className="space-y-1">
-                    {organizeMovesByTarget.map(([name, count]) => (
-                      <li key={name} className="text-xs text-slate-300">
-                        <span className="text-slate-100">{name}</span>{" "}
-                        <span className="text-slate-500 tabular-nums">
-                          — {count} bookmark{count !== 1 ? "s" : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+      {organizeOpen && organizePlan && (
+        <div
+          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={() => !applying && setOrganizeOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Auto-organize"
+            onClick={(event) => event.stopPropagation()}
+            className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border border-slate-800 bg-slate-950 shadow-2xl sm:rounded-3xl"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-slate-800/70 px-5 py-4">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold tracking-tight text-slate-50">
+                  ✨ Auto-organize
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Tidy your folders into badged categories. Nothing changes
+                  until you apply.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !applying && setOrganizeOpen(false)}
+                className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+              >
+                Close
+              </button>
             </div>
 
-            <p className="border-t border-slate-800/70 pt-2 text-[11px] text-slate-500">
-              {organizePlan.alreadyFiled} already filed ·{" "}
-              {organizePlan.unmatched} uncategorized (left as-is)
-            </p>
+            {/* Body */}
+            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+              {/* Metrics */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: "Nest folders", value: organizeSummary.folders },
+                  { label: "Refile loose", value: organizeSummary.bookmarks },
+                  { label: "New groups", value: organizeSummary.newParents },
+                  { label: "Merge dups", value: organizeSummary.merges },
+                ].map((m) => (
+                  <div
+                    key={m.label}
+                    className="rounded-xl border border-slate-800/70 bg-slate-900/50 px-3 py-2.5 text-center"
+                  >
+                    <p className="text-xl font-semibold tabular-nums text-slate-50">
+                      {m.value}
+                    </p>
+                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                      {m.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setOrganizePlan(null)}
-                className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-500"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={applyOrganize}
-                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-              >
-                Apply
-              </button>
+              {/* Folder coverage */}
+              <div>
+                <div className="mb-1.5 flex items-baseline justify-between text-[11px] text-slate-400">
+                  <span>Top-level folders sorted</span>
+                  <span className="tabular-nums text-slate-300">
+                    {organizeSummary.folders}/{folderCoverage} · {folderCoveragePct}%
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all"
+                    style={{ width: `${folderCoveragePct}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 p-1.5">
+                <OptionToggle
+                  checked={refileLoose}
+                  onChange={() => setRefileLoose((v) => !v)}
+                  title="Refile loose bookmarks"
+                  hint="Unfiled bookmarks → matching category folder"
+                />
+                {organizePlan.merges.length > 0 && (
+                  <OptionToggle
+                    checked={mergeEnabled}
+                    onChange={() => setMergeEnabled((v) => !v)}
+                    title={`Merge ${organizePlan.merges.length} duplicate folder${
+                      organizePlan.merges.length !== 1 ? "s" : ""
+                    }`}
+                    hint="Same-name folders combined into one"
+                  />
+                )}
+              </div>
+
+              {/* Categories — selectable */}
+              {organizePlan.categories.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Categories — tap to include / skip
+                  </p>
+                  <div className="space-y-1.5">
+                    {organizePlan.categories.map((c) => {
+                      const off = excludedCats.has(c.key);
+                      return (
+                        <button
+                          key={c.key}
+                          type="button"
+                          aria-pressed={!off}
+                          onClick={() => toggleCat(c.key)}
+                          className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
+                            off
+                              ? "border-slate-800 bg-slate-900/30 opacity-50"
+                              : "border-slate-700 bg-slate-900/70 hover:border-slate-600"
+                          }`}
+                        >
+                          <span className="min-w-0">
+                            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-100">
+                              <span className="truncate">{c.parentName}</span>
+                              {c.parentIsNew && (
+                                <span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-blue-300">
+                                  new
+                                </span>
+                              )}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[11px] text-slate-400">
+                              {c.folders.length > 0 &&
+                                `${c.folders.length} folder${c.folders.length !== 1 ? "s" : ""}`}
+                              {c.folders.length > 0 && c.bookmarks.length > 0 && " · "}
+                              {c.bookmarks.length > 0 &&
+                                `${c.bookmarks.length} bookmark${c.bookmarks.length !== 1 ? "s" : ""}`}
+                              {c.folders.length > 0 && (
+                                <span className="text-slate-500">
+                                  {"  "}
+                                  {c.folders.slice(0, 3).map((f) => f.name).join(", ")}
+                                  {c.folders.length > 3 ? "…" : ""}
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                          <span
+                            className={`shrink-0 text-xs font-medium ${
+                              off ? "text-slate-500" : "text-blue-300"
+                            }`}
+                          >
+                            {off ? "Skip" : "Include"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <p className="border-t border-slate-800/70 pt-3 text-[11px] text-slate-500">
+                {organizePlan.unmatchedFolders} folder
+                {organizePlan.unmatchedFolders !== 1 ? "s" : ""} and{" "}
+                {organizePlan.looseUncategorized} loose bookmark
+                {organizePlan.looseUncategorized !== 1 ? "s" : ""} couldn&apos;t be
+                categorized — left untouched.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between gap-3 border-t border-slate-800/70 px-5 py-3">
+              <p className="min-w-0 truncate text-xs text-slate-400">
+                {organizeSummary.cats === 0 && organizeSummary.merges === 0
+                  ? "Nothing selected"
+                  : `${organizeSummary.folders + organizeSummary.bookmarks} items → ${organizeSummary.cats} categor${organizeSummary.cats === 1 ? "y" : "ies"}`}
+              </p>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrganizeOpen(false)}
+                  disabled={applying}
+                  className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-500 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={applyOrganize}
+                  disabled={
+                    applying ||
+                    (organizeSummary.cats === 0 && organizeSummary.merges === 0)
+                  }
+                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:opacity-50"
+                >
+                  {applying ? "Applying…" : "Apply"}
+                </button>
+              </div>
             </div>
           </div>
-        )}
-      </Modal>
+        </div>
+      )}
 
       {/* Mobile action sheet — slides up over a blurred backdrop so it never
           sits behind the folder cards. Hidden on desktop (icon row is shown). */}
