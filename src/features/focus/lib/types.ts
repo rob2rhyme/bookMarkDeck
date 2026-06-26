@@ -74,3 +74,27 @@ export type Todo = {
   googleTaskId?: string | null; // mapping to a mirrored Google Task
   googleEventId?: string | null; // mapping to a mirrored Calendar event (timed)
 };
+
+// One answered quiz question — the input to the Scores history (points earned,
+// per-topic breakdown). Lives in users/{uid}/focusScores.
+export type ScoreRecord = {
+  id: string;
+  topic: string;
+  level: string;
+  correct: boolean;
+  points: number; // earned (0 when wrong)
+  question: string;
+  day: string;
+  createdAt: string | null;
+};
+
+/** Everything an "Export all data (JSON)" backup carries, for round-trip import. */
+export type FocusBackup = {
+  sessions: FocusSessionRecord[];
+  tasks: FocusTask[];
+  notes: JournalNote[];
+  moods: { day: string; mood: MoodKey }[];
+  hydration: { day: string; cups: number }[];
+  todos: Todo[];
+  scores: ScoreRecord[];
+};

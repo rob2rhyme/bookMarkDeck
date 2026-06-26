@@ -39,10 +39,21 @@ import { useGoogleEvents } from "@/features/focus/hooks/useGoogleEvents";
 import { useGoogleTodoSync } from "@/features/focus/hooks/useGoogleTodoSync";
 import { useTodos } from "@/features/focus/hooks/useTodos";
 import { useUndo } from "@/features/focus/hooks/useUndo";
-import { todayKey } from "@/features/focus/data/focusData";
-import { focusToJson, sessionsToCsv } from "@/features/focus/lib/exportFocus";
+import { restoreFocusBackup, todayKey } from "@/features/focus/data/focusData";
+import {
+  backupCount,
+  focusFromJson,
+  focusToJson,
+  sessionsToCsv,
+} from "@/features/focus/lib/exportFocus";
+import { Modal } from "@/components/Modal";
 import { downloadText } from "@/utils/download";
-import type { FocusTask, JournalNote, Todo } from "@/features/focus/lib/types";
+import type {
+  FocusBackup,
+  FocusTask,
+  JournalNote,
+  Todo,
+} from "@/features/focus/lib/types";
 
 export function FocusDashboard() {
   const { data: session } = useSession();
@@ -134,6 +145,59 @@ export function FocusDashboard() {
 
   const [weekOffset, setWeekOffset] = useState(0);
   const stats = useFocusStats(email, connected, weekOffset);
+
+  // Full backup payload for "Export all data (JSON)" / import round-trip.
+  const buildBackup = (): FocusBackup => ({
+    sessions: stats.sessions,
+    tasks: [...tasks.activeTasks, ...tasks.doneTasks],
+    notes: journal.notesByDay.flatMap((d) => d.notes),
+    moods: Object.entries(journal.moodByDay).map(([day, mood]) => ({
+      day,
+      mood,
+    })),
+    hydration: hydrationHistory,
+    todos: todos.todos,
+    scores: scores.scores,
+  });
+
+  // Import-from-JSON: parse → preview → restore (id-preserving, idempotent).
+  const [focusImport, setFocusImport] = useState<{
+    fileName: string;
+    backup: FocusBackup;
+  } | null>(null);
+  const [focusImporting, setFocusImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!importMsg) return;
+    const t = setTimeout(() => setImportMsg(null), 6000);
+    return () => clearTimeout(t);
+  }, [importMsg]);
+
+  const onImportJson = async (file: File) => {
+    setSettingsOpen(false);
+    const backup = focusFromJson(await file.text());
+    if (!backup) {
+      setImportMsg("That file didn’t look like a focus JSON backup.");
+      return;
+    }
+    setFocusImport({ fileName: file.name, backup });
+  };
+
+  const applyFocusImport = async () => {
+    if (!focusImport) return;
+    if (!connected || !email) {
+      setFocusImport(null);
+      setImportMsg("Sign in to sync first, then import your backup.");
+      return;
+    }
+    setFocusImporting(true);
+    await restoreFocusBackup(email, focusImport.backup);
+    setFocusImporting(false);
+    const n = backupCount(focusImport.backup);
+    setFocusImport(null);
+    setImportMsg(`Imported ${n} record${n === 1 ? "" : "s"} from your backup.`);
+  };
 
   const taskNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -486,10 +550,11 @@ export function FocusDashboard() {
         onExportJson={() =>
           downloadText(
             `focus-data-${todayKey()}.json`,
-            focusToJson(stats.sessions, new Date().toISOString()),
+            focusToJson(buildBackup(), new Date().toISOString()),
             "application/json"
           )
         }
+        onImportJson={onImportJson}
         onExportCsv={() =>
           downloadText(
             `focus-sessions-${todayKey()}.csv`,
@@ -509,6 +574,81 @@ export function FocusDashboard() {
           stats.addSession(focusMin, day, taskId)
         }
       />
+
+      <Modal
+        open={Boolean(focusImport)}
+        onClose={() => !focusImporting && setFocusImport(null)}
+        labelledBy="focus-import-title"
+        panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
+      >
+        {focusImport && (
+          <>
+            <h2
+              id="focus-import-title"
+              className="text-lg font-semibold tracking-tight text-slate-50"
+            >
+              Import focus backup
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              From{" "}
+              <span className="text-slate-200">{focusImport.fileName}</span>
+            </p>
+            <ul className="mt-4 flex flex-col gap-1 text-sm text-slate-300">
+              {(
+                [
+                  ["Focus sessions", focusImport.backup.sessions.length],
+                  ["Tasks", focusImport.backup.tasks.length],
+                  ["Journal notes", focusImport.backup.notes.length],
+                  ["Mood days", focusImport.backup.moods.length],
+                  ["Hydration days", focusImport.backup.hydration.length],
+                  ["To-dos", focusImport.backup.todos.length],
+                  ["Quiz scores", focusImport.backup.scores.length],
+                ] as [string, number][]
+              )
+                .filter(([, n]) => n > 0)
+                .map(([label, n]) => (
+                  <li key={label} className="flex justify-between gap-3">
+                    <span className="text-slate-400">{label}</span>
+                    <span className="tabular-nums text-slate-100">{n}</span>
+                  </li>
+                ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Records merge by id, so re-importing the same backup changes
+              nothing.
+            </p>
+            {!connected && (
+              <p className="mt-2 text-[11px] text-amber-300/90">
+                Sign in to sync first — import writes to your account.
+              </p>
+            )}
+            <div className="mt-6 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setFocusImport(null)}
+                disabled={focusImporting}
+                className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyFocusImport}
+                disabled={focusImporting || !connected}
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+              >
+                {focusImporting ? "Importing…" : "Import"}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      {importMsg && (
+        <div className="fixed bottom-4 left-1/2 z-[80] -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-200 shadow-xl">
+          {importMsg}
+        </div>
+      )}
 
       <UndoToast state={undo.state} onUndo={undo.undo} onDismiss={undo.dismiss} />
     </section>

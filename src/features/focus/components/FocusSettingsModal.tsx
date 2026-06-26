@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { X } from "@/components/icons";
 import type { FocusSettings } from "@/features/focus/lib/settings";
@@ -19,6 +19,7 @@ type FocusSettingsModalProps = {
   onReset: () => void;
   onExportJson?: () => void;
   onExportCsv?: () => void;
+  onImportJson?: (file: File) => void;
   onClose: () => void;
 };
 
@@ -107,8 +108,10 @@ export function FocusSettingsModal({
   onReset,
   onExportJson,
   onExportCsv,
+  onImportJson,
   onClose,
 }: FocusSettingsModalProps) {
+  const importInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -256,10 +259,10 @@ export function FocusSettingsModal({
           Sign out and back in once to grant access.
         </p>
 
-        {(onExportJson || onExportCsv) && (
+        {(onExportJson || onExportCsv || onImportJson) && (
           <div className="mt-6 border-t border-slate-800/60 pt-4">
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-              Export your data
+              Your data
             </p>
             <div className="mt-2 flex gap-2">
               {onExportCsv && (
@@ -277,10 +280,38 @@ export function FocusSettingsModal({
                   onClick={onExportJson}
                   className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
                 >
-                  All data JSON
+                  Export JSON
+                </button>
+              )}
+              {onImportJson && (
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+                >
+                  Import JSON
                 </button>
               )}
             </div>
+            {onImportJson && (
+              <>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) onImportJson(file);
+                  }}
+                  className="hidden"
+                />
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Import restores a JSON backup into your account (merges by id —
+                  nothing is overwritten or duplicated).
+                </p>
+              </>
+            )}
           </div>
         )}
 

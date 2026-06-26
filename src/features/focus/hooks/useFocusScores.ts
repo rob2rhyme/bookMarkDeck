@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  type ScoreRecord,
   logScore,
   subscribeScores,
   todayKey,
 } from "@/features/focus/data/focusData";
+import type { ScoreRecord } from "@/features/focus/lib/types";
 
 export type QuizResult = {
   topic: string;
