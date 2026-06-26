@@ -71,7 +71,7 @@ export type CursorProps = {
 };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
-  style: "fish",
+  style: "jellysprite",
   size: 1,
   hue: null,
   finHue: null,
@@ -113,9 +113,10 @@ export function normalizeCursorSettings(raw: unknown): CursorSettings {
       r.style === "turtle" ||
       r.style === "jellyfish" ||
       r.style === "jellysprite" ||
-      r.style === "lobster"
+      r.style === "lobster" ||
+      r.style === "fish"
         ? r.style
-        : "fish",
+        : d.style,
     size: clampNum(r.size, 0.5, 2, d.size),
     hue: hueOrAuto(r.hue),
     finHue: hueOrAuto(r.finHue),

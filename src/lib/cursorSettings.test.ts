@@ -11,7 +11,7 @@ describe("normalizeCursorSettings", () => {
     expect(normalizeCursorSettings("nope")).toEqual(DEFAULT_CURSOR_SETTINGS);
   });
 
-  it("validates style against the allowed set (fish is the default)", () => {
+  it("validates style against the allowed set (jellysprite is the default)", () => {
     expect(normalizeCursorSettings({ style: "fish" }).style).toBe("fish");
     expect(normalizeCursorSettings({ style: "dragon" }).style).toBe("dragon");
     expect(normalizeCursorSettings({ style: "turtle" }).style).toBe("turtle");
@@ -23,7 +23,9 @@ describe("normalizeCursorSettings", () => {
     );
     expect(normalizeCursorSettings({ style: "lobster" }).style).toBe("lobster");
     expect(normalizeCursorSettings({ style: "off" }).style).toBe("off");
-    expect(normalizeCursorSettings({ style: "unicorn" }).style).toBe("fish");
+    expect(normalizeCursorSettings({ style: "unicorn" }).style).toBe(
+      "jellysprite"
+    );
   });
 
   it("coerces jelly to a boolean (default false)", () => {
