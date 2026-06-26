@@ -8,6 +8,7 @@
 import { addDays, weekKeyOf, weekdayOf } from "@/features/habits/lib/day";
 import {
   type Habit,
+  type HabitDirection,
   type HabitEntry,
   type HabitStats,
   habitTarget,
@@ -21,8 +22,16 @@ export function isDueOn(habit: Habit, day: string): boolean {
   return true; // timesPerWeek — loggable any day
 }
 
-function isSuccess(entry: HabitEntry | undefined, target: number): boolean {
-  return Boolean(entry) && entry!.status === "done" && entry!.count >= target;
+// A logged day is a "success" when the target is met. For a "quit" habit the
+// comparison flips: success = stayed AT OR UNDER the daily limit (binary quit
+// stores count 1 ≤ limit 1, i.e. "stayed clean today").
+function isSuccess(
+  entry: HabitEntry | undefined,
+  target: number,
+  direction: HabitDirection = "build"
+): boolean {
+  if (!entry || entry.status !== "done") return false;
+  return direction === "quit" ? entry.count <= target : entry.count >= target;
 }
 
 const MAX_LOOKBACK = 800; // hard bound so a sparse log can't loop forever
@@ -45,7 +54,7 @@ export function computeStats(
 
   const todayEntry = byDay.get(today);
   const countToday = todayEntry?.status === "done" ? todayEntry.count : 0;
-  const doneToday = isSuccess(todayEntry, target);
+  const doneToday = isSuccess(todayEntry, target, habit.direction);
   const earliest =
     habit.createdAt && habit.createdAt.slice(0, 10) <= today
       ? habit.createdAt.slice(0, 10)
@@ -77,7 +86,7 @@ function dailyStats(
       continue;
     }
     const e = byDay.get(day);
-    if (isSuccess(e, target)) {
+    if (isSuccess(e, target, habit.direction)) {
       current++;
     } else if (e?.status === "skipped") {
       // neutral
@@ -103,7 +112,7 @@ function dailyStats(
   while (cur <= today && guard++ < MAX_LOOKBACK) {
     if (isDueOn(habit, cur)) {
       const e = byDay.get(cur);
-      if (isSuccess(e, target)) {
+      if (isSuccess(e, target, habit.direction)) {
         run++;
         total++;
         if (run > longest) longest = run;
@@ -128,7 +137,7 @@ function dailyStats(
     const e = byDay.get(d);
     if (e?.status === "skipped") continue;
     due++;
-    if (isSuccess(e, target)) hit++;
+    if (isSuccess(e, target, habit.direction)) hit++;
   }
   const rate = due === 0 ? 0 : Math.round((hit / due) * 100);
 
@@ -159,7 +168,7 @@ function weeklyStats(
   const perWeek = new Map<string, number>();
   let total = 0;
   for (const e of byDay.values()) {
-    if (isSuccess(e, target)) {
+    if (isSuccess(e, target, habit.direction)) {
       total++;
       const wk = weekKeyOf(e.day);
       perWeek.set(wk, (perWeek.get(wk) ?? 0) + 1);

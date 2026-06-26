@@ -49,6 +49,7 @@ export function coerceHabit(id: string, raw: unknown): Habit | null {
     emoji: str(r.emoji) || "✅",
     hue: Math.min(360, Math.max(0, Math.round(num(r.hue, 200)))),
     type,
+    direction: r.direction === "quit" ? "quit" : "build",
     unit: typeof r.unit === "string" ? r.unit : undefined,
     target: type === "measurable" ? Math.max(1, Math.round(num(r.target, 1))) : undefined,
     step: type === "measurable" ? Math.max(1, Math.round(num(r.step, 1))) : undefined,
@@ -99,6 +100,7 @@ export function habitToDoc(h: Habit): Record<string, unknown> {
     sortOrder: h.sortOrder,
     reminder: h.reminder ?? null,
   };
+  if (h.direction) doc.direction = h.direction;
   if (h.unit !== undefined) doc.unit = h.unit;
   if (h.target !== undefined) doc.target = h.target;
   if (h.step !== undefined) doc.step = h.step;

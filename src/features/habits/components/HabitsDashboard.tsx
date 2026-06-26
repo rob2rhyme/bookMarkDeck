@@ -413,6 +413,11 @@ export function HabitsDashboard() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-slate-100">
                         {habit.name}
+                        {habit.direction === "quit" && (
+                          <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                            Quit
+                          </span>
+                        )}
                         {habit.area?.trim() && (
                           <span className="ml-2 rounded-full border border-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
                             {(habit.areaIcon?.trim() || DEFAULT_AREA_ICON) +
