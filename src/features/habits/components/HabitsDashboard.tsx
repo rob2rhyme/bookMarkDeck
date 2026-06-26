@@ -23,6 +23,7 @@ import { HabitNotesModal } from "@/features/habits/components/HabitNotesModal";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { InsightsPanel } from "@/features/habits/components/InsightsPanel";
+import { RowMenu } from "@/features/habits/components/RowMenu";
 import {
   type LogDetail,
   LogDetailModal,
@@ -455,45 +456,32 @@ export function HabitsDashboard() {
                         )}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => launchFocus(habit)}
-                      aria-label={`Focus on ${habit.name}`}
-                      className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-800/60 hover:text-blue-300"
-                      title="Start a focus session"
-                    >
-                      <Timer className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => h.setArchived(habit.id, true)}
-                      aria-label={`Archive ${habit.name}`}
-                      title="Archive"
-                      className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
-                    >
-                      <Archive className="h-4 w-4 sm:hidden" />
-                      <span className="hidden sm:inline">Archive</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openEdit(habit)}
-                      aria-label={`Edit ${habit.name}`}
-                      title="Edit"
-                      className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
-                    >
-                      <Pencil className="h-4 w-4 sm:hidden" />
-                      <span className="hidden sm:inline">Edit</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeHabitConfirmed(habit)}
-                      aria-label={`Delete ${habit.name}`}
-                      title="Delete"
-                      className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-red-400/80 transition hover:bg-red-950/40 hover:text-red-300"
-                    >
-                      <Trash className="h-4 w-4 sm:hidden" />
-                      <span className="hidden sm:inline">Delete</span>
-                    </button>
+                    <RowMenu
+                      label={`Options for ${habit.name}`}
+                      items={[
+                        {
+                          label: "Start focus",
+                          icon: <Timer className="h-4 w-4 text-slate-400" />,
+                          onClick: () => launchFocus(habit),
+                        },
+                        {
+                          label: "Edit",
+                          icon: <Pencil className="h-4 w-4 text-slate-400" />,
+                          onClick: () => openEdit(habit),
+                        },
+                        {
+                          label: "Archive",
+                          icon: <Archive className="h-4 w-4 text-slate-400" />,
+                          onClick: () => h.setArchived(habit.id, true),
+                        },
+                        {
+                          label: "Delete",
+                          icon: <Trash className="h-4 w-4" />,
+                          onClick: () => removeHabitConfirmed(habit),
+                          danger: true,
+                        },
+                      ]}
+                    />
                   </div>
                 );
               })}
