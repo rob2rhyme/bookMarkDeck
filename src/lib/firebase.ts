@@ -1,7 +1,7 @@
 // src/lib/firebase.ts
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth, getRedirectResult, GoogleAuthProvider, signInWithPopup, signOut, type User } from "firebase/auth";
+import { getAuth, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -17,6 +17,23 @@ export const auth = getAuth(app);
 export const FIREBASE_REDIRECT_TRIED_KEY = "firebaseRedirectTried";
 let authPromise: Promise<User> | null = null;
 export const REDIRECT_TRIED_KEY = "firebaseRedirectTried";
+
+/**
+ * Mobile browsers — chiefly iOS Safari — can't reliably complete Firebase's
+ * signInWithPopup: popups get blocked and ITP partitions the (third-party)
+ * *.firebaseapp.com auth storage, so the credential never makes it back. A
+ * full-page redirect passes the credential in the return URL and works where
+ * the popup silently fails. (iPadOS Safari masquerades as desktop Mac, so we
+ * also treat a touch-capable "Mac" as mobile.)
+ */
+function isMobileBrowser(): boolean {
+  if (typeof window === "undefined") return false;
+  const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  const ua = /iphone|ipad|ipod|android/i.test(navigator.userAgent || "");
+  const touchMac =
+    navigator.platform === "MacIntel" && (navigator.maxTouchPoints ?? 0) > 1;
+  return coarse || ua || touchMac;
+}
 
 /**
  * Ensure Firebase Auth is signed in with the intended Google account.
@@ -53,6 +70,30 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
             window.localStorage.removeItem(FIREBASE_REDIRECT_TRIED_KEY);
           }
           return redirectCred.user;
+        }
+
+        // On mobile, prefer a full-page redirect over the unreliable popup.
+        // A one-shot flag prevents a redirect loop: if we come back from a
+        // redirect with no credential, fall through to popup instead.
+        if (isMobileBrowser() && typeof window !== "undefined") {
+          const alreadyTried =
+            window.localStorage.getItem(FIREBASE_REDIRECT_TRIED_KEY) === "1";
+          if (!alreadyTried) {
+            try {
+              window.localStorage.setItem(FIREBASE_REDIRECT_TRIED_KEY, "1");
+              await signInWithRedirect(auth, provider);
+              // The page is navigating away; this never settles here — on return
+              // getRedirectResult (above) resolves the signed-in user.
+              return new Promise<User>(() => {});
+            } catch {
+              // Redirect couldn't start — clear the flag and try the popup.
+              window.localStorage.removeItem(FIREBASE_REDIRECT_TRIED_KEY);
+            }
+          } else {
+            // Redirect already attempted and returned nothing — reset so a later
+            // attempt can redirect again, and try the popup now.
+            window.localStorage.removeItem(FIREBASE_REDIRECT_TRIED_KEY);
+          }
         }
 
         const tryPopup = async () => {
