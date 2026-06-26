@@ -16,6 +16,10 @@ The focus feature stores data in per-user subcollections:
 - `users/{uid}/activity/{eventId}` (unified activity log)
 - `users/{uid}/focusContent/content` (per-user extra quotes/nuggets/challenges,
   merged on top of the built-in defaults)
+- `users/{uid}/focusScores/{id}` (one doc per answered "Need a push?" quiz —
+  points + per-topic breakdown for the Scores history)
+- `users/{uid}/prefs/ui` (cloud-remembered one-shot UI flags — welcome /
+  habit-onboarding dismissals; see `src/lib/uiPrefs.ts`)
 
 These are all covered by the one owner-scoped recursive rule in `firestore.rules`:
 

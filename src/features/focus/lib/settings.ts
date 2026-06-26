@@ -2,6 +2,7 @@
 // and hooks can import it without cycles.
 
 import { isSoundId, type SoundId } from "@/features/focus/lib/sound";
+import { isTopicId, type TopicId } from "@/features/focus/lib/topics";
 
 export type FocusSettings = {
   // Timer durations (minutes)
@@ -22,6 +23,8 @@ export type FocusSettings = {
   dailyGoalHours: number;
   // Mirror to-dos to Google Tasks (+ Calendar events for timed ones)
   todoGoogleSync: boolean;
+  // "Need a push?" interests — drives quotes + quizzes. Empty = coding/general.
+  interests: TopicId[];
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
@@ -38,6 +41,7 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   waterGoal: 8,
   dailyGoalHours: 4,
   todoGoogleSync: false,
+  interests: [],
 };
 
 /** Coerce arbitrary stored/remote data into a valid, clamped settings object. */
@@ -63,5 +67,8 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     waterGoal: num(r.waterGoal, DEFAULT_SETTINGS.waterGoal, 1, 20),
     dailyGoalHours: num(r.dailyGoalHours, DEFAULT_SETTINGS.dailyGoalHours, 1, 16),
     todoGoogleSync: bool(r.todoGoogleSync, DEFAULT_SETTINGS.todoGoogleSync),
+    interests: Array.isArray(r.interests)
+      ? [...new Set(r.interests.filter(isTopicId))]
+      : DEFAULT_SETTINGS.interests,
   };
 }
