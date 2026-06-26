@@ -5,9 +5,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
+import { ChevronUp, ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { makeFolderOptions } from "@/utils/folderOptions";
+import type { Folder } from "@/types/folder";
+
+type SortMode = "name" | "count";
 
 type FolderOption = { id: string; name: string; label: string };
 
@@ -95,6 +98,8 @@ export default function FolderManagementPage() {
   );
 
   const [query, setQuery] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("name");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<
     { type: "success" | "error"; message: string } | null
   >(null);
@@ -161,6 +166,64 @@ export default function FolderManagementPage() {
     });
     return parentIds;
   }, [folders]);
+
+  // Children grouped by parent (null = top level) — the tree's adjacency list.
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string | null, Folder[]>();
+    folders.forEach((folder) => {
+      const key = folder.parentId ?? null;
+      const list = map.get(key);
+      if (list) list.push(folder);
+      else map.set(key, [folder]);
+    });
+    return map;
+  }, [folders]);
+
+  const folderOptionById = useMemo(
+    () => new Map(folderOptions.map((option) => [option.id, option])),
+    [folderOptions]
+  );
+
+  const stats = useMemo(() => {
+    const nested = folders.filter((folder) => folder.parentId).length;
+    let empty = 0;
+    let filed = 0;
+    folders.forEach((folder) => {
+      const count = bookmarkCountByFolderId.get(folder.id) ?? 0;
+      if (count === 0) empty += 1;
+      filed += count;
+    });
+    return { total: folders.length, nested, empty, filed };
+  }, [folders, bookmarkCountByFolderId]);
+
+  const sortFolders = (list: Folder[]): Folder[] => {
+    const arr = [...list];
+    if (sortMode === "count") {
+      arr.sort(
+        (a, b) =>
+          (bookmarkCountByFolderId.get(b.id) ?? 0) -
+            (bookmarkCountByFolderId.get(a.id) ?? 0) ||
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      );
+    } else {
+      arr.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      );
+    }
+    return arr;
+  };
+
+  const toggleCollapsed = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const allCollapsed =
+    folderIdsWithChildren.size > 0 &&
+    [...folderIdsWithChildren].every((id) => collapsed.has(id));
 
   const iconButtonBaseClassName =
     "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-slate-700/70 bg-slate-900/70 text-slate-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950";
@@ -406,12 +469,144 @@ export default function FolderManagementPage() {
     closeMoveModal();
   };
 
+  const renderRow = (
+    option: FolderOption,
+    depth: number,
+    displayName: string,
+    hasChildren: boolean,
+    isCollapsed: boolean,
+    onToggle?: () => void
+  ): React.ReactNode => {
+    const count = bookmarkCountByFolderId.get(option.id) ?? 0;
+    const childCount = childrenByParent.get(option.id)?.length ?? 0;
+    const hasMergeTarget = folderOptions.some((o) => o.id !== option.id);
+
+    return (
+      <div
+        key={option.id}
+        className="relative z-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 py-2 pr-3"
+        style={{ paddingLeft: 12 + depth * 22 }}
+      >
+        <div className="flex min-w-0 items-center gap-1.5">
+          {hasChildren && onToggle ? (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-label={isCollapsed ? "Expand subfolders" : "Collapse subfolders"}
+              aria-expanded={!isCollapsed}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200"
+            >
+              <ChevronUp
+                className={`h-3.5 w-3.5 transition ${isCollapsed ? "rotate-90" : "rotate-180"}`}
+              />
+            </button>
+          ) : (
+            <span className="h-5 w-5 shrink-0" aria-hidden="true" />
+          )}
+          <div className="min-w-0">
+            <p
+              className="truncate text-sm font-semibold text-slate-100"
+              title={option.label}
+            >
+              {displayName}
+            </p>
+            <p className="text-xs text-slate-400">
+              {count} bookmark{count !== 1 ? "s" : ""}
+              {childCount > 0
+                ? ` · ${childCount} subfolder${childCount !== 1 ? "s" : ""}`
+                : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="relative z-10 flex items-center gap-2">
+          <Link
+            href={`/folders/${encodeURIComponent(option.id)}`}
+            title="Open"
+            aria-label="Open folder"
+            className={`${iconButtonBaseClassName} hover:border-blue-500/80 hover:bg-slate-800/60`}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+
+          <button
+            type="button"
+            title="Rename"
+            aria-label="Rename folder"
+            onClick={() => handleOpenRename(option)}
+            className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60`}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            title={hasChildren ? "Cannot delete folder with subfolders" : "Delete"}
+            aria-label="Delete folder"
+            disabled={hasChildren}
+            onClick={() => handleOpenDelete(option)}
+            className={`${iconButtonBaseClassName} border-red-700/60 bg-red-900/30 text-red-200 hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-red-700/60 disabled:hover:bg-red-900/30`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            title={hasMergeTarget ? "Merge" : "No merge target"}
+            aria-label="Merge folder"
+            disabled={!hasMergeTarget}
+            onClick={() => handleOpenMerge(option)}
+            className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-slate-700/70 disabled:hover:bg-slate-900/70`}
+          >
+            <FolderTree className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            title="Move folder"
+            aria-label="Move folder"
+            onClick={() => handleOpenMove(option)}
+            className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60`}
+          >
+            <FolderMoveInto className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTree = (parentId: string | null, depth: number): React.ReactNode[] => {
+    const rows: React.ReactNode[] = [];
+    sortFolders(childrenByParent.get(parentId) ?? []).forEach((folder) => {
+      const option = folderOptionById.get(folder.id);
+      if (!option) return;
+      const hasKids = (childrenByParent.get(folder.id)?.length ?? 0) > 0;
+      const isCollapsed = collapsed.has(folder.id);
+      rows.push(
+        renderRow(
+          option,
+          depth,
+          folder.name,
+          hasKids,
+          isCollapsed,
+          hasKids ? () => toggleCollapsed(folder.id) : undefined
+        )
+      );
+      if (hasKids && !isCollapsed) rows.push(...renderTree(folder.id, depth + 1));
+    });
+    return rows;
+  };
+
+  const isSearching = query.trim().length > 0;
+
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Folder management</h1>
-          <p className="text-xs text-slate-400">Rename, delete, and merge folders.</p>
+          <p className="text-xs text-slate-400">
+            See your folder tree at a glance — open, rename, move, merge, or delete.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -451,9 +646,17 @@ export default function FolderManagementPage() {
       )}
 
       <section className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-4">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-          Folders
-        </h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+            Folders
+          </h2>
+          <p className="text-[11px] text-slate-500 tabular-nums">
+            {stats.total} folder{stats.total !== 1 ? "s" : ""}
+            {stats.nested > 0 ? ` · ${stats.nested} nested` : ""}
+            {` · ${stats.filed} filed`}
+            {stats.empty > 0 ? ` · ${stats.empty} empty` : ""}
+          </p>
+        </div>
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <input
@@ -461,98 +664,76 @@ export default function FolderManagementPage() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search folders by path or name"
-            className="min-w-[240px] flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="min-w-[200px] flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
-          <p className="text-xs text-slate-400">
+          <div className="flex items-center gap-1 rounded-full border border-slate-800 bg-slate-900 p-0.5">
+            {(
+              [
+                ["name", "A–Z"],
+                ["count", "Most"],
+              ] as [SortMode, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={sortMode === value}
+                onClick={() => setSortMode(value)}
+                title={value === "count" ? "Most bookmarks first" : "Alphabetical"}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                  sortMode === value
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {folderIdsWithChildren.size > 0 && !isSearching && (
+            <button
+              type="button"
+              onClick={() =>
+                setCollapsed(
+                  allCollapsed ? new Set() : new Set(folderIdsWithChildren)
+                )
+              }
+              className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+            >
+              {allCollapsed ? "Expand all" : "Collapse all"}
+            </button>
+          )}
+        </div>
+
+        {isSearching && (
+          <p className="mb-2 text-xs text-slate-400">
             Showing {filteredFolderOptions.length} of {folderOptions.length}
           </p>
-        </div>
+        )}
 
         {folderOptions.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
             No folders yet.
           </div>
-        ) : filteredFolderOptions.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
-            No folders match your search.
-          </div>
+        ) : isSearching ? (
+          filteredFolderOptions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
+              No folders match your search.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredFolderOptions.map((option) =>
+                renderRow(
+                  option,
+                  0,
+                  option.label,
+                  folderIdsWithChildren.has(option.id),
+                  false
+                )
+              )}
+            </div>
+          )
         ) : (
-          <div className="space-y-2">
-            {filteredFolderOptions.map((folder) => {
-              const hasMergeTarget = folderOptions.some((option) => option.id !== folder.id);
-              const hasChildren = folderIdsWithChildren.has(folder.id);
-
-              return (
-                <div
-                  key={folder.id}
-                  className="relative z-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-100">{folder.label}</p>
-                    <p className="text-xs text-slate-400">
-                      {bookmarkCountByFolderId.get(folder.id) ?? 0} bookmark
-                      {(bookmarkCountByFolderId.get(folder.id) ?? 0) !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-
-                  <div className="relative z-10 flex items-center gap-2">
-                    <Link
-                      href={`/folders/${encodeURIComponent(folder.id)}`}
-                      title="Open"
-                      aria-label="Open folder"
-                      className={`${iconButtonBaseClassName} hover:border-blue-500/80 hover:bg-slate-800/60`}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Link>
-
-                    <button
-                      type="button"
-                      title="Rename"
-                      aria-label="Rename folder"
-                      onClick={() => handleOpenRename(folder)}
-                      className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      title={
-                        hasChildren ? "Cannot delete folder with subfolders" : "Delete"
-                      }
-                      aria-label="Delete folder"
-                      disabled={hasChildren}
-                      onClick={() => handleOpenDelete(folder)}
-                      className={`${iconButtonBaseClassName} border-red-700/60 bg-red-900/30 text-red-200 hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-red-700/60 disabled:hover:bg-red-900/30`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      title={hasMergeTarget ? "Merge" : "No merge target"}
-                      aria-label="Merge folder"
-                      disabled={!hasMergeTarget}
-                      onClick={() => handleOpenMerge(folder)}
-                      className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-slate-700/70 disabled:hover:bg-slate-900/70`}
-                    >
-                      <FolderTree className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      title="Move folder"
-                      aria-label="Move folder"
-                      onClick={() => handleOpenMove(folder)}
-                      className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60`}
-                    >
-                      <FolderMoveInto className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <div className="space-y-2">{renderTree(null, 0)}</div>
         )}
       </section>
 
