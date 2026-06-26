@@ -19,14 +19,17 @@ import { JournalCard } from "@/features/focus/components/JournalCard";
 import { LogPastSessionModal } from "@/features/focus/components/LogPastSessionModal";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
+import { ScoresPanel } from "@/features/focus/components/ScoresPanel";
 import { TaskTracker } from "@/features/focus/components/TaskTracker";
 import { TodoHistory } from "@/features/focus/components/TodoHistory";
 import { TodoList } from "@/features/focus/components/TodoList";
 import { UndoToast } from "@/features/focus/components/UndoToast";
 import { useFocusActivity } from "@/features/focus/hooks/useFocusActivity";
 import { useFocusJournal } from "@/features/focus/hooks/useFocusJournal";
+import { useFocusScores, type QuizResult } from "@/features/focus/hooks/useFocusScores";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
 import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
+import { isTopicId, topicLabel } from "@/features/focus/lib/topics";
 import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
@@ -54,7 +57,20 @@ export function FocusDashboard() {
     pushToCloud: pushSettings,
   } = useFocusSettings(email, connected);
   const activity = useFocusActivity(email, connected);
+  const scores = useFocusScores(email, connected);
   const tasks = useFocusTasks(email, connected, activity.log);
+
+  // A quiz answer feeds both histories: points to Scores, a timeline entry to
+  // Activity.
+  const onQuizAnswered = (r: QuizResult) => {
+    scores.record(r);
+    const name = isTopicId(r.topic) ? topicLabel(r.topic) : r.topic;
+    activity.log(
+      "quiz",
+      r.correct ? `${name} quiz — correct (+${r.points})` : `${name} quiz — missed`,
+      todayKey()
+    );
+  };
   const journal = useFocusJournal(email, connected, activity.log);
   const todos = useTodos(email, connected, activity.log);
   const gsync = useGoogleTodoSync(settings.todoGoogleSync, todos.setGoogleIds);
@@ -443,7 +459,23 @@ export function FocusDashboard() {
             onDismiss={hydration.dismiss}
           />
         ) : null}
-        <QuoteBox email={email} connected={connected} />
+        <QuoteBox
+          email={email}
+          connected={connected}
+          interests={settings.interests}
+          onQuizAnswered={onQuizAnswered}
+        />
+      </div>
+
+      <div className="mt-5">
+        <ScoresPanel
+          available={connected}
+          total={scores.total}
+          answered={scores.answered}
+          correctCount={scores.correctCount}
+          byTopic={scores.byTopic}
+          scores={scores.scores}
+        />
       </div>
 
       <FocusSettingsModal

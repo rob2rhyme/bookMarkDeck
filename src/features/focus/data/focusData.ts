@@ -52,6 +52,7 @@ const hydrationCol = (uid: string) =>
 const todosCol = (uid: string) => collection(db, "users", uid, "todos");
 const contentDoc = (uid: string) =>
   doc(db, "users", uid, "focusContent", "content");
+const scoresCol = (uid: string) => collection(db, "users", uid, "focusScores");
 
 export type ActivityType =
   | "focus"
@@ -64,12 +65,26 @@ export type ActivityType =
   | "todo_added"
   | "todo_done"
   | "habit_done"
-  | "habit_skipped";
+  | "habit_skipped"
+  | "quiz";
 
 export type ActivityEvent = {
   id: string;
   type: ActivityType;
   summary: string;
+  day: string;
+  createdAt: string | null;
+};
+
+// One answered quiz question — the input to the Scores history (points earned,
+// per-topic breakdown). Lives in users/{uid}/focusScores.
+export type ScoreRecord = {
+  id: string;
+  topic: string;
+  level: string;
+  correct: boolean;
+  points: number; // earned (0 when wrong)
+  question: string;
   day: string;
   createdAt: string | null;
 };
@@ -439,6 +454,30 @@ export async function fetchActivity(
   });
 }
 
+/* ----------------------------------------------------------- quiz scores --- */
+
+export async function logScore(
+  emailHint: string,
+  rec: Omit<ScoreRecord, "id" | "createdAt">
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const id = crypto.randomUUID();
+  await setDoc(doc(scoresCol(uid), id), {
+    topic: rec.topic,
+    level: rec.level,
+    correct: rec.correct,
+    points: rec.points,
+    question: rec.question,
+    day: rec.day,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteScore(emailHint: string, id: string): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(scoresCol(uid), id));
+}
+
 /* --------------------------------------------------- realtime listeners --- */
 //
 // Each subscribe* attaches an onSnapshot listener and returns an unsubscribe.
@@ -602,6 +641,34 @@ export function subscribeActivity(
           })
         ),
       onListenError("activity")
+    )
+  );
+}
+
+export function subscribeScores(
+  emailHint: string,
+  cb: (scores: ScoreRecord[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      scoresCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              topic: typeof data.topic === "string" ? data.topic : "general",
+              level: typeof data.level === "string" ? data.level : "Easy",
+              correct: Boolean(data.correct),
+              points: typeof data.points === "number" ? data.points : 0,
+              question: typeof data.question === "string" ? data.question : "",
+              day: typeof data.day === "string" ? data.day : "",
+              createdAt: timestampToIso(data.createdAt),
+            };
+          })
+        ),
+      onListenError("scores")
     )
   );
 }

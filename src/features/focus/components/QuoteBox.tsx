@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   dayOfYear,
@@ -8,15 +8,30 @@ import {
   LEVEL_BADGE,
 } from "@/features/focus/lib/content";
 import { useFocusContent } from "@/features/focus/hooks/useFocusContent";
+import type { QuizResult } from "@/features/focus/hooks/useFocusScores";
+import { QuizBox } from "@/features/focus/components/QuizBox";
+import { quotesFor, showsCoding, type TopicId } from "@/features/focus/lib/topics";
 
 type QuoteBoxProps = {
   email?: string | null;
   connected?: boolean;
+  interests?: TopicId[];
+  onQuizAnswered?: (result: QuizResult) => void;
 };
 
-export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
+export function QuoteBox({
+  email,
+  connected = false,
+  interests = [],
+  onQuizAnswered,
+}: QuoteBoxProps) {
   // Defaults render instantly; per-user extras from Firestore merge in live.
   const { quotes, nuggets, challenges } = useFocusContent(email, connected);
+
+  // Quotes are drawn from the chosen interests; code blocks show only for
+  // code-leaning interests (so a kid on Music/Math/Astronomy doesn't get JS).
+  const pool = useMemo(() => quotesFor(interests, quotes), [interests, quotes]);
+  const showCode = showsCoding(interests);
 
   // Deterministic first render (index 0) → pick after mount to avoid a
   // hydration mismatch. The quote is random; nugget + challenge are "of the day".
@@ -29,14 +44,14 @@ export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
   const [solCopied, setSolCopied] = useState(false);
 
   useEffect(() => {
-    setIdx(Math.floor(Math.random() * quotes.length));
+    setIdx(Math.floor(Math.random() * pool.length));
     setNug(dayOfYear() % nuggets.length);
     setChal(dayOfYear() % challenges.length);
     // Pick once on mount; later content growth just keeps these valid.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const quote = quotes[idx % quotes.length] ?? quotes[0];
+  const quote = pool[idx % pool.length] ?? pool[0];
   const nugget = nuggets[nug % nuggets.length] ?? nuggets[0];
   const challenge = challenges[chal % challenges.length] ?? challenges[0];
   const badge = KIND_BADGE[nugget.kind];
@@ -44,7 +59,7 @@ export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
   const next = () => {
     setFading(true);
     setTimeout(() => {
-      setIdx((i) => (i + 1) % quotes.length);
+      setIdx((i) => (i + 1) % pool.length);
       setFading(false);
     }, 200);
   };
@@ -107,7 +122,16 @@ export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
         New quote ↺
       </button>
 
-      {/* Useful code of the day */}
+      {/* Interactive quiz — interest-aware, scores logged to Activity + Scores */}
+      <QuizBox
+        interests={interests}
+        onAnswered={onQuizAnswered}
+        saving={connected}
+      />
+
+      {/* Code of the day + daily challenge — only for code-leaning interests */}
+      {showCode && (
+        <>
       <div className="mt-6 border-t border-slate-800/60 pt-5">
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -222,6 +246,8 @@ export function QuoteBox({ email, connected = false }: QuoteBoxProps) {
           </p>
         )}
       </div>
+        </>
+      )}
     </section>
   );
 }

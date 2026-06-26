@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { X } from "@/components/icons";
 import type { FocusSettings } from "@/features/focus/lib/settings";
+import { TOPICS, type TopicId } from "@/features/focus/lib/topics";
 import {
   initAudio,
   playChime,
@@ -119,6 +120,13 @@ export function FocusSettingsModal({
 
   if (!open) return null;
 
+  const toggleInterest = (id: TopicId) => {
+    const set = new Set(settings.interests);
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+    onUpdate({ interests: [...set] });
+  };
+
   return (
     <div
       onClick={onClose}
@@ -150,6 +158,32 @@ export function FocusSettingsModal({
 
         <SectionLabel>Goal</SectionLabel>
         <NumberField label="Daily focus goal" value={settings.dailyGoalHours} min={1} max={16} suffix="hr" onChange={(v) => onUpdate({ dailyGoalHours: v })} />
+
+        <SectionLabel>Need a push? — interests</SectionLabel>
+        <div className="flex flex-wrap gap-1.5 pt-1.5">
+          {TOPICS.map((t) => {
+            const on = settings.interests.includes(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleInterest(t.id)}
+                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                  on
+                    ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                    : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                }`}
+              >
+                {t.emoji} {t.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          Tailors quotes and quizzes. Pick Music, Math or Astronomy for younger
+          learners. Leave empty for coding tips &amp; general trivia.
+        </p>
 
         <SectionLabel>Automation</SectionLabel>
         <Toggle label="Auto-start breaks" checked={settings.autoStartBreaks} onChange={(v) => onUpdate({ autoStartBreaks: v })} />

@@ -119,8 +119,10 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   (`{ focusMin, day, createdAt, taskId? }`), `focusSettings/settings`,
   `focusJournal/{YYYY-MM-DD}` (`{ mood }` + legacy `note`),
   `focusNotes/{id}` (multiple timestamped notes/day), `focusHydration/{day}`
-  (`{ cups }`), and `activity/{id}` (unified log). Optimistic + fail-safe.
-  Rules: `src/features/focus/FIRESTORE_RULES.md` (deployable `firestore.rules`).
+  (`{ cups }`), `activity/{id}` (unified log), and `focusScores/{id}` (one doc
+  per answered "Need a push?" quiz — points/topic for Scores history). Optimistic
+  + fail-safe. Rules: `src/features/focus/FIRESTORE_RULES.md` (deployable
+  `firestore.rules`).
 - Tasks (`useFocusTasks`): reusable across days; an **active task** receives the
   timer's focus minutes (via `taskId` on sessions); auto-resumes the most recent;
   mark done / archive. Per-task time is derived from `focusSessions` (not stored).
@@ -136,7 +138,13 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   shows a full-screen `TimeUpModal` (repeating chime) on end, plus a persistent
   system notification via the background push (`sw.js`) for backgrounded/closed.
 - Settings (`useFocusSettings`): durations, sessions-until-long, auto-start,
-  sound (+ test), hydration prefs, daily goal — localStorage + Firestore.
+  sound (+ test), hydration prefs, daily goal, **interests** (topic list) —
+  localStorage + Firestore.
+- "Need a push?" (`QuoteBox`): interest-aware (`lib/topics.ts` — Music/Math/
+  Astronomy/Coding/General). Quotes filter by `settings.interests`; an
+  interactive `QuizBox` awards points → `useFocusScores` (`focusScores`) +
+  `activity` (`quiz`), surfaced in `ScoresPanel`. Code nugget/challenge show only
+  for code-leaning interests. Empty interests = original coding/general behaviour.
 - Hydration (`useHydration`): cups/day (oz derived), localStorage cache +
   Firestore sync (`focusHydration/{day}`, load-on-connect max-merge) + `QuoteBox`.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
