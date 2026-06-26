@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { ChevronUp, ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
+import { ChevronUp, DotsVertical, ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { makeFolderOptions } from "@/utils/folderOptions";
 import type { Folder } from "@/types/folder";
@@ -100,6 +100,7 @@ export default function FolderManagementPage() {
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [notice, setNotice] = useState<
     { type: "success" | "error"; message: string } | null
   >(null);
@@ -249,6 +250,28 @@ export default function FolderManagementPage() {
     const timer = window.setTimeout(() => setNotice(null), 3500);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  // Close the mobile row menu on outside click / Escape.
+  useEffect(() => {
+    if (!openMenuId) return;
+    const onDown = (event: PointerEvent) => {
+      const el =
+        event.target instanceof Element
+          ? event.target.closest("[data-folder-menu]")
+          : null;
+      if (el?.getAttribute("data-folder-menu") === openMenuId) return;
+      setOpenMenuId(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openMenuId]);
 
   const closeRenameModal = () => {
     setRenameFolderId(null);
@@ -480,6 +503,7 @@ export default function FolderManagementPage() {
     const count = bookmarkCountByFolderId.get(option.id) ?? 0;
     const childCount = childrenByParent.get(option.id)?.length ?? 0;
     const hasMergeTarget = folderOptions.some((o) => o.id !== option.id);
+    const menuOpen = openMenuId === option.id;
 
     return (
       <div
@@ -520,6 +544,8 @@ export default function FolderManagementPage() {
         </div>
 
         <div className="relative z-10 flex items-center gap-2">
+          {/* Desktop: full row of icon buttons (unchanged). */}
+          <div className="hidden items-center gap-2 sm:flex">
           <Link
             href={`/folders/${encodeURIComponent(option.id)}`}
             title="Open"
@@ -570,6 +596,74 @@ export default function FolderManagementPage() {
           >
             <FolderMoveInto className="h-4 w-4" />
           </button>
+          </div>
+
+          {/* Mobile: condense the same actions into a 3-dots overflow menu. */}
+          <div className="relative sm:hidden" data-folder-menu={option.id}>
+            <button
+              type="button"
+              aria-label="Folder actions"
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              onClick={() => setOpenMenuId(menuOpen ? null : option.id)}
+              className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60`}
+            >
+              <DotsVertical className="h-4 w-4" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 py-1 shadow-xl">
+                <Link
+                  href={`/folders/${encodeURIComponent(option.id)}`}
+                  onClick={() => setOpenMenuId(null)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800"
+                >
+                  <ExternalLink className="h-4 w-4 text-slate-400" /> Open
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    handleOpenRename(option);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
+                >
+                  <Pencil className="h-4 w-4 text-slate-400" /> Rename
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    handleOpenMove(option);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
+                >
+                  <FolderMoveInto className="h-4 w-4 text-slate-400" /> Move
+                </button>
+                <button
+                  type="button"
+                  disabled={!hasMergeTarget}
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    handleOpenMerge(option);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent"
+                >
+                  <FolderTree className="h-4 w-4 text-slate-400" /> Merge
+                </button>
+                <button
+                  type="button"
+                  disabled={hasChildren}
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    handleOpenDelete(option);
+                  }}
+                  className="flex w-full items-center gap-2 border-t border-slate-800/60 px-3 py-2 text-left text-sm text-red-300 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent"
+                >
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
