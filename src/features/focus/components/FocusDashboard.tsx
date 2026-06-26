@@ -37,6 +37,8 @@ import { useGoogleTodoSync } from "@/features/focus/hooks/useGoogleTodoSync";
 import { useTodos } from "@/features/focus/hooks/useTodos";
 import { useUndo } from "@/features/focus/hooks/useUndo";
 import { todayKey } from "@/features/focus/data/focusData";
+import { focusToJson, sessionsToCsv } from "@/features/focus/lib/exportFocus";
+import { downloadText } from "@/utils/download";
 import type { FocusTask, JournalNote, Todo } from "@/features/focus/lib/types";
 
 export function FocusDashboard() {
@@ -385,6 +387,7 @@ export function FocusDashboard() {
           weekTaskMin={stats.weekTaskMin}
           taskNameById={taskNameById}
           moodByDay={journal.moodByDay}
+          sessions={stats.sessions}
         />
         <JournalCard
           mood={journal.todayMood}
@@ -448,6 +451,20 @@ export function FocusDashboard() {
         settings={settings}
         onUpdate={update}
         onReset={reset}
+        onExportJson={() =>
+          downloadText(
+            `focus-data-${todayKey()}.json`,
+            focusToJson(stats.sessions, new Date().toISOString()),
+            "application/json"
+          )
+        }
+        onExportCsv={() =>
+          downloadText(
+            `focus-sessions-${todayKey()}.csv`,
+            sessionsToCsv(stats.sessions, taskNameById),
+            "text/csv"
+          )
+        }
         onClose={() => setSettingsOpen(false)}
       />
 
