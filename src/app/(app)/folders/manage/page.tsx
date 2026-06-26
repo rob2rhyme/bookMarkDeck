@@ -8,6 +8,12 @@ import { useSession } from "next-auth/react";
 import { ChevronUp, DotsVertical, ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { makeFolderOptions } from "@/utils/folderOptions";
+import {
+  baseKey,
+  buildOrganizePlan,
+  planHasChanges,
+  type OrganizePlan,
+} from "@/utils/autoOrganize";
 import type { Folder } from "@/types/folder";
 
 type SortMode = "name" | "count";
@@ -93,14 +99,21 @@ function collectDescendantFolderIds(
 export default function FolderManagementPage() {
   const { data: session } = useSession();
   const userId = session?.user?.email ?? null;
-  const { bookmarks, folders, addFolder, updateFolder, deleteFolder, mergeFolder } = useBookmarks(
-    userId
-  );
+  const {
+    bookmarks,
+    folders,
+    addFolder,
+    updateFolder,
+    updateBookmark,
+    deleteFolder,
+    mergeFolder,
+  } = useBookmarks(userId);
 
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [organizePlan, setOrganizePlan] = useState<OrganizePlan | null>(null);
   const [notice, setNotice] = useState<
     { type: "success" | "error"; message: string } | null
   >(null);
@@ -492,6 +505,80 @@ export default function FolderManagementPage() {
     closeMoveModal();
   };
 
+  const handleAutoOrganize = () => {
+    const plan = buildOrganizePlan(bookmarks, folders);
+    if (!planHasChanges(plan)) {
+      setNotice({
+        type: "success",
+        message: "Folders already look tidy — nothing to organize.",
+      });
+      return;
+    }
+    setOrganizePlan(plan);
+  };
+
+  const applyOrganize = () => {
+    if (!organizePlan) return;
+    const plan = organizePlan;
+    let merged = 0;
+    let renamed = 0;
+    let created = 0;
+    let moved = 0;
+
+    // 1) Merge duplicate folders into their survivor.
+    plan.merges.forEach((m) => {
+      if (mergeFolder(m.sourceId, m.targetId).ok) merged += 1;
+    });
+
+    // 2) Badge matched existing category folders.
+    plan.renames.forEach((r) => {
+      if (updateFolder(r.folderId, { name: r.to }).ok) renamed += 1;
+    });
+
+    // 3) Create missing category folders; map plan keys → real ids.
+    const keyToId = new Map<string, string>();
+    plan.creates.forEach((c) => {
+      const folder = addFolder({ name: c.name, parentId: null });
+      if (folder) {
+        keyToId.set(c.key, folder.id);
+        created += 1;
+      } else {
+        // Name already exists at top level — reuse it.
+        const existing = folders.find(
+          (f) => !f.parentId && baseKey(f.name) === baseKey(c.name)
+        );
+        if (existing) keyToId.set(c.key, existing.id);
+      }
+    });
+
+    // 4) Refile bookmarks.
+    plan.moves.forEach((mv) => {
+      const targetId = mv.targetKey.startsWith("new:")
+        ? keyToId.get(mv.targetKey)
+        : mv.targetKey;
+      if (targetId) {
+        updateBookmark(mv.bookmarkId, { folderId: targetId });
+        moved += 1;
+      }
+    });
+
+    setOrganizePlan(null);
+    setNotice({
+      type: "success",
+      message: `Organized · ${moved} refiled · ${created} created · ${merged} merged · ${renamed} badged. Sync to cloud to keep it.`,
+    });
+  };
+
+  // Moves grouped by destination, for the preview.
+  const organizeMovesByTarget = useMemo(() => {
+    if (!organizePlan) return [];
+    const map = new Map<string, number>();
+    organizePlan.moves.forEach((m) => {
+      map.set(m.targetName, (map.get(m.targetName) ?? 0) + 1);
+    });
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [organizePlan]);
+
   const renderRow = (
     option: FolderOption,
     depth: number,
@@ -703,6 +790,15 @@ export default function FolderManagementPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            title="Smart-sort bookmarks into badged category folders"
+            aria-label="Auto-organize"
+            onClick={handleAutoOrganize}
+            className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/50 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition hover:border-blue-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/80"
+          >
+            ✨ <span>Auto-organize</span>
+          </button>
           <button
             type="button"
             title="New folder"
@@ -1006,6 +1102,120 @@ export default function FolderManagementPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={organizePlan !== null}
+        title="Auto-organize preview"
+        onClose={() => setOrganizePlan(null)}
+      >
+        {organizePlan && (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-400">
+              Nothing changes until you apply. Bookmarks that don&apos;t match a
+              category stay where they are.
+            </p>
+
+            <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+              {organizePlan.merges.length > 0 && (
+                <div>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Merge {organizePlan.merges.length} duplicate folder
+                    {organizePlan.merges.length !== 1 ? "s" : ""}
+                  </p>
+                  <ul className="space-y-1">
+                    {organizePlan.merges.map((m) => (
+                      <li key={m.sourceId} className="text-xs text-slate-300">
+                        🔀 <span className="text-slate-100">{m.sourceName}</span> →{" "}
+                        <span className="text-slate-100">{m.targetName}</span>
+                        {m.count > 0 ? (
+                          <span className="text-slate-500"> ({m.count})</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {organizePlan.creates.length > 0 && (
+                <div>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Create {organizePlan.creates.length} folder
+                    {organizePlan.creates.length !== 1 ? "s" : ""}
+                  </p>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {organizePlan.creates.map((c) => (
+                      <li
+                        key={c.key}
+                        className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200"
+                      >
+                        {c.name}{" "}
+                        <span className="text-slate-500 tabular-nums">{c.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {organizePlan.renames.length > 0 && (
+                <div>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Badge {organizePlan.renames.length} existing folder
+                    {organizePlan.renames.length !== 1 ? "s" : ""}
+                  </p>
+                  <ul className="space-y-1">
+                    {organizePlan.renames.map((r) => (
+                      <li key={r.folderId} className="text-xs text-slate-300">
+                        🏷 <span className="text-slate-100">{r.to}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {organizeMovesByTarget.length > 0 && (
+                <div>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Refile {organizePlan.moves.length} bookmark
+                    {organizePlan.moves.length !== 1 ? "s" : ""}
+                  </p>
+                  <ul className="space-y-1">
+                    {organizeMovesByTarget.map(([name, count]) => (
+                      <li key={name} className="text-xs text-slate-300">
+                        <span className="text-slate-100">{name}</span>{" "}
+                        <span className="text-slate-500 tabular-nums">
+                          — {count} bookmark{count !== 1 ? "s" : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <p className="border-t border-slate-800/70 pt-2 text-[11px] text-slate-500">
+              {organizePlan.alreadyFiled} already filed ·{" "}
+              {organizePlan.unmatched} uncategorized (left as-is)
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOrganizePlan(null)}
+                className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyOrganize}
+                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal open={showCreateModal} title="Create folder" onClose={closeCreateModal}>
