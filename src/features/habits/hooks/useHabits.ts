@@ -81,6 +81,9 @@ export function useHabits(
   const [entries, setEntries] = useState<HabitEntry[]>([]);
   const [today, setToday] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  // True once the cloud has had its say (first snapshot, or a timeout if no
+  // session) — so callers don't mistake "still loading" for "user has no data".
+  const [cloudLoaded, setCloudLoaded] = useState(false);
   const canSync = connected && Boolean(email);
 
   // Latest entries, readable from callbacks/subscriptions without re-binding.
@@ -129,6 +132,19 @@ export function useHabits(
     } catch {}
   }, [entries, hydrated, email]);
 
+  // Gate "cloud has loaded": a logged-in user's habits may live only in the
+  // cloud, so wait for the first snapshot before judging them habit-less. Fall
+  // back after a few seconds if no Firebase session ever connects.
+  useEffect(() => {
+    if (!email) {
+      setCloudLoaded(true);
+      return;
+    }
+    setCloudLoaded(false);
+    const t = setTimeout(() => setCloudLoaded(true), 4000);
+    return () => clearTimeout(t);
+  }, [email]);
+
   // Seed cloud with local-only data, then subscribe for real-time updates.
   useEffect(() => {
     if (!canSync || !email) return;
@@ -144,7 +160,10 @@ export function useHabits(
         );
       } catch {}
     })();
-    const unsubH = subscribeHabits(email, setHabits);
+    const unsubH = subscribeHabits(email, (h) => {
+      setHabits(h);
+      setCloudLoaded(true);
+    });
     const unsubE = subscribeEntries(email, setEntries);
     return () => {
       unsubH();
@@ -622,6 +641,7 @@ export function useHabits(
 
   return {
     hydrated,
+    cloudLoaded,
     today,
     habits: active,
     archived,

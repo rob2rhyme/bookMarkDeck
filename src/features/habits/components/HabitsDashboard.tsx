@@ -36,12 +36,11 @@ import {
 } from "@/features/habits/lib/areas";
 import { entriesToCsv, habitsToJson } from "@/features/habits/lib/exportHabits";
 import { downloadText } from "@/utils/download";
+import { fetchUiFlag, markUiFlag } from "@/lib/uiPrefs";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
 import type { Habit } from "@/features/habits/lib/types";
-
-const SEEN_KEY = "bd:habits-onboarded:v1";
 
 export function HabitsDashboard() {
   const { data: session } = useSession();
@@ -99,22 +98,22 @@ export function HabitsDashboard() {
     if (h.today) setSelectedDay((cur) => cur || h.today);
   }, [h.today]);
 
-  // First run: offer templates once, for a brand-new (empty) tracker.
+  // First run: offer templates once, for a brand-new (empty) tracker. Wait for
+  // the cloud so an existing user's habits aren't mistaken for an empty tracker,
+  // and confirm the dismissal flag against the cloud (survives cache eviction).
   useEffect(() => {
-    if (!h.hydrated) return;
+    if (!h.hydrated || !h.cloudLoaded) return;
     if (h.allHabits.length > 0) return;
-    let seen = false;
-    try {
-      seen = window.localStorage.getItem(SEEN_KEY) === "1";
-    } catch {}
-    if (!seen) setOnboardOpen(true);
-  }, [h.hydrated, h.allHabits.length]);
+    let cancelled = false;
+    fetchUiFlag("habitsOnboarded").then((seen) => {
+      if (!cancelled && !seen) setOnboardOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [h.hydrated, h.cloudLoaded, h.allHabits.length]);
 
-  const markSeen = () => {
-    try {
-      window.localStorage.setItem(SEEN_KEY, "1");
-    } catch {}
-  };
+  const markSeen = () => markUiFlag("habitsOnboarded");
 
   const nextSortOrder =
     h.allHabits.reduce((m, x) => Math.max(m, x.sortOrder), -1) + 1;

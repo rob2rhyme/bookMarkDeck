@@ -39,13 +39,13 @@ import {
   deriveAreas,
 } from "@/features/habits/lib/areas";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
+import { fetchUiFlag, markUiFlag } from "@/lib/uiPrefs";
 import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
 import type { Habit, HabitStats } from "@/features/habits/lib/types";
 
-const SEEN_KEY = "bd:habits-onboarded:v1";
 const SORT_KEY = "bd:habits-sort:v1";
 
 type SortMode = "used" | "streak" | "name" | "manual";
@@ -340,21 +340,21 @@ export function SimpleHabitsDashboard() {
     if (h.today) setSelectedDay((cur) => cur || h.today);
   }, [h.today]);
 
-  // First run: offer templates once for a brand-new (empty) tracker.
+  // First run: offer templates once for a brand-new (empty) tracker. Wait for
+  // the cloud (an existing user's habits may load a beat later) and confirm the
+  // dismissal flag against the cloud so it survives localStorage eviction.
   useEffect(() => {
-    if (!h.hydrated || h.allHabits.length > 0) return;
-    let seen = false;
-    try {
-      seen = window.localStorage.getItem(SEEN_KEY) === "1";
-    } catch {}
-    if (!seen) setOnboardOpen(true);
-  }, [h.hydrated, h.allHabits.length]);
+    if (!h.hydrated || !h.cloudLoaded || h.allHabits.length > 0) return;
+    let cancelled = false;
+    fetchUiFlag("habitsOnboarded").then((seen) => {
+      if (!cancelled && !seen) setOnboardOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [h.hydrated, h.cloudLoaded, h.allHabits.length]);
 
-  const markSeen = () => {
-    try {
-      window.localStorage.setItem(SEEN_KEY, "1");
-    } catch {}
-  };
+  const markSeen = () => markUiFlag("habitsOnboarded");
 
   const nextSortOrder =
     h.allHabits.reduce((m, x) => Math.max(m, x.sortOrder), -1) + 1;
