@@ -264,24 +264,18 @@ export default function FolderManagementPage() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  // Close the mobile row menu on outside click / Escape.
+  // Mobile action sheet open: lock body scroll + close on Escape (the blurred
+  // backdrop handles outside taps).
   useEffect(() => {
     if (!openMenuId) return;
-    const onDown = (event: PointerEvent) => {
-      const el =
-        event.target instanceof Element
-          ? event.target.closest("[data-folder-menu]")
-          : null;
-      if (el?.getAttribute("data-folder-menu") === openMenuId) return;
-      setOpenMenuId(null);
-    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpenMenuId(null);
     };
-    document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("pointerdown", onDown);
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKey);
     };
   }, [openMenuId]);
@@ -685,72 +679,17 @@ export default function FolderManagementPage() {
           </button>
           </div>
 
-          {/* Mobile: condense the same actions into a 3-dots overflow menu. */}
-          <div className="relative sm:hidden" data-folder-menu={option.id}>
-            <button
-              type="button"
-              aria-label="Folder actions"
-              aria-haspopup="true"
-              aria-expanded={menuOpen}
-              onClick={() => setOpenMenuId(menuOpen ? null : option.id)}
-              className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60`}
-            >
-              <DotsVertical className="h-4 w-4" />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 py-1 shadow-xl">
-                <Link
-                  href={`/folders/${encodeURIComponent(option.id)}`}
-                  onClick={() => setOpenMenuId(null)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800"
-                >
-                  <ExternalLink className="h-4 w-4 text-slate-400" /> Open
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpenMenuId(null);
-                    handleOpenRename(option);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-                >
-                  <Pencil className="h-4 w-4 text-slate-400" /> Rename
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpenMenuId(null);
-                    handleOpenMove(option);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-                >
-                  <FolderMoveInto className="h-4 w-4 text-slate-400" /> Move
-                </button>
-                <button
-                  type="button"
-                  disabled={!hasMergeTarget}
-                  onClick={() => {
-                    setOpenMenuId(null);
-                    handleOpenMerge(option);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent"
-                >
-                  <FolderTree className="h-4 w-4 text-slate-400" /> Merge
-                </button>
-                <button
-                  type="button"
-                  disabled={hasChildren}
-                  onClick={() => {
-                    setOpenMenuId(null);
-                    handleOpenDelete(option);
-                  }}
-                  className="flex w-full items-center gap-2 border-t border-slate-800/60 px-3 py-2 text-left text-sm text-red-300 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent"
-                >
-                  <Trash2 className="h-4 w-4" /> Delete
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Mobile: open a bottom action sheet (rendered above all cards). */}
+          <button
+            type="button"
+            aria-label="Folder actions"
+            aria-haspopup="dialog"
+            aria-expanded={menuOpen}
+            onClick={() => setOpenMenuId(option.id)}
+            className={`${iconButtonBaseClassName} hover:border-slate-500/80 hover:bg-slate-800/60 sm:hidden`}
+          >
+            <DotsVertical className="h-4 w-4" />
+          </button>
         </div>
       </div>
     );
@@ -779,6 +718,9 @@ export default function FolderManagementPage() {
   };
 
   const isSearching = query.trim().length > 0;
+  const menuFolder = openMenuId
+    ? folderOptionById.get(openMenuId) ?? null
+    : null;
 
   return (
     <div className="space-y-5">
@@ -1217,6 +1159,92 @@ export default function FolderManagementPage() {
           </div>
         )}
       </Modal>
+
+      {/* Mobile action sheet — slides up over a blurred backdrop so it never
+          sits behind the folder cards. Hidden on desktop (icon row is shown). */}
+      {menuFolder && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:hidden"
+          onClick={() => setOpenMenuId(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Actions for ${menuFolder.label}`}
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-md rounded-t-2xl border-t border-slate-800 bg-slate-950 p-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl"
+          >
+            <div
+              className="mx-auto my-1.5 h-1 w-10 rounded-full bg-slate-700"
+              aria-hidden="true"
+            />
+            <p className="truncate px-3 pb-2 text-xs font-medium text-slate-400">
+              {menuFolder.label}
+            </p>
+
+            <Link
+              href={`/folders/${encodeURIComponent(menuFolder.id)}`}
+              onClick={() => setOpenMenuId(null)}
+              className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-slate-100 transition active:bg-slate-800"
+            >
+              <ExternalLink className="h-5 w-5 text-slate-400" /> Open
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setOpenMenuId(null);
+                handleOpenRename(menuFolder);
+              }}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-slate-100 transition active:bg-slate-800"
+            >
+              <Pencil className="h-5 w-5 text-slate-400" /> Rename
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpenMenuId(null);
+                handleOpenMove(menuFolder);
+              }}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-slate-100 transition active:bg-slate-800"
+            >
+              <FolderMoveInto className="h-5 w-5 text-slate-400" /> Move
+            </button>
+            <button
+              type="button"
+              disabled={folderOptions.length <= 1}
+              onClick={() => {
+                setOpenMenuId(null);
+                handleOpenMerge(menuFolder);
+              }}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-slate-100 transition active:bg-slate-800 disabled:opacity-40 disabled:active:bg-transparent"
+            >
+              <FolderTree className="h-5 w-5 text-slate-400" /> Merge
+            </button>
+            <button
+              type="button"
+              disabled={folderIdsWithChildren.has(menuFolder.id)}
+              onClick={() => {
+                setOpenMenuId(null);
+                handleOpenDelete(menuFolder);
+              }}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-red-300 transition active:bg-red-950/40 disabled:opacity-40 disabled:active:bg-transparent"
+            >
+              <Trash2 className="h-5 w-5" /> Delete
+              {folderIdsWithChildren.has(menuFolder.id) && (
+                <span className="text-[11px] text-slate-500">(has subfolders)</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOpenMenuId(null)}
+              className="mt-1 w-full rounded-xl border border-slate-800 px-3 py-3 text-sm font-medium text-slate-300 transition active:bg-slate-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <Modal open={showCreateModal} title="Create folder" onClose={closeCreateModal}>
         <div className="space-y-3">
