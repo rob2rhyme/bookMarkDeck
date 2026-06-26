@@ -2,6 +2,7 @@
 
 import { Check, Emoji, Note, Pencil, SkipForward } from "@/components/icons";
 import { HabitRing } from "@/features/habits/components/HabitRing";
+import { RowMenu, type RowMenuItem } from "@/features/habits/components/RowMenu";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import {
   type Habit,
@@ -49,6 +50,30 @@ export function HabitCard({
     : measurable
       ? Math.min(1, stats.countToday / target)
       : 0;
+
+  // Secondary actions collapse into a 3-dots menu; the ring + stepper stay inline.
+  const menuItems: RowMenuItem[] = [];
+  if (!stats.doneToday && !skipped) {
+    menuItems.push({
+      label: "Skip today",
+      icon: <SkipForward className="h-4 w-4 text-slate-400" />,
+      onClick: () => onSkip(habit),
+    });
+  }
+  if (onDetail) {
+    menuItems.push({
+      label: "Note / time",
+      icon: <Note className="h-4 w-4 text-slate-400" />,
+      onClick: () => onDetail(habit),
+    });
+  }
+  if (onEdit) {
+    menuItems.push({
+      label: "Edit",
+      icon: <Pencil className="h-4 w-4 text-slate-400" />,
+      onClick: () => onEdit(habit),
+    });
+  }
 
   return (
     <div
@@ -125,7 +150,7 @@ export function HabitCard({
         )}
       </div>
 
-      {/* Right side: undo (after a tap), measurable stepper, skip affordance. */}
+      {/* Right side: undo (after a tap), measurable stepper, ⋯ menu (skip/note/edit). */}
       <div className="flex shrink-0 items-center gap-1.5">
         {canUndo && onUndo && !skipped && (
           <button
@@ -158,41 +183,7 @@ export function HabitCard({
             </button>
           </div>
         )}
-        {!stats.doneToday && !skipped && (
-          <button
-            type="button"
-            onClick={() => onSkip(habit)}
-            aria-label={`Skip ${habit.name} today`}
-            title="Skip today"
-            className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
-          >
-            <SkipForward className="h-4 w-4 sm:hidden" />
-            <span className="hidden sm:inline">Skip</span>
-          </button>
-        )}
-        {onDetail && (
-          <button
-            type="button"
-            onClick={() => onDetail(habit)}
-            aria-label={`Add note or time for ${habit.name}`}
-            className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
-            title="Note / time"
-          >
-            <Note className="h-4 w-4" />
-          </button>
-        )}
-        {onEdit && (
-          <button
-            type="button"
-            onClick={() => onEdit(habit)}
-            aria-label={`Edit ${habit.name}`}
-            title="Edit"
-            className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
-          >
-            <Pencil className="h-4 w-4 sm:hidden" />
-            <span className="hidden sm:inline">Edit</span>
-          </button>
-        )}
+        <RowMenu label={`Options for ${habit.name}`} items={menuItems} />
       </div>
     </div>
   );
