@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
 import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { ExpandToggle } from "@/components/ExpandToggle";
+import { ChevronUp } from "@/components/icons";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { JournalNote } from "@/features/focus/lib/types";
 
@@ -50,6 +51,69 @@ function timeOf(iso: string | null): string {
   const ampm = h >= 12 ? "PM" : "AM";
   h = h % 12 || 12;
   return `${h}:${min} ${ampm}`;
+}
+
+/** First `n` words of a dream, with an ellipsis when there's more. */
+function firstWords(text: string, n = 15): { preview: string; truncated: boolean } {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= n) return { preview: text.trim(), truncated: false };
+  return { preview: words.slice(0, n).join(" ") + "…", truncated: true };
+}
+
+/**
+ * A single dream as a collapsible card: date · time, a 15-word preview, and its
+ * insights/themes badges. Click the header to expand the full text — keeps the
+ * timeline scannable. Tag buttons sit outside the toggle so they stay clickable.
+ */
+function DreamCard({
+  note,
+  today,
+  onTagClick,
+}: {
+  note: JournalNote;
+  today: string;
+  onTagClick: (tag: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { preview, truncated } = firstWords(note.text);
+  const hasAttrs =
+    note.lucid ||
+    note.nightmare ||
+    !!note.vividness ||
+    (note.tags?.length ?? 0) > 0;
+
+  return (
+    <li className="rounded-lg border border-slate-800/70 bg-slate-950/40">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-slate-900/40"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] tabular-nums text-slate-500">
+            {dayLabel(note.day, today)}
+            {note.createdAt ? ` · ${timeOf(note.createdAt)}` : ""}
+          </span>
+          <span className="mt-0.5 block whitespace-pre-wrap break-words text-sm text-slate-200">
+            {open ? note.text : preview}
+          </span>
+        </span>
+        {truncated && (
+          <ChevronUp
+            className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500 transition ${
+              open ? "" : "rotate-180"
+            }`}
+          />
+        )}
+      </button>
+      {hasAttrs && (
+        <div className="px-3 pb-2">
+          <DreamBadges note={note} onTagClick={onTagClick} />
+        </div>
+      )}
+    </li>
+  );
 }
 
 export function DreamPanel({ notesByDay }: DreamPanelProps) {
@@ -304,40 +368,25 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
         )}
       </div>
 
-      {/* Dreams-only timeline */}
-      <div className="mt-4 flex flex-col gap-4">
-        {timeline.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
-            No dreams match these filters.
-          </p>
-        ) : (
-          timeline.map((d) => (
-            <div key={d.day}>
-              <p className="mb-2 text-xs font-medium text-slate-400">
-                {dayLabel(d.day, today)}
-              </p>
-              <ul className="flex flex-col gap-2">
-                {d.notes.map((n) => (
-                  <li
-                    key={n.id}
-                    className="rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
-                  >
-                    {n.createdAt && (
-                      <span className="mb-0.5 block text-[11px] tabular-nums text-slate-500">
-                        {timeOf(n.createdAt)}
-                      </span>
-                    )}
-                    <span className="block whitespace-pre-wrap break-words text-sm text-slate-200">
-                      {n.text}
-                    </span>
-                    <DreamBadges note={n} onTagClick={setSelectedTag} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))
-        )}
-      </div>
+      {/* Dreams-only timeline — one collapsible card per dream */}
+      {timeline.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+          No dreams match these filters.
+        </p>
+      ) : (
+        <ul className="mt-4 flex flex-col gap-2">
+          {timeline
+            .flatMap((d) => d.notes)
+            .map((n) => (
+              <DreamCard
+                key={n.id}
+                note={n}
+                today={today}
+                onTagClick={setSelectedTag}
+              />
+            ))}
+        </ul>
+      )}
         </>
       )}
 
