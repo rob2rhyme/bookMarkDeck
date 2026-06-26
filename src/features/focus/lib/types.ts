@@ -17,6 +17,8 @@ export type FocusSessionRecord = {
   day: string; // YYYY-MM-DD
   taskId: string | null;
   createdAt: string | null; // ISO timestamp of completion (for the timeline)
+  intention?: string; // what you set out to focus on (Session-style)
+  reflection?: string; // a quick note jotted after the block
 };
 
 export type JournalEntry = {

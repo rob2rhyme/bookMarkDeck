@@ -19,6 +19,7 @@ import {
   X,
 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
+import { useBookmarkView, bookmarkGridClass } from "@/hooks/useBookmarkView";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
 import { makeFolderOptions } from "@/utils/folderOptions";
@@ -122,6 +123,7 @@ export default function FolderPage() {
     snapshot: Bookmark[];
   } | null>(null);
   const [bookmarkQuery, setBookmarkQuery] = useState("");
+  const { view: bookmarkView, setView: setBookmarkView } = useBookmarkView();
 
   const breadcrumbs = useMemo(() => {
     if (!currentFolder) return [];
@@ -556,7 +558,8 @@ export default function FolderPage() {
         </div>
       ) : (
         <>
-          <div className="relative mb-5">
+          <div className="mb-5 flex items-center gap-2">
+          <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
@@ -590,6 +593,29 @@ export default function FolderPage() {
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
+          </div>
+            <div className="inline-flex shrink-0 rounded-xl border border-slate-800 bg-slate-900 p-0.5">
+              {(
+                [
+                  ["comfortable", "Comfort"],
+                  ["compact", "Compact"],
+                ] as const
+              ).map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={bookmarkView === v}
+                  onClick={() => setBookmarkView(v)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                    bookmarkView === v
+                      ? "bg-slate-800 text-slate-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {searchActive &&
@@ -679,7 +705,7 @@ export default function FolderPage() {
               )}
 
               {(searchActive ? filteredItems : folderItems).length > 0 ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                <div className={bookmarkGridClass(bookmarkView)}>
                   {(searchActive ? filteredItems : folderItems).map((bookmark) => (
                     <BookmarkCard
                       key={bookmark.id}

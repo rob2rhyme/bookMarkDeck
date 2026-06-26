@@ -393,6 +393,7 @@ export function HabitsDashboard() {
                       </p>
                       <p className="truncate text-[11px] text-slate-500">
                         {scheduleLabel(habit)} · 🔥 {st.currentStreak} · {st.rate}%
+                        {" · 💪 "}{st.strength}%
                         {habit.reminder ? ` · 🔔 ${habit.reminder}` : ""}
                       </p>
                     </div>

@@ -150,6 +150,7 @@ function SortMenu({
 function ManageRow({
   habit,
   streak,
+  strength,
   onEdit,
   onFocus,
   onArchive,
@@ -157,6 +158,7 @@ function ManageRow({
 }: {
   habit: Habit;
   streak: number;
+  strength: number;
   onEdit: (h: Habit) => void;
   onFocus: (h: Habit) => void;
   onArchive: (h: Habit) => void;
@@ -205,6 +207,7 @@ function ManageRow({
         <p className="truncate text-[11px] text-slate-500">
           {scheduleLabel(habit)}
           {streak > 0 ? ` · 🔥 ${streak}` : ""}
+          {` · 💪 ${strength}%`}
         </p>
       </div>
       <div className="relative" ref={ref}>
@@ -627,6 +630,7 @@ export function SimpleHabitsDashboard() {
                     key={habit.id}
                     habit={habit}
                     streak={h.statsByHabit.get(habit.id)?.currentStreak ?? 0}
+                    strength={h.statsByHabit.get(habit.id)?.strength ?? 0}
                     onEdit={openEdit}
                     onFocus={launchFocus}
                     onArchive={(x) => h.setArchived(x.id, true)}

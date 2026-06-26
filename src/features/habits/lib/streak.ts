@@ -27,6 +27,12 @@ function isSuccess(entry: HabitEntry | undefined, target: number): boolean {
 
 const MAX_LOOKBACK = 800; // hard bound so a sparse log can't loop forever
 
+// Habit "strength" (Loop-style): an exponential moving average of completion
+// over scheduled units, so a recent win matters more than an old one and one
+// miss doesn't erase weeks of progress. Half-life ≈ 15 scheduled days / 6 weeks.
+const DAILY_DECAY = Math.pow(0.5, 1 / 15);
+const WEEKLY_DECAY = Math.pow(0.5, 1 / 6);
+
 /** Compute the full stat block for one habit as of `today` (a day key). */
 export function computeStats(
   habit: Habit,
@@ -86,10 +92,11 @@ function dailyStats(
     day = addDays(day, -1);
   }
 
-  // Longest streak + total + 30-day rate — forward scan over the logged range.
+  // Longest streak + total + strength — forward scan over the logged range.
   let longest = 0;
   let run = 0;
   let total = 0;
+  let strengthScore = 0;
   const start = earliest ?? oldestKey(byDay) ?? today;
   let cur = start;
   let guard = 0;
@@ -100,11 +107,14 @@ function dailyStats(
         run++;
         total++;
         if (run > longest) longest = run;
+        strengthScore = strengthScore * DAILY_DECAY + (1 - DAILY_DECAY);
       } else if (e?.status === "skipped") {
-        // neutral — preserves the run
+        // neutral — preserves the run and leaves strength undisturbed
       } else if (cur !== today) {
         run = 0;
+        strengthScore = strengthScore * DAILY_DECAY; // a miss decays, never zeroes
       }
+      // today-not-yet-done is forgiving: leave strength untouched
     }
     cur = addDays(cur, 1);
   }
@@ -130,6 +140,7 @@ function dailyStats(
     longestStreak: longest,
     totalDone: total,
     rate,
+    strength: Math.round(strengthScore * 100),
   };
 }
 
@@ -192,6 +203,24 @@ function weeklyStats(
   // Count the current in-progress week toward "longest" only if it qualifies.
   longest = Math.max(longest, current);
 
+  // Strength — EMA of weekly completion fraction across every week since the
+  // first log; the in-progress week is forgiving (only counts once it qualifies).
+  const oldest = oldestKey(byDay);
+  let strengthScore = 0;
+  if (oldest) {
+    let w2 = weekKeyOf(oldest);
+    let g = 0;
+    while (w2 <= thisWeek && g++ < 600) {
+      const done = perWeek.get(w2) ?? 0;
+      const inProgress = w2 === thisWeek && done < weekTarget;
+      if (!inProgress) {
+        const frac = weekTarget === 0 ? 0 : Math.min(1, done / weekTarget);
+        strengthScore = strengthScore * WEEKLY_DECAY + frac * (1 - WEEKLY_DECAY);
+      }
+      w2 = addDays(w2, 7);
+    }
+  }
+
   return {
     dueToday: weekDone < weekTarget,
     doneToday,
@@ -200,6 +229,7 @@ function weeklyStats(
     longestStreak: longest,
     totalDone: total,
     rate: weekTarget === 0 ? 0 : Math.min(100, Math.round((weekDone / weekTarget) * 100)),
+    strength: Math.round(strengthScore * 100),
     weekDone,
     weekTarget,
   };

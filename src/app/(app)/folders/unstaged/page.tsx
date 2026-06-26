@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { ArrowLeft, Search, X } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
+import { useBookmarkView, bookmarkGridClass } from "@/hooks/useBookmarkView";
 import { Bookmark } from "@/types/bookmark";
 import { makeFolderOptions } from "@/utils/folderOptions";
 
@@ -37,6 +38,7 @@ export default function UnstagedFolderPage() {
     snapshot: Bookmark[];
   } | null>(null);
   const [bookmarkQuery, setBookmarkQuery] = useState("");
+  const { view: bookmarkView, setView: setBookmarkView } = useBookmarkView();
 
   const folderOptions = useMemo(() => {
     return makeFolderOptions(folders);
@@ -242,7 +244,8 @@ export default function UnstagedFolderPage() {
         </div>
       ) : (
         <>
-          <div className="relative mb-4">
+          <div className="mb-4 flex items-center gap-2">
+          <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
@@ -265,13 +268,36 @@ export default function UnstagedFolderPage() {
               </button>
             )}
           </div>
+            <div className="inline-flex shrink-0 rounded-xl border border-slate-800 bg-slate-900 p-0.5">
+              {(
+                [
+                  ["comfortable", "Comfort"],
+                  ["compact", "Compact"],
+                ] as const
+              ).map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={bookmarkView === v}
+                  onClick={() => setBookmarkView(v)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                    bookmarkView === v
+                      ? "bg-slate-800 text-slate-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {filteredItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
               No bookmarks match “{bookmarkQuery.trim()}”.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+            <div className={bookmarkGridClass(bookmarkView)}>
               {filteredItems.map((bookmark) => (
                 <BookmarkCard
                   key={bookmark.id}

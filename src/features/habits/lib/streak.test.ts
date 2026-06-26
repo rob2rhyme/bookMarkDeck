@@ -117,3 +117,32 @@ describe("computeStats — timesPerWeek", () => {
     expect(s.totalDone).toBe(5);
   });
 });
+
+describe("computeStats — strength", () => {
+  it("is 0 with no completions and rises with consistency", () => {
+    const none = computeStats(mk(), [], TODAY);
+    expect(none.strength).toBe(0);
+
+    const days = Array.from({ length: 30 }, (_, i) => e(addBack(TODAY, i)));
+    const strong = computeStats(mk(), days, TODAY);
+    expect(strong.strength).toBeGreaterThan(70);
+  });
+
+  it("decays but never zeroes after a recent miss", () => {
+    const days = Array.from({ length: 30 }, (_, i) => e(addBack(TODAY, i + 1)));
+    const beforeMiss = computeStats(mk(), days, addBack(TODAY, 1)).strength;
+    // …then a missed `today` (no entry for TODAY) — strength dips, stays > 0.
+    const afterMiss = computeStats(mk(), days, addBack(TODAY, -1)).strength;
+    expect(afterMiss).toBeLessThan(beforeMiss);
+    expect(afterMiss).toBeGreaterThan(0);
+  });
+});
+
+function addBack(day: string, n: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  const dt = new Date(y, m - 1, d - n);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}

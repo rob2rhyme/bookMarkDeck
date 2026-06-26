@@ -6,6 +6,7 @@ import {
   countSessionsForDay,
   logSession,
   todayKey,
+  updateSessionMeta,
 } from "@/features/focus/data/focusData";
 import { initAudio } from "@/features/focus/lib/sound";
 import {
@@ -35,6 +36,8 @@ type UseFocusTimerArgs = {
   email?: string | null;
   connected?: boolean;
   activeTaskId?: string | null;
+  /** The current focus intention, logged with the next completed focus block. */
+  intention?: string;
   /** Called after a focus block is logged (focusMin, taskId at completion). */
   onFocusComplete?: (focusMin: number, taskId: string | null) => void;
 };
@@ -58,6 +61,7 @@ export function useFocusTimer({
   email,
   connected = false,
   activeTaskId,
+  intention,
   onFocusComplete,
 }: UseFocusTimerArgs) {
   const durationFor = useCallback(
@@ -83,6 +87,8 @@ export function useFocusTimer({
   const completedRef = useRef(0);
   const settingsRef = useRef(settings);
   const taskRef = useRef<string | null | undefined>(activeTaskId);
+  const intentionRef = useRef<string | undefined>(intention);
+  const lastSessionIdRef = useRef<string | null>(null);
   const lastModeDurRef = useRef(settings.focus * 60);
   const handleCompleteRef = useRef<(opts?: { skipNotify?: boolean }) => void>(
     () => {}
@@ -119,6 +125,9 @@ export function useFocusTimer({
   useEffect(() => {
     taskRef.current = activeTaskId;
   }, [activeTaskId]);
+  useEffect(() => {
+    intentionRef.current = intention;
+  }, [intention]);
 
   const clearTick = () => {
     if (intervalRef.current) {
@@ -186,8 +195,13 @@ export function useFocusTimer({
       completedRef.current = newCount;
       setCompletedToday(newCount);
       const taskId = taskRef.current ?? null;
+      lastSessionIdRef.current = null;
       if (canSync && email) {
-        logSession(email, s.focus, todayKey(), taskId).catch(() => {});
+        logSession(email, s.focus, todayKey(), taskId, intentionRef.current)
+          .then((id) => {
+            lastSessionIdRef.current = id;
+          })
+          .catch(() => {});
       }
       onFocusComplete?.(s.focus, taskId);
       if (!skipNotify) {
@@ -380,6 +394,17 @@ export function useFocusTimer({
   const untilLongBreak =
     settings.sessionsUntilLong - (completedToday % settings.sessionsUntilLong);
 
+  // Attach a post-block reflection note to the session that just finished.
+  const setReflection = useCallback(
+    (text: string) => {
+      const id = lastSessionIdRef.current;
+      if (id && canSync && email) {
+        updateSessionMeta(email, id, { reflection: text }).catch(() => {});
+      }
+    },
+    [canSync, email]
+  );
+
   return {
     mode,
     secondsLeft,
@@ -389,6 +414,7 @@ export function useFocusTimer({
     completedToday,
     untilLongBreak,
     alert,
+    setReflection,
     dismissAlert: useCallback(() => setAlert(null), []),
     toggle,
     reset,
