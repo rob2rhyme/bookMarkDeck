@@ -710,6 +710,7 @@ export function SimpleHabitsDashboard() {
                     onLogEntry={(habit, day, detail) =>
                       h.logEntryFor(habit, day, detail)
                     }
+                    collapsible={false}
                   />
                   <FocusCorrelationCard
                     habits={h.allHabits}

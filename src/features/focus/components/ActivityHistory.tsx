@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Trash2, X } from "@/components/icons";
+import { ExpandToggle } from "@/components/ExpandToggle";
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
 import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
 import type { ActivityEvent, ActivityType } from "@/features/focus/data/focusData";
@@ -102,6 +103,7 @@ export function ActivityHistory({
 }: ActivityHistoryProps) {
   const [selectedDay, setSelectedDay] = useState<string>("");
   const [pendingDelete, setPendingDelete] = useState<TimelineItem | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [deleted, setDeleted] = useState<TimelineItem[]>([]);
   const [undoIds, setUndoIds] = useState<string[]>([]);
   const [showDeleted, setShowDeleted] = useState(false);
@@ -233,6 +235,12 @@ export function ActivityHistory({
         </p>
       ) : (
         <>
+          <p className="text-sm text-slate-400">
+            {buckets.size} active {buckets.size === 1 ? "day" : "days"} · last{" "}
+            {dayLabel(latestActiveDay)}
+          </p>
+          {expanded && (
+            <>
           <ContributionsCalendar
             counts={counts}
             selected={effectiveDay}
@@ -303,6 +311,14 @@ export function ActivityHistory({
               </ol>
             )}
           </div>
+            </>
+          )}
+          <ExpandToggle
+            expanded={expanded}
+            onToggle={() => setExpanded((v) => !v)}
+            moreLabel="Show calendar & timeline"
+            className="mt-4"
+          />
         </>
       )}
 

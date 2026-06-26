@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
 import { DreamBadges } from "@/features/focus/components/DreamBadges";
+import { ExpandToggle } from "@/components/ExpandToggle";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { JournalNote } from "@/features/focus/lib/types";
 
@@ -55,6 +56,7 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
   const [query, setQuery] = useState("");
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
+  const [expanded, setExpanded] = useState(false);
 
   const dreams = useMemo(
     () =>
@@ -200,6 +202,8 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
         {dreamDays.size} night{dreamDays.size === 1 ? "" : "s"}
       </p>
 
+      {expanded && (
+        <>
       {/* Recall heatmap — a lit square is a night a dream was logged. */}
       <div className="mt-6">
         <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
@@ -334,6 +338,15 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
           ))
         )}
       </div>
+        </>
+      )}
+
+      <ExpandToggle
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+        moreLabel="Show heatmap, insights & timeline"
+        className="mt-6"
+      />
     </section>
   );
 }

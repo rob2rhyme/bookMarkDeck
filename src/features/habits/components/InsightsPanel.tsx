@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
 import { ChevronUp, Trash2 } from "@/components/icons";
+import { ExpandToggle } from "@/components/ExpandToggle";
 import { DayLogEditor } from "@/features/habits/components/DayLogEditor";
 import { addDays, parseDay } from "@/features/habits/lib/day";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
@@ -34,6 +35,8 @@ type InsightsPanelProps = {
     day: string,
     detail: { status: "done" | "skipped" | "clear"; count?: number }
   ) => void;
+  /** When true (default), collapse everything below the summary tiles. */
+  collapsible?: boolean;
 };
 
 function Tile({ label, value }: { label: string; value: string }) {
@@ -177,9 +180,11 @@ export function InsightsPanel({
   onSelectDay,
   onRemoveEntry,
   onLogEntry,
+  collapsible = true,
 }: InsightsPanelProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [openHabitId, setOpenHabitId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const overall = useMemo(() => {
     let active = 0;
@@ -237,6 +242,8 @@ export function InsightsPanel({
         <Tile label="Total check-ins" value={String(overall.total)} />
       </div>
 
+      {(!collapsible || expanded) && (
+        <>
       {/* Weekly completion chart */}
       <div className="mb-2 mt-6 flex items-center justify-between gap-2">
         <p className="text-[11px] uppercase tracking-wide text-slate-500">
@@ -425,6 +432,17 @@ export function InsightsPanel({
             />
           )}
         </div>
+      )}
+        </>
+      )}
+
+      {collapsible && (
+        <ExpandToggle
+          expanded={expanded}
+          onToggle={() => setExpanded((v) => !v)}
+          moreLabel="Show charts & breakdown"
+          className="mt-6"
+        />
       )}
     </section>
   );
