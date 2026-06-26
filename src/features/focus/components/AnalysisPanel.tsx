@@ -9,6 +9,7 @@ import {
   MOOD_SCORE,
   type MoodKey,
 } from "@/features/focus/lib/mood";
+import type { FocusSessionRecord } from "@/features/focus/lib/types";
 
 type AnalysisPanelProps = {
   available: boolean;
@@ -31,6 +32,7 @@ type AnalysisPanelProps = {
   weekTaskMin: Record<string, number>;
   taskNameById: Record<string, string>;
   moodByDay: Record<string, MoodKey>;
+  sessions: FocusSessionRecord[];
 };
 
 function hours(min: number) {
@@ -58,6 +60,7 @@ export function AnalysisPanel({
   weekTaskMin,
   taskNameById,
   moodByDay,
+  sessions,
 }: AnalysisPanelProps) {
   const maxSessions = Math.max(1, ...last7.map((d) => d.sessions));
   const goalMin = dailyGoalHours * 60;
@@ -136,6 +139,37 @@ export function AnalysisPanel({
     );
     return { segments, dots, hasAny: dots.length > 0 };
   }, [last7, moodByDay]);
+
+  // Focus rhythm — when in the day you focus most (minutes per hour, all-time).
+  const rhythm = useMemo(() => {
+    const byHour = new Array(24).fill(0) as number[];
+    for (const s of sessions) {
+      if (!s.createdAt) continue;
+      byHour[new Date(s.createdAt).getHours()] += s.focusMin;
+    }
+    const max = Math.max(1, ...byHour);
+    let peak = 0;
+    for (let i = 1; i < 24; i++) if (byHour[i] > byHour[peak]) peak = i;
+    return { byHour, max, peak, hasAny: byHour.some((v) => v > 0) };
+  }, [sessions]);
+
+  // Recurring intentions across all logged sessions.
+  const topIntentions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of sessions) {
+      const t = s.intention?.trim();
+      if (t) counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 5);
+  }, [sessions]);
+
+  const formatHour = (h: number) => {
+    const ampm = h >= 12 ? "pm" : "am";
+    const hr = h % 12 || 12;
+    return `${hr}${ampm}`;
+  };
 
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
@@ -329,6 +363,61 @@ export function AnalysisPanel({
                   />
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Focus rhythm — minutes of focus by hour of day. */}
+          {rhythm.hasAny && (
+            <div className="mt-6">
+              <div className="mb-1 flex items-baseline justify-between">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Focus rhythm
+                </p>
+                <span className="text-[11px] text-slate-400">
+                  peak ~{formatHour(rhythm.peak)}
+                </span>
+              </div>
+              <div className="flex h-12 items-end gap-px">
+                {rhythm.byHour.map((min, h) => (
+                  <div
+                    key={h}
+                    title={`${formatHour(h)} · ${min} min`}
+                    className={`flex-1 rounded-sm ${
+                      h === rhythm.peak ? "bg-blue-500" : "bg-blue-500/30"
+                    }`}
+                    style={{ height: `${Math.max((min / rhythm.max) * 100, min > 0 ? 8 : 2)}%` }}
+                  />
+                ))}
+              </div>
+              <div className="mt-1 flex justify-between text-[10px] text-slate-600">
+                <span>12a</span>
+                <span>6a</span>
+                <span>12p</span>
+                <span>6p</span>
+                <span>11p</span>
+              </div>
+            </div>
+          )}
+
+          {/* Top intentions */}
+          {topIntentions.length > 0 && (
+            <div className="mt-6">
+              <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                Top intentions
+              </p>
+              <ul className="flex flex-col gap-1.5">
+                {topIntentions.map(([intention, count]) => (
+                  <li
+                    key={intention}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <span className="truncate text-slate-300">{intention}</span>
+                    <span className="shrink-0 tabular-nums text-slate-500">
+                      ×{count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

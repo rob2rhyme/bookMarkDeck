@@ -16,6 +16,8 @@ type FocusSettingsModalProps = {
   settings: FocusSettings;
   onUpdate: (patch: Partial<FocusSettings>) => void;
   onReset: () => void;
+  onExportJson?: () => void;
+  onExportCsv?: () => void;
   onClose: () => void;
 };
 
@@ -102,6 +104,8 @@ export function FocusSettingsModal({
   settings,
   onUpdate,
   onReset,
+  onExportJson,
+  onExportCsv,
   onClose,
 }: FocusSettingsModalProps) {
   useEffect(() => {
@@ -217,6 +221,34 @@ export function FocusSettingsModal({
           event), and shows your Google Calendar agenda + today’s events here.
           Sign out and back in once to grant access.
         </p>
+
+        {(onExportJson || onExportCsv) && (
+          <div className="mt-6 border-t border-slate-800/60 pt-4">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              Export your data
+            </p>
+            <div className="mt-2 flex gap-2">
+              {onExportCsv && (
+                <button
+                  type="button"
+                  onClick={onExportCsv}
+                  className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+                >
+                  Sessions CSV
+                </button>
+              )}
+              {onExportJson && (
+                <button
+                  type="button"
+                  onClick={onExportJson}
+                  className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+                >
+                  All data JSON
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         <p className="mt-6 text-center text-[11px] text-slate-500">
           Changes are saved automatically.

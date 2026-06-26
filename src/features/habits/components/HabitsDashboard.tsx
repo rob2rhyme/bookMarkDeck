@@ -32,6 +32,8 @@ import {
   DEFAULT_AREA_ICON,
   deriveAreas,
 } from "@/features/habits/lib/areas";
+import { entriesToCsv, habitsToJson } from "@/features/habits/lib/exportHabits";
+import { downloadText } from "@/utils/download";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
@@ -324,19 +326,47 @@ export function HabitsDashboard() {
 
           {/* All habits / manage */}
           <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
                 All habits
               </h3>
-              {h.archived.length > 0 && (
+              <div className="flex items-center gap-3 text-xs text-slate-500">
                 <button
                   type="button"
-                  onClick={() => setShowArchived((v) => !v)}
-                  className="text-xs text-slate-500 transition hover:text-slate-300"
+                  onClick={() =>
+                    downloadText(
+                      `habits-${todayKey()}.csv`,
+                      entriesToCsv(h.allHabits, h.entries),
+                      "text/csv"
+                    )
+                  }
+                  className="transition hover:text-slate-300"
                 >
-                  {showArchived ? "Hide" : "Show"} archived ({h.archived.length})
+                  Export CSV
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadText(
+                      `habits-${todayKey()}.json`,
+                      habitsToJson(h.allHabits, h.entries, new Date().toISOString()),
+                      "application/json"
+                    )
+                  }
+                  className="transition hover:text-slate-300"
+                >
+                  JSON
+                </button>
+                {h.archived.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowArchived((v) => !v)}
+                    className="transition hover:text-slate-300"
+                  >
+                    {showArchived ? "Hide" : "Show"} archived ({h.archived.length})
+                  </button>
+                )}
+              </div>
             </div>
             {/* Nudge once there are habits but no areas yet. */}
             {!hasAreas && h.habits.length > 0 && (
