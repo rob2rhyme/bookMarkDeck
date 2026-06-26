@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
-import { Emoji, Timer } from "@/components/icons";
+import { Archive, Emoji, Pencil, Timer, Trash } from "@/components/icons";
 import { FocusCorrelationCard } from "@/features/habits/components/FocusCorrelationCard";
 import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
 import {
@@ -467,24 +467,32 @@ export function HabitsDashboard() {
                     <button
                       type="button"
                       onClick={() => h.setArchived(habit.id, true)}
-                      className="rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
+                      aria-label={`Archive ${habit.name}`}
+                      title="Archive"
+                      className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
                     >
-                      Archive
+                      <Archive className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Archive</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => openEdit(habit)}
-                      className="rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
+                      aria-label={`Edit ${habit.name}`}
+                      title="Edit"
+                      className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
                     >
-                      Edit
+                      <Pencil className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Edit</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => removeHabitConfirmed(habit)}
                       aria-label={`Delete ${habit.name}`}
-                      className="rounded-full px-2 py-1 text-[11px] text-red-400/80 transition hover:bg-red-950/40 hover:text-red-300"
+                      title="Delete"
+                      className="inline-flex items-center justify-center rounded-full px-2 py-1 text-[11px] text-red-400/80 transition hover:bg-red-950/40 hover:text-red-300"
                     >
-                      Delete
+                      <Trash className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Delete</span>
                     </button>
                   </div>
                 );
