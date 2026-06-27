@@ -221,8 +221,8 @@ export function CommandPalette() {
       open={open}
       onClose={close}
       label="Command palette"
-      overlayClassName="inset-0 flex items-start justify-center sm:px-4 sm:py-[8vh]"
-      panelClassName="flex h-[calc(100dvh-var(--bottom-nav-h))] w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
+      overlayClassName="inset-x-0 top-0 bottom-[var(--bottom-nav-h)] flex items-stretch justify-center sm:inset-0 sm:items-start sm:px-4 sm:py-[8vh]"
+      panelClassName="flex h-full w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
     >
       <input
         ref={inputRef}
@@ -236,10 +236,10 @@ export function CommandPalette() {
       />
       <ul
         ref={listRef}
-        className="min-h-0 flex-1 overflow-y-auto py-2 sm:max-h-[65vh] sm:flex-none"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2 sm:max-h-[65vh] sm:flex-none"
       >
         {filtered.length === 0 ? (
-          <li className="px-5 py-6 text-center text-sm text-slate-500">
+          <li className="px-2.5 py-6 text-center text-sm text-slate-500">
             No matches.
           </li>
         ) : (
@@ -249,31 +249,34 @@ export function CommandPalette() {
             return (
               <li key={c.id}>
                 {showGroup && (
-                  <p className="px-5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="px-2.5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     {c.group}
                   </p>
                 )}
+                {/* Each result is a self-contained horizontal card: an icon tile,
+                    then the title + URL stacked and truncated so long links never
+                    push the row wide (no horizontal scroll). */}
                 <button
                   type="button"
                   onMouseEnter={() => setActive(i)}
                   onClick={() => c.run()}
-                  className={`flex w-full items-center justify-between gap-3 px-5 py-2 text-left text-sm ${
+                  className={`mb-1 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left ${
                     i === active
-                      ? "bg-slate-800 text-slate-50"
-                      : "text-slate-200"
+                      ? "border-slate-700 bg-slate-800 text-slate-50"
+                      : "border-transparent text-slate-200 hover:border-slate-800 hover:bg-slate-900/60"
                   }`}
                 >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400">
-                      {c.icon}
-                    </span>
-                    <span className="min-w-0 truncate">{c.label}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-800/70 text-slate-400">
+                    {c.icon}
                   </span>
-                  {c.hint && (
-                    <span className="shrink-0 truncate text-xs text-slate-500">
-                      {c.hint}
-                    </span>
-                  )}
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm">{c.label}</span>
+                    {c.hint && (
+                      <span className="truncate text-xs text-slate-500">
+                        {c.hint}
+                      </span>
+                    )}
+                  </span>
                 </button>
               </li>
             );
