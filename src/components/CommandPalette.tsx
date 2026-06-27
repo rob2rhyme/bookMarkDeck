@@ -8,6 +8,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Modal } from "@/components/Modal";
+import {
+  Bookmark,
+  FolderTree,
+  HelpCircle,
+  Plus,
+  Timer,
+} from "@/components/icons";
 
 export const OPEN_COMMAND_PALETTE_EVENT = "bd:open-command-palette";
 
@@ -19,8 +26,32 @@ type Command = {
   hint?: string;
   group: "Navigation" | "Actions" | "Bookmarks";
   keywords?: string;
+  icon: React.ReactNode;
   run: () => void;
 };
+
+/** A bookmark's favicon, falling back to a generic icon if it fails to load. */
+function Favicon({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    /* invalid url */
+  }
+  if (failed || !host) return <Bookmark className="h-4 w-4 text-slate-500" />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- tiny remote favicon, no layout need for next/image
+    <img
+      src={`https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`}
+      alt=""
+      width={16}
+      height={16}
+      className="h-4 w-4 rounded-sm"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 /** Read bookmarks from every per-user localStorage cache, deduped by URL. */
 function readCachedBookmarks(): CachedBookmark[] {
@@ -103,10 +134,10 @@ export function CommandPalette() {
       router.push(href);
     };
     const nav: Command[] = [
-      { id: "nav-home", label: "Go to Bookmarks", group: "Navigation", run: go("/") },
-      { id: "nav-focus", label: "Go to Focus", group: "Navigation", run: go("/focus") },
-      { id: "nav-folders", label: "Manage folders", group: "Navigation", run: go("/folders/manage") },
-      { id: "nav-faq", label: "Open FAQ", group: "Navigation", run: go("/faq") },
+      { id: "nav-home", label: "Go to Bookmarks", group: "Navigation", icon: <Bookmark className="h-4 w-4" />, run: go("/") },
+      { id: "nav-focus", label: "Go to Focus", group: "Navigation", icon: <Timer className="h-4 w-4" />, run: go("/focus") },
+      { id: "nav-folders", label: "Manage folders", group: "Navigation", icon: <FolderTree className="h-4 w-4" />, run: go("/folders/manage") },
+      { id: "nav-faq", label: "Open FAQ", group: "Navigation", icon: <HelpCircle className="h-4 w-4" />, run: go("/faq") },
     ];
     const actions: Command[] = [
       {
@@ -114,6 +145,7 @@ export function CommandPalette() {
         label: "Add a bookmark",
         hint: "on Bookmarks",
         group: "Actions",
+        icon: <Plus className="h-4 w-4" />,
         run: () => {
           close();
           try {
@@ -128,6 +160,7 @@ export function CommandPalette() {
         id: "act-focus",
         label: "Start a focus session",
         group: "Actions",
+        icon: <Timer className="h-4 w-4" />,
         run: go("/focus"),
       },
     ];
@@ -137,6 +170,7 @@ export function CommandPalette() {
       hint: b.url.replace(/^https?:\/\/(www\.)?/, ""),
       group: "Bookmarks",
       keywords: `${b.title} ${b.url}`,
+      icon: <Favicon url={b.url} />,
       run: () => {
         close();
         window.open(b.url, "_blank", "noopener,noreferrer");
@@ -187,8 +221,8 @@ export function CommandPalette() {
       open={open}
       onClose={close}
       label="Command palette"
-      overlayClassName="flex items-stretch justify-center sm:items-start sm:px-4 sm:py-[8vh]"
-      panelClassName="flex h-[100dvh] w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
+      overlayClassName="inset-x-0 top-0 bottom-[var(--bottom-nav-h)] flex items-stretch justify-center sm:inset-0 sm:items-start sm:px-4 sm:py-[8vh]"
+      panelClassName="flex h-full w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
     >
       <input
         ref={inputRef}
@@ -229,7 +263,12 @@ export function CommandPalette() {
                       : "text-slate-200"
                   }`}
                 >
-                  <span className="min-w-0 truncate">{c.label}</span>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400">
+                      {c.icon}
+                    </span>
+                    <span className="min-w-0 truncate">{c.label}</span>
+                  </span>
                   {c.hint && (
                     <span className="shrink-0 truncate text-xs text-slate-500">
                       {c.hint}

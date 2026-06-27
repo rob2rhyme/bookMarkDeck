@@ -93,8 +93,8 @@ export function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className={`animate-bd-fade-in fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm ${
-        overlayClassName ?? "flex items-center justify-center px-4 py-[5vh]"
+      className={`animate-bd-fade-in fixed z-[70] bg-black/60 backdrop-blur-sm ${
+        overlayClassName ?? "inset-0 flex items-center justify-center px-4 py-[5vh]"
       }`}
     >
       <div
