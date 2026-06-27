@@ -1344,7 +1344,8 @@ export default function FolderManagementPage() {
           sits behind the folder cards. Hidden on desktop (icon row is shown). */}
       {menuFolder && (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:hidden"
+          style={{ bottom: "var(--bottom-nav-h)" }}
+          className="fixed inset-x-0 top-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:hidden"
           onClick={() => setOpenMenuId(null)}
         >
           <div
@@ -1352,7 +1353,7 @@ export default function FolderManagementPage() {
             aria-modal="true"
             aria-label={`Actions for ${menuFolder.label}`}
             onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-md rounded-t-2xl border-t border-slate-800 bg-slate-950 p-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl"
+            className="w-full max-w-md rounded-t-2xl border-t border-slate-800 bg-slate-950 p-2 pb-3 shadow-2xl"
           >
             <div
               className="mx-auto my-1.5 h-1 w-10 rounded-full bg-slate-700"

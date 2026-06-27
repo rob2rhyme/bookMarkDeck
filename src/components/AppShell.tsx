@@ -211,6 +211,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {session && (
         <nav
           aria-label="Primary"
+          style={{ minHeight: "var(--bottom-nav-h)" }}
           className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-800/70 bg-slate-950/95 backdrop-blur sm:hidden"
         >
           {DESTINATIONS.map((tab) => {
