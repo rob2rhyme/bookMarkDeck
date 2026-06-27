@@ -93,6 +93,7 @@ export type Quiz = {
   choices: string[]; // 2–4 options
   answer: number; // index into choices
   explain?: string; // shown after answering
+  fact?: string; // optional "Did you know?" bonus fact
 };
 
 /** Points awarded for a correct answer, by difficulty. */

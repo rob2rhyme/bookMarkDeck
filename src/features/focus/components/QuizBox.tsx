@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { Check, X } from "@/components/icons";
 import type { QuizResult } from "@/features/focus/hooks/useFocusScores";
 import {
   POINTS,
@@ -138,18 +139,50 @@ export function QuizBox({
 
       {answered && (
         <div className="mt-3">
-          <p
-            className={`text-[13px] font-medium ${correct ? "text-emerald-300" : "text-rose-300"}`}
-          >
-            {correct
-              ? `Correct! +${POINTS[quiz.level]} points`
-              : `Not quite — the answer is “${quiz.choices[quiz.answer]}”.`}
-          </p>
-          {quiz.explain && (
-            <p className="mt-1 text-[13px] leading-relaxed text-slate-400">
-              {quiz.explain}
+          {/* Result badge — premium icon in a tinted circle */}
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                correct
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "bg-rose-500/15 text-rose-300"
+              }`}
+            >
+              {correct ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+            </span>
+            <p
+              className={`text-[13px] font-semibold ${correct ? "text-emerald-300" : "text-rose-300"}`}
+            >
+              {correct
+                ? `Correct! +${POINTS[quiz.level]} points`
+                : `Not quite — the answer is “${quiz.choices[quiz.answer]}”.`}
             </p>
+          </div>
+
+          {/* Why this answer */}
+          {quiz.explain && (
+            <div className="mt-2.5 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+              <p className="mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <span aria-hidden="true">{topicEmoji(quiz.topic)}</span> Why
+              </p>
+              <p className="text-[13px] leading-relaxed text-slate-300">
+                {quiz.explain}
+              </p>
+            </div>
           )}
+
+          {/* Did you know? — bonus interesting fact */}
+          {quiz.fact && (
+            <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-950/15 p-3">
+              <p className="mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+                <span aria-hidden="true">💡</span> Did you know?
+              </p>
+              <p className="text-[13px] leading-relaxed text-amber-100/85">
+                {quiz.fact}
+              </p>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={next}
