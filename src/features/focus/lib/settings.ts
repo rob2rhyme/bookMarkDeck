@@ -2,7 +2,12 @@
 // and hooks can import it without cycles.
 
 import { isSoundId, type SoundId } from "@/features/focus/lib/sound";
-import { isTopicId, type TopicId } from "@/features/focus/lib/topics";
+import {
+  isQuizDifficulty,
+  isTopicId,
+  type QuizDifficulty,
+  type TopicId,
+} from "@/features/focus/lib/topics";
 
 export type FocusSettings = {
   // Timer durations (minutes)
@@ -25,6 +30,8 @@ export type FocusSettings = {
   todoGoogleSync: boolean;
   // "Need a push?" interests — drives quotes + quizzes. Empty = coding/general.
   interests: TopicId[];
+  // Quiz difficulty floor — "all" (default), "medium" (harder), "hard" (expert).
+  quizDifficulty: QuizDifficulty;
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
@@ -42,6 +49,7 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   dailyGoalHours: 4,
   todoGoogleSync: false,
   interests: [],
+  quizDifficulty: "all",
 };
 
 /** Coerce arbitrary stored/remote data into a valid, clamped settings object. */
@@ -70,5 +78,8 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     interests: Array.isArray(r.interests)
       ? [...new Set(r.interests.filter(isTopicId))]
       : DEFAULT_SETTINGS.interests,
+    quizDifficulty: isQuizDifficulty(r.quizDifficulty)
+      ? r.quizDifficulty
+      : DEFAULT_SETTINGS.quizDifficulty,
   };
 }

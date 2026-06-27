@@ -86,11 +86,33 @@ export type Quiz = {
 /** Points awarded for a correct answer, by difficulty. */
 export const POINTS: Record<QuizLevel, number> = { Easy: 10, Medium: 20, Hard: 30 };
 
-/** Quizzes drawn from the user's active topics (random order is up to callers). */
-export function quizzesFor(interests: readonly TopicId[] | undefined): Quiz[] {
+/** Quiz difficulty preference — a *floor*, so harder questions stay in scope.
+ *  "all" = every level · "medium" = Medium & Hard · "hard" = Hard only. */
+export type QuizDifficulty = "all" | "medium" | "hard";
+
+const LEVEL_RANK: Record<QuizLevel, number> = { Easy: 0, Medium: 1, Hard: 2 };
+const DIFFICULTY_FLOOR: Record<QuizDifficulty, number> = { all: 0, medium: 1, hard: 2 };
+
+export function isQuizDifficulty(v: unknown): v is QuizDifficulty {
+  return v === "all" || v === "medium" || v === "hard";
+}
+
+/**
+ * Quizzes drawn from the user's active topics, floored to a minimum difficulty
+ * (random order is up to callers). Falls back to the topic's full set if no
+ * question meets the floor, so the pool is never empty.
+ */
+export function quizzesFor(
+  interests: readonly TopicId[] | undefined,
+  difficulty: QuizDifficulty = "all"
+): Quiz[] {
   const active = activeTopics(interests);
-  const pool = QUIZZES.filter((q) => active.has(q.topic));
-  return pool.length > 0 ? pool : [...QUIZZES];
+  const byTopic = QUIZZES.filter((q) => active.has(q.topic));
+  const base = byTopic.length > 0 ? byTopic : [...QUIZZES];
+  if (difficulty === "all") return base;
+  const floor = DIFFICULTY_FLOOR[difficulty];
+  const harder = base.filter((q) => LEVEL_RANK[q.level] >= floor);
+  return harder.length > 0 ? harder : base;
 }
 
 /* ---------------------------------------------------------------- quotes --- */

@@ -4,7 +4,17 @@ import { useEffect, useRef } from "react";
 
 import { X } from "@/components/icons";
 import type { FocusSettings } from "@/features/focus/lib/settings";
-import { TOPICS, type TopicId } from "@/features/focus/lib/topics";
+import {
+  TOPICS,
+  type QuizDifficulty,
+  type TopicId,
+} from "@/features/focus/lib/topics";
+
+const QUIZ_DIFFICULTIES: { id: QuizDifficulty; label: string; hint: string }[] = [
+  { id: "all", label: "All levels", hint: "Easy → Hard" },
+  { id: "medium", label: "Challenging", hint: "Medium & Hard" },
+  { id: "hard", label: "Expert", hint: "Hard only" },
+];
 import {
   initAudio,
   playChime,
@@ -186,6 +196,39 @@ export function FocusSettingsModal({
         <p className="mt-1.5 text-[11px] text-slate-500">
           Tailors quotes and quizzes. Pick Music, Math or Astronomy for younger
           learners. Leave empty for coding tips &amp; general trivia.
+        </p>
+
+        <div className="mt-3 flex items-center justify-between border-b border-slate-800/60 py-2.5">
+          <label className="text-sm text-slate-200">Quiz difficulty</label>
+          <div
+            role="group"
+            aria-label="Quiz difficulty"
+            className="flex gap-1.5"
+          >
+            {QUIZ_DIFFICULTIES.map((d) => {
+              const on = settings.quizDifficulty === d.id;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  aria-pressed={on}
+                  title={d.hint}
+                  onClick={() => onUpdate({ quizDifficulty: d.id })}
+                  className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                    on
+                      ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          Raise this if quizzes feel too easy — “Challenging” and “Expert” drop
+          the easy questions.
         </p>
 
         <SectionLabel>Automation</SectionLabel>

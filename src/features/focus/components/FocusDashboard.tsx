@@ -528,6 +528,7 @@ export function FocusDashboard() {
           email={email}
           connected={connected}
           interests={settings.interests}
+          quizDifficulty={settings.quizDifficulty}
           onQuizAnswered={onQuizAnswered}
         />
       </div>
