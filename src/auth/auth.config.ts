@@ -101,7 +101,10 @@ export const authConfig: NextAuthOptions = {
     async session({ session, token }) {
       const t = token as RefreshableToken;
       if (t.picture && session.user) session.user.image = t.picture;
-      session.accessToken = t.accessToken;
+      // NOTE: the Google access token is intentionally NOT copied onto the
+      // client-facing session. API routes read it server-side from the JWT via
+      // getToken() (see src/app/api/google/*). Keeping it off the session means
+      // it never ships to the browser in /api/auth/session.
       session.error = t.error;
       return session;
     },

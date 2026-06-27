@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { Client } from "@upstash/qstash";
+
+import { authConfig } from "@/auth/auth.config";
 
 export const runtime = "nodejs";
 
 // Cancels a scheduled timer-end push (on pause / reset / foreground completion).
 export async function POST(req: Request) {
+  const session = await getServerSession(authConfig);
+  if (!session) return NextResponse.json({ ok: false }, { status: 401 });
+
   const token = process.env.QSTASH_TOKEN;
   if (!token) return NextResponse.json({ ok: false }, { status: 503 });
 
