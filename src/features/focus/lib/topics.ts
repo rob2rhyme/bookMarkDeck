@@ -20,7 +20,13 @@ export type TopicId =
   | "nature"
   | "geography"
   | "history"
-  | "words";
+  | "words"
+  | "tech"
+  | "economics"
+  | "literature"
+  | "film"
+  | "sports"
+  | "mythology";
 
 export type Topic = { id: TopicId; label: string; emoji: string };
 
@@ -35,6 +41,12 @@ export const TOPICS: readonly Topic[] = [
   { id: "geography", label: "Geography", emoji: "🌍" },
   { id: "history", label: "History", emoji: "🏛️" },
   { id: "words", label: "Words", emoji: "🔤" },
+  { id: "tech", label: "Tech", emoji: "🖥️" },
+  { id: "economics", label: "Economics", emoji: "📈" },
+  { id: "literature", label: "Literature", emoji: "📚" },
+  { id: "film", label: "Film & TV", emoji: "🎬" },
+  { id: "sports", label: "Sports", emoji: "⚽" },
+  { id: "mythology", label: "Mythology", emoji: "🏺" },
 ];
 
 const TOPIC_BY_ID: Record<TopicId, Topic> = Object.fromEntries(
