@@ -1196,7 +1196,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         {/* Add link modal */}
         {showAddForm && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
             onClick={() => setShowAddForm(false)}
           >
             <div
@@ -1318,7 +1318,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           </div>
           {showAddShortcutForm && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+              className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
               onClick={() => setShowAddShortcutForm(false)}
             >
               <div
@@ -1934,7 +1934,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {/* Shortcut edit modal */}
         {editingShortcut && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
+          <div className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
             <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5">
               <div className="mb-4 flex items-center justify-between">
                 <div>
@@ -2007,7 +2007,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               undoState ? "bottom-16" : "bottom-4"
             } z-50 flex justify-center px-4`}
           >
-            <div className="flex items-center gap-3 rounded-full bg-slate-900/90 px-4 py-2 text-xs text-slate-100 shadow-lg ring-1 ring-slate-700">
+            <div className="animate-bd-slide-up-fade flex items-center gap-3 rounded-full bg-slate-900/90 px-4 py-2 text-xs text-slate-100 shadow-lg ring-1 ring-slate-700">
               <span>Shortcut removed</span>
               <button type="button"
                 onClick={handleShortcutUndo}
@@ -2027,7 +2027,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {undoState && (
           <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
-            <div className="flex items-center gap-3 rounded-full bg-slate-900/90 px-4 py-2 text-xs text-slate-100 shadow-lg ring-1 ring-slate-700">
+            <div className="animate-bd-slide-up-fade flex items-center gap-3 rounded-full bg-slate-900/90 px-4 py-2 text-xs text-slate-100 shadow-lg ring-1 ring-slate-700">
               <span>
                 {undoState.type === "delete"
                   ? "Bookmark deleted"
@@ -2054,7 +2054,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
         {/* Confirm delete all modal */}
         {showClearConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
             <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl">
               <h2 className="mb-2 text-base font-semibold text-slate-50">
                 Delete all bookmarks?
@@ -2088,7 +2088,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {showBulkDeleteFoldersConfirm && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
             onClick={() => setShowBulkDeleteFoldersConfirm(false)}
           >
             <div
@@ -2125,7 +2125,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {showBulkMoveBookmarksModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
             onClick={() => setShowBulkMoveBookmarksModal(false)}
           >
             <div
@@ -2186,7 +2186,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {showBulkDeleteBookmarksConfirm && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
             onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
           >
             <div
@@ -2220,7 +2220,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {activeFolderKey && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
             onClick={() => setActiveFolderKey(null)}
           >
             <div
@@ -2444,7 +2444,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {showRenameFolderModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
             onClick={() => {
               setShowRenameFolderModal(false);
               setRenameFolderError("");
@@ -2518,7 +2518,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {showDeleteFolderConfirm && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
             onClick={() => setShowDeleteFolderConfirm(false)}
           >
             <div
@@ -2556,7 +2556,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {showNewFolderModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
             onClick={() => {
               setShowNewFolderModal(false);
               setNewFolderError("");

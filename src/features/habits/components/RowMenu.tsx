@@ -78,7 +78,7 @@ export function RowMenu({
 
       {/* Desktop: inline dropdown. */}
       {open && (
-        <div className="absolute right-0 z-30 mt-1 hidden w-44 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl sm:block">
+        <div className="animate-bd-scale-in absolute right-0 z-30 mt-1 hidden w-44 origin-top-right overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl sm:block">
           {items.map((it) => (
             <button
               key={it.label}
@@ -104,7 +104,7 @@ export function RowMenu({
           <div
             ref={sheetRef}
             style={{ bottom: "var(--bottom-nav-h)" }}
-            className="fixed inset-x-0 top-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:hidden"
+            className="animate-bd-fade-in fixed inset-x-0 top-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:hidden"
             onClick={() => setOpen(false)}
           >
             <div
@@ -112,7 +112,7 @@ export function RowMenu({
               aria-modal="true"
               aria-label={label}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-t-2xl border-t border-slate-800 bg-slate-950 p-2 pb-3 shadow-2xl"
+              className="animate-bd-slide-up-fade w-full max-w-md rounded-t-2xl border-t border-slate-800 bg-slate-950 p-2 pb-3 shadow-2xl"
             >
               <div
                 className="mx-auto my-1.5 h-1 w-10 rounded-full bg-slate-700"
