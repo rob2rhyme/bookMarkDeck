@@ -94,7 +94,8 @@ export function Modal({
         if (e.target === e.currentTarget) onClose();
       }}
       className={`animate-bd-fade-in fixed z-[70] bg-black/60 backdrop-blur-sm ${
-        overlayClassName ?? "inset-0 flex items-center justify-center px-4 py-[5vh]"
+        overlayClassName ??
+        "inset-0 flex items-center justify-center px-4 pt-[5vh] pb-[calc(var(--bottom-nav-h)+1rem)] sm:pb-[5vh]"
       }`}
     >
       <div

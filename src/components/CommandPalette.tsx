@@ -221,8 +221,8 @@ export function CommandPalette() {
       open={open}
       onClose={close}
       label="Command palette"
-      overlayClassName="inset-x-0 top-0 bottom-[var(--bottom-nav-h)] flex items-stretch justify-center sm:inset-0 sm:items-start sm:px-4 sm:py-[8vh]"
-      panelClassName="flex h-full w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
+      overlayClassName="inset-0 flex items-start justify-center sm:px-4 sm:py-[8vh]"
+      panelClassName="flex h-[calc(100dvh-var(--bottom-nav-h))] w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
     >
       <input
         ref={inputRef}
