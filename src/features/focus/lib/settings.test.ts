@@ -38,4 +38,11 @@ describe("normalizeSettings", () => {
       DEFAULT_SETTINGS.chimeSound
     );
   });
+
+  it("validates quizDifficulty, defaulting to 'all'", () => {
+    expect(normalizeSettings({ quizDifficulty: "hard" }).quizDifficulty).toBe("hard");
+    expect(normalizeSettings({ quizDifficulty: "medium" }).quizDifficulty).toBe("medium");
+    expect(normalizeSettings({ quizDifficulty: "nonsense" }).quizDifficulty).toBe("all");
+    expect(normalizeSettings({}).quizDifficulty).toBe("all");
+  });
 });

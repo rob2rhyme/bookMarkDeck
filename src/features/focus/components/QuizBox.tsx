@@ -6,6 +6,7 @@ import type { QuizResult } from "@/features/focus/hooks/useFocusScores";
 import {
   POINTS,
   type Quiz,
+  type QuizDifficulty,
   type TopicId,
   quizzesFor,
   topicEmoji,
@@ -14,6 +15,8 @@ import {
 
 type QuizBoxProps = {
   interests: TopicId[];
+  /** Difficulty floor — harder questions only. Defaults to all levels. */
+  difficulty?: QuizDifficulty;
   /** Persist the answer (score + activity). No-op when not signed in. */
   onAnswered?: (result: QuizResult) => void;
   /** Whether answers are being saved (drives the "sign in to save" hint). */
@@ -26,8 +29,16 @@ const LEVEL_BADGE: Record<Quiz["level"], string> = {
   Hard: "border-rose-500/40 text-rose-300",
 };
 
-export function QuizBox({ interests, onAnswered, saving = false }: QuizBoxProps) {
-  const pool = useMemo(() => quizzesFor(interests), [interests]);
+export function QuizBox({
+  interests,
+  difficulty = "all",
+  onAnswered,
+  saving = false,
+}: QuizBoxProps) {
+  const pool = useMemo(
+    () => quizzesFor(interests, difficulty),
+    [interests, difficulty]
+  );
 
   // Deterministic first render (index 0) → randomize after mount to avoid a
   // hydration mismatch, matching QuoteBox.

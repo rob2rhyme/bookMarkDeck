@@ -10,12 +10,18 @@ import {
 import { useFocusContent } from "@/features/focus/hooks/useFocusContent";
 import type { QuizResult } from "@/features/focus/hooks/useFocusScores";
 import { QuizBox } from "@/features/focus/components/QuizBox";
-import { quotesFor, showsCoding, type TopicId } from "@/features/focus/lib/topics";
+import {
+  quotesFor,
+  showsCoding,
+  type QuizDifficulty,
+  type TopicId,
+} from "@/features/focus/lib/topics";
 
 type QuoteBoxProps = {
   email?: string | null;
   connected?: boolean;
   interests?: TopicId[];
+  quizDifficulty?: QuizDifficulty;
   onQuizAnswered?: (result: QuizResult) => void;
 };
 
@@ -23,6 +29,7 @@ export function QuoteBox({
   email,
   connected = false,
   interests = [],
+  quizDifficulty = "all",
   onQuizAnswered,
 }: QuoteBoxProps) {
   // Defaults render instantly; per-user extras from Firestore merge in live.
@@ -125,6 +132,7 @@ export function QuoteBox({
       {/* Interactive quiz — interest-aware, scores logged to Activity + Scores */}
       <QuizBox
         interests={interests}
+        difficulty={quizDifficulty}
         onAnswered={onQuizAnswered}
         saving={connected}
       />
