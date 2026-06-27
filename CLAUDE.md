@@ -90,9 +90,12 @@ next-auth set — the Firebase keys are omitted; see Phase 0b in `FOCUS-INTEGRAT
 
 - `npm run dev` — dev server.
 - `npm run lint` → `tsc --noEmit` · `npm run typecheck` → `tsc --noEmit` · `npm run build` → `next build`.
-- **There is no automated test suite** (no Jest/Vitest, no `test` script). "Verify" = lint +
-  typecheck + build, plus a **manual smoke check**: login, bookmark sync, Drive sync.
-- CI: `.github/workflows/ci.yml` runs `typecheck` + `build` (root) on
+- `npm run test` → `vitest run` (`npm run test:watch` for watch mode). A **Vitest** suite
+  exists — pure-logic unit tests (no component/E2E) covering `src/utils`, `src/lib`, and the
+  `focus`/`habits` feature `lib/` helpers (streaks, formatting, exports, mood, settings, etc.).
+- "Verify" = lint + typecheck + build + `npm run test`, plus a **manual smoke check**:
+  login, bookmark sync, Drive sync.
+- CI: `.github/workflows/ci.yml` runs `typecheck` + `test` + `build` (root) on
   PRs/pushes to `main`, with dummy env vars. Vercel builds previews.
 
 ## Dependency security note

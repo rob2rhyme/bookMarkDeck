@@ -1,7 +1,5 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-
-import { authConfig } from "@/auth/auth.config";
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 export const runtime = "nodejs";
 
@@ -31,9 +29,9 @@ const DEFAULT_DAYS = 90;
 const MAX_DAYS = 3650;
 
 /** Upcoming events across all the user's calendars (window via ?days=N). */
-export async function GET(req: Request) {
-  const session = await getServerSession(authConfig);
-  const token = session?.accessToken;
+export async function GET(req: NextRequest) {
+  const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = jwt?.accessToken;
   if (!token) {
     return NextResponse.json({ error: "not_connected" }, { status: 401 });
   }

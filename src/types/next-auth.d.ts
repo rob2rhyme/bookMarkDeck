@@ -5,7 +5,7 @@ import "next-auth/jwt";
 
 declare module "next-auth" {
   interface Session {
-    accessToken?: string;
+    // accessToken lives only on the JWT (below), read server-side via getToken().
     error?: string;
   }
 }

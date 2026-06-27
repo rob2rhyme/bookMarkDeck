@@ -1,7 +1,5 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-
-import { authConfig } from "@/auth/auth.config";
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 export const runtime = "nodejs";
 
@@ -37,9 +35,9 @@ type TodoIn = {
 };
 
 /** Create/update the mirrored Google Task (+ Calendar event for timed items). */
-export async function POST(req: Request) {
-  const session = await getServerSession(authConfig);
-  const token = session?.accessToken;
+export async function POST(req: NextRequest) {
+  const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = jwt?.accessToken;
   if (!token) {
     return NextResponse.json({ error: "not_connected" }, { status: 401 });
   }
@@ -117,9 +115,9 @@ export async function POST(req: Request) {
 }
 
 /** Delete the mirrored Task + Calendar event. */
-export async function DELETE(req: Request) {
-  const session = await getServerSession(authConfig);
-  const token = session?.accessToken;
+export async function DELETE(req: NextRequest) {
+  const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = jwt?.accessToken;
   if (!token) {
     return NextResponse.json({ error: "not_connected" }, { status: 401 });
   }

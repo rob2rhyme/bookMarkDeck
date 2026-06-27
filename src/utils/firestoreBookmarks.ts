@@ -234,5 +234,5 @@ export async function saveBookmarks(
     updatedAt: serverTimestamp(),
     version: 2,
   };
-  await setDoc(userDocRef(user.uid), sanitizeForFirestore(payload));
+  await setDoc(userDocRef(user.uid), sanitizeForFirestore(payload), { merge: true });
 }

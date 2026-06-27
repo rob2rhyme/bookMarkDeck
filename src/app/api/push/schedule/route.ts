@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { Client } from "@upstash/qstash";
+
+import { authConfig } from "@/auth/auth.config";
 
 export const runtime = "nodejs";
 
@@ -7,6 +10,11 @@ export const runtime = "nodejs";
 // The push subscription + content travel in the message body (no server-side
 // storage needed), so this works without the Firebase Admin SDK.
 export async function POST(req: Request) {
+  const session = await getServerSession(authConfig);
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const token = process.env.QSTASH_TOKEN;
   if (!token) {
     return NextResponse.json({ error: "push not configured" }, { status: 503 });
