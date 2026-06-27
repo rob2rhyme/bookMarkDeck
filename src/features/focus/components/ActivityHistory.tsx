@@ -380,7 +380,7 @@ export function ActivityHistory({
       {pendingDelete && (
         <div
           onClick={() => setPendingDelete(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}

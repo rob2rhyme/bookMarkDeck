@@ -133,13 +133,13 @@ export function FocusSettingsModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-[5vh]"
+      className="animate-bd-fade-in fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-[5vh]"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Focus settings"
-        className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
+        className="animate-bd-scale-in w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-50">Settings</h2>

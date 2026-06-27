@@ -117,6 +117,79 @@ body {
   }
 }
 
+@layer base {
+  /* Tactile, unhurried interactions, applied once here instead of at every call
+     site: buttons/links/controls ease their colour, background, border, opacity,
+     shadow, and transform, and dip slightly on press. Component-level
+     `transition-*` / `active:*` utilities live in a later layer, so they always
+     win where a component wants something bespoke. Auto-neutralised by the
+     reduced-motion block below. */
+  button,
+  a,
+  [role="button"],
+  summary,
+  label[for] {
+    transition:
+      color 0.25s ease,
+      background-color 0.25s ease,
+      border-color 0.25s ease,
+      opacity 0.25s ease,
+      box-shadow 0.25s ease,
+      transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  button:not(:disabled):active,
+  [role="button"]:active,
+  summary:active {
+    transform: scale(0.96);
+  }
+}
+
+@layer utilities {
+  /* Subtle enter animations for things that pop into existence on a click —
+     modals, menus, toasts. Prefixed `bd-` so they never collide with Tailwind's
+     own animate-* utilities. `both` holds the start frame to avoid a flash. */
+  @keyframes bd-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes bd-scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes bd-slide-up-fade {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  /* Smooth, gentle settle (ease-out quint-ish) — a touch slower so clicks feel
+     considered rather than abrupt. */
+  .animate-bd-fade-in {
+    animation: bd-fade-in 0.3s ease-out both;
+  }
+  .animate-bd-scale-in {
+    animation: bd-scale-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-bd-slide-up-fade {
+    animation: bd-slide-up-fade 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
 /* Respect users who ask the OS to minimise motion: neutralise animations and
    transitions globally. JS-driven decorative motion (DragonCursor, the SVG
    water ripple) is gated separately in those components. */

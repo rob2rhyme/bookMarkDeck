@@ -17,6 +17,10 @@ type ModalProps = {
   label?: string;
   /** Classes for the panel (sizing/spacing). */
   panelClassName?: string;
+  /** Overrides the overlay's layout (alignment + padding) only; the fixed
+   *  positioning, backdrop, and fade stay constant. Lets a dialog go full-bleed
+   *  (e.g. a full-screen mobile sheet) without affecting other modals. */
+  overlayClassName?: string;
 };
 
 const FOCUSABLE =
@@ -29,6 +33,7 @@ export function Modal({
   labelledBy,
   label,
   panelClassName,
+  overlayClassName,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useCallbackRef(onClose);
@@ -88,7 +93,9 @@ export function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4 py-[5vh] backdrop-blur-sm"
+      className={`animate-bd-fade-in fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm ${
+        overlayClassName ?? "flex items-center justify-center px-4 py-[5vh]"
+      }`}
     >
       <div
         ref={panelRef}
@@ -97,10 +104,10 @@ export function Modal({
         aria-labelledby={labelledBy}
         aria-label={labelledBy ? undefined : label}
         tabIndex={-1}
-        className={
+        className={`${
           panelClassName ??
           "w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
-        }
+        } animate-bd-scale-in`}
       >
         {children}
       </div>

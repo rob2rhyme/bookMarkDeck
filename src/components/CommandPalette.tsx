@@ -187,7 +187,8 @@ export function CommandPalette() {
       open={open}
       onClose={close}
       label="Command palette"
-      panelClassName="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl outline-none"
+      overlayClassName="flex items-stretch justify-center sm:items-start sm:px-4 sm:py-[8vh]"
+      panelClassName="flex h-[100dvh] w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
     >
       <input
         ref={inputRef}
@@ -197,9 +198,12 @@ export function CommandPalette() {
         onKeyDown={onInputKey}
         placeholder="Search actions and bookmarks…"
         aria-label="Search commands"
-        className="w-full border-b border-slate-800 bg-transparent px-5 py-4 text-[15px] text-slate-100 placeholder:text-slate-500 focus:outline-none"
+        className="w-full shrink-0 border-b border-slate-800 bg-transparent px-5 py-4 text-[15px] text-slate-100 placeholder:text-slate-500 focus:outline-none"
       />
-      <ul ref={listRef} className="max-h-[55vh] overflow-y-auto py-2">
+      <ul
+        ref={listRef}
+        className="min-h-0 flex-1 overflow-y-auto py-2 sm:max-h-[65vh] sm:flex-none"
+      >
         {filtered.length === 0 ? (
           <li className="px-5 py-6 text-center text-sm text-slate-500">
             No matches.
@@ -237,7 +241,7 @@ export function CommandPalette() {
           })
         )}
       </ul>
-      <div className="flex items-center justify-between border-t border-slate-800 px-5 py-2 text-[11px] text-slate-500">
+      <div className="flex shrink-0 items-center justify-between border-t border-slate-800 px-5 py-2 text-[11px] text-slate-500">
         <span>↑↓ to navigate · ↵ to open</span>
         <span>⌘K</span>
       </div>

@@ -80,13 +80,13 @@ export function TimeUpModal({
   return (
     <div
       onClick={close}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+      className="animate-bd-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         role="alertdialog"
         aria-label="Timer finished"
-        className={`w-full max-w-sm rounded-3xl border p-8 text-center shadow-2xl ${
+        className={`animate-bd-scale-in w-full max-w-sm rounded-3xl border p-8 text-center shadow-2xl ${
           isFocusEnd
             ? "border-blue-500/50 bg-slate-900"
             : "border-emerald-500/50 bg-slate-900"

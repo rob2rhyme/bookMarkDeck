@@ -137,7 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     {menuOpen && (
                       <div
                         role="menu"
-                        className="absolute right-0 z-30 mt-2 w-52 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl"
+                        className="animate-bd-scale-in absolute right-0 z-30 mt-2 w-52 origin-top-right overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl"
                       >
                         <button
                           type="button"

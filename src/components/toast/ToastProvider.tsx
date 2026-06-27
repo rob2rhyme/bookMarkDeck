@@ -120,7 +120,7 @@ function ToastHost({
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`pointer-events-auto flex w-full max-w-sm items-center justify-between gap-3 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur ${VARIANT_STYLE[t.variant]}`}
+          className={`animate-bd-slide-up-fade pointer-events-auto flex w-full max-w-sm items-center justify-between gap-3 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur ${VARIANT_STYLE[t.variant]}`}
         >
           <span className="min-w-0 text-sm">{t.message}</span>
           <div className="flex shrink-0 items-center gap-2">
