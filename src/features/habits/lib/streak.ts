@@ -231,7 +231,9 @@ function weeklyStats(
   }
 
   return {
-    dueToday: weekDone < weekTarget,
+    // "due today" = scheduled today (forgiving of the weekly quota), matching
+    // dailyStats and the today-list logic in useHabits (isDueOn).
+    dueToday: isDueOn(habit, today),
     doneToday,
     countToday,
     currentStreak: current,
