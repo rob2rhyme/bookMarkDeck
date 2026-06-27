@@ -129,8 +129,11 @@ export function QuoteBox({
         New quote ↺
       </button>
 
-      {/* Interactive quiz — interest-aware, scores logged to Activity + Scores */}
+      {/* Interactive quiz — interest-aware, scores logged to Activity + Scores.
+          Keyed on interests + difficulty so a settings change re-mounts it with a
+          fresh question pool instantly (no page refresh needed). */}
       <QuizBox
+        key={`${[...interests].sort().join(",")}|${quizDifficulty}`}
         interests={interests}
         difficulty={quizDifficulty}
         onAnswered={onQuizAnswered}
