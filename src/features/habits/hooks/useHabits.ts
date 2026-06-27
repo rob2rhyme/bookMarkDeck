@@ -16,8 +16,16 @@ import {
   saveHydration,
   subscribeHydration,
 } from "@/features/focus/data/focusData";
-import { addDays, todayKey } from "@/features/habits/lib/day";
+import { todayKey } from "@/features/habits/lib/day";
 import { coerceEntry, coerceHabit } from "@/features/habits/lib/serialize";
+import {
+  clearPendingUpserts,
+  flushPendingDeletes,
+  pendingUpsertIds,
+  queueDelete,
+  queueUpsert,
+  unqueueUpsert,
+} from "@/utils/pendingDeletes";
 import { computeStats, isDueOn } from "@/features/habits/lib/streak";
 import {
   getFocusHydrationCache,
@@ -145,27 +153,48 @@ export function useHabits(
     return () => clearTimeout(t);
   }, [email]);
 
-  // Seed cloud with local-only data, then subscribe for real-time updates.
+  // On connect: replay offline deletes and push ONLY what changed while offline
+  // (pending upserts), then subscribe. Never blanket re-upload the whole local
+  // cache — that clobbers newer cloud edits (e.g. a habit's direction) with a
+  // stale local copy from another device/tab/session.
   useEffect(() => {
     if (!canSync || !email) return;
+    let cancelled = false;
+    let unsubH = () => {};
+    let unsubE = () => {};
     (async () => {
-      try {
-        // Seed local-only data so the first snapshot won't drop it. Entries are
-        // bounded to the recent window — any pre-connect logging is necessarily
-        // recent, and this avoids re-pushing a long history on every load.
-        const recent = addDays(todayKey(), -14);
-        await Promise.all(habits.map((h) => saveHabit(email, h)));
+      await flushPendingDeletes("habits", email, (id) => deleteHabit(email, id));
+      await flushPendingDeletes("habitEntries", email, (id) =>
+        deleteEntry(email, id)
+      );
+      const hUps = pendingUpsertIds("habits", email);
+      if (hUps.size)
         await Promise.all(
-          entries.filter((e) => e.day >= recent).map((e) => saveEntry(email, e))
+          habits
+            .filter((h) => hUps.has(h.id))
+            .map((h) => saveHabit(email, h).catch(() => {}))
         );
-      } catch {}
-    })();
-    const unsubH = subscribeHabits(email, (h) => {
-      setHabits(h);
-      setCloudLoaded(true);
-    });
-    const unsubE = subscribeEntries(email, setEntries);
+      const eUps = pendingUpsertIds("habitEntries", email);
+      if (eUps.size)
+        await Promise.all(
+          entries
+            .filter((e) => eUps.has(e.id))
+            .map((e) => saveEntry(email, e).catch(() => {}))
+        );
+      clearPendingUpserts("habits", email);
+      clearPendingUpserts("habitEntries", email);
+    })()
+      .catch(() => {})
+      .finally(() => {
+        if (cancelled) return;
+        unsubH = subscribeHabits(email, (h) => {
+          setHabits(h);
+          setCloudLoaded(true);
+        });
+        unsubE = subscribeEntries(email, setEntries);
+      });
     return () => {
+      cancelled = true;
       unsubH();
       unsubE();
     };
@@ -189,6 +218,7 @@ export function useHabits(
         return next;
       });
       if (canSync && email) saveEntry(email, entry).catch(() => {});
+      else queueUpsert("habitEntries", email, entry.id);
     },
     [canSync, email]
   );
@@ -197,6 +227,10 @@ export function useHabits(
     (id: string) => {
       setEntries((prev) => prev.filter((e) => e.id !== id));
       if (canSync && email) deleteEntry(email, id).catch(() => {});
+      else {
+        queueDelete("habitEntries", email, id);
+        unqueueUpsert("habitEntries", email, id);
+      }
     },
     [canSync, email]
   );
@@ -454,6 +488,7 @@ export function useHabits(
     (habit: Habit) => {
       setHabits((prev) => [...prev, habit]);
       if (canSync && email) saveHabit(email, habit).catch(() => {});
+      else queueUpsert("habits", email, habit.id);
     },
     [canSync, email]
   );
@@ -484,6 +519,9 @@ export function useHabits(
       if (canSync && email) {
         newH.forEach((h) => saveHabit(email, h).catch(() => {}));
         newE.forEach((e) => saveEntry(email, e).catch(() => {}));
+      } else {
+        newH.forEach((h) => queueUpsert("habits", email, h.id));
+        newE.forEach((e) => queueUpsert("habitEntries", email, e.id));
       }
       return {
         addedHabits: newH.length,
@@ -499,6 +537,7 @@ export function useHabits(
     (habit: Habit) => {
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? habit : h)));
       if (canSync && email) saveHabit(email, habit).catch(() => {});
+      else queueUpsert("habits", email, habit.id);
     },
     [canSync, email]
   );
@@ -507,6 +546,10 @@ export function useHabits(
     (id: string) => {
       setHabits((prev) => prev.filter((h) => h.id !== id));
       if (canSync && email) deleteHabit(email, id).catch(() => {});
+      else {
+        queueDelete("habits", email, id);
+        unqueueUpsert("habits", email, id);
+      }
     },
     [canSync, email]
   );
@@ -517,6 +560,7 @@ export function useHabits(
         const next = prev.map((h) => (h.id === id ? { ...h, archived } : h));
         const target = next.find((h) => h.id === id);
         if (canSync && email && target) saveHabit(email, target).catch(() => {});
+        else if (target) queueUpsert("habits", email, id);
         return next;
       });
     },
@@ -530,11 +574,11 @@ export function useHabits(
           const idx = orderedIds.indexOf(h.id);
           return idx === -1 ? h : { ...h, sortOrder: idx };
         });
-        if (canSync && email) {
-          for (const id of orderedIds) {
-            const t = next.find((h) => h.id === id);
-            if (t) saveHabit(email, t).catch(() => {});
-          }
+        for (const id of orderedIds) {
+          const t = next.find((h) => h.id === id);
+          if (!t) continue;
+          if (canSync && email) saveHabit(email, t).catch(() => {});
+          else queueUpsert("habits", email, id);
         }
         return next;
       });
