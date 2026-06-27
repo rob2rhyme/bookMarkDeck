@@ -20,6 +20,7 @@ import {
 } from "@/components/icons";
 import { hapticTap } from "@/utils/haptics";
 import { setFocusTaskIntent } from "@/lib/focusIntent";
+import { setBookmarkFocusLink } from "@/lib/bookmarkFocusLink";
 import { useToast } from "@/components/toast/ToastProvider";
 
 function safeParseUrl(rawUrl: string): URL | null {
@@ -321,6 +322,7 @@ export function BookmarkCard({
     const seed = (bookmark.title || bookmark.url).trim();
     if (!seed) return;
     setFocusTaskIntent(seed);
+    setBookmarkFocusLink(bookmark.id, seed); // reconciled on return if a block completes
     toast(`Starting focus on “${seed}”`, { variant: "success" });
     router.push("/focus");
   };

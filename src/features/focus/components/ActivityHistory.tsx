@@ -46,6 +46,7 @@ const TYPE_META: Record<ActivityType, { dot: string; glyph: string }> = {
   todo_done: { dot: "border-teal-500", glyph: "☑️" },
   habit_done: { dot: "border-emerald-500", glyph: "🔁" },
   habit_skipped: { dot: "border-slate-500", glyph: "⏭️" },
+  bookmark: { dot: "border-blue-400", glyph: "🔖" },
   quiz: { dot: "border-blue-500", glyph: "🧠" },
 };
 

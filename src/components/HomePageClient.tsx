@@ -14,6 +14,7 @@ import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
+import { useBookmarkFocusReconcile } from "@/hooks/useBookmarkFocusReconcile";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
 import { ShortcutApp } from "@/types/shortcut";
@@ -78,6 +79,10 @@ export function HomePageClient() {
   const router = useRouter();
   const { data: session } = useSession();
   const userId = session?.user?.email ?? null;
+
+  // Bookmarks → focus → record of progress: if a focus block was completed today
+  // after launching from a bookmark, log it to the activity timeline.
+  useBookmarkFocusReconcile(userId);
   const {
     bookmarks,
     folders: folderEntities,

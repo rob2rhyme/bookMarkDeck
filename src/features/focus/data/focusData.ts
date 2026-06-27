@@ -70,6 +70,7 @@ export type ActivityType =
   | "todo_done"
   | "habit_done"
   | "habit_skipped"
+  | "bookmark"
   | "quiz";
 
 export type ActivityEvent = {
