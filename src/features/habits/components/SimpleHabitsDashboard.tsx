@@ -13,7 +13,15 @@ import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { HabitsViewToggle } from "@/features/habits/components/HabitsViewToggle";
-import { ChevronUp, Emoji } from "@/components/icons";
+import {
+  Archive,
+  ChevronUp,
+  Emoji,
+  Note,
+  Pencil,
+  Timer,
+  Trash,
+} from "@/components/icons";
 import { RowMenu, type RowMenuItem } from "@/features/habits/components/RowMenu";
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
@@ -171,13 +179,36 @@ function ManageRow({
   onDelete: (h: Habit) => void;
 }) {
   const menuItems: RowMenuItem[] = [
-    { label: "Edit", onClick: () => onEdit(habit) },
-    { label: "Start focus", onClick: () => onFocus(habit) },
+    {
+      label: "Edit",
+      icon: <Pencil className="h-4 w-4 text-slate-400" />,
+      onClick: () => onEdit(habit),
+    },
+    {
+      label: "Start focus",
+      icon: <Timer className="h-4 w-4 text-slate-400" />,
+      onClick: () => onFocus(habit),
+    },
     ...(noteCount > 0
-      ? [{ label: `🗒 Notes (${noteCount})`, onClick: () => onNotes(habit) }]
+      ? [
+          {
+            label: `Notes (${noteCount})`,
+            icon: <Note className="h-4 w-4 text-slate-400" />,
+            onClick: () => onNotes(habit),
+          },
+        ]
       : []),
-    { label: "Archive", onClick: () => onArchive(habit) },
-    { label: "Delete", onClick: () => onDelete(habit), danger: true },
+    {
+      label: "Archive",
+      icon: <Archive className="h-4 w-4 text-slate-400" />,
+      onClick: () => onArchive(habit),
+    },
+    {
+      label: "Delete",
+      icon: <Trash className="h-4 w-4" />,
+      onClick: () => onDelete(habit),
+      danger: true,
+    },
   ];
 
   return (
