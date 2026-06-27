@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { TimeUpModal } from "@/features/focus/components/TimeUpModal";
-import { logSession, todayKey } from "@/features/focus/data/focusData";
+import { recordFocusSession, todayKey } from "@/features/focus/data/focusData";
 import {
   FocusMode,
   MODE_LABELS,
@@ -91,7 +91,9 @@ export function PomodoroTimer({
     if (minutes >= 1) {
       const taskId = activeTaskId ?? null;
       if (connected && email) {
-        logSession(email, minutes, todayKey(), taskId, intention).catch(() => {});
+        recordFocusSession(email, minutes, todayKey(), taskId, intention).catch(
+          () => {}
+        );
       }
       onFocusComplete?.(minutes, taskId);
       setIntention("");

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   countSessionsForDay,
-  logSession,
+  recordFocusSession,
   todayKey,
   updateSessionMeta,
 } from "@/features/focus/data/focusData";
@@ -197,7 +197,7 @@ export function useFocusTimer({
       const taskId = taskRef.current ?? null;
       lastSessionIdRef.current = null;
       if (canSync && email) {
-        logSession(email, s.focus, todayKey(), taskId, intentionRef.current)
+        recordFocusSession(email, s.focus, todayKey(), taskId, intentionRef.current)
           .then((id) => {
             lastSessionIdRef.current = id;
           })

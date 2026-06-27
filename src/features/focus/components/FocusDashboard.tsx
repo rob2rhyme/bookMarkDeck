@@ -465,6 +465,7 @@ export function FocusDashboard() {
           prevWeekFocusMin={stats.prevWeekFocusMin}
           weekSessions={stats.weekSessions}
           weekTaskMin={stats.weekTaskMin}
+          weekBookmarkMin={stats.weekBookmarkMin}
           taskNameById={taskNameById}
           moodByDay={journal.moodByDay}
           sessions={stats.sessions}
