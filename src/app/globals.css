@@ -4,6 +4,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Height of the mobile bottom nav (AppShell). Bottom action sheets stop just
+     above it so they don't cover the tabs. */
+  --bottom-nav-h: 4.25rem;
   /* Local fallbacks to avoid network font fetch in build environments */
   --font-geist-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;

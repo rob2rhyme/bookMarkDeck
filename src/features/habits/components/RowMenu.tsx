@@ -103,7 +103,8 @@ export function RowMenu({
         createPortal(
           <div
             ref={sheetRef}
-            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:hidden"
+            style={{ bottom: "var(--bottom-nav-h)" }}
+            className="fixed inset-x-0 top-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:hidden"
             onClick={() => setOpen(false)}
           >
             <div
@@ -111,7 +112,7 @@ export function RowMenu({
               aria-modal="true"
               aria-label={label}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-t-2xl border-t border-slate-800 bg-slate-950 p-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl"
+              className="w-full max-w-md rounded-t-2xl border-t border-slate-800 bg-slate-950 p-2 pb-3 shadow-2xl"
             >
               <div
                 className="mx-auto my-1.5 h-1 w-10 rounded-full bg-slate-700"
