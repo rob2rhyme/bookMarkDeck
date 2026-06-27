@@ -13,7 +13,8 @@ import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { HabitsViewToggle } from "@/features/habits/components/HabitsViewToggle";
-import { ChevronUp, DotsVertical, Emoji } from "@/components/icons";
+import { ChevronUp, Emoji } from "@/components/icons";
+import { RowMenu, type RowMenuItem } from "@/features/habits/components/RowMenu";
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import {
@@ -169,26 +170,15 @@ function ManageRow({
   onArchive: (h: Habit) => void;
   onDelete: (h: Habit) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const run = (fn: () => void) => {
-    setOpen(false);
-    fn();
-  };
+  const menuItems: RowMenuItem[] = [
+    { label: "Edit", onClick: () => onEdit(habit) },
+    { label: "Start focus", onClick: () => onFocus(habit) },
+    ...(noteCount > 0
+      ? [{ label: `🗒 Notes (${noteCount})`, onClick: () => onNotes(habit) }]
+      : []),
+    { label: "Archive", onClick: () => onArchive(habit) },
+    { label: "Delete", onClick: () => onDelete(habit), danger: true },
+  ];
 
   return (
     <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5">
@@ -221,59 +211,7 @@ function ManageRow({
           {noteCount > 0 ? ` · 🗒 ${noteCount}` : ""}
         </p>
       </div>
-      <div className="relative" ref={ref}>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-haspopup="true"
-          aria-expanded={open}
-          aria-label={`Options for ${habit.name}`}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
-        >
-          <DotsVertical className="h-4 w-4" />
-        </button>
-        {open && (
-          <div className="absolute right-0 z-30 mt-1 w-40 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl">
-            <button
-              type="button"
-              onClick={() => run(() => onEdit(habit))}
-              className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => run(() => onFocus(habit))}
-              className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-            >
-              Start focus
-            </button>
-            {noteCount > 0 && (
-              <button
-                type="button"
-                onClick={() => run(() => onNotes(habit))}
-                className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-              >
-                🗒 Notes ({noteCount})
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => run(() => onArchive(habit))}
-              className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-            >
-              Archive
-            </button>
-            <button
-              type="button"
-              onClick={() => run(() => onDelete(habit))}
-              className="block w-full border-t border-slate-800/60 px-3 py-2 text-left text-sm text-red-400/90 transition hover:bg-red-950/40 hover:text-red-300"
-            >
-              Delete
-            </button>
-          </div>
-        )}
-      </div>
+      <RowMenu label={`Options for ${habit.name}`} items={menuItems} />
     </div>
   );
 }

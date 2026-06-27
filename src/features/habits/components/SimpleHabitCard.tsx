@@ -5,10 +5,9 @@
 // ones); everything secondary (Skip, Note, Focus) lives behind a single
 // overflow menu. Leaves the shared HabitCard — and the Classic view — untouched.
 
-import { useEffect, useRef, useState } from "react";
-
-import { Check, DotsVertical, Emoji, Note, Timer } from "@/components/icons";
+import { Check, Emoji, Note, Timer } from "@/components/icons";
 import { HabitRing } from "@/features/habits/components/HabitRing";
+import { RowMenu, type RowMenuItem } from "@/features/habits/components/RowMenu";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import { type Habit, type HabitStats, habitTarget } from "@/features/habits/lib/types";
 
@@ -57,30 +56,21 @@ export function SimpleHabitCard({
     subline = `Yes / no · ${sched}`;
   }
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
-
-  const runFromMenu = (fn: () => void) => {
-    setMenuOpen(false);
-    fn();
-  };
+  const menuItems: RowMenuItem[] = [
+    ...(!done && !skipped
+      ? [{ label: "⤼ Skip today", onClick: () => onSkip(habit) }]
+      : []),
+    {
+      label: "Note / time",
+      icon: <Note className="h-4 w-4 text-slate-400" />,
+      onClick: () => onDetail(habit),
+    },
+    {
+      label: "Start focus",
+      icon: <Timer className="h-4 w-4 text-slate-400" />,
+      onClick: () => onFocus(habit),
+    },
+  ];
 
   return (
     <div
@@ -187,48 +177,7 @@ export function SimpleHabitCard({
         )}
 
         {/* Overflow: Skip / Note / Focus. */}
-        <div className="relative" ref={menuRef}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-haspopup="true"
-            aria-expanded={menuOpen}
-            aria-label={`More options for ${habit.name}`}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-800/60 hover:text-slate-300"
-          >
-            <DotsVertical className="h-4 w-4" />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 py-1 shadow-xl">
-              {!done && !skipped && (
-                <button
-                  type="button"
-                  onClick={() => runFromMenu(() => onSkip(habit))}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-                >
-                  ⤼ Skip today
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => runFromMenu(() => onDetail(habit))}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-              >
-                <Note className="h-4 w-4 text-slate-400" /> Note / time
-              </button>
-              <button
-                type="button"
-                onClick={() => runFromMenu(() => onFocus(habit))}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-800"
-              >
-                <Timer className="h-4 w-4 text-slate-400" /> Start focus
-              </button>
-              <p className="border-t border-slate-800/60 px-3 py-2 text-[11px] leading-snug text-slate-500">
-                Skip keeps your streak. Use the ⋯ menu anytime.
-              </p>
-            </div>
-          )}
-        </div>
+        <RowMenu label={`More options for ${habit.name}`} items={menuItems} />
       </div>
     </div>
   );
