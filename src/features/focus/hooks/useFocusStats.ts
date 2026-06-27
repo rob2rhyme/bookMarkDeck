@@ -179,6 +179,23 @@ export function useFocusStats(
     return map;
   }, [sessions]);
 
+  // Per-resource focus time (bookmark-launched blocks). The title is denormalized
+  // onto the session, so this resolves without importing the bookmarks feature.
+  const byBookmark = useMemo(() => {
+    const map: Record<string, { sessions: number; focusMin: number; title: string }> =
+      {};
+    for (const s of sessions) {
+      if (!s.bookmarkId) continue;
+      const cur = map[s.bookmarkId] ?? { sessions: 0, focusMin: 0, title: "" };
+      map[s.bookmarkId] = {
+        sessions: cur.sessions + 1,
+        focusMin: cur.focusMin + s.focusMin,
+        title: s.bookmarkTitle || cur.title,
+      };
+    }
+    return map;
+  }, [sessions]);
+
   // The 7-day window ending at the anchor — for the weekly summary.
   const week = useMemo(() => {
     const days = new Set<string>();
@@ -190,13 +207,21 @@ export function useFocusStats(
     let sessionsCount = 0;
     let focusMin = 0;
     const taskMin: Record<string, number> = {};
+    const bookmarkMin: Record<string, { focusMin: number; title: string }> = {};
     for (const s of sessions) {
       if (!days.has(s.day)) continue;
       sessionsCount += 1;
       focusMin += s.focusMin;
       if (s.taskId) taskMin[s.taskId] = (taskMin[s.taskId] ?? 0) + s.focusMin;
+      if (s.bookmarkId) {
+        const cur = bookmarkMin[s.bookmarkId] ?? { focusMin: 0, title: "" };
+        bookmarkMin[s.bookmarkId] = {
+          focusMin: cur.focusMin + s.focusMin,
+          title: s.bookmarkTitle || cur.title,
+        };
+      }
     }
-    return { sessions: sessionsCount, focusMin, taskMin };
+    return { sessions: sessionsCount, focusMin, taskMin, bookmarkMin };
   }, [sessions, anchor]);
 
   // The prior 7-day window (days 7–13 before the anchor) — for the week-vs-week
@@ -231,9 +256,11 @@ export function useFocusStats(
     totalSessions: totals.sessions,
     totalFocusMin: totals.focusMin,
     byTask,
+    byBookmark,
     weekSessions: week.sessions,
     weekFocusMin: week.focusMin,
     weekTaskMin: week.taskMin,
+    weekBookmarkMin: week.bookmarkMin,
     prevWeekFocusMin,
   };
 }

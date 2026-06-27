@@ -30,6 +30,7 @@ type AnalysisPanelProps = {
   prevWeekFocusMin: number;
   weekSessions: number;
   weekTaskMin: Record<string, number>;
+  weekBookmarkMin: Record<string, { focusMin: number; title: string }>;
   taskNameById: Record<string, string>;
   moodByDay: Record<string, MoodKey>;
   sessions: FocusSessionRecord[];
@@ -58,6 +59,7 @@ export function AnalysisPanel({
   prevWeekFocusMin,
   weekSessions,
   weekTaskMin,
+  weekBookmarkMin,
   taskNameById,
   moodByDay,
   sessions,
@@ -102,6 +104,15 @@ export function AnalysisPanel({
         .sort((a, b) => b.min - a.min)
         .slice(0, 3),
     [weekTaskMin, taskNameById]
+  );
+
+  const topWeekBookmarks = useMemo(
+    () =>
+      Object.entries(weekBookmarkMin)
+        .map(([id, v]) => ({ id, name: v.title || "Resource", min: v.focusMin }))
+        .sort((a, b) => b.min - a.min)
+        .slice(0, 3),
+    [weekBookmarkMin]
   );
 
   // Mood trend across the same 7 days. Each logged day becomes a point (x = the
@@ -455,6 +466,29 @@ export function AnalysisPanel({
                 </li>
               ))}
             </ul>
+          )}
+          {topWeekBookmarks.length > 0 && (
+            <div className="mt-3">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                Top resources
+              </p>
+              <ul className="mt-1.5 flex flex-col gap-1.5">
+                {topWeekBookmarks.map((b) => (
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5 text-slate-300">
+                      <span aria-hidden="true">🔖</span>
+                      <span className="truncate">{b.name}</span>
+                    </span>
+                    <span className="shrink-0 tabular-nums text-slate-500">
+                      {hours(b.min)}h
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </>
       )}

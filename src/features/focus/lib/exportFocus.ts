@@ -76,6 +76,10 @@ function coerceSession(raw: unknown): FocusSessionRecord | null {
     createdAt: strOrNull(r.createdAt),
     ...(str(r.intention).trim() ? { intention: str(r.intention) } : {}),
     ...(str(r.reflection).trim() ? { reflection: str(r.reflection) } : {}),
+    ...(typeof r.bookmarkId === "string" ? { bookmarkId: r.bookmarkId } : {}),
+    ...(typeof r.bookmarkTitle === "string"
+      ? { bookmarkTitle: r.bookmarkTitle }
+      : {}),
   };
 }
 

@@ -70,17 +70,14 @@ export function clearBookmarkFocusLink(): void {
 }
 
 /**
- * Pure: did a focus block *complete* today, after the link was set? Gated on the
- * real session log (createdAt ≥ link.at) so a mere click never counts — only
- * finished work. Mirrors the habits auto-check reconciliation.
+ * Pure: the bookmark a focus block completing on `day` should be attributed to,
+ * or null. A link only attributes blocks completed on the same day it was set —
+ * never a stale link from an earlier day.
  */
-export function hasReconcilableBlock(
-  link: BookmarkFocusLink,
-  sessions: { day: string; createdAt: string | null }[],
-  today: string
-): boolean {
-  if (link.day !== today) return false;
-  return sessions.some(
-    (s) => s.day === today && (s.createdAt ?? "") >= link.at
-  );
+export function bookmarkForDay(
+  link: BookmarkFocusLink | null,
+  day: string
+): { id: string; title: string } | null {
+  if (!link || link.day !== day) return null;
+  return { id: link.bookmarkId, title: link.title };
 }

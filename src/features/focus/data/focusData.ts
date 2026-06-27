@@ -24,6 +24,11 @@ import {
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import {
+  bookmarkForDay,
+  clearBookmarkFocusLink,
+  peekBookmarkFocusLink,
+} from "@/lib/bookmarkFocusLink";
+import {
   type FocusSettings,
   normalizeSettings,
 } from "@/features/focus/lib/settings";
@@ -164,7 +169,8 @@ export async function logSession(
   focusMin: number,
   day: string,
   taskId?: string | null,
-  intention?: string
+  intention?: string,
+  bookmark?: { id: string; title: string } | null
 ): Promise<string> {
   const uid = await uidFor(emailHint);
   const id = crypto.randomUUID();
@@ -175,7 +181,38 @@ export async function logSession(
   };
   if (taskId) payload.taskId = taskId;
   if (intention?.trim()) payload.intention = intention.trim();
+  if (bookmark?.id) {
+    payload.bookmarkId = bookmark.id;
+    if (bookmark.title) payload.bookmarkTitle = bookmark.title;
+  }
   await setDoc(doc(sessionsCol(uid), id), payload);
+  return id;
+}
+
+/**
+ * Record a completed focus block, attributing it to the bookmark it was launched
+ * from (if any) and logging that to the activity timeline. One-shot: the link is
+ * cleared so later blocks the same day aren't over-attributed. (Bookmarks →
+ * focus → record of progress; the focus side only touches a neutral lib.)
+ */
+export async function recordFocusSession(
+  emailHint: string,
+  focusMin: number,
+  day: string,
+  taskId: string | null,
+  intention?: string
+): Promise<string> {
+  const bookmark = bookmarkForDay(peekBookmarkFocusLink(), day);
+  if (bookmark) clearBookmarkFocusLink();
+  const id = await logSession(emailHint, focusMin, day, taskId, intention, bookmark);
+  if (bookmark) {
+    await logActivity(
+      emailHint,
+      "bookmark",
+      `Focused on “${bookmark.title}”`,
+      day
+    ).catch(() => {});
+  }
   return id;
 }
 
@@ -225,6 +262,8 @@ export async function fetchSessions(
       createdAt,
       ...(typeof data.intention === "string" ? { intention: data.intention } : {}),
       ...(typeof data.reflection === "string" ? { reflection: data.reflection } : {}),
+      ...(typeof data.bookmarkId === "string" ? { bookmarkId: data.bookmarkId } : {}),
+      ...(typeof data.bookmarkTitle === "string" ? { bookmarkTitle: data.bookmarkTitle } : {}),
     };
   });
 }
@@ -505,6 +544,10 @@ async function putSession(
   if (s.taskId) payload.taskId = s.taskId;
   if (s.intention?.trim()) payload.intention = s.intention.trim();
   if (s.reflection?.trim()) payload.reflection = s.reflection.trim();
+  if (s.bookmarkId) {
+    payload.bookmarkId = s.bookmarkId;
+    if (s.bookmarkTitle) payload.bookmarkTitle = s.bookmarkTitle;
+  }
   await setDoc(doc(sessionsCol(uid), s.id), payload, { merge: true });
 }
 
@@ -609,6 +652,8 @@ export function subscribeSessions(
               createdAt: timestampToIso(data.createdAt),
               ...(typeof data.intention === "string" ? { intention: data.intention } : {}),
               ...(typeof data.reflection === "string" ? { reflection: data.reflection } : {}),
+              ...(typeof data.bookmarkId === "string" ? { bookmarkId: data.bookmarkId } : {}),
+              ...(typeof data.bookmarkTitle === "string" ? { bookmarkTitle: data.bookmarkTitle } : {}),
             };
           })
         ),

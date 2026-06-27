@@ -19,6 +19,8 @@ export type FocusSessionRecord = {
   createdAt: string | null; // ISO timestamp of completion (for the timeline)
   intention?: string; // what you set out to focus on (Session-style)
   reflection?: string; // a quick note jotted after the block
+  bookmarkId?: string | null; // resource this block was launched from (if any)
+  bookmarkTitle?: string | null; // snapshot of that resource's title, for display
 };
 
 export type JournalEntry = {
