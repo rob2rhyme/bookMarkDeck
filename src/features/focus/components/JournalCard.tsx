@@ -647,7 +647,7 @@ export function JournalCard({
       {todayNotes.length > 0 && (
         <ul className="mt-3 flex flex-col gap-2">
           {todayNotes.map((n) => (
-            <NoteRow key={n.id} {...rowProps(n)} />
+            <NoteRow key={n.id} collapsible {...rowProps(n)} />
           ))}
         </ul>
       )}
