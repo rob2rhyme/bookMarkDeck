@@ -17,6 +17,10 @@ import {
 } from "@/components/icons";
 
 export const OPEN_COMMAND_PALETTE_EVENT = "bd:open-command-palette";
+// Broadcasts the palette's open/closed state (detail.open). The mobile bottom
+// nav listens so it can hide while the palette covers the screen — iOS often
+// skips the input's autoFocus, so a focus-based heuristic alone misses it.
+export const COMMAND_PALETTE_STATE_EVENT = "bd:command-palette-state";
 
 type CachedBookmark = { id: string; title: string; url: string };
 
@@ -103,6 +107,13 @@ export function CommandPalette() {
     setActive(0);
     setOpen(true);
   }, []);
+
+  // Let the rest of the UI react to the palette opening/closing.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(COMMAND_PALETTE_STATE_EVENT, { detail: { open } })
+    );
+  }, [open]);
 
   // Global ⌘K / Ctrl-K + the custom open event.
   useEffect(() => {

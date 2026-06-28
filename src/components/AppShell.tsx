@@ -10,7 +10,10 @@ import { AppearanceSettingsPanel } from "@/components/AppearanceSettingsPanel";
 import { CursorOverlay } from "@/components/CursorOverlay";
 import { CursorSettingsPanel } from "@/components/CursorSettingsPanel";
 import { Bookmark, Repeat, Search, Timer } from "@/components/icons";
-import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/CommandPalette";
+import {
+  COMMAND_PALETTE_STATE_EVENT,
+  OPEN_COMMAND_PALETTE_EVENT,
+} from "@/components/CommandPalette";
 
 const DESTINATIONS = [
   { href: "/", label: "Bookmarks", Icon: Bookmark },
@@ -36,6 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // (the reported unresponsiveness while searching). No effect on desktop —
   // the bar is `sm:hidden` anyway.
   const [editing, setEditing] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
     const isEditable = (el: EventTarget | null) =>
       el instanceof HTMLElement &&
@@ -49,11 +53,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       // Defer so focus hopping between fields doesn't flicker the bar.
       setTimeout(() => setEditing(isEditable(document.activeElement)), 0);
     };
+    const onPalette = (e: Event) => {
+      setPaletteOpen(Boolean((e as CustomEvent<{ open: boolean }>).detail?.open));
+    };
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
+    window.addEventListener(COMMAND_PALETTE_STATE_EVENT, onPalette);
     return () => {
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
+      window.removeEventListener(COMMAND_PALETTE_STATE_EVENT, onPalette);
     };
   }, []);
 
@@ -233,8 +242,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </footer>
       </div>
 
-      {/* Mobile bottom nav — primary destinations + search (⌘K). */}
-      {session && !editing && (
+      {/* Mobile bottom nav — primary destinations + search (⌘K). Hidden while a
+          text field is focused (keyboard would cover it) or the command palette
+          is open (its overlay would leave the tabs visible-but-dead on iOS). */}
+      {session && !editing && !paletteOpen && (
         <nav
           aria-label="Primary"
           style={{ minHeight: "var(--bottom-nav-h)" }}
