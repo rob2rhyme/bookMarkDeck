@@ -5,7 +5,7 @@
 // - Navigations: network-first, falling back to /offline.html when offline.
 // - Static assets (_next/static, icons, logo): stale-while-revalidate.
 
-const CACHE = "bmarkdeck-v8";
+const CACHE = "bmarkdeck-v9";
 const OFFLINE_URL = "/offline.html";
 
 const STATIC_PREFIXES = ["/_next/static/", "/icons/"];
