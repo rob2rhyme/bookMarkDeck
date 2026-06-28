@@ -652,13 +652,13 @@ export function SimpleHabitsDashboard() {
                 type="button"
                 onClick={() => setInsightsOpen((o) => !o)}
                 aria-expanded={insightsOpen}
-                className="flex w-full items-center justify-between gap-2 px-1 text-left sm:px-0"
+                className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-slate-800/30 sm:px-2"
               >
                 <span className="text-sm font-semibold uppercase tracking-wide text-slate-300">
                   Insights &amp; history
                 </span>
                 <ChevronUp
-                  className={`h-4 w-4 text-slate-500 transition ${
+                  className={`h-4 w-4 text-slate-400 transition ${
                     insightsOpen ? "" : "rotate-180"
                   }`}
                 />
