@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { Archive, Emoji, Pencil, Timer, Trash } from "@/components/icons";
+import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
 import { FocusCorrelationCard } from "@/features/habits/components/FocusCorrelationCard";
 import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
 import {
@@ -320,8 +321,23 @@ export function HabitsDashboard() {
         </div>
       ) : (
         <>
+          <SectionNav
+            items={[
+              { id: "hsec-summary", label: "Summary" },
+              ...(dueCount > 0
+                ? [{ id: "hsec-today", label: "Today" }]
+                : []),
+              { id: "hsec-habits", label: "Habits" },
+              { id: "hsec-insights", label: "Insights" },
+              { id: "hsec-focus", label: "Focus" },
+            ] as SectionNavItem[]}
+          />
+
           {/* Summary */}
-          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
+          <section
+            id="hsec-summary"
+            className="scroll-mt-20 rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8"
+          >
             <div className="flex items-center gap-5">
               <HabitRing
                 progress={progress}
@@ -354,7 +370,7 @@ export function HabitsDashboard() {
 
           {/* Today */}
           {dueCount > 0 && (
-            <section>
+            <section id="hsec-today" className="scroll-mt-20">
               <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">
                 Today
               </h3>
@@ -395,7 +411,10 @@ export function HabitsDashboard() {
           )}
 
           {/* All habits / manage */}
-          <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
+          <section
+            id="hsec-habits"
+            className="scroll-mt-20 rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8"
+          >
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
                 All habits
@@ -588,25 +607,29 @@ export function HabitsDashboard() {
           </section>
 
           {/* Full analysis dashboard */}
-          <InsightsPanel
-            habits={h.habits}
-            statsByHabit={h.statsByHabit}
-            entries={h.entries}
-            dayCounts={h.dayCounts}
-            today={h.today}
-            selectedDay={selectedDay}
-            onSelectDay={setSelectedDay}
-            onRemoveEntry={(habit, entry) => h.clearEntryFor(habit, entry.day)}
-            onLogEntry={(habit, day, detail) => h.logEntryFor(habit, day, detail)}
-          />
+          <div id="hsec-insights" className="scroll-mt-20">
+            <InsightsPanel
+              habits={h.habits}
+              statsByHabit={h.statsByHabit}
+              entries={h.entries}
+              dayCounts={h.dayCounts}
+              today={h.today}
+              selectedDay={selectedDay}
+              onSelectDay={setSelectedDay}
+              onRemoveEntry={(habit, entry) => h.clearEntryFor(habit, entry.day)}
+              onLogEntry={(habit, day, detail) => h.logEntryFor(habit, day, detail)}
+            />
+          </div>
 
           {/* The moat: how habits line up with focus output */}
-          <FocusCorrelationCard
-            habits={h.allHabits}
-            entries={h.entries}
-            sessions={sessions}
-            today={h.today}
-          />
+          <div id="hsec-focus" className="scroll-mt-20">
+            <FocusCorrelationCard
+              habits={h.allHabits}
+              entries={h.entries}
+              sessions={sessions}
+              today={h.today}
+            />
+          </div>
         </>
       )}
 

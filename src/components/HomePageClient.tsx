@@ -11,6 +11,7 @@ import { BookmarkCard } from "@/components/BookmarkCard";
 import { FolderCard } from "@/components/FolderCard";
 import { ShortcutIcon } from "@/components/ShortcutIcon";
 import { Modal } from "@/components/Modal";
+import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShortcuts } from "@/hooks/useShortcuts";
@@ -1288,8 +1289,23 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           </div>
         )}
 
+        <SectionNav
+          className="mb-4"
+          items={[
+            { id: "bsec-shortcuts", label: "Shortcuts" },
+            ...(trending.length > 0
+              ? [{ id: "bsec-trending", label: "Trending" }]
+              : []),
+            { id: "bsec-search", label: "Search" },
+            { id: "bsec-folders", label: "Folders" },
+          ] as SectionNavItem[]}
+        />
+
         {/* App shortcuts */}
-        <section className="mb-6 rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 shadow-sm">
+        <section
+          id="bsec-shortcuts"
+          className="mb-6 scroll-mt-20 rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 shadow-sm"
+        >
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
               App shortcuts
@@ -1443,7 +1459,10 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
         {/* Trending */}
         {trending.length > 0 && (
-          <section className="mb-6 rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 shadow-sm">
+          <section
+            id="bsec-trending"
+            className="mb-6 scroll-mt-20 rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 shadow-sm"
+          >
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
                 Trending
@@ -1510,7 +1529,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         </div>
 
         {/* Search + filters */}
-        <section className="mb-4 flex flex-col gap-3">
+        <section id="bsec-search" className="mb-4 flex scroll-mt-20 flex-col gap-3">
           <div className="w-full">
             <div className="relative">
               <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
@@ -1779,7 +1798,10 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
         {/* Folders (wallet view) */}
         {bookmarks.length === 0 && rootFolders.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400">
+          <div
+            id="bsec-folders"
+            className="mt-10 scroll-mt-20 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-10 text-center text-sm text-slate-400"
+          >
             <div className="flex flex-col items-center gap-3">
               <p className="text-base text-slate-200">No bookmarks yet.</p>
               <button
@@ -1829,7 +1851,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div id="bsec-folders" className="scroll-mt-20 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
