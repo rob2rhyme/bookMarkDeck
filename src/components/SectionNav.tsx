@@ -101,7 +101,8 @@ export function SectionNav({
       if (startTs === null) startTs = ts;
       const p = Math.min(1, (ts - startTs) / duration);
       const eased = 0.5 - Math.cos(p * Math.PI) / 2; // easeInOutSine
-      scroller.scrollTop = startY + dist * eased;
+      // Round to whole pixels — fractional scrollTop jitters/flickers on iOS.
+      scroller.scrollTop = Math.round(startY + dist * eased);
       if (p < 1) {
         rafId.current = requestAnimationFrame(step);
       } else {
@@ -122,7 +123,7 @@ export function SectionNav({
     <nav
       ref={navRef}
       aria-label="Sections"
-      className={`bd-no-scrollbar sticky top-0 z-30 flex gap-2 overflow-x-auto rounded-xl border border-slate-800/70 bg-slate-950/85 px-2 py-2 backdrop-blur ${className}`}
+      className={`bd-no-scrollbar sticky top-0 z-30 flex gap-2 overflow-x-auto rounded-xl border border-slate-800/70 bg-slate-950 px-2 py-2 ${className}`}
     >
       {items.map((item) => {
         const isActive = item.id === active;

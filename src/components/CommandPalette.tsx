@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import {
   Bookmark,
+  ChevronUp,
   FolderTree,
   HelpCircle,
   Plus,
@@ -92,6 +93,7 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [bookmarks, setBookmarks] = useState<CachedBookmark[]>([]);
+  const [listScrolled, setListScrolled] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
 
@@ -107,6 +109,12 @@ export function CommandPalette() {
     setActive(0);
     setOpen(true);
   }, []);
+
+  // The results list resets to the top whenever the query or open-state changes.
+  useEffect(() => {
+    setListScrolled(false);
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, [query, open]);
 
   // Let the rest of the UI react to the palette opening/closing.
   useEffect(() => {
@@ -233,7 +241,7 @@ export function CommandPalette() {
       onClose={close}
       label="Command palette"
       overlayClassName="inset-0 flex items-stretch justify-center sm:items-start sm:px-4 sm:py-[8vh]"
-      panelClassName="flex h-full w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
+      panelClassName="relative flex h-full w-full flex-col overflow-hidden border-slate-800 bg-slate-900 shadow-2xl outline-none sm:h-auto sm:max-w-[45rem] sm:rounded-2xl sm:border"
     >
       <input
         ref={inputRef}
@@ -247,6 +255,7 @@ export function CommandPalette() {
       />
       <ul
         ref={listRef}
+        onScroll={(e) => setListScrolled(e.currentTarget.scrollTop > 240)}
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2 sm:max-h-[65vh] sm:flex-none"
       >
         {filtered.length === 0 ? (
@@ -294,6 +303,20 @@ export function CommandPalette() {
           })
         )}
       </ul>
+      {/* Scroll the results back to the top of a long list. */}
+      <button
+        type="button"
+        onClick={() => {
+          if (listRef.current) listRef.current.scrollTop = 0;
+          setListScrolled(false);
+        }}
+        aria-label="Scroll to top"
+        className={`absolute bottom-14 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900/90 text-slate-200 shadow-lg backdrop-blur transition hover:border-blue-400/50 hover:text-blue-200 ${
+          listScrolled ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      >
+        <ChevronUp className="h-5 w-5" />
+      </button>
       <div className="flex shrink-0 items-center justify-between border-t border-slate-800 px-5 py-2 text-[11px] text-slate-500">
         <span>↑↓ to navigate · ↵ to open</span>
         <span>⌘K</span>
