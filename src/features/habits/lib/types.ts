@@ -34,6 +34,7 @@ export type Habit = {
   area?: string; // optional category/grouping label (e.g. "Health", "Work")
   areaIcon?: string; // emoji shown for the habit's area
   reminder?: string | null; // "HH:MM" — stored for a later reminders pass
+  linkedSourceId?: string | null; // bound Focus trackable source (see lib/trackableSources.ts)
   archived: boolean;
   sortOrder: number;
   createdAt: string | null; // ISO

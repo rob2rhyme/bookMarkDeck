@@ -62,6 +62,8 @@ export function coerceHabit(id: string, raw: unknown): Habit | null {
         ? r.areaIcon.trim()
         : undefined,
     reminder: typeof r.reminder === "string" ? r.reminder : null,
+    linkedSourceId:
+      typeof r.linkedSourceId === "string" ? r.linkedSourceId : undefined,
     archived: Boolean(r.archived),
     sortOrder: num(r.sortOrder, 0),
     createdAt: typeof r.createdAt === "string" ? r.createdAt : null,
@@ -107,6 +109,7 @@ export function habitToDoc(h: Habit): Record<string, unknown> {
   if (h.identity !== undefined) doc.identity = h.identity;
   if (h.area !== undefined) doc.area = h.area;
   if (h.areaIcon !== undefined) doc.areaIcon = h.areaIcon;
+  if (h.linkedSourceId) doc.linkedSourceId = h.linkedSourceId;
   if (h.createdAt) doc.createdAt = h.createdAt;
   return doc;
 }

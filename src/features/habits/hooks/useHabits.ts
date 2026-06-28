@@ -12,11 +12,6 @@ import {
   subscribeEntries,
   subscribeHabits,
 } from "@/features/habits/data/habitData";
-import {
-  saveHydration,
-  subscribeHydration,
-  subscribeNotes,
-} from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import { coerceEntry, coerceHabit } from "@/features/habits/lib/serialize";
 import {
@@ -28,16 +23,12 @@ import {
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
 import { computeStats, isDueOn } from "@/features/habits/lib/streak";
+import { getFocusWaterGoal } from "@/features/habits/lib/water";
 import {
-  getFocusHydrationCache,
-  getFocusWaterGoal,
-  isWaterHabit,
-  setFocusHydrationCache,
-} from "@/features/habits/lib/water";
-import {
-  focusHasJournalNote,
-  isJournalHabit,
-} from "@/features/habits/lib/journal";
+  mergeStep,
+  resolveSource,
+  type TrackableSource,
+} from "@/features/habits/lib/trackableSources";
 import {
   type Habit,
   type HabitEntry,
@@ -267,15 +258,18 @@ export function useHabits(
     [today]
   );
 
-  // Push a water habit's today count to Focus hydration (1 cup = 1 count). The
-  // localStorage write keeps Focus current even offline; the Firestore write
-  // syncs across devices/surfaces. No-op for non-water habits.
-  const mirrorWater = useCallback(
-    (habit: Habit, cups: number) => {
-      if (!isWaterHabit(habit) || !today) return;
-      const v = Math.max(0, Math.round(cups));
-      setFocusHydrationCache(email, v);
-      if (canSync && email) saveHydration(email, today, v).catch(() => {});
+  // Forward-mirror a linked habit's today value back to its Focus source (e.g. a
+  // water habit's count → Focus hydration). No-op for habits whose source has no
+  // writable surface (journal/meditation/focus) or that aren't linked at all.
+  const mirrorLinked = useCallback(
+    (habit: Habit, value: number) => {
+      if (!today) return;
+      const source = resolveSource(habit);
+      if (!source?.mirror) return;
+      source.mirror(
+        { email, day: today, canSync },
+        Math.max(0, Math.round(value))
+      );
     },
     [canSync, email, today]
   );
@@ -290,7 +284,7 @@ export function useHabits(
       const isDone = existing?.status === "done" && existing.count >= target;
       if (isDone) {
         removeEntry(entryId(habit.id, today));
-        mirrorWater(habit, 0);
+        mirrorLinked(habit, 0);
         return;
       }
       const entry: HabitEntry = {
@@ -302,10 +296,10 @@ export function useHabits(
         createdAt: new Date().toISOString(),
       };
       upsertEntry(entry);
-      mirrorWater(habit, target);
+      mirrorLinked(habit, target);
       onLog?.("habit_done", `Completed habit: ${habit.name}`);
     },
-    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorWater]
+    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
   );
 
   /** Measurable +/- by a delta. Clears the entry at 0; logs when target met. */
@@ -321,7 +315,7 @@ export function useHabits(
       const count = Math.max(0, prevCount + delta);
       if (count === 0) {
         removeEntry(entryId(habit.id, today));
-        mirrorWater(habit, 0);
+        mirrorLinked(habit, 0);
         return;
       }
       upsertEntry({
@@ -332,11 +326,11 @@ export function useHabits(
         count,
         createdAt: existing?.createdAt ?? new Date().toISOString(),
       });
-      mirrorWater(habit, count);
+      mirrorLinked(habit, count);
       if (!wasDone && count >= target)
         onLog?.("habit_done", `Completed habit: ${habit.name}`);
     },
-    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorWater]
+    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
   );
 
   const skipToday = useCallback(
@@ -351,19 +345,19 @@ export function useHabits(
         count: 0,
         createdAt: new Date().toISOString(),
       });
-      mirrorWater(habit, 0);
+      mirrorLinked(habit, 0);
       onLog?.("habit_skipped", `Skipped habit: ${habit.name}`);
     },
-    [today, upsertEntry, onLog, recordUndo, mirrorWater]
+    [today, upsertEntry, onLog, recordUndo, mirrorLinked]
   );
 
   const clearToday = useCallback(
     (habit: Habit) => {
       if (!today) return;
       removeEntry(entryId(habit.id, today));
-      mirrorWater(habit, 0);
+      mirrorLinked(habit, 0);
     },
-    [today, removeEntry, mirrorWater]
+    [today, removeEntry, mirrorLinked]
   );
 
   /** Remove a habit's entry for any day (e.g. an accidental log in history). */
@@ -371,9 +365,9 @@ export function useHabits(
     (habit: Habit, day: string) => {
       if (!day) return;
       removeEntry(entryId(habit.id, day));
-      if (day === today) mirrorWater(habit, 0);
+      if (day === today) mirrorLinked(habit, 0);
     },
-    [today, removeEntry, mirrorWater]
+    [today, removeEntry, mirrorLinked]
   );
 
   /**
@@ -396,7 +390,7 @@ export function useHabits(
       const id = entryId(habit.id, day);
       if (detail.status === "clear") {
         removeEntry(id);
-        if (day === today) mirrorWater(habit, 0);
+        if (day === today) mirrorLinked(habit, 0);
         return;
       }
       const target = habitTarget(habit);
@@ -416,9 +410,9 @@ export function useHabits(
         ...(detail.at ? { at: detail.at } : {}),
         createdAt: prev?.createdAt ?? new Date().toISOString(),
       });
-      if (day === today) mirrorWater(habit, detail.status === "done" ? count : 0);
+      if (day === today) mirrorLinked(habit, detail.status === "done" ? count : 0);
     },
-    [today, upsertEntry, removeEntry, mirrorWater]
+    [today, upsertEntry, removeEntry, mirrorLinked]
   );
 
   /** Revert the most recent tap on a habit to the snapshot taken before it. */
@@ -429,7 +423,7 @@ export function useHabits(
       if (prev === undefined) return; // nothing recorded
       if (prev === null) removeEntry(entryId(habit.id, today));
       else upsertEntry(prev);
-      mirrorWater(
+      mirrorLinked(
         habit,
         prev && prev.status === "done" ? prev.count : 0
       );
@@ -439,7 +433,7 @@ export function useHabits(
         return next;
       });
     },
-    [today, undoByHabit, removeEntry, upsertEntry, mirrorWater]
+    [today, undoByHabit, removeEntry, upsertEntry, mirrorLinked]
   );
 
   /** Full "log today" editor: set status/count + optional note & clock time. */
@@ -457,7 +451,7 @@ export function useHabits(
       recordUndo(habit.id);
       if (detail.status === "clear") {
         removeEntry(entryId(habit.id, today));
-        mirrorWater(habit, 0);
+        mirrorLinked(habit, 0);
         return;
       }
       const target = habitTarget(habit);
@@ -478,13 +472,13 @@ export function useHabits(
         ...(detail.at ? { at: detail.at } : {}),
         createdAt: prev?.createdAt ?? new Date().toISOString(),
       });
-      mirrorWater(habit, detail.status === "done" ? count : 0);
+      mirrorLinked(habit, detail.status === "done" ? count : 0);
       if (detail.status === "done" && !wasDone)
         onLog?.("habit_done", `Completed habit: ${habit.name}`);
       if (detail.status === "skipped" && prev?.status !== "skipped")
         onLog?.("habit_skipped", `Skipped habit: ${habit.name}`);
     },
-    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorWater]
+    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
   );
 
   /* ----------------------------------------------------------- habits --- */
@@ -600,100 +594,110 @@ export function useHabits(
   const active = useMemo(() => sorted.filter((h) => !h.archived), [sorted]);
   const archived = useMemo(() => sorted.filter((h) => h.archived), [sorted]);
 
-  // The linked water habit (first active match), if any. Kept in a ref so the
-  // hydration subscription can read the latest without re-subscribing.
-  const waterHabit = useMemo(() => active.find(isWaterHabit) ?? null, [active]);
-  const waterHabitRef = useRef(waterHabit);
-  useEffect(() => {
-    waterHabitRef.current = waterHabit;
-  }, [waterHabit]);
-
-  // The linked journal habit (first active match), if any. Kept in a ref so the
-  // notes subscription can read the latest without re-subscribing.
-  const journalHabit = useMemo(
-    () => active.find(isJournalHabit) ?? null,
+  // Habits bound to a Focus trackable source — explicitly via linkedSourceId or
+  // by a source's heuristic match. One generic engine subscribes + merges them
+  // (replacing the former bespoke water/journal bridges). Held in a ref so each
+  // subscription reads the latest binding without re-subscribing.
+  const linked = useMemo(
+    () =>
+      active
+        .map((habit) => ({ habit, source: resolveSource(habit) }))
+        .filter(
+          (x): x is { habit: Habit; source: TrackableSource } =>
+            x.source !== null
+        ),
     [active]
   );
-  const journalHabitRef = useRef(journalHabit);
+  const linkedRef = useRef(linked);
   useEffect(() => {
-    journalHabitRef.current = journalHabit;
-  }, [journalHabit]);
+    linkedRef.current = linked;
+  }, [linked]);
+  // Re-subscribe only when the set of (habit → source) bindings changes.
+  const linkKey = linked
+    .map((x) => `${x.habit.id}:${x.source.id}`)
+    .sort()
+    .join(",");
 
-  // Reverse mirror: reflect Focus hydration (logged on the Focus page) into the
-  // water habit's today entry. First snapshot max-merges (so neither surface's
-  // value is lost); later snapshots adopt the remote count. Writing the entry
-  // here never re-triggers mirrorWater, so there's no loop.
+  // Reverse sync: reflect each linked Focus source into its habit's today entry
+  // per the source's merge policy (mergeStep). Writing the entry here never
+  // re-triggers a forward mirror, so there's no loop.
   useEffect(() => {
-    if (!canSync || !email || !waterHabit || !today) return;
+    if (!canSync || !email || !today) return;
     const day = today;
-    const habitId = waterHabit.id;
-    let first = true;
-    return subscribeHydration(email, day, (remote) => {
-      const wh = waterHabitRef.current;
-      if (!wh || wh.id !== habitId) return;
-      const id = `${habitId}_${day}`;
-      const cur = entriesRef.current.find((e) => e.id === id);
-      const curCount = cur && cur.status === "done" ? cur.count : 0;
-
-      // No hydration doc yet: seed it from the habit's count on first snapshot.
-      if (remote == null) {
-        if (first) {
-          first = false;
-          if (curCount > 0) saveHydration(email, day, curCount).catch(() => {});
-        }
-        return;
-      }
-
-      // First snapshot max-merges so neither surface's value is lost; later
-      // snapshots adopt the remote count.
-      const resolved = first ? Math.max(curCount, remote) : remote;
-      first = false;
-
-      if (resolved !== curCount) {
-        if (resolved <= 0) {
-          removeEntry(id);
-        } else {
+    const unsubs = linked.map(({ habit, source }) => {
+      let first = true;
+      return source.subscribe(email, day, (remote) => {
+        const cur = linkedRef.current.find(
+          (x) => x.habit.id === habit.id && x.source.id === source.id
+        );
+        if (!cur) return;
+        const id = `${habit.id}_${day}`;
+        const e = entriesRef.current.find((x) => x.id === id);
+        const curCount = e && e.status === "done" ? e.count : 0;
+        const r = mergeStep({
+          policy: source.policy,
+          habitType: cur.habit.type,
+          curCount,
+          remote,
+          target: habitTarget(cur.habit),
+          isFirst: first,
+        });
+        first = false;
+        if (r.remove) removeEntry(id);
+        else if (r.set != null)
           upsertEntry({
             id,
-            habitId,
+            habitId: habit.id,
             day,
             status: "done",
-            count: resolved,
-            createdAt: cur?.createdAt ?? new Date().toISOString(),
+            count: r.set,
+            createdAt: e?.createdAt ?? new Date().toISOString(),
           });
-        }
-      }
-      // If the merge raised the value above what Focus had, push it back up.
-      if (resolved !== remote) saveHydration(email, day, resolved).catch(() => {});
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSync, email, waterHabit?.id, today]);
-
-  // Offline/no-sync path: seed the water habit's today count from Focus's local
-  // hydration cache so cups logged on the Focus page show up here too. Only ever
-  // raises the count (max-merge), so it won't wipe a higher habit value.
-  useEffect(() => {
-    if (!hydrated || !waterHabit || !today) return;
-    const cached = getFocusHydrationCache(email);
-    if (cached == null || cached <= 0) return;
-    const id = entryId(waterHabit.id, today);
-    const cur = entriesRef.current.find((e) => e.id === id);
-    const curCount = cur && cur.status === "done" ? cur.count : 0;
-    if (cached > curCount) {
-      upsertEntry({
-        id,
-        habitId: waterHabit.id,
-        day: today,
-        status: "done",
-        count: cached,
-        createdAt: cur?.createdAt ?? new Date().toISOString(),
+        if (r.mirror != null)
+          source.mirror?.({ email, day, canSync }, r.mirror);
       });
+    });
+    return () => unsubs.forEach((u) => u());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSync, email, today, linkKey]);
+
+  // Offline/no-sync path: raise each linked habit's today entry from its source's
+  // local cache (always raise-only, so a higher habit value is never wiped).
+  useEffect(() => {
+    if (!hydrated || !today) return;
+    for (const { habit, source } of linked) {
+      const cached = source.readCache(email, today);
+      if (cached == null) continue;
+      const id = entryId(habit.id, today);
+      const e = entriesRef.current.find((x) => x.id === id);
+      const curCount = e && e.status === "done" ? e.count : 0;
+      const r = mergeStep({
+        policy: "raiseOnly",
+        habitType: habit.type,
+        curCount,
+        remote: cached,
+        target: habitTarget(habit),
+        isFirst: false,
+      });
+      if (r.set != null)
+        upsertEntry({
+          id,
+          habitId: habit.id,
+          day: today,
+          status: "done",
+          count: r.set,
+          createdAt: e?.createdAt ?? new Date().toISOString(),
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, waterHabit?.id, today]);
+  }, [hydrated, linkKey, today]);
 
-  // Keep the water habit's daily target in lock-step with the Focus hydration
-  // goal (its single source of truth), so both pages show the same "/N cups".
+  // Keep a water-linked habit's daily target in lock-step with the Focus
+  // hydration goal (its single source of truth), so both pages show "/N cups".
+  const waterHabit = useMemo(
+    () => active.find((h) => resolveSource(h)?.id === "hydration") ?? null,
+    [active]
+  );
   useEffect(() => {
     if (!hydrated || !waterHabit) return;
     const goal = getFocusWaterGoal(email);
@@ -701,53 +705,6 @@ export function useHabits(
     updateHabit({ ...waterHabit, target: goal });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, waterHabit?.id, waterHabit?.target, email]);
-
-  // Reflect a Focus journal note (written on the Focus page) into the journal
-  // habit's today entry. Raise-only: a note marks the habit done, but removing
-  // notes never un-marks it — there's no forward write, so auto-unchecking would
-  // bounce a manual tap. Marking the entry here never re-triggers a note write,
-  // so there's no loop.
-  useEffect(() => {
-    if (!canSync || !email || !journalHabit || !today) return;
-    const day = today;
-    const habitId = journalHabit.id;
-    return subscribeNotes(email, (notes) => {
-      const jh = journalHabitRef.current;
-      if (!jh || jh.id !== habitId) return;
-      if (!notes.some((n) => n.day === day)) return;
-      const id = `${habitId}_${day}`;
-      const cur = entriesRef.current.find((e) => e.id === id);
-      if (cur && cur.status === "done") return;
-      upsertEntry({
-        id,
-        habitId,
-        day,
-        status: "done",
-        count: habitTarget(jh),
-        createdAt: cur?.createdAt ?? new Date().toISOString(),
-      });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSync, email, journalHabit?.id, today]);
-
-  // Offline/no-sync path: mark the journal habit done from Focus's local notes
-  // cache so a note written on the Focus page shows up here too. Raise-only.
-  useEffect(() => {
-    if (!hydrated || !journalHabit || !today) return;
-    if (!focusHasJournalNote(email, today)) return;
-    const id = entryId(journalHabit.id, today);
-    const cur = entriesRef.current.find((e) => e.id === id);
-    if (cur && cur.status === "done") return;
-    upsertEntry({
-      id,
-      habitId: journalHabit.id,
-      day: today,
-      status: "done",
-      count: habitTarget(journalHabit),
-      createdAt: cur?.createdAt ?? new Date().toISOString(),
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, journalHabit?.id, today]);
 
   const statsByHabit = useMemo(() => {
     const map = new Map<string, HabitStats>();
