@@ -24,6 +24,25 @@ export default function LoginPage() {
     signIn(provider, { callbackUrl: "/" }).finally(() => setIsLoading(null));
   };
 
+  // Until we know the user is signed *out*, don't flash the login form — show a
+  // neutral splash. Already-signed-in users (common on the iOS PWA, which can
+  // land here on cold start) see this briefly, then the effect redirects home.
+  if (status !== "unauthenticated") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-slate-400">
+        <Image
+          src="/logo.png"
+          alt=""
+          width={40}
+          height={40}
+          className="h-10 w-10 rounded-lg opacity-80"
+          priority
+        />
+        <span className="text-sm">Loading…</span>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen text-slate-50">
       {/* Background subtle glow */}
