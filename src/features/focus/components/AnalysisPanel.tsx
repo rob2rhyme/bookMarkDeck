@@ -152,12 +152,26 @@ export function AnalysisPanel({
   }, [last7, moodByDay]);
 
   // Focus rhythm — when in the day you focus most (minutes per hour, all-time).
+  // `createdAt` is the block's *completion* time, so we treat the block as
+  // spanning [completion − focusMin, completion] and spread its minutes across
+  // the local hours it actually covered. (Attributing the whole block to the
+  // completion hour skews the peak later than reality.)
   const rhythm = useMemo(() => {
     const byHour = new Array(24).fill(0) as number[];
     for (const s of sessions) {
-      if (!s.createdAt) continue;
-      byHour[new Date(s.createdAt).getHours()] += s.focusMin;
+      if (!s.createdAt || s.focusMin <= 0) continue;
+      const end = new Date(s.createdAt).getTime();
+      let t = end - s.focusMin * 60_000;
+      while (t < end) {
+        const slice = new Date(t);
+        const nextHour = new Date(slice);
+        nextHour.setMinutes(60, 0, 0); // top of the next hour
+        const sliceEnd = Math.min(end, nextHour.getTime());
+        byHour[slice.getHours()] += (sliceEnd - t) / 60_000;
+        t = sliceEnd;
+      }
     }
+    for (let i = 0; i < 24; i++) byHour[i] = Math.round(byHour[i]);
     const max = Math.max(1, ...byHour);
     let peak = 0;
     for (let i = 1; i < 24; i++) if (byHour[i] > byHour[peak]) peak = i;

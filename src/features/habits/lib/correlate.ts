@@ -5,7 +5,7 @@
 // X% more on days you meditate." Pure (no React/Firebase); fully testable.
 
 import { addDays, isDayKey } from "@/features/habits/lib/day";
-import { isDueOn } from "@/features/habits/lib/streak";
+import { isDueOn, isSuccess } from "@/features/habits/lib/streak";
 import { type Habit, type HabitEntry, habitTarget } from "@/features/habits/lib/types";
 
 export type FocusByDay = Map<string, number>;
@@ -51,7 +51,7 @@ export function correlateHabit(
   const target = habitTarget(habit);
   const success = new Set<string>();
   for (const e of entries) {
-    if (e.habitId === habit.id && e.status === "done" && e.count >= target) {
+    if (e.habitId === habit.id && isSuccess(e, target, habit.direction)) {
       success.add(e.day);
     }
   }

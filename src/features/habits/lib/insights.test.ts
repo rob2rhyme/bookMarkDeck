@@ -88,3 +88,30 @@ describe("habitMomentum", () => {
     expect(habitMomentum(habit(), [], TODAY).lastDoneDay).toBeNull();
   });
 });
+
+describe("quit/limit habits (direction respected)", () => {
+  // A "Wine" habit: stay AT OR UNDER 3 glasses/day. Logging 2 = success;
+  // logging 5 = over the limit = not a success.
+  const wine = habit({ type: "measurable", direction: "quit", target: 3, unit: "glasses" });
+  const log = (day: string, count: number): HabitEntry => ({
+    id: `h_${day}`,
+    habitId: "h",
+    day,
+    status: "done",
+    count,
+    createdAt: null,
+  });
+
+  it("counts staying under the limit as done in weeklyBars", () => {
+    const { bars } = weeklyBars([wine], [log("2026-06-18", 2), log("2026-06-17", 5)], TODAY, 0);
+    expect(bars.find((b) => b.key === "2026-06-18")!.done).toBe(1); // 2 ≤ 3 ✓
+    expect(bars.find((b) => b.key === "2026-06-17")!.done).toBe(0); // 5 > 3 ✗
+  });
+
+  it("reflects the limit in habitMomentum", () => {
+    const m = habitMomentum(wine, [log("2026-06-18", 2), log("2026-06-17", 5)], TODAY);
+    expect(m.lastDoneDay).toBe("2026-06-18");
+    expect(m.strip.find((d) => d.key === "2026-06-18")!.state).toBe("done");
+    expect(m.strip.find((d) => d.key === "2026-06-17")!.state).toBe("missed");
+  });
+});
