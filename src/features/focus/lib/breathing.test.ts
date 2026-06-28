@@ -15,6 +15,12 @@ describe("cycleSeconds", () => {
     expect(cycleSeconds(box)).toBe(16);
     expect(cycleSeconds(patternById("478"))).toBe(19);
   });
+
+  it("covers the added patterns", () => {
+    expect(cycleSeconds(patternById("triangle"))).toBe(12); // in4 hold4 out4
+    expect(cycleSeconds(patternById("resonant"))).toBe(12); // in6 out6
+    expect(cycleSeconds(patternById("energize"))).toBe(8); // in6 out2
+  });
 });
 
 describe("patternById", () => {

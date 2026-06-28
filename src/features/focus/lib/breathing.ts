@@ -46,6 +46,24 @@ export const BREATH_PATTERNS: readonly BreathPattern[] = [
     description: "Calm — longer exhale, in 4, out 6",
     phases: [IN(4), OUT(6)],
   },
+  {
+    id: "triangle",
+    name: "Triangle",
+    description: "Simple rhythm — in 4, hold 4, out 4",
+    phases: [IN(4), HOLD(4), OUT(4)],
+  },
+  {
+    id: "resonant",
+    name: "Resonant",
+    description: "Heart-calming ~6 breaths/min — in 6, out 6",
+    phases: [IN(6), OUT(6)],
+  },
+  {
+    id: "energize",
+    name: "Energize",
+    description: "Gentle lift — in 6, short out 2",
+    phases: [IN(6), OUT(2)],
+  },
 ] as const;
 
 export function patternById(id: string): BreathPattern {

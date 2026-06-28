@@ -67,6 +67,48 @@ export const MEDITATION_GUIDES: readonly MeditationGuide[] = [
       "End by wishing well to all beings everywhere.",
     ],
   },
+  {
+    id: "focus-reset",
+    title: "Focus reset",
+    blurb: "A quick clear-out before a deep-work block.",
+    minutes: 3,
+    steps: [
+      "Sit upright and take one long, slow exhale.",
+      "Name the single task you're about to start.",
+      "Picture finishing it — what 'done' looks like.",
+      "Let other open loops go for now; they'll keep.",
+      "Take three steady breaths, counting each one.",
+      "Open your eyes and begin with that one task.",
+    ],
+  },
+  {
+    id: "stress-release",
+    title: "Stress release",
+    blurb: "Soften a tight, wound-up body and mind.",
+    minutes: 5,
+    steps: [
+      "Sit or stand and breathe out fully through the mouth.",
+      "Notice where stress sits — jaw, shoulders, chest, or gut.",
+      "Breathe in for four, then out slowly for six.",
+      "On each exhale, let that tight area drop a little.",
+      "Unclench the jaw and let the shoulders fall.",
+      "Finish with one easy breath and a slower pace.",
+    ],
+  },
+  {
+    id: "sleep-winddown",
+    title: "Sleep wind-down",
+    blurb: "Ease the body toward rest at the end of the day.",
+    minutes: 5,
+    steps: [
+      "Lie down and let the bed take your full weight.",
+      "Breathe low into the belly, slow and quiet.",
+      "Relax the face, then the neck and shoulders.",
+      "Let the arms and legs feel heavy and warm.",
+      "If thoughts come, picture them drifting away.",
+      "Stay with the slow breath and let sleep come.",
+    ],
+  },
 ];
 
 export function guideById(id: string): MeditationGuide | undefined {

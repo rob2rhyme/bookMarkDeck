@@ -10,7 +10,11 @@ import { useState } from "react";
 import { ExpandToggle } from "@/components/ExpandToggle";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { breathScale, patternById, phaseAt, BREATH_PATTERNS } from "@/features/focus/lib/breathing";
-import { MEDITATION_GUIDES } from "@/features/focus/lib/meditationContent";
+import {
+  MEDITATION_GUIDES,
+  type MeditationGuide,
+} from "@/features/focus/lib/meditationContent";
+import { AMBIENT_OPTIONS } from "@/features/focus/lib/sound";
 import { useMeditation } from "@/features/focus/hooks/useMeditation";
 import type { ActivityType, MeditationKind } from "@/features/focus/data/focusData";
 import type { FocusSettings } from "@/features/focus/lib/settings";
@@ -44,19 +48,29 @@ export function MeditationCard({
     connected,
     soundEnabled: settings.soundEnabled,
     chimeSound: settings.chimeSound,
+    voice: settings.meditationVoice,
+    ambient: settings.meditationAmbient,
     onLog,
   });
 
   const [mode, setMode] = useState<MeditationKind>("breath");
   const [activeMode, setActiveMode] = useState<MeditationKind>("breath");
+  const [activeGuide, setActiveGuide] = useState<MeditationGuide | null>(null);
   const [guidesOpen, setGuidesOpen] = useState(false);
   const [openGuide, setOpenGuide] = useState<string | null>(null);
 
   const pattern = patternById(settings.meditationPattern);
   const minutes = settings.meditationMinutes;
 
+  const beginGuide = (guide: MeditationGuide) => {
+    setActiveMode("guide");
+    setActiveGuide(guide);
+    med.start({ kind: "guide", minutes: guide.minutes, steps: guide.steps });
+  };
+
   const begin = (kind: MeditationKind, mins = minutes, patternId?: string) => {
     setActiveMode(kind);
+    setActiveGuide(null);
     med.start({ kind, minutes: mins, patternId });
   };
 
@@ -101,6 +115,27 @@ export function MeditationCard({
                 {fmt(med.remainingSec)}
               </p>
             </div>
+          )}
+          {activeMode === "guide" && activeGuide && (
+            <ol className="w-full max-w-sm space-y-1.5">
+              {activeGuide.steps.map((s, i) => {
+                const current = i === med.guideStep;
+                return (
+                  <li
+                    key={i}
+                    className={`rounded-lg border px-3 py-2 text-[13px] leading-snug transition ${
+                      current
+                        ? "border-blue-400/60 bg-blue-500/10 text-slate-100"
+                        : i < med.guideStep
+                          ? "border-slate-800/60 bg-slate-950/30 text-slate-500"
+                          : "border-slate-800/60 bg-slate-950/30 text-slate-300"
+                    }`}
+                  >
+                    {s}
+                  </li>
+                );
+              })}
+            </ol>
           )}
           <button
             type="button"
@@ -186,6 +221,59 @@ export function MeditationCard({
             </div>
           </div>
 
+          {/* Voice guide */}
+          <div className="mt-3">
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                Voice guide
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.meditationVoice}
+                onClick={() =>
+                  onUpdate({ meditationVoice: !settings.meditationVoice })
+                }
+                className={`relative h-5 w-9 rounded-full transition ${
+                  settings.meditationVoice ? "bg-blue-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                    settings.meditationVoice ? "left-4" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </label>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Speaks each breath cue or guide step aloud.
+            </p>
+          </div>
+
+          {/* Ambient sound */}
+          <div className="mt-3">
+            <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+              Ambient sound
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {AMBIENT_OPTIONS.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  aria-pressed={settings.meditationAmbient === a.id}
+                  onClick={() => onUpdate({ meditationAmbient: a.id })}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    settings.meditationAmbient === a.id
+                      ? "border-blue-400/60 bg-blue-500/15 text-blue-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                  }`}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={() => begin(mode, minutes, mode === "breath" ? pattern.id : undefined)}
@@ -233,7 +321,7 @@ export function MeditationCard({
                         </button>
                         <button
                           type="button"
-                          onClick={() => begin("guide", g.minutes)}
+                          onClick={() => beginGuide(g)}
                           className="shrink-0 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[11px] font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
                         >
                           Start
