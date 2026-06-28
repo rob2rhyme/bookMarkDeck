@@ -65,7 +65,11 @@ export function SectionNav({
     const el = document.getElementById(id);
     if (!el) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    // Compute the absolute target manually rather than scrollIntoView — iOS
+    // Safari's smooth scrollIntoView is unreliable. Offset by the sticky bar.
+    const navH = navRef.current?.offsetHeight ?? 56;
+    const top = el.getBoundingClientRect().top + window.scrollY - navH - 8;
+    window.scrollTo({ top: Math.max(0, top), behavior: reduce ? "auto" : "smooth" });
     setActive(id);
   };
 
