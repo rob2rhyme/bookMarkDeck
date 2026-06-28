@@ -373,6 +373,7 @@ export async function fetchNotes(emailHint: string): Promise<JournalNote[]> {
         id: d.id,
         day: typeof data.day === "string" ? data.day : "",
         text: typeof data.text === "string" ? data.text : "",
+        ...(typeof data.subject === "string" ? { subject: data.subject } : {}),
         createdAt: timestampToIso(data.createdAt),
         kind: data.kind === "dream" ? "dream" : "note",
         ...coerceDreamFields(data),
@@ -391,6 +392,7 @@ export async function addNote(
   await setDoc(doc(notesCol(uid), note.id), {
     day: note.day,
     text: note.text,
+    ...(note.subject?.trim() ? { subject: note.subject.trim() } : {}),
     createdAt: note.createdAt ?? serverTimestamp(),
     kind: note.kind ?? "note",
     ...details,
@@ -765,6 +767,9 @@ export function subscribeNotes(
                 id: d.id,
                 day: typeof data.day === "string" ? data.day : "",
                 text: typeof data.text === "string" ? data.text : "",
+                ...(typeof data.subject === "string"
+                  ? { subject: data.subject }
+                  : {}),
                 createdAt: timestampToIso(data.createdAt),
                 kind: data.kind === "dream" ? "dream" : "note",
                 ...coerceDreamFields(data),

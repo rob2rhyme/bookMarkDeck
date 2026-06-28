@@ -43,6 +43,7 @@ export type JournalNote = {
   id: string;
   day: string; // YYYY-MM-DD
   text: string;
+  subject?: string; // optional short subject/topic for the note
   createdAt: string | null; // ISO timestamp (null for migrated legacy notes)
   kind?: JournalNoteKind; // default "note"; "dream" = dream-log entry
 } & DreamDetails;
