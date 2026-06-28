@@ -24,6 +24,8 @@ type QuizBoxProps = {
   saving?: boolean;
 };
 
+const LETTERS = ["A", "B", "C", "D", "E", "F"];
+
 const LEVEL_BADGE: Record<Quiz["level"], string> = {
   Easy: "border-emerald-500/40 text-emerald-300",
   Medium: "border-amber-500/40 text-amber-300",
@@ -121,20 +123,32 @@ export function QuizBox({
       </p>
 
       <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-        {quiz.choices.map((choice, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => choose(i)}
-            disabled={answered}
-            aria-pressed={picked === i}
-            className={`rounded-lg border px-3 py-2 text-left text-[13px] transition disabled:cursor-default ${choiceClass(i)}`}
-          >
-            {choice}
-            {answered && i === quiz.answer ? " ✓" : ""}
-            {answered && i === picked && i !== quiz.answer ? " ✗" : ""}
-          </button>
-        ))}
+        {quiz.choices.map((choice, i) => {
+          const isAnswer = answered && i === quiz.answer;
+          const isWrongPick = answered && i === picked && i !== quiz.answer;
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => choose(i)}
+              disabled={answered}
+              aria-pressed={picked === i}
+              className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-[13px] leading-snug transition disabled:cursor-default ${choiceClass(i)}`}
+            >
+              <span
+                aria-hidden="true"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-current text-[11px] font-semibold opacity-60"
+              >
+                {LETTERS[i] ?? "•"}
+              </span>
+              <span className="min-w-0 flex-1 break-words">{choice}</span>
+              {isAnswer && (
+                <Check className="h-4 w-4 shrink-0 text-emerald-300" />
+              )}
+              {isWrongPick && <X className="h-4 w-4 shrink-0 text-rose-300" />}
+            </button>
+          );
+        })}
       </div>
 
       {answered && (
