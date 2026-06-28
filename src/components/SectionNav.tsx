@@ -64,13 +64,37 @@ export function SectionNav({
   const jump = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    // Compute the absolute target manually rather than scrollIntoView — iOS
-    // Safari's smooth scrollIntoView is unreliable. Offset by the sticky bar.
-    const navH = navRef.current?.offsetHeight ?? 56;
-    const top = el.getBoundingClientRect().top + window.scrollY - navH - 8;
-    window.scrollTo({ top: Math.max(0, top), behavior: reduce ? "auto" : "smooth" });
     setActive(id);
+    // Animate document.scrollingElement.scrollTop directly with rAF. Native
+    // smooth scrolling (scrollIntoView / scrollTo{behavior:'smooth'}) silently
+    // no-ops in iOS standalone PWAs, so we drive the scroll ourselves.
+    const scroller =
+      (document.scrollingElement as HTMLElement | null) ??
+      document.documentElement;
+    const navH = navRef.current?.offsetHeight ?? 56;
+    const startY = scroller.scrollTop;
+    const targetY = Math.max(
+      0,
+      el.getBoundingClientRect().top + startY - navH - 8
+    );
+    const dist = targetY - startY;
+    const reduce = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    if (reduce || Math.abs(dist) < 4) {
+      scroller.scrollTop = targetY;
+      return;
+    }
+    const duration = 420;
+    let startTs: number | null = null;
+    const step = (ts: number) => {
+      if (startTs === null) startTs = ts;
+      const p = Math.min(1, (ts - startTs) / duration);
+      const eased = 0.5 - Math.cos(p * Math.PI) / 2; // easeInOutSine
+      scroller.scrollTop = startY + dist * eased;
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   };
 
   if (items.length === 0) return null;
