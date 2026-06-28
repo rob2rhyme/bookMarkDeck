@@ -6,7 +6,7 @@ import { ContributionsCalendar } from "@/features/focus/components/Contributions
 import { ChevronUp, Trash2 } from "@/components/icons";
 import { ExpandToggle } from "@/components/ExpandToggle";
 import { DayLogEditor } from "@/features/habits/components/DayLogEditor";
-import { addDays, parseDay } from "@/features/habits/lib/day";
+import { addDays, dayKeyFor, parseDay } from "@/features/habits/lib/day";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
 import {
   type DayState,
@@ -119,18 +119,34 @@ function HabitDetail({
   stats,
   entries,
   today,
+  onLogEntry,
 }: {
   habit: Habit;
   stats: HabitStats;
   entries: HabitEntry[];
   today: string;
+  onLogEntry?: (
+    habit: Habit,
+    day: string,
+    detail: { status: "done" | "skipped" | "clear"; count?: number }
+  ) => void;
 }) {
-  const m = habitMomentum(habit, entries, today);
   const weekly = habit.schedule.type === "timesPerWeek";
   const measurable = habit.type === "measurable";
   const target = habitTarget(habit);
 
-  // Tap a day in the 14-day strip to reveal its date / weekday / logged time.
+  // Strip pager: 0 = most recent 14 days; each step back is another 14 days.
+  const [winOffset, setWinOffset] = useState(0);
+  const endDay = addDays(today, -winOffset * 14);
+  const m = habitMomentum(habit, entries, today, 14, endDay);
+  // Don't let the user page earlier than the habit existed (or ~400d of history).
+  const floor = habit.createdAt
+    ? dayKeyFor(new Date(habit.createdAt))
+    : addDays(today, -400);
+  const canOlder = addDays(endDay, -13) > floor;
+
+  // Tap a day in the strip to reveal its date / weekday / logged time, and
+  // (for past or today) backdate it done/skipped/clear.
   const [openDot, setOpenDot] = useState<string | null>(null);
   const entryByDay = new Map(
     entries.filter((e) => e.habitId === habit.id).map((e) => [e.day, e])
@@ -170,9 +186,39 @@ function HabitDetail({
       </dl>
 
       <div className="mt-3">
-        <p className="mb-1.5 text-[10px] uppercase tracking-wide text-slate-500">
-          Last 14 days
-        </p>
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">
+            {winOffset === 0
+              ? "Last 14 days"
+              : `${fmtDay(addDays(endDay, -13))} – ${fmtDay(endDay)}`}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={!canOlder}
+              onClick={() => {
+                setOpenDot(null);
+                setWinOffset((o) => o + 1);
+              }}
+              aria-label="Earlier 14 days"
+              className="rounded p-0.5 text-slate-400 transition enabled:hover:text-slate-100 disabled:opacity-30"
+            >
+              <ChevronUp className="h-3.5 w-3.5 -rotate-90" />
+            </button>
+            <button
+              type="button"
+              disabled={winOffset === 0}
+              onClick={() => {
+                setOpenDot(null);
+                setWinOffset((o) => Math.max(0, o - 1));
+              }}
+              aria-label="Later 14 days"
+              className="rounded p-0.5 text-slate-400 transition enabled:hover:text-slate-100 disabled:opacity-30"
+            >
+              <ChevronUp className="h-3.5 w-3.5 rotate-90" />
+            </button>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-1">
           {m.strip.map((d) => (
             <button
@@ -195,18 +241,61 @@ function HabitDetail({
             const state =
               m.strip.find((d) => d.key === openDot)?.state ?? "off";
             const e = entryByDay.get(openDot);
+            const isDone = state === "done";
             return (
-              <p className="mt-2 text-xs text-slate-300">
-                <span className="font-medium text-slate-100">
-                  {fmtDateDay(openDot)}
-                </span>
-                {" · "}
-                {STRIP_LABEL[state]}
-                {e?.at ? ` · ${fmtTime(e.at)}` : ""}
-                {measurable && e && e.status === "done"
-                  ? ` · ${e.count} ${habit.unit ?? ""}`.trimEnd()
-                  : ""}
-              </p>
+              <div className="mt-2">
+                <p className="text-xs text-slate-300">
+                  <span className="font-medium text-slate-100">
+                    {fmtDateDay(openDot)}
+                  </span>
+                  {" · "}
+                  {STRIP_LABEL[state]}
+                  {e?.at ? ` · ${fmtTime(e.at)}` : ""}
+                  {measurable && e && e.status === "done"
+                    ? ` · ${e.count} ${habit.unit ?? ""}`.trimEnd()
+                    : ""}
+                </p>
+                {onLogEntry && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {!isDone && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onLogEntry(habit, openDot, {
+                            status: "done",
+                            count: target,
+                          })
+                        }
+                        className="rounded-full border border-emerald-700/60 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300 transition hover:bg-emerald-500/20"
+                      >
+                        Mark done
+                      </button>
+                    )}
+                    {state !== "skipped" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onLogEntry(habit, openDot, { status: "skipped" })
+                        }
+                        className="rounded-full border border-slate-700 px-2.5 py-0.5 text-[11px] font-medium text-slate-300 transition hover:border-slate-500"
+                      >
+                        Skip
+                      </button>
+                    )}
+                    {e && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onLogEntry(habit, openDot, { status: "clear" })
+                        }
+                        className="rounded-full border border-slate-700 px-2.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:border-rose-700/60 hover:text-rose-300"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })()}
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
@@ -420,7 +509,13 @@ export function InsightsPanel({
                     </span>
                   </button>
                   {open && (
-                    <HabitDetail habit={h} stats={s} entries={entries} today={today} />
+                    <HabitDetail
+                      habit={h}
+                      stats={s}
+                      entries={entries}
+                      today={today}
+                      onLogEntry={onLogEntry}
+                    />
                   )}
                 </div>
               );
