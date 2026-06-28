@@ -18,6 +18,10 @@ export function SectionNav({
 }) {
   const [active, setActive] = useState<string | null>(items[0]?.id ?? null);
   const navRef = useRef<HTMLElement | null>(null);
+  // True while a tap-driven scroll is animating — suppresses the observer so the
+  // active chip doesn't churn through every section mid-flight (the flicker).
+  const programmatic = useRef(false);
+  const rafId = useRef<number | null>(null);
 
   // Track which section is in view (top-most visible wins).
   useEffect(() => {
@@ -30,6 +34,7 @@ export function SectionNav({
     const visible = new Map<string, number>();
     const observer = new IntersectionObserver(
       (entries) => {
+        if (programmatic.current) return; // ignore while we animate a jump
         for (const e of entries) {
           if (e.isIntersecting) visible.set(e.target.id, e.intersectionRatio);
           else visible.delete(e.target.id);
@@ -52,13 +57,16 @@ export function SectionNav({
     return () => observer.disconnect();
   }, [items]);
 
-  // Keep the active chip scrolled into view within the nav strip.
+  // Center the active chip within the strip — manual scrollLeft only, never
+  // scrollIntoView (which on iOS scrolls the *page* too and fights the jump).
   useEffect(() => {
-    if (!active || !navRef.current) return;
-    const chip = navRef.current.querySelector<HTMLElement>(
+    const nav = navRef.current;
+    if (!active || !nav) return;
+    const chip = nav.querySelector<HTMLElement>(
       `[data-section-chip="${active}"]`
     );
-    chip?.scrollIntoView({ inline: "center", block: "nearest" });
+    if (!chip) return;
+    nav.scrollLeft = chip.offsetLeft - (nav.clientWidth - chip.offsetWidth) / 2;
   }, [active]);
 
   const jump = (id: string) => {
@@ -78,6 +86,7 @@ export function SectionNav({
       el.getBoundingClientRect().top + startY - navH - 8
     );
     const dist = targetY - startY;
+    if (rafId.current !== null) cancelAnimationFrame(rafId.current);
     const reduce = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)"
     ).matches;
@@ -85,6 +94,7 @@ export function SectionNav({
       scroller.scrollTop = targetY;
       return;
     }
+    programmatic.current = true;
     const duration = 420;
     let startTs: number | null = null;
     const step = (ts: number) => {
@@ -92,9 +102,18 @@ export function SectionNav({
       const p = Math.min(1, (ts - startTs) / duration);
       const eased = 0.5 - Math.cos(p * Math.PI) / 2; // easeInOutSine
       scroller.scrollTop = startY + dist * eased;
-      if (p < 1) requestAnimationFrame(step);
+      if (p < 1) {
+        rafId.current = requestAnimationFrame(step);
+      } else {
+        rafId.current = null;
+        // Release the observer a beat later so momentum settling doesn't
+        // immediately re-snap the active chip.
+        setTimeout(() => {
+          programmatic.current = false;
+        }, 120);
+      }
     };
-    requestAnimationFrame(step);
+    rafId.current = requestAnimationFrame(step);
   };
 
   if (items.length === 0) return null;
