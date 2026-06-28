@@ -314,6 +314,7 @@ export function FocusDashboard() {
     { id: "sec-timer", label: "Timer" },
     { id: "sec-todos", label: "To-dos" },
     { id: "sec-analysis", label: "Analysis" },
+    { id: "sec-journal", label: "Journal" },
     { id: "sec-activity", label: "Activity" },
     ...(settings.hydrationEnabled
       ? [{ id: "sec-hydration", label: "Hydration" }]
@@ -499,20 +500,22 @@ export function FocusDashboard() {
           moodByDay={journal.moodByDay}
           sessions={stats.sessions}
         />
-        <JournalCard
-          mood={journal.todayMood}
-          moodByDay={journal.moodByDay}
-          notesByDay={journal.notesByDay}
-          onAddNote={journal.addNote}
-          onEditNote={journal.editNote}
-          onRemoveNote={removeNoteWithUndo}
-          onRemoveNotes={removeNotesWithUndo}
-          onMoodChange={(m, day) => {
-            journal.setMood(m, day);
-            setJournalPrompt(false);
-          }}
-          highlight={journalPrompt}
-        />
+        <div id="sec-journal" className="scroll-mt-20">
+          <JournalCard
+            mood={journal.todayMood}
+            moodByDay={journal.moodByDay}
+            notesByDay={journal.notesByDay}
+            onAddNote={journal.addNote}
+            onEditNote={journal.editNote}
+            onRemoveNote={removeNoteWithUndo}
+            onRemoveNotes={removeNotesWithUndo}
+            onMoodChange={(m, day) => {
+              journal.setMood(m, day);
+              setJournalPrompt(false);
+            }}
+            highlight={journalPrompt}
+          />
+        </div>
       </div>
 
       <DreamPanel notesByDay={journal.notesByDay} />
