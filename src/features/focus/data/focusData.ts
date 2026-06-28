@@ -62,6 +62,8 @@ const todosCol = (uid: string) => collection(db, "users", uid, "todos");
 const contentDoc = (uid: string) =>
   doc(db, "users", uid, "focusContent", "content");
 const scoresCol = (uid: string) => collection(db, "users", uid, "focusScores");
+const meditationCol = (uid: string) =>
+  collection(db, "users", uid, "meditationSessions");
 
 export type ActivityType =
   | "focus"
@@ -76,7 +78,8 @@ export type ActivityType =
   | "habit_done"
   | "habit_skipped"
   | "bookmark"
-  | "quiz";
+  | "quiz"
+  | "meditation";
 
 export type ActivityEvent = {
   id: string;
@@ -658,6 +661,67 @@ export function subscribeSessions(
           })
         ),
       onListenError("sessions")
+    )
+  );
+}
+
+export type MeditationKind = "breath" | "sit" | "guide";
+
+export type MeditationSessionRecord = {
+  id: string;
+  minutes: number;
+  kind: MeditationKind;
+  pattern: string | null; // breathing pattern id, when kind === "breath"
+  day: string; // YYYY-MM-DD
+  createdAt: string | null;
+};
+
+/** Persist a completed meditation session. */
+export async function logMeditationSession(
+  emailHint: string,
+  minutes: number,
+  day: string,
+  kind: MeditationKind,
+  pattern?: string | null
+): Promise<string> {
+  const uid = await uidFor(emailHint);
+  const id = crypto.randomUUID();
+  const payload: Record<string, unknown> = {
+    minutes,
+    kind,
+    day,
+    createdAt: serverTimestamp(),
+  };
+  if (pattern) payload.pattern = pattern;
+  await setDoc(doc(meditationCol(uid), id), payload);
+  return id;
+}
+
+export function subscribeMeditationSessions(
+  emailHint: string,
+  cb: (sessions: MeditationSessionRecord[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      meditationCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              minutes: typeof data.minutes === "number" ? data.minutes : 0,
+              kind:
+                data.kind === "sit" || data.kind === "guide"
+                  ? data.kind
+                  : "breath",
+              pattern: typeof data.pattern === "string" ? data.pattern : null,
+              day: typeof data.day === "string" ? data.day : "",
+              createdAt: timestampToIso(data.createdAt),
+            };
+          })
+        ),
+      onListenError("meditationSessions")
     )
   );
 }

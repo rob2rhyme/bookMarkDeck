@@ -16,6 +16,7 @@ import { FocusSettingsModal } from "@/features/focus/components/FocusSettingsMod
 import { HydrationHistory } from "@/features/focus/components/HydrationHistory";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
 import { JournalCard } from "@/features/focus/components/JournalCard";
+import { MeditationCard } from "@/features/focus/components/MeditationCard";
 import { LogPastSessionModal } from "@/features/focus/components/LogPastSessionModal";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
@@ -317,6 +318,9 @@ export function FocusDashboard() {
     ...(settings.hydrationEnabled
       ? [{ id: "sec-hydration", label: "Hydration" }]
       : []),
+    ...(settings.meditationEnabled
+      ? [{ id: "sec-meditation", label: "Meditate" }]
+      : []),
     { id: "sec-quiz", label: "Quiz" },
     { id: "sec-scores", label: "Scores" },
   ];
@@ -532,6 +536,18 @@ export function FocusDashboard() {
             history={hydrationHistory}
             todayEvents={todayHydrationEvents}
             goal={settings.waterGoal}
+          />
+        </div>
+      )}
+
+      {settings.meditationEnabled && (
+        <div id="sec-meditation" className="mt-5 scroll-mt-20">
+          <MeditationCard
+            email={email}
+            connected={connected}
+            settings={settings}
+            onUpdate={update}
+            onLog={activity.log}
           />
         </div>
       )}

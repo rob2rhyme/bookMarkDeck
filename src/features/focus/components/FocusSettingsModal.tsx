@@ -290,6 +290,10 @@ export function FocusSettingsModal({
         <NumberField label="Remind every" value={settings.hydrationIntervalMin} min={5} max={180} suffix="min" onChange={(v) => onUpdate({ hydrationIntervalMin: v })} />
         <NumberField label="Daily goal" value={settings.waterGoal} min={1} max={20} suffix="cups" onChange={(v) => onUpdate({ waterGoal: v })} />
 
+        <SectionLabel>Meditation</SectionLabel>
+        <Toggle label="Show meditation card" checked={settings.meditationEnabled} onChange={(v) => onUpdate({ meditationEnabled: v })} />
+        <NumberField label="Default length" value={settings.meditationMinutes} min={1} max={60} suffix="min" onChange={(v) => onUpdate({ meditationMinutes: v })} />
+
         <SectionLabel>Google sync</SectionLabel>
         <Toggle
           label="Sync with Google (Tasks + Calendar)"

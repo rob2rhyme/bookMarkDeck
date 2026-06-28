@@ -18,6 +18,8 @@ The focus feature stores data in per-user subcollections:
   merged on top of the built-in defaults)
 - `users/{uid}/focusScores/{id}` (one doc per answered "Need a push?" quiz —
   points + per-topic breakdown for the Scores history)
+- `users/{uid}/meditationSessions/{id}` (one doc per completed meditation —
+  `{ minutes, kind, pattern?, day, createdAt }`)
 - `users/{uid}/prefs/ui` (cloud-remembered one-shot UI flags — welcome /
   habit-onboarding dismissals; see `src/lib/uiPrefs.ts`)
 
