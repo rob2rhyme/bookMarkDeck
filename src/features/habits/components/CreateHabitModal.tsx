@@ -16,6 +16,11 @@ import {
   hueColor,
   suggestEmoji,
 } from "@/features/habits/lib/format";
+import {
+  LINK_OPT_OUT,
+  resolveSource,
+  suggestSource,
+} from "@/features/habits/lib/trackableSources";
 import type {
   Habit,
   HabitDirection,
@@ -68,6 +73,7 @@ export function CreateHabitModal({
   const [perWeek, setPerWeek] = useState(3);
   const [identity, setIdentity] = useState("");
   const [reminder, setReminder] = useState("");
+  const [linkedSourceId, setLinkedSourceId] = useState<string | null>(null);
 
   // Reset the form whenever the modal (re)opens.
   useEffect(() => {
@@ -86,6 +92,7 @@ export function CreateHabitModal({
       setArea(initial.area ?? "");
       setAreaIcon(initial.areaIcon?.trim() || DEFAULT_AREA_ICON);
       setReminder(initial.reminder ?? "");
+      setLinkedSourceId(initial.linkedSourceId ?? null);
       setKind(initial.schedule.type);
       if (initial.schedule.type === "weekdays") setDays(initial.schedule.days);
       if (initial.schedule.type === "timesPerWeek") setPerWeek(initial.schedule.count);
@@ -107,6 +114,7 @@ export function CreateHabitModal({
       setKind("daily");
       setDays([1, 2, 3, 4, 5]);
       setPerWeek(3);
+      setLinkedSourceId(null);
     }
   }, [open, initial]);
 
@@ -154,6 +162,7 @@ export function CreateHabitModal({
       area: area.trim() || undefined,
       areaIcon: area.trim() ? areaIcon : undefined,
       reminder: /^\d{1,2}:\d{2}$/.test(reminder) ? reminder : null,
+      linkedSourceId: linkedSourceId ?? undefined,
       archived: initial?.archived ?? false,
       sortOrder: initial?.sortOrder ?? nextSortOrder,
       createdAt: initial?.createdAt ?? new Date().toISOString(),
@@ -168,6 +177,26 @@ export function CreateHabitModal({
         ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
         : "border-slate-700 text-slate-300 hover:border-slate-500"
     }`;
+
+  // Live Focus-sync preview from the in-progress fields (type/unit/name drive
+  // the match). `linkedSource` = what's active; `candidate` = what it could link
+  // to even if currently opted out (powers the re-Link affordance).
+  const draftForLink: Habit = {
+    id: initial?.id ?? "draft",
+    name: name.trim(),
+    emoji,
+    hue,
+    type,
+    unit: type === "measurable" ? unit.trim() || "x" : undefined,
+    identity: identity.trim() || undefined,
+    linkedSourceId,
+    schedule: { type: "daily" },
+    archived: false,
+    sortOrder: 0,
+    createdAt: null,
+  };
+  const linkedSource = resolveSource(draftForLink);
+  const candidate = suggestSource(draftForLink);
 
   return (
     <Modal
@@ -440,6 +469,50 @@ export function CreateHabitModal({
                 {perWeek}× a week
               </span>
             </div>
+          )}
+
+          {/* Focus sync — auto-complete this habit from Focus activity */}
+          {(linkedSource || candidate) && (
+            <>
+              <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                Focus sync
+              </p>
+              {linkedSource ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-400/40 bg-blue-500/5 px-3 py-2">
+                  <span className="min-w-0 text-sm text-slate-200">
+                    🔗 Auto-completes from{" "}
+                    <span className="font-medium text-blue-200">
+                      {linkedSource.label}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLinkedSourceId(LINK_OPT_OUT)}
+                    className="shrink-0 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+                  >
+                    Unlink
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                  <span className="min-w-0 text-sm text-slate-400">
+                    Not syncing — {candidate?.label} available
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => candidate && setLinkedSourceId(candidate.id)}
+                    className="shrink-0 rounded-lg border border-blue-400/60 px-3 py-1.5 text-xs text-blue-200 transition hover:bg-blue-500/10"
+                  >
+                    Link
+                  </button>
+                </div>
+              )}
+              <p className="mt-1 text-[11px] text-slate-500">
+                {linkedSource
+                  ? "Fills in automatically from your Focus activity."
+                  : "Mark this done automatically when you log it in Focus."}
+              </p>
+            </>
           )}
 
           {/* Reminder */}
