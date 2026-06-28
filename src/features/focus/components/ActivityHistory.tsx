@@ -48,6 +48,7 @@ const TYPE_META: Record<ActivityType, { dot: string; glyph: string }> = {
   habit_skipped: { dot: "border-slate-500", glyph: "⏭️" },
   bookmark: { dot: "border-blue-400", glyph: "🔖" },
   quiz: { dot: "border-blue-500", glyph: "🧠" },
+  meditation: { dot: "border-blue-400", glyph: "🧘" },
 };
 
 type TimelineItem = {

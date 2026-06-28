@@ -114,7 +114,9 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
 
 - Route: `src/app/(app)/focus/page.tsx` — auth-gated like home.
 - UI: `FocusDashboard` composes `PomodoroTimer`, `TaskTracker`, `AnalysisPanel`,
-  `JournalCard`, `HydrationTracker`, `QuoteBox`, `FocusSettingsModal`.
+  `JournalCard`, `HydrationTracker`, `MeditationCard`, `QuoteBox`,
+  `FocusSettingsModal`. A sticky `SectionNav` (`@/components/SectionNav`) jumps
+  between the dashboard's sections.
 - Persistence (opt-in): `useFocusSync` reflects an existing Firebase session
   silently (`onAuthStateChanged`) or connects on demand. Data layer
   `features/focus/data/focusData.ts` writes per-user subcollections:
@@ -122,8 +124,10 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   (`{ focusMin, day, createdAt, taskId? }`), `focusSettings/settings`,
   `focusJournal/{YYYY-MM-DD}` (`{ mood }` + legacy `note`),
   `focusNotes/{id}` (multiple timestamped notes/day), `focusHydration/{day}`
-  (`{ cups }`), `activity/{id}` (unified log), and `focusScores/{id}` (one doc
-  per answered "Need a push?" quiz — points/topic for Scores history). Optimistic
+  (`{ cups }`), `activity/{id}` (unified log), `focusScores/{id}` (one doc
+  per answered "Need a push?" quiz — points/topic for Scores history), and
+  `meditationSessions/{id}` (`{ minutes, kind, pattern?, day, createdAt }`).
+  Optimistic
   + fail-safe. Rules: `src/features/focus/FIRESTORE_RULES.md` (deployable
   `firestore.rules`).
 - Tasks (`useFocusTasks`): reusable across days; an **active task** receives the

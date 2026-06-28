@@ -1,6 +1,7 @@
 // Focus settings shape + defaults. Kept framework-free so both the data layer
 // and hooks can import it without cycles.
 
+import { isBreathPatternId, patternById } from "@/features/focus/lib/breathing";
 import { isSoundId, type SoundId } from "@/features/focus/lib/sound";
 import {
   isQuizDifficulty,
@@ -32,6 +33,10 @@ export type FocusSettings = {
   interests: TopicId[];
   // Quiz difficulty floor — "all" (default), "medium" (harder), "hard" (expert).
   quizDifficulty: QuizDifficulty;
+  // Meditation card
+  meditationEnabled: boolean;
+  meditationMinutes: number; // default sit/breath length
+  meditationPattern: string; // a breathing pattern id (see lib/breathing.ts)
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
@@ -50,6 +55,9 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   todoGoogleSync: false,
   interests: [],
   quizDifficulty: "all",
+  meditationEnabled: true,
+  meditationMinutes: 5,
+  meditationPattern: "box",
 };
 
 /** Coerce arbitrary stored/remote data into a valid, clamped settings object. */
@@ -81,5 +89,10 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     quizDifficulty: isQuizDifficulty(r.quizDifficulty)
       ? r.quizDifficulty
       : DEFAULT_SETTINGS.quizDifficulty,
+    meditationEnabled: bool(r.meditationEnabled, DEFAULT_SETTINGS.meditationEnabled),
+    meditationMinutes: num(r.meditationMinutes, DEFAULT_SETTINGS.meditationMinutes, 1, 60),
+    meditationPattern: isBreathPatternId(r.meditationPattern)
+      ? (r.meditationPattern as string)
+      : patternById(DEFAULT_SETTINGS.meditationPattern).id,
   };
 }
