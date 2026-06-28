@@ -6,6 +6,7 @@ import { ContributionsCalendar } from "@/features/focus/components/Contributions
 import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { ExpandToggle } from "@/components/ExpandToggle";
 import { ChevronUp } from "@/components/icons";
+import { NoteText } from "@/components/NoteText";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { JournalNote } from "@/features/focus/lib/types";
 
@@ -95,9 +96,10 @@ function DreamCard({
             {dayLabel(note.day, today)}
             {note.createdAt ? ` · ${timeOf(note.createdAt)}` : ""}
           </span>
-          <span className="mt-0.5 block whitespace-pre-wrap break-words text-sm text-slate-200">
-            {open ? note.text : preview}
-          </span>
+          <NoteText
+            text={open ? note.text : preview}
+            className="mt-0.5 block whitespace-pre-wrap break-words text-sm text-slate-200"
+          />
         </span>
         {truncated && (
           <ChevronUp

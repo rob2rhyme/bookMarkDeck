@@ -47,6 +47,7 @@ import {
   sessionsToCsv,
 } from "@/features/focus/lib/exportFocus";
 import { Modal } from "@/components/Modal";
+import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
 import { downloadText } from "@/utils/download";
 import type {
   FocusBackup,
@@ -307,6 +308,19 @@ export function FocusDashboard() {
     );
   };
 
+  // Quick-jump nav over the dashboard's stacked sections. Hydration only when on.
+  const sections: SectionNavItem[] = [
+    { id: "sec-timer", label: "Timer" },
+    { id: "sec-todos", label: "To-dos" },
+    { id: "sec-analysis", label: "Analysis" },
+    { id: "sec-activity", label: "Activity" },
+    ...(settings.hydrationEnabled
+      ? [{ id: "sec-hydration", label: "Hydration" }]
+      : []),
+    { id: "sec-quiz", label: "Quiz" },
+    { id: "sec-scores", label: "Scores" },
+  ];
+
   return (
     <section className="flex flex-1 flex-col">
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -332,6 +346,8 @@ export function FocusDashboard() {
           <Settings className="h-4 w-4" />
         </button>
       </div>
+
+      <SectionNav items={sections} className="mb-5" />
 
       {!connected ? (
         <div className="mb-5 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -377,7 +393,10 @@ export function FocusDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div
+        id="sec-timer"
+        className="grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      >
         <PomodoroTimer
           settings={settings}
           email={email}
@@ -399,7 +418,10 @@ export function FocusDashboard() {
         />
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div
+        id="sec-todos"
+        className="mt-5 grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      >
         <TodoList
           active={todos.active}
           done={todos.done}
@@ -445,7 +467,10 @@ export function FocusDashboard() {
         </div>
       )}
 
-      <div className="mt-3 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div
+        id="sec-analysis"
+        className="mt-3 grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      >
         <AnalysisPanel
           available={stats.available}
           loaded={stats.loaded}
@@ -488,7 +513,7 @@ export function FocusDashboard() {
 
       <DreamPanel notesByDay={journal.notesByDay} />
 
-      <div className="mt-5">
+      <div id="sec-activity" className="mt-5 scroll-mt-20">
         <ActivityHistory
           available={stats.available}
           sessions={stats.sessions}
@@ -501,7 +526,7 @@ export function FocusDashboard() {
       </div>
 
       {settings.hydrationEnabled && (
-        <div className="mt-5">
+        <div id="sec-hydration" className="mt-5 scroll-mt-20">
           <HydrationHistory
             available={connected}
             history={hydrationHistory}
@@ -511,7 +536,10 @@ export function FocusDashboard() {
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div
+        id="sec-quiz"
+        className="mt-5 grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      >
         {settings.hydrationEnabled ? (
           <HydrationTracker
             cups={hydration.cups}
@@ -533,7 +561,7 @@ export function FocusDashboard() {
         />
       </div>
 
-      <div className="mt-5">
+      <div id="sec-scores" className="mt-5 scroll-mt-20">
         <ScoresPanel
           available={connected}
           total={scores.total}

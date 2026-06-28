@@ -350,4 +350,12 @@ body {
     align-items: start;
     align-content: start;
   }
+
+  /* Hide the scrollbar on horizontally-scrollable strips (e.g. SectionNav). */
+  .bd-no-scrollbar {
+    scrollbar-width: none; /* Firefox */
+  }
+  .bd-no-scrollbar::-webkit-scrollbar {
+    display: none; /* WebKit */
+  }
 }
