@@ -90,7 +90,10 @@ export function SectionNav({
     const reduce = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-    if (reduce || Math.abs(dist) < 4) {
+    // Mobile (< sm): jump instantly — the animated scroll flickers on iOS, and
+    // there's nothing to flicker if we don't animate. Desktop keeps the glide.
+    const isMobile = window.matchMedia?.("(max-width: 639px)").matches;
+    if (reduce || isMobile || Math.abs(dist) < 4) {
       scroller.scrollTop = targetY;
       return;
     }
