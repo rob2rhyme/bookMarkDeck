@@ -543,6 +543,21 @@ export function FocusDashboard() {
         </div>
       )}
 
+      {settings.hydrationEnabled && (
+        <div className="mt-5 scroll-mt-20">
+          <HydrationTracker
+            cups={hydration.cups}
+            oz={hydration.oz}
+            goal={hydration.goal}
+            goalOz={hydration.goalOz}
+            reminding={hydration.reminding}
+            onDrink={hydration.drink}
+            onRemove={hydration.removeCup}
+            onDismiss={hydration.dismiss}
+          />
+        </div>
+      )}
+
       {settings.meditationEnabled && (
         <div id="sec-meditation" className="mt-5 scroll-mt-20">
           <MeditationCard
@@ -555,22 +570,7 @@ export function FocusDashboard() {
         </div>
       )}
 
-      <div
-        id="sec-quiz"
-        className="mt-5 grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-      >
-        {settings.hydrationEnabled ? (
-          <HydrationTracker
-            cups={hydration.cups}
-            oz={hydration.oz}
-            goal={hydration.goal}
-            goalOz={hydration.goalOz}
-            reminding={hydration.reminding}
-            onDrink={hydration.drink}
-            onRemove={hydration.removeCup}
-            onDismiss={hydration.dismiss}
-          />
-        ) : null}
+      <div id="sec-quiz" className="mt-5 scroll-mt-20">
         <QuoteBox
           email={email}
           connected={connected}
