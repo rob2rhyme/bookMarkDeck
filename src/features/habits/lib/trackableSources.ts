@@ -134,21 +134,32 @@ export function sourceById(id: string | null | undefined): TrackableSource | nul
   return TRACKABLE_SOURCES.find((s) => s.id === id) ?? null;
 }
 
+/** Sentinel `linkedSourceId` value meaning "the user explicitly turned sync
+ *  off", so a heuristic match never silently re-links it. */
+export const LINK_OPT_OUT = "none";
+
 function typeFits(source: TrackableSource, habit: Habit): boolean {
   return source.habitType === "any" || source.habitType === habit.type;
 }
 
-/**
- * The source bound to a habit: an explicit, type-compatible `linkedSourceId`
- * wins; otherwise the first source whose type fits and whose heuristic matches.
- * Returns null for habits that aren't auto-tracked.
- */
-export function resolveSource(habit: Habit): TrackableSource | null {
+/** The source a habit would bind to, ignoring an explicit opt-out — drives the
+ *  "Link" affordance and the active resolution below. */
+export function suggestSource(habit: Habit): TrackableSource | null {
   const explicit = sourceById(habit.linkedSourceId);
   if (explicit && typeFits(explicit, habit)) return explicit;
   return (
     TRACKABLE_SOURCES.find((s) => typeFits(s, habit) && s.match(habit)) ?? null
   );
+}
+
+/**
+ * The source actually bound to a habit: none if the user opted out; otherwise an
+ * explicit, type-compatible `linkedSourceId` wins, else the first heuristic
+ * match. Returns null for habits that aren't auto-tracked.
+ */
+export function resolveSource(habit: Habit): TrackableSource | null {
+  if (habit.linkedSourceId === LINK_OPT_OUT) return null;
+  return suggestSource(habit);
 }
 
 export type MergeResult = {

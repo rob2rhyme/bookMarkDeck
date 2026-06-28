@@ -12,9 +12,11 @@ vi.mock("@/features/focus/data/focusData", () => ({
 }));
 
 import {
+  LINK_OPT_OUT,
   mergeStep,
   resolveSource,
   sourceById,
+  suggestSource,
 } from "@/features/habits/lib/trackableSources";
 import type { Habit } from "@/features/habits/lib/types";
 
@@ -72,6 +74,17 @@ describe("resolveSource", () => {
     const d = habit({ type: "binary", name: "Deep work block" });
     expect(resolveSource(d)?.id).toBe("focus");
     expect(sourceById("focus")?.habitType).toBe("any");
+  });
+
+  it("honors an explicit opt-out, but still surfaces the candidate to re-link", () => {
+    const j = habit({
+      type: "binary",
+      name: "Journal",
+      identity: "reflect daily",
+      linkedSourceId: LINK_OPT_OUT,
+    });
+    expect(resolveSource(j)).toBeNull(); // opted out → not synced
+    expect(suggestSource(j)?.id).toBe("journal"); // …but re-linkable
   });
 });
 
