@@ -15,6 +15,7 @@ import {
 import {
   saveHydration,
   subscribeHydration,
+  subscribeNotes,
 } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import { coerceEntry, coerceHabit } from "@/features/habits/lib/serialize";
@@ -33,6 +34,10 @@ import {
   isWaterHabit,
   setFocusHydrationCache,
 } from "@/features/habits/lib/water";
+import {
+  focusHasJournalNote,
+  isJournalHabit,
+} from "@/features/habits/lib/journal";
 import {
   type Habit,
   type HabitEntry,
@@ -603,6 +608,17 @@ export function useHabits(
     waterHabitRef.current = waterHabit;
   }, [waterHabit]);
 
+  // The linked journal habit (first active match), if any. Kept in a ref so the
+  // notes subscription can read the latest without re-subscribing.
+  const journalHabit = useMemo(
+    () => active.find(isJournalHabit) ?? null,
+    [active]
+  );
+  const journalHabitRef = useRef(journalHabit);
+  useEffect(() => {
+    journalHabitRef.current = journalHabit;
+  }, [journalHabit]);
+
   // Reverse mirror: reflect Focus hydration (logged on the Focus page) into the
   // water habit's today entry. First snapshot max-merges (so neither surface's
   // value is lost); later snapshots adopt the remote count. Writing the entry
@@ -685,6 +701,53 @@ export function useHabits(
     updateHabit({ ...waterHabit, target: goal });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, waterHabit?.id, waterHabit?.target, email]);
+
+  // Reflect a Focus journal note (written on the Focus page) into the journal
+  // habit's today entry. Raise-only: a note marks the habit done, but removing
+  // notes never un-marks it — there's no forward write, so auto-unchecking would
+  // bounce a manual tap. Marking the entry here never re-triggers a note write,
+  // so there's no loop.
+  useEffect(() => {
+    if (!canSync || !email || !journalHabit || !today) return;
+    const day = today;
+    const habitId = journalHabit.id;
+    return subscribeNotes(email, (notes) => {
+      const jh = journalHabitRef.current;
+      if (!jh || jh.id !== habitId) return;
+      if (!notes.some((n) => n.day === day)) return;
+      const id = `${habitId}_${day}`;
+      const cur = entriesRef.current.find((e) => e.id === id);
+      if (cur && cur.status === "done") return;
+      upsertEntry({
+        id,
+        habitId,
+        day,
+        status: "done",
+        count: habitTarget(jh),
+        createdAt: cur?.createdAt ?? new Date().toISOString(),
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSync, email, journalHabit?.id, today]);
+
+  // Offline/no-sync path: mark the journal habit done from Focus's local notes
+  // cache so a note written on the Focus page shows up here too. Raise-only.
+  useEffect(() => {
+    if (!hydrated || !journalHabit || !today) return;
+    if (!focusHasJournalNote(email, today)) return;
+    const id = entryId(journalHabit.id, today);
+    const cur = entriesRef.current.find((e) => e.id === id);
+    if (cur && cur.status === "done") return;
+    upsertEntry({
+      id,
+      habitId: journalHabit.id,
+      day: today,
+      status: "done",
+      count: habitTarget(journalHabit),
+      createdAt: cur?.createdAt ?? new Date().toISOString(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, journalHabit?.id, today]);
 
   const statsByHabit = useMemo(() => {
     const map = new Map<string, HabitStats>();
