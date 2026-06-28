@@ -58,6 +58,25 @@ function fmtDay(key: string): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
+const WEEKDAYS = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+];
+
+/** "Wednesday, Jun 24" — full weekday + date for a tapped strip dot. */
+function fmtDateDay(key: string): string {
+  const d = parseDay(key);
+  return `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
+/** "HH:MM" (24h) → "7:30 am". Falls back to the raw value. */
+function fmtTime(at: string): string {
+  const [h, m] = at.split(":").map(Number);
+  if (Number.isNaN(h)) return at;
+  const ampm = h >= 12 ? "pm" : "am";
+  const hr = h % 12 || 12;
+  return `${hr}:${String(m || 0).padStart(2, "0")} ${ampm}`;
+}
+
 /** "Today" / "Yesterday" / "3 days ago" / "Jun 12" / "Never". */
 function relativeDay(day: string | null, today: string): string {
   if (!day) return "Never";
@@ -111,6 +130,12 @@ function HabitDetail({
   const measurable = habit.type === "measurable";
   const target = habitTarget(habit);
 
+  // Tap a day in the 14-day strip to reveal its date / weekday / logged time.
+  const [openDot, setOpenDot] = useState<string | null>(null);
+  const entryByDay = new Map(
+    entries.filter((e) => e.habitId === habit.id).map((e) => [e.day, e])
+  );
+
   return (
     <div className="mt-2 rounded-lg border border-slate-800/70 bg-slate-950/40 p-3">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
@@ -150,13 +175,40 @@ function HabitDetail({
         </p>
         <div className="flex flex-wrap gap-1">
           {m.strip.map((d) => (
-            <span
+            <button
               key={d.key}
+              type="button"
+              onClick={() => setOpenDot((cur) => (cur === d.key ? null : d.key))}
+              aria-pressed={openDot === d.key}
+              aria-label={`${fmtDateDay(d.key)} · ${STRIP_LABEL[d.state]}`}
               title={`${fmtDay(d.key)} · ${STRIP_LABEL[d.state]}`}
-              className={`h-3.5 w-3.5 rounded-sm ${STRIP_CLASS[d.state]}`}
+              className={`h-3.5 w-3.5 rounded-sm ${STRIP_CLASS[d.state]} ${
+                openDot === d.key
+                  ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-950"
+                  : ""
+              }`}
             />
           ))}
         </div>
+        {openDot &&
+          (() => {
+            const state =
+              m.strip.find((d) => d.key === openDot)?.state ?? "off";
+            const e = entryByDay.get(openDot);
+            return (
+              <p className="mt-2 text-xs text-slate-300">
+                <span className="font-medium text-slate-100">
+                  {fmtDateDay(openDot)}
+                </span>
+                {" · "}
+                {STRIP_LABEL[state]}
+                {e?.at ? ` · ${fmtTime(e.at)}` : ""}
+                {measurable && e && e.status === "done"
+                  ? ` · ${e.count} ${habit.unit ?? ""}`.trimEnd()
+                  : ""}
+              </p>
+            );
+          })()}
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
           {(["done", "missed", "skipped", "off"] as DayState[]).map((s) => (
             <span key={s} className="inline-flex items-center gap-1">
