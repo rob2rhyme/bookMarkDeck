@@ -87,6 +87,15 @@ describe("habitMomentum", () => {
   it("returns null last-done when never completed", () => {
     expect(habitMomentum(habit(), [], TODAY).lastDoneDay).toBeNull();
   });
+
+  it("pages the strip back via endDay (prior 14 days)", () => {
+    // Window ending 2026-06-12 → covers 2026-05-30 … 2026-06-12.
+    const m = habitMomentum(habit(), [e("2026-06-05")], TODAY, 14, "2026-06-12");
+    expect(m.strip).toHaveLength(14);
+    expect(m.strip[0].key).toBe("2026-05-30");
+    expect(m.strip[m.strip.length - 1].key).toBe("2026-06-12");
+    expect(m.strip.find((d) => d.key === "2026-06-05")!.state).toBe("done");
+  });
 });
 
 describe("quit/limit habits (direction respected)", () => {

@@ -146,7 +146,10 @@ export function habitMomentum(
   habit: Habit,
   entries: HabitEntry[],
   today: string,
-  windowDays = 14
+  windowDays = 14,
+  // The strip ends on this day (defaults to today). Pass an earlier day to page
+  // back through history; lastDone / thisWeek stay relative to the real `today`.
+  endDay: string = today
 ): HabitMomentum {
   const target = habitTarget(habit);
   const weekly = habit.schedule.type === "timesPerWeek";
@@ -169,11 +172,12 @@ export function habitMomentum(
   let windowDone = 0;
   let windowDue = 0;
   for (let i = windowDays - 1; i >= 0; i--) {
-    const key = addDays(today, -i);
+    const key = addDays(endDay, -i);
     const e = byDay.get(key);
     const due = isDueOn(habit, key);
     let state: DayState;
-    if (succeeded(e)) state = "done";
+    if (key > today) state = "off"; // future days (when paging near today) are blank
+    else if (succeeded(e)) state = "done";
     else if (e?.status === "skipped") state = "skipped";
     else if (due && !weekly) state = "missed";
     else state = "off";
