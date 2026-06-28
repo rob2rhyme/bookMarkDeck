@@ -4,16 +4,20 @@
 // + schedules so the charts can't drift from reality. No React, no Firebase.
 
 import { WEEKDAY_LABELS, addDays, dayKeyFor, parseDay, weekKeyOf, weekdayOf } from "@/features/habits/lib/day";
-import { isDueOn } from "@/features/habits/lib/streak";
+import { isDueOn, isSuccess } from "@/features/habits/lib/streak";
 import { type Habit, type HabitEntry, habitTarget } from "@/features/habits/lib/types";
 
 function successIndex(habits: Habit[], entries: HabitEntry[]) {
-  const target = new Map(habits.map((h) => [h.id, habitTarget(h)]));
+  // Score each habit with the canonical isSuccess so "quit"/limit habits use the
+  // flipped comparison (count ≤ limit) just like the streak engine — otherwise
+  // the charts disagree with the streak/rate stats.
+  const byId = new Map(habits.map((h) => [h.id, h]));
   const success = new Set<string>(); // `${habitId}_${day}`
   for (const e of entries) {
-    if (e.status !== "done") continue;
-    const t = target.get(e.habitId);
-    if (t !== undefined && e.count >= t) success.add(`${e.habitId}_${e.day}`);
+    const h = byId.get(e.habitId);
+    if (!h) continue;
+    if (isSuccess(e, habitTarget(h), h.direction))
+      success.add(`${e.habitId}_${e.day}`);
   }
   return success;
 }
@@ -150,13 +154,12 @@ export function habitMomentum(
   for (const e of entries) {
     if (e.habitId === habit.id) byDay.set(e.day, e);
   }
-  const isSuccess = (e?: HabitEntry) =>
-    Boolean(e && e.status === "done" && e.count >= target);
+  const succeeded = (e?: HabitEntry) => isSuccess(e, target, habit.direction);
 
   let lastDoneDay: string | null = null;
   let lastDoneCount = 0;
   for (const [day, e] of byDay) {
-    if (isSuccess(e) && (!lastDoneDay || day > lastDoneDay)) {
+    if (succeeded(e) && (!lastDoneDay || day > lastDoneDay)) {
       lastDoneDay = day;
       lastDoneCount = e.count;
     }
@@ -170,7 +173,7 @@ export function habitMomentum(
     const e = byDay.get(key);
     const due = isDueOn(habit, key);
     let state: DayState;
-    if (isSuccess(e)) state = "done";
+    if (succeeded(e)) state = "done";
     else if (e?.status === "skipped") state = "skipped";
     else if (due && !weekly) state = "missed";
     else state = "off";
@@ -188,7 +191,7 @@ export function habitMomentum(
     const key = addDays(weekStart, i);
     if (key > today) break;
     if (isDueOn(habit, key) && !weekly) thisWeekDue++;
-    if (isSuccess(byDay.get(key))) thisWeekDone++;
+    if (succeeded(byDay.get(key))) thisWeekDone++;
   }
 
   return {

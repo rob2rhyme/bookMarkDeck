@@ -31,6 +31,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Desktop header shows the pillars you're NOT currently on.
   const otherTabs = DESTINATIONS.filter((d) => d.href !== activeHref);
 
+  // Hide the mobile bottom nav while a text field is focused. The on-screen
+  // keyboard covers the `fixed bottom-0` bar, leaving "dead" tabs behind it
+  // (the reported unresponsiveness while searching). No effect on desktop —
+  // the bar is `sm:hidden` anyway.
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    const isEditable = (el: EventTarget | null) =>
+      el instanceof HTMLElement &&
+      (el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.isContentEditable);
+    const onFocusIn = (e: FocusEvent) => {
+      if (isEditable(e.target)) setEditing(true);
+    };
+    const onFocusOut = () => {
+      // Defer so focus hopping between fields doesn't flicker the bar.
+      setTimeout(() => setEditing(isEditable(document.activeElement)), 0);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
+
   // Account dropdown menu (holds Cursor settings + Sign out).
   const [menuOpen, setMenuOpen] = useState(false);
   const [cursorOpen, setCursorOpen] = useState(false);
@@ -208,7 +234,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile bottom nav — primary destinations + search (⌘K). */}
-      {session && (
+      {session && !editing && (
         <nav
           aria-label="Primary"
           style={{ minHeight: "var(--bottom-nav-h)" }}

@@ -25,7 +25,7 @@ export function isDueOn(habit: Habit, day: string): boolean {
 // A logged day is a "success" when the target is met. For a "quit" habit the
 // comparison flips: success = stayed AT OR UNDER the daily limit (binary quit
 // stores count 1 ≤ limit 1, i.e. "stayed clean today").
-function isSuccess(
+export function isSuccess(
   entry: HabitEntry | undefined,
   target: number,
   direction: HabitDirection = "build"
