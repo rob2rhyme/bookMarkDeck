@@ -3,6 +3,9 @@
 import { useState } from "react";
 
 import { Pencil, Trash2 } from "@/components/icons";
+import { BulletButton } from "@/components/BulletButton";
+import { NoteText } from "@/components/NoteText";
+import { appendBullet } from "@/utils/noteFormat";
 import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
 import { todayKey } from "@/features/focus/data/focusData";
@@ -99,22 +102,25 @@ function NoteRow({
           aria-label="Edit note"
           className="w-full resize-y rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 focus:border-blue-400 focus:outline-none"
         />
-        <div className="mt-2 flex justify-end gap-2 text-xs font-medium">
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="rounded-md px-2.5 py-1 text-slate-400 transition hover:text-slate-200"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={commit}
-            disabled={!draft.trim()}
-            className="rounded-md bg-blue-600 px-2.5 py-1 text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Save
-          </button>
+        <div className="mt-2 flex items-center justify-between gap-2 text-xs font-medium">
+          <BulletButton onInsert={() => setDraft((d) => appendBullet(d))} />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded-md px-2.5 py-1 text-slate-400 transition hover:text-slate-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={commit}
+              disabled={!draft.trim()}
+              className="rounded-md bg-blue-600 px-2.5 py-1 text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </li>
     );
@@ -143,9 +149,10 @@ function NoteRow({
               {note.createdAt && timeOf(note.createdAt)}
             </span>
           )}
-          <span className="block whitespace-pre-wrap break-words text-sm text-slate-200">
-            {note.text}
-          </span>
+          <NoteText
+            text={note.text}
+            className="block whitespace-pre-wrap break-words text-sm text-slate-200"
+          />
           {note.kind === "dream" && <DreamBadges note={note} />}
         </span>
       </label>
@@ -388,6 +395,10 @@ export function JournalCard({
             : "border-slate-700 focus:border-blue-400"
         }`}
       />
+
+      <div className="mt-1.5">
+        <BulletButton onInsert={() => setDraft((d) => appendBullet(d))} />
+      </div>
 
       {/* Dream attributes — optional, only while composing a dream. */}
       {isDream && (

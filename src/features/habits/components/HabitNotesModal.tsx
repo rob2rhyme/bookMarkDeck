@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { Modal } from "@/components/Modal";
+import { NoteText } from "@/components/NoteText";
 import { Emoji } from "@/components/icons";
 import { WEEKDAY_LABELS, addDays } from "@/features/habits/lib/day";
 import { habitEmoji, hueColor } from "@/features/habits/lib/format";
@@ -95,9 +96,10 @@ export function HabitNotesModal({
                   <span className="text-slate-500">· skipped</span>
                 ) : null}
               </span>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm text-slate-200">
-                {e.note}
-              </p>
+              <NoteText
+                text={e.note ?? ""}
+                className="mt-1.5 whitespace-pre-wrap text-sm text-slate-200"
+              />
             </li>
           ))}
         </ol>

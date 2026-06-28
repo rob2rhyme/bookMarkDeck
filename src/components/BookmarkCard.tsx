@@ -5,6 +5,9 @@ import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { IconAction } from "@/components/IconAction";
+import { NoteText } from "@/components/NoteText";
+import { BulletButton } from "@/components/BulletButton";
+import { appendBullet } from "@/utils/noteFormat";
 import {
   Check,
   Emoji,
@@ -544,12 +547,17 @@ export function BookmarkCard({
         </div>
 
         {isEditing ? (
-          <textarea
-            className="h-20 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 outline-none ring-0 transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-900/40"
-            placeholder="Add login hints, purpose, etc."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
+          <>
+            <textarea
+              className="h-20 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 outline-none ring-0 transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-900/40"
+              placeholder="Add login hints, purpose, etc."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <div className="mt-1.5">
+              <BulletButton onInsert={() => setNote((n) => appendBullet(n))} />
+            </div>
+          </>
         ) : (
           <div className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
             <div className="mb-1 flex items-center justify-between">
@@ -576,9 +584,10 @@ export function BookmarkCard({
               )}
             </div>
             {showNote ? (
-              <p className="max-h-24 overflow-auto whitespace-pre-wrap leading-relaxed">
-                {bookmark.note || "Add login hints, purpose, etc."}
-              </p>
+              <NoteText
+                text={bookmark.note || "Add login hints, purpose, etc."}
+                className="block max-h-24 overflow-auto whitespace-pre-wrap leading-relaxed"
+              />
             ) : (
               <p className="line-clamp-3 leading-relaxed">
                 {bookmark.note ? "••••••••" : "Add login hints, purpose, etc."}
@@ -876,18 +885,24 @@ export function BookmarkCard({
               </span>
             </label>
             {isEditing ? (
-              <textarea
-                className="h-20 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 outline-none ring-0 transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-900/40"
-                placeholder="Add login hints, purpose, etc."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
+              <>
+                <textarea
+                  className="h-20 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 outline-none ring-0 transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-900/40"
+                  placeholder="Add login hints, purpose, etc."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+                <div className="mt-1.5">
+                  <BulletButton onInsert={() => setNote((n) => appendBullet(n))} />
+                </div>
+              </>
             ) : (
               <div className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-400 dark:text-slate-300">
                 {showNote ? (
-                  <span className="whitespace-pre-wrap">
-                    {bookmark.note || "Add login hints, purpose, etc."}
-                  </span>
+                  <NoteText
+                    text={bookmark.note || "Add login hints, purpose, etc."}
+                    className="whitespace-pre-wrap"
+                  />
                 ) : (
                   <span>
                     {bookmark.note ? "••••••••" : "Add login hints, purpose, etc."}

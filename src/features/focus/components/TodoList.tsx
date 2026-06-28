@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Check, CheckSquare, Pencil, Trash2, X } from "@/components/icons";
+import { BulletButton } from "@/components/BulletButton";
+import { NoteText } from "@/components/NoteText";
+import { appendBullet } from "@/utils/noteFormat";
 import { DueField } from "@/features/focus/components/DueField";
-import { RichText } from "@/features/focus/components/RichText";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
 import type { Todo } from "@/features/focus/lib/types";
@@ -177,6 +179,9 @@ export function TodoList({
           aria-label="To-do note"
           className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
         />
+        <div>
+          <BulletButton onInsert={() => setDraftNote((n) => appendBullet(n))} />
+        </div>
         <DueField value={draftDue} onChange={setDraftDue} />
       </form>
 
@@ -239,6 +244,11 @@ export function TodoList({
                     aria-label="To-do note"
                     className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
                   />
+                  <div>
+                    <BulletButton
+                      onInsert={() => setEditNote((n) => appendBullet(n))}
+                    />
+                  </div>
                   <DueField value={editDue} onChange={setEditDue} />
                   <div className="flex justify-end gap-2">
                     <button
@@ -272,12 +282,12 @@ export function TodoList({
                   className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 transition hover:border-emerald-400"
                 />
                 <div className="min-w-0 flex-1">
-                  <RichText
+                  <NoteText
                     text={todo.text}
                     className="block truncate text-sm text-slate-100"
                   />
                   {todo.note && (
-                    <RichText
+                    <NoteText
                       text={todo.note}
                       className="mt-0.5 block whitespace-pre-wrap break-words text-xs text-slate-400"
                     />
@@ -338,7 +348,7 @@ export function TodoList({
                   >
                     <Check className="h-3 w-3" />
                   </button>
-                  <RichText
+                  <NoteText
                     text={todo.text}
                     className="min-w-0 flex-1 truncate text-sm text-slate-500 line-through"
                   />
