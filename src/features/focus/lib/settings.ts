@@ -2,7 +2,12 @@
 // and hooks can import it without cycles.
 
 import { isBreathPatternId, patternById } from "@/features/focus/lib/breathing";
-import { isSoundId, type SoundId } from "@/features/focus/lib/sound";
+import {
+  type AmbientId,
+  isAmbientId,
+  isSoundId,
+  type SoundId,
+} from "@/features/focus/lib/sound";
 import {
   isQuizDifficulty,
   isTopicId,
@@ -37,6 +42,8 @@ export type FocusSettings = {
   meditationEnabled: boolean;
   meditationMinutes: number; // default sit/breath length
   meditationPattern: string; // a breathing pattern id (see lib/breathing.ts)
+  meditationVoice: boolean; // spoken phase/step cues (Web Speech API)
+  meditationAmbient: AmbientId; // generated backdrop ("off" by default)
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
@@ -58,6 +65,8 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   meditationEnabled: true,
   meditationMinutes: 5,
   meditationPattern: "box",
+  meditationVoice: false,
+  meditationAmbient: "off",
 };
 
 /** Coerce arbitrary stored/remote data into a valid, clamped settings object. */
@@ -94,5 +103,9 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     meditationPattern: isBreathPatternId(r.meditationPattern)
       ? (r.meditationPattern as string)
       : patternById(DEFAULT_SETTINGS.meditationPattern).id,
+    meditationVoice: bool(r.meditationVoice, DEFAULT_SETTINGS.meditationVoice),
+    meditationAmbient: isAmbientId(r.meditationAmbient)
+      ? r.meditationAmbient
+      : DEFAULT_SETTINGS.meditationAmbient,
   };
 }

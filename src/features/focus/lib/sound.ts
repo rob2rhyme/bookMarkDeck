@@ -111,3 +111,144 @@ export function playChime(type: ChimeType = "session", sound: SoundId = "classic
   const notes = type === "break" ? [...profile.notes].reverse() : profile.notes;
   playProfile(profile, notes);
 }
+
+/* ------------------------------------------------------ ambient soundscape ---
+ * A continuous, generated backdrop for meditation sessions — filtered noise or
+ * a soft drone, synthesized with Web Audio (no files). Only one runs at a time;
+ * startAmbient() fades in and replaces any current one, stopAmbient() fades out.
+ */
+
+export type AmbientId = "off" | "noise" | "ocean" | "drone";
+
+export const AMBIENT_OPTIONS: { id: AmbientId; label: string }[] = [
+  { id: "off", label: "Off" },
+  { id: "noise", label: "Soft noise" },
+  { id: "ocean", label: "Ocean" },
+  { id: "drone", label: "Drone" },
+];
+
+export function isAmbientId(value: unknown): value is AmbientId {
+  return (
+    typeof value === "string" &&
+    AMBIENT_OPTIONS.some((o) => o.id === value)
+  );
+}
+
+let ambient: { stop: () => void } | null = null;
+
+function noiseBuffer(c: AudioContext, brown: boolean): AudioBuffer {
+  const len = Math.floor(c.sampleRate * 2); // 2s loop
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const data = buf.getChannelData(0);
+  if (brown) {
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      data[i] = last * 3.5;
+    }
+  } else {
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  }
+  return buf;
+}
+
+export function startAmbient(id: AmbientId) {
+  stopAmbient();
+  if (id === "off") return;
+  const c = getCtx();
+  if (!c) return;
+  if (c.state === "suspended") c.resume().catch(() => {});
+
+  const out = c.createGain();
+  const peak = id === "drone" ? 0.05 : 0.1;
+  out.gain.setValueAtTime(0.0001, c.currentTime);
+  out.gain.exponentialRampToValueAtTime(peak, c.currentTime + 1.5);
+  out.connect(c.destination);
+
+  const stops: (() => void)[] = [];
+
+  if (id === "drone") {
+    // Two softly detuned sines a fifth apart — a calm, sustained pad.
+    [110, 110 * 1.5].forEach((freq, i) => {
+      const osc = c.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      osc.detune.value = i ? 4 : -4;
+      const g = c.createGain();
+      g.gain.value = 0.5;
+      osc.connect(g);
+      g.connect(out);
+      osc.start();
+      stops.push(() => {
+        try {
+          osc.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+    });
+  } else {
+    const ocean = id === "ocean";
+    const src = c.createBufferSource();
+    src.buffer = noiseBuffer(c, ocean);
+    src.loop = true;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = ocean ? 500 : 1100;
+    src.connect(lp);
+    lp.connect(out);
+    src.start();
+    stops.push(() => {
+      try {
+        src.stop();
+      } catch {
+        /* ignore */
+      }
+    });
+    if (ocean) {
+      // Slow swell — sweep the cutoff up and down like waves (~10s period).
+      const lfo = c.createOscillator();
+      lfo.frequency.value = 0.1;
+      const depth = c.createGain();
+      depth.gain.value = 250;
+      lfo.connect(depth);
+      depth.connect(lp.frequency);
+      lfo.start();
+      stops.push(() => {
+        try {
+          lfo.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+    }
+  }
+
+  ambient = {
+    stop: () => {
+      try {
+        out.gain.cancelScheduledValues(c.currentTime);
+        out.gain.setValueAtTime(out.gain.value, c.currentTime);
+        out.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.6);
+      } catch {
+        /* ignore */
+      }
+      window.setTimeout(() => {
+        stops.forEach((s) => s());
+        try {
+          out.disconnect();
+        } catch {
+          /* ignore */
+        }
+      }, 700);
+    },
+  };
+}
+
+export function stopAmbient() {
+  if (ambient) {
+    ambient.stop();
+    ambient = null;
+  }
+}

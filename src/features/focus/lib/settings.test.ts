@@ -39,6 +39,11 @@ describe("normalizeSettings", () => {
     );
   });
 
+  it("validates meditationAmbient, defaulting to 'off'", () => {
+    expect(normalizeSettings({ meditationAmbient: "ocean" }).meditationAmbient).toBe("ocean");
+    expect(normalizeSettings({ meditationAmbient: "nope" }).meditationAmbient).toBe("off");
+  });
+
   it("validates quizDifficulty, defaulting to 'all'", () => {
     expect(normalizeSettings({ quizDifficulty: "hard" }).quizDifficulty).toBe("hard");
     expect(normalizeSettings({ quizDifficulty: "medium" }).quizDifficulty).toBe("medium");
