@@ -76,6 +76,7 @@ function loadNotes(email?: string | null): JournalNote[] {
         id: n.id as string,
         day: typeof n.day === "string" ? n.day : "",
         text: typeof n.text === "string" ? n.text : "",
+        ...(typeof n.subject === "string" ? { subject: n.subject } : {}),
         createdAt: typeof n.createdAt === "string" ? n.createdAt : null,
         kind: n.kind === "dream" ? "dream" : "note",
         ...coerceDreamFields(n),
@@ -189,7 +190,8 @@ export function useFocusJournal(
       text: string,
       kind: JournalNoteKind = "note",
       day: string = today,
-      details?: DreamDetails
+      details?: DreamDetails,
+      subject?: string
     ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
@@ -197,6 +199,7 @@ export function useFocusJournal(
         id: crypto.randomUUID(),
         day,
         text: trimmed,
+        ...(subject?.trim() ? { subject: subject.trim() } : {}),
         createdAt: new Date().toISOString(),
         kind,
         // Structured attributes only apply to dreams.
@@ -216,7 +219,7 @@ export function useFocusJournal(
   );
 
   const editNote = useCallback(
-    (id: string, text: string) => {
+    (id: string, text: string, subject?: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
       if (id.startsWith(LEGACY_PREFIX)) {
@@ -227,9 +230,12 @@ export function useFocusJournal(
         if (canSync && email) setJournalNote(email, day, trimmed).catch(() => {});
         return;
       }
+      const cleanSubject = subject?.trim();
       setNotes((prev) => {
         const next = prev.map((n) =>
-          n.id === id ? { ...n, text: trimmed } : n
+          n.id === id
+            ? { ...n, text: trimmed, subject: cleanSubject || undefined }
+            : n
         );
         const updated = next.find((n) => n.id === id);
         if (canSync && email && updated)

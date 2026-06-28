@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Pencil, Trash2 } from "@/components/icons";
+import { ChevronUp, Pencil, Trash2 } from "@/components/icons";
 import { BulletButton } from "@/components/BulletButton";
 import { NoteText } from "@/components/NoteText";
 import { appendBullet } from "@/utils/noteFormat";
@@ -39,6 +39,16 @@ function timeOf(iso: string | null): string {
   return `${h}:${min} ${ampm}`;
 }
 
+/** A short title for a collapsed note card: subject, else first non-empty line. */
+function noteTitle(note: JournalNote): string {
+  const s = note.subject?.trim();
+  if (s) return s;
+  const firstLine = note.text.split("\n").find((l) => l.trim()) ?? "";
+  const t = firstLine.trim().replace(/^[-*•]\s+/, "");
+  if (t) return t.length > 60 ? `${t.slice(0, 60)}…` : t;
+  return note.kind === "dream" ? "Dream" : "Note";
+}
+
 type DayNotes = { day: string; notes: JournalNote[] };
 
 type JournalCardProps = {
@@ -49,9 +59,10 @@ type JournalCardProps = {
     text: string,
     kind?: JournalNoteKind,
     day?: string,
-    details?: DreamDetails
+    details?: DreamDetails,
+    subject?: string
   ) => void;
-  onEditNote: (id: string, text: string) => void;
+  onEditNote: (id: string, text: string, subject?: string) => void;
   onRemoveNote: (note: JournalNote) => void;
   onRemoveNotes: (notes: JournalNote[]) => void;
   onMoodChange: (mood: MoodKey | null, day?: string) => void;
@@ -60,6 +71,8 @@ type JournalCardProps = {
 
 function NoteRow({
   note,
+  collapsible = false,
+  showDate = false,
   selectMode,
   selected,
   onToggle,
@@ -67,27 +80,47 @@ function NoteRow({
   onRemove,
 }: {
   note: JournalNote;
+  /** Start as a 1-row card (subject + date/time) that expands on tap. */
+  collapsible?: boolean;
+  /** Include the day in the meta line (for flat earlier-note lists). */
+  showDate?: boolean;
   selectMode: boolean;
   selected: boolean;
   onToggle: (id: string) => void;
-  onEdit: (id: string, text: string) => void;
+  onEdit: (id: string, text: string, subject?: string) => void;
   onRemove: (note: JournalNote) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(!collapsible);
   const [draft, setDraft] = useState(note.text);
+  const [subjectDraft, setSubjectDraft] = useState(note.subject ?? "");
 
   const startEdit = () => {
     setDraft(note.text);
+    setSubjectDraft(note.subject ?? "");
+    setExpanded(true);
     setEditing(true);
   };
   const commit = () => {
-    if (draft.trim()) onEdit(note.id, draft);
+    if (draft.trim()) onEdit(note.id, draft, subjectDraft);
     setEditing(false);
   };
+
+  const meta = `${showDate ? `${dayLabel(note.day)} · ` : ""}${
+    note.createdAt ? timeOf(note.createdAt) : ""
+  }`.replace(/ · $/, "");
 
   if (editing) {
     return (
       <li className="rounded-lg border border-blue-400/50 bg-slate-950/40 px-3 py-2">
+        <input
+          type="text"
+          value={subjectDraft}
+          onChange={(e) => setSubjectDraft(e.target.value)}
+          placeholder="Subject / topic (optional)"
+          aria-label="Note subject"
+          className="mb-2 w-full rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm font-medium text-slate-100 focus:border-blue-400 focus:outline-none"
+        />
         <textarea
           value={draft}
           autoFocus
@@ -126,6 +159,33 @@ function NoteRow({
     );
   }
 
+  // Collapsed 1-row card — subject/topic + date/time; tap to expand.
+  if (collapsible && !expanded && !selectMode) {
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          aria-expanded={false}
+          className="flex min-h-[44px] w-full items-center gap-2 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2 text-left transition hover:border-slate-700 hover:bg-slate-900/40"
+        >
+          {note.kind === "dream" && (
+            <span className="shrink-0 rounded bg-indigo-500/15 px-1 text-[10px] font-medium text-indigo-300">
+              🌙
+            </span>
+          )}
+          <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+            {noteTitle(note)}
+          </span>
+          <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
+            {meta}
+          </span>
+          <ChevronUp className="h-3.5 w-3.5 shrink-0 rotate-180 text-slate-500" />
+        </button>
+      </li>
+    );
+  }
+
   return (
     <li className="group flex items-start justify-between gap-3 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2">
       <label className="flex min-w-0 items-start gap-2">
@@ -139,14 +199,19 @@ function NoteRow({
           />
         )}
         <span className="min-w-0">
-          {(note.createdAt || note.kind === "dream") && (
+          {(meta || note.kind === "dream") && (
             <span className="mb-0.5 flex items-center gap-1.5 text-[11px] tabular-nums text-slate-500">
               {note.kind === "dream" && (
                 <span className="rounded bg-indigo-500/15 px-1 text-[10px] font-medium text-indigo-300">
                   🌙 Dream
                 </span>
               )}
-              {note.createdAt && timeOf(note.createdAt)}
+              {meta}
+            </span>
+          )}
+          {note.subject?.trim() && (
+            <span className="block text-sm font-semibold text-slate-100">
+              {note.subject.trim()}
             </span>
           )}
           <NoteText
@@ -158,6 +223,16 @@ function NoteRow({
       </label>
       {!selectMode && (
         <div className="flex shrink-0 items-center gap-1.5">
+          {collapsible && (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              aria-label="Collapse note"
+              className="text-slate-600 transition hover:text-slate-300"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={startEdit}
@@ -196,6 +271,7 @@ export function JournalCard({
   const backdated = logDate !== today;
   const activeMood = backdated ? moodByDay[logDate] ?? null : mood;
   const [draft, setDraft] = useState("");
+  const [subjectInput, setSubjectInput] = useState("");
   const [kind, setKind] = useState<JournalNoteKind>("note");
   // Dream-only structured attributes for the entry being composed.
   const [lucid, setLucid] = useState(false);
@@ -232,8 +308,9 @@ export function JournalCard({
             .filter(Boolean),
         }
       : undefined;
-    onAddNote(draft, kind, logDate, details);
+    onAddNote(draft, kind, logDate, details, subjectInput);
     setDraft("");
+    setSubjectInput("");
     resetDreamDetails();
     setJustAdded(true);
   };
@@ -377,6 +454,21 @@ export function JournalCard({
       </div>
 
       {/* Add an entry */}
+      <input
+        type="text"
+        value={subjectInput}
+        onChange={(e) => {
+          setSubjectInput(e.target.value);
+          setJustAdded(false);
+        }}
+        placeholder={isDream ? "Dream title (optional)" : "Subject / topic (optional)"}
+        aria-label="Note subject or topic"
+        className={`mt-2 w-full rounded-lg border bg-slate-950/60 px-3 py-2 text-sm font-medium text-slate-100 placeholder:font-normal placeholder:text-slate-500 focus:outline-none ${
+          isDream
+            ? "border-slate-700 focus:border-indigo-400"
+            : "border-slate-700 focus:border-blue-400"
+        }`}
+      />
       <textarea
         value={draft}
         onChange={(e) => {
@@ -571,20 +663,14 @@ export function JournalCard({
             {showHistory ? "▾" : "▸"} Earlier notes ({earlierCount})
           </button>
           {(showHistory || selectMode) && (
-            <div className="mt-3 flex flex-col gap-4">
-              {earlier.slice(0, 14).map((d) => (
-                <div key={d.day}>
-                  <p className="mb-2 text-xs font-medium text-slate-400">
-                    {dayLabel(d.day)}
-                  </p>
-                  <ul className="flex flex-col gap-2">
-                    {d.notes.map((n) => (
-                      <NoteRow key={n.id} {...rowProps(n)} />
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+            <ul className="mt-3 flex flex-col gap-2">
+              {earlier
+                .flatMap((d) => d.notes)
+                .slice(0, 60)
+                .map((n) => (
+                  <NoteRow key={n.id} collapsible showDate {...rowProps(n)} />
+                ))}
+            </ul>
           )}
         </div>
       )}
