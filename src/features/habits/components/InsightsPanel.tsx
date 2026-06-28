@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
 import { ChevronUp, Trash2 } from "@/components/icons";
 import { ExpandToggle } from "@/components/ExpandToggle";
+import { useToast } from "@/components/toast/ToastProvider";
 import { DayLogEditor } from "@/features/habits/components/DayLogEditor";
 import { addDays, dayKeyFor, parseDay } from "@/features/habits/lib/day";
 import { habitEmoji, hueColor, scheduleLabel } from "@/features/habits/lib/format";
@@ -151,6 +152,30 @@ function HabitDetail({
   const entryByDay = new Map(
     entries.filter((e) => e.habitId === habit.id).map((e) => [e.day, e])
   );
+  const { toast } = useToast();
+
+  // Apply a backdated change with an Undo toast (accidental taps are reversible).
+  const backdate = (
+    day: string,
+    status: "done" | "skipped" | "clear"
+  ) => {
+    if (!onLogEntry) return;
+    const prev = entryByDay.get(day);
+    onLogEntry(habit, day, status === "done" ? { status, count: target } : { status });
+    const verb =
+      status === "done" ? "Marked done" : status === "skipped" ? "Skipped" : "Cleared";
+    toast(`${verb} · ${fmtDateDay(day)}`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          if (!prev) onLogEntry(habit, day, { status: "clear" });
+          else if (prev.status === "skipped")
+            onLogEntry(habit, day, { status: "skipped" });
+          else onLogEntry(habit, day, { status: "done", count: prev.count });
+        },
+      },
+    });
+  };
 
   return (
     <div className="mt-2 rounded-lg border border-slate-800/70 bg-slate-950/40 p-3">
@@ -260,12 +285,7 @@ function HabitDetail({
                     {!isDone && (
                       <button
                         type="button"
-                        onClick={() =>
-                          onLogEntry(habit, openDot, {
-                            status: "done",
-                            count: target,
-                          })
-                        }
+                        onClick={() => backdate(openDot, "done")}
                         className="rounded-full border border-emerald-700/60 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300 transition hover:bg-emerald-500/20"
                       >
                         Mark done
@@ -274,9 +294,7 @@ function HabitDetail({
                     {state !== "skipped" && (
                       <button
                         type="button"
-                        onClick={() =>
-                          onLogEntry(habit, openDot, { status: "skipped" })
-                        }
+                        onClick={() => backdate(openDot, "skipped")}
                         className="rounded-full border border-slate-700 px-2.5 py-0.5 text-[11px] font-medium text-slate-300 transition hover:border-slate-500"
                       >
                         Skip
@@ -285,9 +303,7 @@ function HabitDetail({
                     {e && (
                       <button
                         type="button"
-                        onClick={() =>
-                          onLogEntry(habit, openDot, { status: "clear" })
-                        }
+                        onClick={() => backdate(openDot, "clear")}
                         className="rounded-full border border-slate-700 px-2.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:border-rose-700/60 hover:text-rose-300"
                       >
                         Clear
@@ -419,6 +435,11 @@ export function InsightsPanel({
           </button>
         </div>
       </div>
+      {bars.every((b) => b.due === 0 && b.done === 0) ? (
+        <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-slate-800 bg-slate-950/30 text-xs text-slate-500">
+          No habits were active this week.
+        </div>
+      ) : (
       <div className="flex h-28 items-end gap-2">
         {bars.map((b) => (
           <div key={b.key} className="flex flex-1 flex-col items-center gap-1.5">
@@ -447,6 +468,7 @@ export function InsightsPanel({
           </div>
         ))}
       </div>
+      )}
 
       {/* Weekday pattern */}
       <p className="mb-2 mt-6 text-[11px] uppercase tracking-wide text-slate-500">
