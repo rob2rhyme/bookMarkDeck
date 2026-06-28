@@ -483,7 +483,7 @@ export function InsightsPanel({
                     type="button"
                     onClick={() => setOpenHabitId(open ? null : h.id)}
                     aria-expanded={open}
-                    className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left transition hover:bg-slate-800/30"
+                    className="flex min-h-[44px] w-full items-center gap-3 rounded-lg border border-slate-800/60 bg-slate-950/30 px-3 py-2.5 text-left transition hover:border-slate-700 hover:bg-slate-800/30"
                   >
                     <span className="w-6 shrink-0 text-center text-base" aria-hidden="true">
                       {habitEmoji(h)}
@@ -494,7 +494,7 @@ export function InsightsPanel({
                         <span className="flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums text-slate-400">
                           {s.rate}% · 🔥 {s.currentStreak}
                           <ChevronUp
-                            className={`h-3.5 w-3.5 text-slate-500 transition ${
+                            className={`h-4 w-4 text-slate-400 transition ${
                               open ? "" : "rotate-180"
                             }`}
                           />
