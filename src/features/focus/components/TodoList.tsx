@@ -9,13 +9,18 @@ import { appendBullet, appendNumber } from "@/utils/noteFormat";
 import { DueField } from "@/features/focus/components/DueField";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
-import type { Todo } from "@/features/focus/lib/types";
+import type { Todo, TodoList as TodoListKey } from "@/features/focus/lib/types";
 
 type TodoListProps = {
   active: Todo[];
   done: Todo[];
   todayEvents?: AgendaEvent[]; // read-only Google Calendar events for today
-  onAdd: (text: string, dueAt: string | null, note: string) => void;
+  onAdd: (
+    text: string,
+    dueAt: string | null,
+    note: string,
+    list: TodoListKey
+  ) => void;
   onToggle: (todo: Todo) => void;
   onEdit: (
     id: string,
@@ -115,11 +120,31 @@ export function TodoList({
   onEdit,
   onRemove,
 }: TodoListProps) {
+  const [list, setList] = useState<TodoListKey>("personal");
   const [draft, setDraft] = useState("");
   const [draftNote, setDraftNote] = useState("");
   const [draftDue, setDraftDue] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+
+  // The two lists live in one card; the tab picks which one is shown/added to.
+  const listOf = (t: Todo): TodoListKey => t.list ?? "personal";
+  const activeInList = useMemo(
+    () => active.filter((t) => listOf(t) === list),
+    [active, list]
+  );
+  const doneInList = useMemo(
+    () => done.filter((t) => listOf(t) === list),
+    [done, list]
+  );
+  const personalCount = useMemo(
+    () => active.filter((t) => listOf(t) === "personal").length,
+    [active]
+  );
+  const projectCount = useMemo(
+    () => active.filter((t) => listOf(t) === "project").length,
+    [active]
+  );
 
   // Inline edit state.
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -127,7 +152,7 @@ export function TodoList({
   const [editNote, setEditNote] = useState("");
   const [editDue, setEditDue] = useState<string | null>(null);
 
-  const hasDue = active.some((t) => t.dueAt);
+  const hasDue = activeInList.some((t) => t.dueAt);
   useEffect(() => {
     if (!hasDue) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -136,19 +161,19 @@ export function TodoList({
 
   const sortedActive = useMemo(
     () =>
-      [...active].sort((a, b) => {
+      [...activeInList].sort((a, b) => {
         if (a.dueAt && b.dueAt) return a.dueAt < b.dueAt ? -1 : 1;
         if (a.dueAt) return -1;
         if (b.dueAt) return 1;
         return 0;
       }),
-    [active]
+    [activeInList]
   );
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
-    onAdd(draft, draftDue, draftNote);
+    onAdd(draft, draftDue, draftNote, list);
     setDraft("");
     setDraftNote("");
     setDraftDue(null);
@@ -182,7 +207,44 @@ export function TodoList({
           </span>
           To-do list
         </h3>
-        <span className="text-xs text-slate-400">Unfinished items roll over</span>
+        <span className="text-xs text-slate-400">
+          {list === "project"
+            ? "Project-only · stays off Google Calendar"
+            : "Unfinished items roll over"}
+        </span>
+      </div>
+
+      {/* List tabs: Personal (syncs to Google when enabled) vs Project (private). */}
+      <div className="mt-3 inline-flex rounded-lg border border-slate-700 bg-slate-950/50 p-0.5 text-xs font-medium">
+        {(
+          [
+            { key: "personal", label: "Personal", count: personalCount },
+            { key: "project", label: "Project", count: projectCount },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setList(t.key)}
+            aria-pressed={list === t.key}
+            className={`rounded-md px-3 py-1.5 transition ${
+              list === t.key
+                ? "bg-blue-600 text-white"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {t.label}
+            {t.count > 0 && (
+              <span
+                className={`ml-1.5 tabular-nums ${
+                  list === t.key ? "text-blue-100" : "text-slate-500"
+                }`}
+              >
+                {t.count}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Add */}
@@ -192,7 +254,7 @@ export function TodoList({
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Add a to-do"
+            placeholder={list === "project" ? "Add a project fix" : "Add a to-do"}
             aria-label="Add a to-do"
             className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
           />
@@ -216,7 +278,7 @@ export function TodoList({
         <DueField value={draftDue} onChange={setDraftDue} />
       </form>
 
-      {todayEvents.length > 0 && (
+      {list === "personal" && todayEvents.length > 0 && (
         <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-950/20 px-3 py-2.5">
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-violet-300/80">
             📅 On your calendar today
@@ -249,7 +311,9 @@ export function TodoList({
       <ul className="mt-4 flex flex-col gap-2">
         {sortedActive.length === 0 ? (
           <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
-            Nothing to do. Add a to-do — give it a due date for a live countdown.
+            {list === "project"
+              ? "No project fixes. Add one — it stays private, off your Google Calendar."
+              : "Nothing to do. Add a to-do — give it a due date for a live countdown."}
           </li>
         ) : (
           sortedActive.map((todo) => {
@@ -355,18 +419,18 @@ export function TodoList({
         )}
       </ul>
 
-      {done.length > 0 && (
+      {doneInList.length > 0 && (
         <div className="mt-4">
           <button
             type="button"
             onClick={() => setShowDone((v) => !v)}
             className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
           >
-            {showDone ? "▾" : "▸"} Done ({done.length})
+            {showDone ? "▾" : "▸"} Done ({doneInList.length})
           </button>
           {showDone && (
             <ul className="mt-2 flex flex-col gap-1.5">
-              {done.map((todo) => (
+              {doneInList.map((todo) => (
                 <li
                   key={todo.id}
                   className="group flex items-center gap-3 rounded-lg px-3 py-1.5"

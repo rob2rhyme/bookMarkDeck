@@ -66,6 +66,10 @@ export function coerceDreamFields(data: unknown): DreamDetails {
   return out;
 }
 
+/** Which to-do list an item belongs to. "project" items are private to the app
+ *  (never mirrored to Google Tasks/Calendar); legacy items default to "personal". */
+export type TodoList = "personal" | "project";
+
 export type Todo = {
   id: string;
   text: string;
@@ -73,7 +77,9 @@ export type Todo = {
   done: boolean;
   dueAt: string | null; // ISO datetime, or null = no due date
   createdAt: string | null; // ISO timestamp
+  completedAt?: string | null; // ISO timestamp it was marked done (null = not done)
   day: string; // YYYY-MM-DD created — used to flag rolled-over items
+  list?: TodoList; // omitted = "personal" (back-compat with pre-list items)
   googleTaskId?: string | null; // mapping to a mirrored Google Task
   googleEventId?: string | null; // mapping to a mirrored Calendar event (timed)
 };

@@ -2,14 +2,15 @@
 
 import { useMemo, useState } from "react";
 
-import type { ActivityEvent } from "@/features/focus/data/focusData";
+import type { Todo } from "@/features/focus/lib/types";
 
 type RangeKey = "week" | "month" | "all";
 
 type TodoHistoryProps = {
-  available: boolean;
-  /** Todo activity events (todo_added + todo_done). */
-  events: ActivityEvent[];
+  /** All to-dos (both lists). The chart buckets adds + completions by day,
+   *  straight from the to-do records so it works offline and never depends on
+   *  the (cloud-only) activity log. */
+  todos: Todo[];
 };
 
 const RANGES: { key: RangeKey; label: string; days: number }[] = [
@@ -35,21 +36,32 @@ function shortDate(key: string): string {
   return `${MONTHS[new Date(y, m - 1, d).getMonth()]} ${d}`;
 }
 
-export function TodoHistory({ available, events }: TodoHistoryProps) {
+export function TodoHistory({ todos }: TodoHistoryProps) {
   const [range, setRange] = useState<RangeKey>("week");
 
-  // Per-day counts of added / completed, from the activity audit.
+  // Per-day counts of added / completed, derived from the to-dos themselves:
+  // adds bucket by the creation day, completions by the day they were marked
+  // done (completedAt; older done items with no stamp fall back to their day).
   const byDay = useMemo(() => {
     const map = new Map<string, { added: number; done: number }>();
-    for (const e of events) {
-      if (!e.day) continue;
-      const cur = map.get(e.day) ?? { added: 0, done: 0 };
-      if (e.type === "todo_added") cur.added += 1;
-      else if (e.type === "todo_done") cur.done += 1;
-      map.set(e.day, cur);
+    const bump = (key: string, field: "added" | "done") => {
+      const cur = map.get(key) ?? { added: 0, done: 0 };
+      cur[field] += 1;
+      map.set(key, cur);
+    };
+    for (const t of todos) {
+      const addedDay =
+        t.day || (t.createdAt ? dayKey(new Date(t.createdAt)) : "");
+      if (addedDay) bump(addedDay, "added");
+      if (t.done) {
+        const doneDay = t.completedAt
+          ? dayKey(new Date(t.completedAt))
+          : addedDay;
+        if (doneDay) bump(doneDay, "done");
+      }
     }
     return map;
-  }, [events]);
+  }, [todos]);
 
   const todayK = dayKey(new Date());
 
@@ -99,32 +111,26 @@ export function TodoHistory({ available, events }: TodoHistoryProps) {
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
           To-do history
         </h3>
-        {available && (
-          <div className="flex rounded-full border border-slate-800 bg-slate-950/60 p-0.5">
-            {RANGES.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                aria-pressed={range === r.key}
-                onClick={() => setRange(r.key)}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
-                  range === r.key
-                    ? "bg-slate-700 text-slate-100"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex rounded-full border border-slate-800 bg-slate-950/60 p-0.5">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              aria-pressed={range === r.key}
+              onClick={() => setRange(r.key)}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                range === r.key
+                  ? "bg-slate-700 text-slate-100"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
-          Sign in to sync to see your to-do history.
-        </p>
-      ) : !hasData ? (
+      {!hasData ? (
         <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
           Complete a to-do and it’ll chart here.
         </p>

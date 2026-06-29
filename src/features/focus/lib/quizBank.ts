@@ -70,6 +70,7 @@ import {
   HISTORY_HARD_EXTRA,
   WORDS_HARD_EXTRA,
 } from "@/features/focus/lib/quiz/hardExtras3";
+import { BIBLE_QUIZZES, BIBLE_QUOTES } from "@/features/focus/lib/quiz/bible";
 
 export const QUIZZES: readonly Quiz[] = [
   ...MUSIC_QUIZZES,
@@ -89,6 +90,7 @@ export const QUIZZES: readonly Quiz[] = [
   ...FILM_QUIZZES,
   ...SPORTS_QUIZZES,
   ...MYTHOLOGY_QUIZZES,
+  ...BIBLE_QUIZZES,
   // Hard-bank expansion for existing topics
   ...CODING_HARD_EXTRA,
   ...GENERAL_HARD_EXTRA,
@@ -119,4 +121,5 @@ export const TOPIC_QUOTES: Partial<Record<TopicId, Quote[]>> = {
   film: FILM_QUOTES,
   sports: SPORTS_QUOTES,
   mythology: MYTHOLOGY_QUOTES,
+  bible: BIBLE_QUOTES,
 };

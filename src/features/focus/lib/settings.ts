@@ -36,6 +36,9 @@ export type FocusSettings = {
   todoGoogleSync: boolean;
   // "Need a push?" interests — drives quotes + quizzes. Empty = coding/general.
   interests: TopicId[];
+  // Bible mode — switches "Need a push?" to Scripture verses + Bible quizzes,
+  // overriding the interest selection while it's on.
+  bibleMode: boolean;
   // Quiz difficulty floor — "all" (default), "medium" (harder), "hard" (expert).
   quizDifficulty: QuizDifficulty;
   // Meditation card
@@ -61,6 +64,7 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   dailyGoalHours: 4,
   todoGoogleSync: false,
   interests: [],
+  bibleMode: false,
   quizDifficulty: "all",
   meditationEnabled: true,
   meditationMinutes: 5,
@@ -95,6 +99,7 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     interests: Array.isArray(r.interests)
       ? [...new Set(r.interests.filter(isTopicId))]
       : DEFAULT_SETTINGS.interests,
+    bibleMode: bool(r.bibleMode, DEFAULT_SETTINGS.bibleMode),
     quizDifficulty: isQuizDifficulty(r.quizDifficulty)
       ? r.quizDifficulty
       : DEFAULT_SETTINGS.quizDifficulty,
