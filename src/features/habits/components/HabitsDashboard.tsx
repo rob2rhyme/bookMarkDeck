@@ -18,7 +18,6 @@ import {
 import { logActivity } from "@/features/focus/data/focusData";
 import { todayKey } from "@/features/habits/lib/day";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
-import { HabitsViewToggle } from "@/features/habits/components/HabitsViewToggle";
 import { HabitCard } from "@/features/habits/components/HabitCard";
 import { HabitNotesModal } from "@/features/habits/components/HabitNotesModal";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
@@ -246,9 +245,8 @@ export function HabitsDashboard() {
           </p>
         </div>
         {/* Full-width + wrap on mobile so "+ New habit" is never clipped behind
-            the toggle/Guide; natural single row from sm up (where it fits). */}
+            Guide; natural single row from sm up (where it fits). */}
         <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
-          <HabitsViewToggle />
           <Link
             href="/habits/guide"
             className="text-xs text-slate-400 underline-offset-2 transition hover:text-slate-200 hover:underline"
