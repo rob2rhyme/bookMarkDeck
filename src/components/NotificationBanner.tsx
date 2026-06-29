@@ -2,12 +2,14 @@
 
 // Contextual notification-permission nudge. Only appears on the Focus hub
 // (where end-of-block alerts matter), only while permission is still "default",
-// and only until the user enables or dismisses it.
+// and — by design — at most ONCE ever: it's marked seen the first time it shows
+// (cloud-backed via uiPrefs, so it survives cache eviction and other devices),
+// whatever the user then does with the OS prompt.
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
-const DISMISS_KEY = "bd:notif-banner-dismissed";
+import { fetchUiFlag, getCachedFlag, markUiFlag } from "@/lib/uiPrefs";
 
 export function NotificationBanner() {
   const pathname = usePathname();
@@ -15,9 +17,21 @@ export function NotificationBanner() {
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
-    const onFocus = pathname?.startsWith("/focus") ?? false;
-    const dismissed = localStorage.getItem(DISMISS_KEY) === "1";
-    setVisible(onFocus && !dismissed && Notification.permission === "default");
+    if (!(pathname?.startsWith("/focus") ?? false)) return;
+    if (Notification.permission !== "default") return;
+    if (getCachedFlag("notifBannerSeen")) return; // already nudged on this device
+    let cancelled = false;
+    // Confirm against the cloud before the one-shot, so a returning user whose
+    // localStorage was evicted isn't nudged a second time.
+    fetchUiFlag("notifBannerSeen").then((seen) => {
+      if (cancelled || seen) return;
+      setVisible(true);
+      // Remember immediately — first appearance only, regardless of the choice.
+      markUiFlag("notifBannerSeen");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
 
   if (!visible) return null;
@@ -30,14 +44,7 @@ export function NotificationBanner() {
     }
   };
 
-  const dismiss = () => {
-    try {
-      localStorage.setItem(DISMISS_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    setVisible(false);
-  };
+  const dismiss = () => setVisible(false);
 
   return (
     <div className="fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4 sm:bottom-6">

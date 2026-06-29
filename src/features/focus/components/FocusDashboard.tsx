@@ -251,15 +251,16 @@ export function FocusDashboard() {
     text: string,
     dueAt: string | null,
     note: string,
-    list: Todo["list"] = "personal"
+    list: Todo["list"] = "personal",
+    project = ""
   ) => {
-    const created = todos.addTodo(text, dueAt, note, list);
+    const created = todos.addTodo(text, dueAt, note, list, project);
     if (created && created.list !== "project") gsync.mirror(created);
   };
 
   const editTodoSynced = (
     id: string,
-    patch: { text?: string; note?: string; dueAt?: string | null }
+    patch: { text?: string; note?: string; dueAt?: string | null; project?: string }
   ) => {
     todos.editTodo(id, patch);
     const existing = todos.todos.find((t) => t.id === id);
@@ -302,6 +303,19 @@ export function FocusDashboard() {
       return k === today;
     });
   }, [gevents.events]);
+
+  // Reusable project-name suggestions for the Project to-do tab: names already
+  // used on project to-dos, plus your focus tasks (so you can "pull from tasks").
+  const projectSuggestions = useMemo(() => {
+    const names = new Set<string>();
+    for (const t of todos.todos) {
+      if (t.list === "project" && t.project) names.add(t.project);
+    }
+    for (const t of [...tasks.activeTasks, ...tasks.doneTasks]) {
+      if (t.text) names.add(t.text);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [todos.todos, tasks.activeTasks, tasks.doneTasks]);
 
   const removeNotesWithUndo = (notes: JournalNote[]) => {
     notes.forEach((n) => journal.removeNote(n.id));
@@ -433,6 +447,7 @@ export function FocusDashboard() {
           active={todos.active}
           done={todos.done}
           todayEvents={todayCalendarEvents}
+          projectSuggestions={projectSuggestions}
           onAdd={addTodoSynced}
           onToggle={toggleTodoWithUndo}
           onEdit={editTodoSynced}

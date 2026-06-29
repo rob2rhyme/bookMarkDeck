@@ -15,7 +15,7 @@ import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
 
-export type UiFlag = "welcomeSeen" | "habitsOnboarded";
+export type UiFlag = "welcomeSeen" | "habitsOnboarded" | "notifBannerSeen";
 
 const CACHE_KEY = "bd:ui-flags:v1";
 

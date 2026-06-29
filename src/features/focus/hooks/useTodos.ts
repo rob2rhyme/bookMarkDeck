@@ -48,6 +48,7 @@ function loadLocal(email?: string | null): Todo[] {
         completedAt: typeof t.completedAt === "string" ? t.completedAt : null,
         day: typeof t.day === "string" ? t.day : "",
         list: (t.list === "project" ? "project" : "personal") as TodoList,
+        project: typeof t.project === "string" ? t.project : "",
         googleTaskId: typeof t.googleTaskId === "string" ? t.googleTaskId : null,
         googleEventId:
           typeof t.googleEventId === "string" ? t.googleEventId : null,
@@ -130,7 +131,8 @@ export function useTodos(
       text: string,
       dueAt: string | null,
       note = "",
-      list: Todo["list"] = "personal"
+      list: Todo["list"] = "personal",
+      project = ""
     ): Todo | null => {
       const trimmed = text.trim();
       if (!trimmed) return null;
@@ -143,6 +145,7 @@ export function useTodos(
         createdAt: new Date().toISOString(),
         day: todayKey(),
         list,
+        project: list === "project" ? project.trim() : "",
         googleTaskId: null,
         googleEventId: null,
       };
@@ -194,7 +197,10 @@ export function useTodos(
   );
 
   const editTodo = useCallback(
-    (id: string, patch: { text?: string; note?: string; dueAt?: string | null }) => {
+    (
+      id: string,
+      patch: { text?: string; note?: string; dueAt?: string | null; project?: string }
+    ) => {
       setTodos((prev) => {
         const next = prev.map((t) =>
           t.id === id

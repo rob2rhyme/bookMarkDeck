@@ -24,7 +24,11 @@ export function Onboarding() {
     // Confirm against the cloud before showing — so a returning user whose
     // localStorage was evicted doesn't see the welcome again.
     fetchUiFlag("welcomeSeen").then((seen) => {
-      if (!cancelled && !seen) setOpen(true);
+      if (cancelled || seen) return;
+      setOpen(true);
+      // First-run only: remember as soon as it's shown, so a reload (or evicted
+      // cache that the cloud later backstops) never replays the welcome.
+      markUiFlag("welcomeSeen");
     });
     return () => {
       cancelled = true;

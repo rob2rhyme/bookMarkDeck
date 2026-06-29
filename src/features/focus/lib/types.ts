@@ -80,6 +80,7 @@ export type Todo = {
   completedAt?: string | null; // ISO timestamp it was marked done (null = not done)
   day: string; // YYYY-MM-DD created — used to flag rolled-over items
   list?: TodoList; // omitted = "personal" (back-compat with pre-list items)
+  project?: string; // project name for "project" to-dos (reusable label); "" = none
   googleTaskId?: string | null; // mapping to a mirrored Google Task
   googleEventId?: string | null; // mapping to a mirrored Calendar event (timed)
 };

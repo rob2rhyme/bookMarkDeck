@@ -15,16 +15,18 @@ type TodoListProps = {
   active: Todo[];
   done: Todo[];
   todayEvents?: AgendaEvent[]; // read-only Google Calendar events for today
+  projectSuggestions?: string[]; // reusable project names (existing + tasks)
   onAdd: (
     text: string,
     dueAt: string | null,
     note: string,
-    list: TodoListKey
+    list: TodoListKey,
+    project: string
   ) => void;
   onToggle: (todo: Todo) => void;
   onEdit: (
     id: string,
-    patch: { text?: string; note?: string; dueAt?: string | null }
+    patch: { text?: string; note?: string; dueAt?: string | null; project?: string }
   ) => void;
   onRemove: (todo: Todo) => void;
 };
@@ -115,6 +117,7 @@ export function TodoList({
   active,
   done,
   todayEvents = [],
+  projectSuggestions = [],
   onAdd,
   onToggle,
   onEdit,
@@ -124,6 +127,7 @@ export function TodoList({
   const [draft, setDraft] = useState("");
   const [draftNote, setDraftNote] = useState("");
   const [draftDue, setDraftDue] = useState<string | null>(null);
+  const [draftProject, setDraftProject] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -151,6 +155,7 @@ export function TodoList({
   const [editText, setEditText] = useState("");
   const [editNote, setEditNote] = useState("");
   const [editDue, setEditDue] = useState<string | null>(null);
+  const [editProject, setEditProject] = useState("");
 
   const hasDue = activeInList.some((t) => t.dueAt);
   useEffect(() => {
@@ -173,10 +178,11 @@ export function TodoList({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
-    onAdd(draft, draftDue, draftNote, list);
+    onAdd(draft, draftDue, draftNote, list, draftProject);
     setDraft("");
     setDraftNote("");
     setDraftDue(null);
+    // Keep the project name — most project to-dos are added in batches.
   };
 
   const startEdit = (todo: Todo) => {
@@ -184,6 +190,7 @@ export function TodoList({
     setEditText(todo.text);
     setEditNote(todo.note ?? "");
     setEditDue(todo.dueAt);
+    setEditProject(todo.project ?? "");
   };
   const cancelEdit = () => setEditingId(null);
   const saveEdit = () => {
@@ -192,6 +199,7 @@ export function TodoList({
       text: editText,
       note: editNote.trim(),
       dueAt: editDue,
+      project: editProject.trim(),
     });
     setEditingId(null);
   };
@@ -249,6 +257,24 @@ export function TodoList({
 
       {/* Add */}
       <form onSubmit={submit} className="mt-4 flex flex-col gap-2">
+        {list === "project" && (
+          <>
+            <input
+              type="text"
+              list="todo-project-names"
+              value={draftProject}
+              onChange={(e) => setDraftProject(e.target.value)}
+              placeholder="Project name — type or pick a saved one"
+              aria-label="Project name"
+              className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+            />
+            <datalist id="todo-project-names">
+              {projectSuggestions.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
+          </>
+        )}
         <div className="flex gap-2">
           <input
             type="text"
@@ -323,6 +349,17 @@ export function TodoList({
                   key={todo.id}
                   className="flex flex-col gap-2 rounded-lg border border-blue-500/50 bg-slate-950/40 px-3 py-2"
                 >
+                  {list === "project" && (
+                    <input
+                      type="text"
+                      list="todo-project-names"
+                      value={editProject}
+                      onChange={(e) => setEditProject(e.target.value)}
+                      placeholder="Project name"
+                      aria-label="Project name"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+                    />
+                  )}
                   <input
                     type="text"
                     value={editText}
@@ -388,7 +425,12 @@ export function TodoList({
                       className="mt-0.5 block whitespace-pre-wrap break-words text-xs text-slate-400"
                     />
                   )}
-                  <span className="flex items-center gap-2">
+                  <span className="flex flex-wrap items-center gap-2">
+                    {todo.project && (
+                      <span className="max-w-full truncate rounded-full bg-blue-500/15 px-1.5 text-[10px] font-medium text-blue-200">
+                        📁 {todo.project}
+                      </span>
+                    )}
                     <DueBadge todo={todo} now={now} />
                     {rolledOver && (
                       <span className="rounded-full bg-slate-800 px-1.5 text-[10px] font-medium text-slate-400">
