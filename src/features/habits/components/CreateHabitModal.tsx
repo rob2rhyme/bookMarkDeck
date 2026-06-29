@@ -7,6 +7,7 @@ import { Emoji } from "@/components/icons";
 import {
   AREA_ICON_CHOICES,
   DEFAULT_AREA_ICON,
+  suggestAreaIcon,
 } from "@/features/habits/lib/areas";
 import { WEEKDAY_LABELS } from "@/features/habits/lib/day";
 import {
@@ -130,9 +131,12 @@ export function CreateHabitModal({
 
   const onAreaChange = (value: string) => {
     setArea(value);
-    // Reuse the existing icon when typing/picking a known area name.
+    // Reuse an existing area's icon; else auto-suggest from the name while the
+    // icon is still the default (so a manual pick is never overwritten).
     const known = areaIcons?.get(value.trim());
     if (known) setAreaIcon(known);
+    else if (areaIcon === DEFAULT_AREA_ICON)
+      setAreaIcon(suggestAreaIcon(value) || DEFAULT_AREA_ICON);
   };
 
   const toggleDay = (d: number) =>

@@ -11,7 +11,41 @@ export const DEFAULT_AREA_ICON = "🗂️";
 export const AREA_ICON_CHOICES = [
   "🗂️", "💪", "🧠", "💼", "❤️", "🏃", "📚", "🎨",
   "🧘", "💰", "🏠", "🌱", "☀️", "🛌", "🎯", "🤝",
+  "🍿", "🍳", "✈️", "🐾",
 ];
+
+// Keyword → area icon, most specific first; matched as substrings against the
+// lower-cased area name. Powers an auto-suggested icon when typing an area like
+// "Health", "Home", or "Entertainment".
+const AREA_ICON_KEYWORDS: ReadonlyArray<readonly [string[], string]> = [
+  [["entertain", "fun", "leisure", "game", "gaming", "movie", "tv", "watch"], "🍿"],
+  [["fitness", "exercise", "workout", "gym", "training", "sport"], "💪"],
+  [["health", "wellness", "wellbeing", "well-being", "medical"], "❤️"],
+  [["food", "cook", "diet", "nutrition", "kitchen", "meal", "eat"], "🍳"],
+  [["home", "house", "chore", "household", "clean", "tidy"], "🏠"],
+  [["productiv", "focus", "goal", "deep work"], "🎯"],
+  [["work", "career", "job", "business", "office"], "💼"],
+  [["finance", "money", "budget", "saving", "invest", "wealth"], "💰"],
+  [["learn", "study", "education", "school", "reading", "knowledge"], "📚"],
+  [["mind", "mental", "mindful"], "🧠"],
+  [["meditat", "calm", "spiritual", "faith", "prayer"], "🧘"],
+  [["creativ", "art", "music", "hobby", "craft", "design"], "🎨"],
+  [["nature", "garden", "outdoor", "plant"], "🌱"],
+  [["sleep", "rest", "recovery"], "🛌"],
+  [["social", "relationship", "family", "friend", "community"], "🤝"],
+  [["travel", "adventure", "trip", "vacation"], "✈️"],
+  [["pet", "animal", "dog", "cat"], "🐾"],
+  [["run", "jog", "cardio", "walk"], "🏃"],
+];
+
+/** Guess a fitting icon from an area name, e.g. "Home" → 🏠. "" when none. */
+export function suggestAreaIcon(name: string): string {
+  const n = name.toLowerCase();
+  for (const [keywords, icon] of AREA_ICON_KEYWORDS) {
+    if (keywords.some((k) => n.includes(k))) return icon;
+  }
+  return "";
+}
 
 export type AreaInfo = { name: string; icon: string };
 
