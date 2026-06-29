@@ -317,7 +317,7 @@ export function AnalysisPanel({
               return (
                 <div
                   key={d.key}
-                  className="flex flex-1 flex-col items-center gap-1.5"
+                  className="flex h-full flex-1 flex-col items-center gap-1.5"
                 >
                   <div className="flex w-full flex-1 items-end">
                     <div

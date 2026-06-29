@@ -442,7 +442,7 @@ export function InsightsPanel({
       ) : (
       <div className="flex h-28 items-end gap-2">
         {bars.map((b) => (
-          <div key={b.key} className="flex flex-1 flex-col items-center gap-1.5">
+          <div key={b.key} className="flex h-full flex-1 flex-col items-center gap-1.5">
             <div className="flex w-full flex-1 items-end">
               <div
                 title={b.future ? "Upcoming" : `${b.done}/${b.due} done · ${b.pct}%`}

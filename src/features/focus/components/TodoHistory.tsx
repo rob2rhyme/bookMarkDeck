@@ -146,7 +146,7 @@ export function TodoHistory({ todos }: TodoHistoryProps) {
                 <div
                   key={d.key}
                   title={`${shortDate(d.key)} · ${d.done} completed · ${d.added} added`}
-                  className="flex flex-1 flex-col items-center gap-1"
+                  className="flex h-full flex-1 flex-col items-center gap-1"
                 >
                   <div className="flex w-full flex-1 items-end">
                     <div
