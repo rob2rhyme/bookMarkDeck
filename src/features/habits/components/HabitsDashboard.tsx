@@ -160,7 +160,11 @@ export function HabitsDashboard() {
     if (h.allHabits.length > 0) return;
     let cancelled = false;
     fetchUiFlag("habitsOnboarded").then((seen) => {
-      if (!cancelled && !seen) setOnboardOpen(true);
+      if (cancelled || seen) return;
+      setOnboardOpen(true);
+      // First-run only: remember as soon as it's shown so it never replays
+      // (a reload, or an evicted cache the cloud later backstops).
+      markUiFlag("habitsOnboarded");
     });
     return () => {
       cancelled = true;

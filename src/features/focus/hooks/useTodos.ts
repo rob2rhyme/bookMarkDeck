@@ -19,7 +19,7 @@ import {
   unqueueDelete,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import type { Todo } from "@/features/focus/lib/types";
+import type { Todo, TodoList } from "@/features/focus/lib/types";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
 
@@ -45,7 +45,10 @@ function loadLocal(email?: string | null): Todo[] {
         done: Boolean(t.done),
         dueAt: typeof t.dueAt === "string" ? t.dueAt : null,
         createdAt: typeof t.createdAt === "string" ? t.createdAt : null,
+        completedAt: typeof t.completedAt === "string" ? t.completedAt : null,
         day: typeof t.day === "string" ? t.day : "",
+        list: (t.list === "project" ? "project" : "personal") as TodoList,
+        project: typeof t.project === "string" ? t.project : "",
         googleTaskId: typeof t.googleTaskId === "string" ? t.googleTaskId : null,
         googleEventId:
           typeof t.googleEventId === "string" ? t.googleEventId : null,
@@ -124,7 +127,13 @@ export function useTodos(
   }, [canSync, email]);
 
   const addTodo = useCallback(
-    (text: string, dueAt: string | null, note = ""): Todo | null => {
+    (
+      text: string,
+      dueAt: string | null,
+      note = "",
+      list: Todo["list"] = "personal",
+      project = ""
+    ): Todo | null => {
       const trimmed = text.trim();
       if (!trimmed) return null;
       const todo: Todo = {
@@ -135,6 +144,8 @@ export function useTodos(
         dueAt: dueAt ?? null,
         createdAt: new Date().toISOString(),
         day: todayKey(),
+        list,
+        project: list === "project" ? project.trim() : "",
         googleTaskId: null,
         googleEventId: null,
       };
@@ -165,7 +176,15 @@ export function useTodos(
     (id: string) => {
       setTodos((prev) => {
         const next = prev.map((t) =>
-          t.id === id ? { ...t, done: !t.done } : t
+          t.id === id
+            ? {
+                ...t,
+                done: !t.done,
+                // Stamp the completion time so the history can chart it by day;
+                // clear it when un-completing.
+                completedAt: !t.done ? new Date().toISOString() : null,
+              }
+            : t
         );
         const updated = next.find((t) => t.id === id);
         if (canSync && email && updated) saveTodo(email, updated).catch(() => {});
@@ -178,7 +197,10 @@ export function useTodos(
   );
 
   const editTodo = useCallback(
-    (id: string, patch: { text?: string; note?: string; dueAt?: string | null }) => {
+    (
+      id: string,
+      patch: { text?: string; note?: string; dueAt?: string | null; project?: string }
+    ) => {
       setTodos((prev) => {
         const next = prev.map((t) =>
           t.id === id

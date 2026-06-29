@@ -198,6 +198,19 @@ export function FocusSettingsModal({
           learners. Leave empty for coding tips &amp; general trivia.
         </p>
 
+        <div className="mt-3">
+          <Toggle
+            label="✝️ Bible mode"
+            checked={settings.bibleMode}
+            onChange={(v) => onUpdate({ bibleMode: v })}
+          />
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            {settings.bibleMode
+              ? "Showing Scripture verses & Bible quizzes — your interests above are paused while this is on."
+              : "Switches “Need a push?” to encouraging Bible verses and Bible-trivia quizzes."}
+          </p>
+        </div>
+
         <div className="mt-3 flex items-center justify-between border-b border-slate-800/60 py-2.5">
           <label className="text-sm text-slate-200">Quiz difficulty</label>
           <div

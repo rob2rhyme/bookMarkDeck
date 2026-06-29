@@ -1,0 +1,80 @@
+// Curated Bible quiz + verse bank for the "Need a push?" card / Bible mode.
+// Bundled, offline. Verses are widely-used encouragement passages; quiz facts
+// are kept to well-established, denominationally-neutral Scripture references.
+import type { Quiz } from "@/features/focus/lib/topics";
+import type { Quote } from "@/features/focus/lib/content";
+
+export const BIBLE_QUIZZES: Quiz[] = [
+  // ---- Easy ----
+  { topic: "bible", level: "Easy", question: "What is the first book of the Bible?", choices: ["Exodus", "Genesis", "Psalms", "Matthew"], answer: 1, explain: "Genesis opens the Bible with the accounts of creation and the early patriarchs.", fact: "“Genesis” comes from a Greek word meaning “origin” or “beginning.”" },
+  { topic: "bible", level: "Easy", question: "In how many days does Genesis say God created the world before resting?", choices: ["Three", "Seven", "Six", "Forty"], answer: 2, explain: "Creation is described over six days, with God resting on the seventh.", fact: "That seventh day of rest is the basis for the Sabbath." },
+  { topic: "bible", level: "Easy", question: "Who built an ark to survive the great flood?", choices: ["Noah", "Abraham", "Moses", "Job"], answer: 0, explain: "God instructed Noah to build the ark to preserve his family and the animals.", fact: "Genesis says Noah’s ark came to rest on the mountains of Ararat." },
+  { topic: "bible", level: "Easy", question: "In which town was Jesus born?", choices: ["Nazareth", "Jerusalem", "Bethlehem", "Capernaum"], answer: 2, explain: "Jesus was born in Bethlehem, fulfilling the prophecy in Micah.", fact: "Bethlehem means “house of bread” in Hebrew." },
+  { topic: "bible", level: "Easy", question: "Who led the Israelites out of slavery in Egypt?", choices: ["Joshua", "Moses", "Aaron", "Joseph"], answer: 1, explain: "Moses confronted Pharaoh and led the Exodus out of Egypt.", fact: "The crossing of the Red Sea is one of the most famous events of the Exodus." },
+  { topic: "bible", level: "Easy", question: "How many disciples (apostles) did Jesus choose?", choices: ["Seven", "Ten", "Twelve", "Three"], answer: 2, explain: "Jesus chose twelve apostles to be his closest followers.", fact: "After Judas, Matthias was chosen to restore the number to twelve." },
+  { topic: "bible", level: "Easy", question: "What is the last book of the Bible?", choices: ["Jude", "Revelation", "Acts", "Malachi"], answer: 1, explain: "Revelation closes the New Testament with its apocalyptic visions.", fact: "It is also called the Apocalypse, Greek for “unveiling.”" },
+  { topic: "bible", level: "Easy", question: "Who was swallowed by a great fish?", choices: ["Daniel", "Elijah", "Jonah", "Job"], answer: 2, explain: "Jonah spent three days inside the fish after fleeing God’s call.", fact: "Jonah had been told to preach to the city of Nineveh." },
+  { topic: "bible", level: "Easy", question: "Which young shepherd defeated the giant Goliath?", choices: ["David", "Saul", "Samson", "Gideon"], answer: 0, explain: "David felled Goliath with a stone from his sling.", fact: "David later became the second king of Israel." },
+  { topic: "bible", level: "Easy", question: "According to Genesis, what did God create on the first day?", choices: ["The stars", "Light", "Animals", "Humankind"], answer: 1, explain: "“Let there be light” marks the first day of creation (Genesis 1:3).", fact: "The sun, moon, and stars are described as appearing on the fourth day." },
+  { topic: "bible", level: "Easy", question: "In which garden did Adam and Eve live?", choices: ["Gethsemane", "Babylon", "Eden", "Canaan"], answer: 2, explain: "The Garden of Eden is where the first humans are placed in Genesis.", fact: "“Eden” is often associated with a Hebrew word for “delight.”" },
+  { topic: "bible", level: "Easy", question: "How many commandments did God give Moses on the mountain?", choices: ["Seven", "Twelve", "Five", "Ten"], answer: 3, explain: "The Ten Commandments were given to Moses on Mount Sinai.", fact: "They were inscribed on two stone tablets." },
+  { topic: "bible", level: "Easy", question: "Which is the first of the four Gospels?", choices: ["Mark", "Matthew", "Luke", "John"], answer: 1, explain: "Matthew, Mark, Luke, and John open the New Testament in that order.", fact: "Matthew, Mark, and Luke are called the “Synoptic” Gospels for their similar accounts." },
+  { topic: "bible", level: "Easy", question: "Who betrayed Jesus for thirty pieces of silver?", choices: ["Peter", "Thomas", "Judas Iscariot", "Pilate"], answer: 2, explain: "Judas Iscariot betrayed Jesus to the authorities.", fact: "Judas identified Jesus with a kiss in the Garden of Gethsemane." },
+  { topic: "bible", level: "Easy", question: "What sign did God give Noah as a covenant after the flood?", choices: ["A rainbow", "A bright star", "A burning bush", "A pillar of cloud"], answer: 0, explain: "God set a rainbow in the sky as the sign of his covenant (Genesis 9).", fact: "A dove returning with an olive leaf signaled the flood was receding." },
+
+  // ---- Medium ----
+  { topic: "bible", level: "Medium", question: "Whose strength, in the book of Judges, lay in his uncut hair?", choices: ["Gideon", "Samson", "Goliath", "Elijah"], answer: 1, explain: "Samson lost his strength when Delilah had his hair cut.", fact: "Samson was a Nazirite, set apart by a vow that included never cutting his hair." },
+  { topic: "bible", level: "Medium", question: "On which mountain did Moses receive the Ten Commandments?", choices: ["Mount Carmel", "Mount Zion", "Mount Sinai", "Mount Ararat"], answer: 2, explain: "Moses received the commandments on Mount Sinai (also called Horeb).", fact: "Moses’ face is described as shining after speaking with God on the mountain." },
+  { topic: "bible", level: "Medium", question: "Who was thrown into a den of lions yet left unharmed?", choices: ["Daniel", "Joseph", "Jeremiah", "Shadrach"], answer: 0, explain: "Daniel was protected in the lions’ den for praying to God.", fact: "His three friends were likewise saved from a fiery furnace." },
+  { topic: "bible", level: "Medium", question: "What is the shortest verse in most English Bibles?", choices: ["“God is love.”", "“Pray always.”", "“Jesus wept.”", "“Rejoice always.”"], answer: 2, explain: "“Jesus wept” (John 11:35) is the shortest verse in most English translations.", fact: "Jesus wept just before raising his friend Lazarus from the dead." },
+  { topic: "bible", level: "Medium", question: "How many books are in the Protestant Bible?", choices: ["27", "39", "66", "73"], answer: 2, explain: "The Protestant Bible has 66 books: 39 in the Old Testament and 27 in the New.", fact: "Catholic Bibles include additional “deuterocanonical” books." },
+  { topic: "bible", level: "Medium", question: "Who denied Jesus three times before the rooster crowed?", choices: ["John", "Peter", "Andrew", "Judas"], answer: 1, explain: "Peter denied knowing Jesus three times, just as Jesus had foretold.", fact: "Peter is also the apostle traditionally regarded as a leader of the early church." },
+  { topic: "bible", level: "Medium", question: "In John’s Gospel, what was Jesus’ first miracle?", choices: ["Walking on water", "Turning water into wine", "Feeding the five thousand", "Healing a blind man"], answer: 1, explain: "Jesus turned water into wine at a wedding in Cana (John 2).", fact: "His mother, Mary, prompted the miracle by noting the wine had run out." },
+  { topic: "bible", level: "Medium", question: "Who was the first king of Israel?", choices: ["Saul", "David", "Solomon", "Samuel"], answer: 0, explain: "Saul was anointed by the prophet Samuel as Israel’s first king.", fact: "David succeeded Saul, and David’s son Solomon followed him." },
+  { topic: "bible", level: "Medium", question: "How many years did the Israelites wander in the wilderness?", choices: ["Seven", "Twelve", "Forty", "Seventy"], answer: 2, explain: "The Israelites wandered forty years before entering the Promised Land.", fact: "The number forty recurs often in the Bible, as in the forty days of the flood’s rain." },
+  { topic: "bible", level: "Medium", question: "Which apostle is traditionally credited with writing the most New Testament letters?", choices: ["Paul", "Peter", "John", "James"], answer: 0, explain: "Thirteen New Testament letters are traditionally attributed to Paul.", fact: "Paul wrote several of his letters while imprisoned." },
+  { topic: "bible", level: "Medium", question: "What two foods did Jesus multiply to feed the five thousand?", choices: ["Bread and wine", "Loaves and fish", "Figs and honey", "Manna and quail"], answer: 1, explain: "Jesus fed the crowd from five loaves and two fish.", fact: "It is the only miracle (besides the resurrection) reported in all four Gospels." },
+  { topic: "bible", level: "Medium", question: "Who is traditionally credited with writing most of the Psalms?", choices: ["Solomon", "David", "Moses", "Asaph"], answer: 1, explain: "King David is traditionally credited with composing many of the Psalms.", fact: "The Psalms range from songs of praise to laments and pleas for help." },
+
+  // ---- Hard ----
+  { topic: "bible", level: "Hard", question: "How many books make up the Pentateuch (the Torah)?", choices: ["Four", "Five", "Seven", "Ten"], answer: 1, explain: "Genesis, Exodus, Leviticus, Numbers, and Deuteronomy form the Pentateuch.", fact: "“Pentateuch” comes from Greek words meaning “five scrolls.”" },
+  { topic: "bible", level: "Hard", question: "Who succeeded Moses and led Israel into the Promised Land?", choices: ["Caleb", "Aaron", "Joshua", "Gideon"], answer: 2, explain: "Joshua led the Israelites across the Jordan into Canaan.", fact: "The walls of Jericho fell during Joshua’s campaign." },
+  { topic: "bible", level: "Hard", question: "Which prophet was taken up to heaven in a whirlwind with a chariot of fire?", choices: ["Elisha", "Elijah", "Isaiah", "Enoch"], answer: 1, explain: "Elijah was taken up in a whirlwind as his successor Elisha watched (2 Kings 2).", fact: "Elisha then received a “double portion” of Elijah’s spirit." },
+  { topic: "bible", level: "Hard", question: "How many people were saved on Noah’s ark?", choices: ["Two", "Eight", "Twelve", "Forty"], answer: 1, explain: "Noah, his wife, their three sons, and the sons’ wives — eight people in all.", fact: "The New Testament letter 1 Peter specifically notes that eight were saved through the water." },
+  { topic: "bible", level: "Hard", question: "On the road to which city was Saul (later Paul) converted?", choices: ["Emmaus", "Jericho", "Damascus", "Bethany"], answer: 2, explain: "Saul encountered the risen Christ on the road to Damascus (Acts 9).", fact: "He was temporarily blinded by a bright light during the encounter." },
+  { topic: "bible", level: "Hard", question: "Which queen risked her life to save the Jewish people from Haman’s plot?", choices: ["Esther", "Ruth", "Deborah", "Bathsheba"], answer: 0, explain: "Queen Esther exposed Haman’s plot to King Ahasuerus and saved her people.", fact: "The festival of Purim commemorates this deliverance." },
+  { topic: "bible", level: "Hard", question: "What were the names of Adam and Eve’s first two sons?", choices: ["Jacob and Esau", "Cain and Abel", "Seth and Enosh", "Isaac and Ishmael"], answer: 1, explain: "Cain and Abel were their first sons; Cain killed Abel.", fact: "A third named son, Seth, is listed after Abel’s death." },
+  { topic: "bible", level: "Hard", question: "How many chapters are in the book of Psalms, the longest book by chapter count?", choices: ["100", "119", "150", "73"], answer: 2, explain: "Psalms contains 150 chapters, more than any other book of the Bible.", fact: "Psalm 119 is the single longest chapter, with 176 verses." },
+  { topic: "bible", level: "Hard", question: "Which Roman governor presided over the trial of Jesus?", choices: ["Herod Antipas", "Pontius Pilate", "Caesar Augustus", "Felix"], answer: 1, explain: "Pontius Pilate, governor of Judea, presided over Jesus’ trial.", fact: "Pilate is recorded as “washing his hands” of responsibility for the verdict." },
+  { topic: "bible", level: "Hard", question: "Which disciple is remembered as “the doubter” for wanting to see Jesus’ wounds?", choices: ["Philip", "Bartholomew", "Thomas", "Matthew"], answer: 2, explain: "Thomas doubted the resurrection until he saw Jesus’ wounds.", fact: "His statement “My Lord and my God!” follows in John’s Gospel." },
+  { topic: "bible", level: "Hard", question: "In the parable, what did the Good Samaritan do for the wounded traveler?", choices: ["Walked past him", "Cared for him and paid for his lodging", "Reported him to the priests", "Took him to court"], answer: 1, explain: "The Samaritan bandaged the man and paid an innkeeper to care for him.", fact: "A priest and a Levite had passed by the wounded man before the Samaritan stopped." },
+  { topic: "bible", level: "Hard", question: "Which fruit of the Spirit is listed first in Paul’s letter to the Galatians?", choices: ["Joy", "Peace", "Love", "Patience"], answer: 2, explain: "Galatians 5:22 lists love first among the fruit of the Spirit.", fact: "The full list names nine qualities, beginning with love, joy, and peace." },
+];
+
+export const BIBLE_QUOTES: Quote[] = [
+  { text: "I can do all things through Christ who strengthens me.", author: "Philippians 4:13" },
+  { text: "Trust in the LORD with all your heart, and do not lean on your own understanding.", author: "Proverbs 3:5" },
+  { text: "But they who wait for the LORD shall renew their strength; they shall mount up with wings like eagles.", author: "Isaiah 40:31" },
+  { text: "Be strong and courageous. Do not be afraid; for the LORD your God will be with you wherever you go.", author: "Joshua 1:9" },
+  { text: "Commit your work to the LORD, and your plans will be established.", author: "Proverbs 16:3" },
+  { text: "Whatever you do, work heartily, as for the Lord and not for men.", author: "Colossians 3:23" },
+  { text: "For I know the plans I have for you, declares the LORD, plans to give you a future and a hope.", author: "Jeremiah 29:11" },
+  { text: "Cast all your anxiety on him, because he cares for you.", author: "1 Peter 5:7" },
+  { text: "Let us not grow weary of doing good, for in due season we will reap, if we do not give up.", author: "Galatians 6:9" },
+  { text: "This is the day that the LORD has made; let us rejoice and be glad in it.", author: "Psalm 118:24" },
+  { text: "The steadfast love of the LORD never ceases; his mercies are new every morning.", author: "Lamentations 3:22-23" },
+  { text: "Wait for the LORD; be strong, and let your heart take courage.", author: "Psalm 27:14" },
+  { text: "Do not be anxious about tomorrow, for tomorrow will be anxious for itself.", author: "Matthew 6:34" },
+  { text: "The plans of the diligent lead surely to abundance.", author: "Proverbs 21:5" },
+  { text: "Whoever is faithful in a very little is also faithful in much.", author: "Luke 16:10" },
+  { text: "Your word is a lamp to my feet and a light to my path.", author: "Psalm 119:105" },
+  { text: "Be still, and know that I am God.", author: "Psalm 46:10" },
+  { text: "Come to me, all who labor and are heavy laden, and I will give you rest.", author: "Matthew 11:28" },
+  { text: "For God gave us a spirit not of fear but of power and love and self-control.", author: "2 Timothy 1:7" },
+  { text: "Let all that you do be done in love.", author: "1 Corinthians 16:14" },
+  { text: "The LORD is my shepherd; I shall not want.", author: "Psalm 23:1" },
+  { text: "Rejoice always, pray without ceasing, give thanks in all circumstances.", author: "1 Thessalonians 5:16-18" },
+  { text: "And whatever you do, in word or deed, do everything in the name of the Lord Jesus.", author: "Colossians 3:17" },
+  { text: "She is clothed with strength and dignity, and she laughs without fear of the future.", author: "Proverbs 31:25" },
+  { text: "Do not be anxious about anything, but in everything by prayer let your requests be made known to God.", author: "Philippians 4:6" },
+];

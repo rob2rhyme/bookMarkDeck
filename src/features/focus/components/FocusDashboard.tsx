@@ -245,18 +245,26 @@ export function FocusDashboard() {
     undo.offer("Journal note deleted", () => journal.restoreNote(note));
   };
 
-  const addTodoSynced = (text: string, dueAt: string | null, note: string) => {
-    const created = todos.addTodo(text, dueAt, note);
-    if (created) gsync.mirror(created);
+  // Project to-dos are app-private: never mirrored to Google Tasks/Calendar
+  // (avoids cluttering the user's calendar with fix-the-project chores).
+  const addTodoSynced = (
+    text: string,
+    dueAt: string | null,
+    note: string,
+    list: Todo["list"] = "personal",
+    project = ""
+  ) => {
+    const created = todos.addTodo(text, dueAt, note, list, project);
+    if (created && created.list !== "project") gsync.mirror(created);
   };
 
   const editTodoSynced = (
     id: string,
-    patch: { text?: string; note?: string; dueAt?: string | null }
+    patch: { text?: string; note?: string; dueAt?: string | null; project?: string }
   ) => {
     todos.editTodo(id, patch);
     const existing = todos.todos.find((t) => t.id === id);
-    if (existing) {
+    if (existing && existing.list !== "project") {
       gsync.mirror({
         ...existing,
         ...patch,
@@ -267,21 +275,21 @@ export function FocusDashboard() {
 
   const removeTodoWithUndo = (todo: Todo) => {
     todos.removeTodo(todo.id);
-    gsync.unmirror(todo);
+    if (todo.list !== "project") gsync.unmirror(todo);
     undo.offer(`To-do “${todo.text}” deleted`, () => {
       todos.restoreTodo(todo);
-      gsync.mirror(todo);
+      if (todo.list !== "project") gsync.mirror(todo);
     });
   };
 
   // Toggle a to-do; when marking one done, offer an undo to un-complete it.
   const toggleTodoWithUndo = (todo: Todo) => {
     todos.toggleTodo(todo.id);
-    gsync.mirror({ ...todo, done: !todo.done });
+    if (todo.list !== "project") gsync.mirror({ ...todo, done: !todo.done });
     if (!todo.done) {
       undo.offer(`“${todo.text}” done`, () => {
         todos.toggleTodo(todo.id);
-        gsync.mirror(todo);
+        if (todo.list !== "project") gsync.mirror(todo);
       });
     }
   };
@@ -296,13 +304,18 @@ export function FocusDashboard() {
     });
   }, [gevents.events]);
 
-  const todoEvents = useMemo(
-    () =>
-      activity.events.filter(
-        (e) => e.type === "todo_added" || e.type === "todo_done"
-      ),
-    [activity.events]
-  );
+  // Reusable project-name suggestions for the Project to-do tab: names already
+  // used on project to-dos, plus your focus tasks (so you can "pull from tasks").
+  const projectSuggestions = useMemo(() => {
+    const names = new Set<string>();
+    for (const t of todos.todos) {
+      if (t.list === "project" && t.project) names.add(t.project);
+    }
+    for (const t of [...tasks.activeTasks, ...tasks.doneTasks]) {
+      if (t.text) names.add(t.text);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [todos.todos, tasks.activeTasks, tasks.doneTasks]);
 
   const removeNotesWithUndo = (notes: JournalNote[]) => {
     notes.forEach((n) => journal.removeNote(n.id));
@@ -434,6 +447,7 @@ export function FocusDashboard() {
           active={todos.active}
           done={todos.done}
           todayEvents={todayCalendarEvents}
+          projectSuggestions={projectSuggestions}
           onAdd={addTodoSynced}
           onToggle={toggleTodoWithUndo}
           onEdit={editTodoSynced}
@@ -453,13 +467,13 @@ export function FocusDashboard() {
             onCollapse={gevents.collapse}
           />
         ) : (
-          <TodoHistory available={connected} events={todoEvents} />
+          <TodoHistory todos={todos.todos} />
         )}
       </div>
 
       {settings.todoGoogleSync && (
         <div className="mt-5">
-          <TodoHistory available={connected} events={todoEvents} />
+          <TodoHistory todos={todos.todos} />
         </div>
       )}
 
@@ -579,7 +593,7 @@ export function FocusDashboard() {
         <QuoteBox
           email={email}
           connected={connected}
-          interests={settings.interests}
+          interests={settings.bibleMode ? ["bible"] : settings.interests}
           quizDifficulty={settings.quizDifficulty}
           onQuizAnswered={onQuizAnswered}
         />

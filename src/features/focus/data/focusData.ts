@@ -42,6 +42,7 @@ import type {
   JournalNote,
   ScoreRecord,
   Todo,
+  TodoList,
 } from "@/features/focus/lib/types";
 
 export type { ScoreRecord } from "@/features/focus/lib/types";
@@ -890,7 +891,10 @@ function mapTodo(d: { id: string; data: () => Record<string, unknown> }): Todo {
     done: Boolean(data.done),
     dueAt: typeof data.dueAt === "string" ? data.dueAt : null,
     createdAt: timestampToIso(data.createdAt),
+    completedAt: timestampToIso(data.completedAt),
     day: typeof data.day === "string" ? data.day : "",
+    list: (data.list === "project" ? "project" : "personal") as TodoList,
+    project: typeof data.project === "string" ? data.project : "",
     googleTaskId:
       typeof data.googleTaskId === "string" ? data.googleTaskId : null,
     googleEventId:
@@ -913,7 +917,10 @@ export async function saveTodo(emailHint: string, todo: Todo): Promise<void> {
       note: todo.note ?? "",
       done: todo.done,
       dueAt: todo.dueAt ?? null,
+      completedAt: todo.completedAt ?? null,
       day: todo.day,
+      list: todo.list ?? "personal",
+      project: todo.project ?? "",
       googleTaskId: todo.googleTaskId ?? null,
       googleEventId: todo.googleEventId ?? null,
       createdAt: todo.createdAt ?? serverTimestamp(),

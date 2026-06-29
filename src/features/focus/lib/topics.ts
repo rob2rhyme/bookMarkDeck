@@ -26,7 +26,8 @@ export type TopicId =
   | "literature"
   | "film"
   | "sports"
-  | "mythology";
+  | "mythology"
+  | "bible";
 
 export type Topic = { id: TopicId; label: string; emoji: string };
 
@@ -47,6 +48,7 @@ export const TOPICS: readonly Topic[] = [
   { id: "film", label: "Film & TV", emoji: "🎬" },
   { id: "sports", label: "Sports", emoji: "⚽" },
   { id: "mythology", label: "Mythology", emoji: "🏺" },
+  { id: "bible", label: "Bible", emoji: "✝️" },
 ];
 
 const TOPIC_BY_ID: Record<TopicId, Topic> = Object.fromEntries(
