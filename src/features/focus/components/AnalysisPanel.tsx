@@ -64,6 +64,10 @@ export function AnalysisPanel({
   moodByDay,
   sessions,
 }: AnalysisPanelProps) {
+  // Tapped day in the 7-day chart — reveals its detail below (touch-friendly).
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // Tapped hour in the focus-rhythm chart — reveals its minutes below.
+  const [selectedHour, setSelectedHour] = useState<number | null>(null);
   const maxSessions = Math.max(1, ...last7.map((d) => d.sessions));
   const goalMin = dailyGoalHours * 60;
   const goalPct = Math.min(100, Math.round((todayFocusMin / goalMin) * 100));
@@ -314,22 +318,35 @@ export function AnalysisPanel({
             {last7.map((d) => {
               const h = Math.round((d.sessions / maxSessions) * 100);
               const dayMood = moodByDay[d.key];
+              const isSel = d.key === selectedDay;
               return (
-                <div
+                <button
+                  type="button"
                   key={d.key}
-                  className="flex h-full flex-1 flex-col items-center gap-1.5"
+                  aria-label={`${d.label}: ${d.sessions} session${
+                    d.sessions === 1 ? "" : "s"
+                  }`}
+                  aria-pressed={isSel}
+                  onClick={() =>
+                    setSelectedDay((s) => (s === d.key ? null : d.key))
+                  }
+                  className="flex h-full flex-1 cursor-pointer flex-col items-center gap-1.5 outline-none"
                 >
                   <div className="flex w-full flex-1 items-end">
                     <div
                       title={`${d.sessions} session${
                         d.sessions === 1 ? "" : "s"
                       }`}
-                      className={`w-full rounded ${
+                      className={`w-full rounded transition ${
                         d.sessions > 0
                           ? d.isToday
                             ? "bg-blue-500"
                             : "bg-blue-500/40"
                           : "bg-slate-800"
+                      } ${
+                        isSel
+                          ? "ring-2 ring-blue-200 ring-offset-1 ring-offset-slate-900"
+                          : "hover:brightness-125"
                       }`}
                       style={{
                         height: `${Math.max(h, d.sessions > 0 ? 8 : 4)}%`,
@@ -341,14 +358,50 @@ export function AnalysisPanel({
                   </span>
                   <span
                     className={`text-[11px] ${
-                      d.isToday ? "font-medium text-slate-200" : "text-slate-500"
+                      isSel || d.isToday
+                        ? "font-medium text-slate-200"
+                        : "text-slate-500"
                     }`}
                   >
                     {d.label}
                   </span>
-                </div>
+                </button>
               );
             })}
+          </div>
+
+          {/* Tapped-bar readout — works on touch, where hover tooltips don't. */}
+          <div className="mt-2 flex min-h-[1.25rem] items-center gap-1.5 text-[11px] text-slate-400">
+            {(() => {
+              const sel = last7.find((d) => d.key === selectedDay);
+              if (!sel)
+                return (
+                  <span className="text-slate-500">
+                    Tap a bar to see that day.
+                  </span>
+                );
+              const m = moodByDay[sel.key];
+              return (
+                <>
+                  <span className="font-medium text-slate-200">
+                    {sel.label}
+                    {sel.isToday ? " (today)" : ""}
+                  </span>
+                  <span>·</span>
+                  <span className="tabular-nums text-blue-300">
+                    {sel.sessions}
+                  </span>
+                  <span>session{sel.sessions === 1 ? "" : "s"}</span>
+                  {m && (
+                    <>
+                      <span>·</span>
+                      <MoodIcon mood={m} className="h-3.5 w-3.5" />
+                      <span>{MOOD_BY_KEY[m]?.label ?? ""}</span>
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Mood trend line — over the same 7 days. */}
@@ -403,16 +456,25 @@ export function AnalysisPanel({
                 </span>
               </div>
               <div className="flex h-12 items-end gap-px">
-                {rhythm.byHour.map((min, h) => (
-                  <div
-                    key={h}
-                    title={`${formatHour(h)} · ${min} min`}
-                    className={`flex-1 rounded-sm ${
-                      h === rhythm.peak ? "bg-blue-500" : "bg-blue-500/30"
-                    }`}
-                    style={{ height: `${Math.max((min / rhythm.max) * 100, min > 0 ? 8 : 2)}%` }}
-                  />
-                ))}
+                {rhythm.byHour.map((min, h) => {
+                  const isSel = h === selectedHour;
+                  return (
+                    <button
+                      type="button"
+                      key={h}
+                      title={`${formatHour(h)} · ${min} min`}
+                      aria-label={`${formatHour(h)}: ${min} minutes`}
+                      aria-pressed={isSel}
+                      onClick={() =>
+                        setSelectedHour((s) => (s === h ? null : h))
+                      }
+                      className={`flex-1 cursor-pointer rounded-sm outline-none transition ${
+                        h === rhythm.peak ? "bg-blue-500" : "bg-blue-500/30"
+                      } ${isSel ? "ring-2 ring-blue-200" : "hover:brightness-125"}`}
+                      style={{ height: `${Math.max((min / rhythm.max) * 100, min > 0 ? 8 : 2)}%` }}
+                    />
+                  );
+                })}
               </div>
               <div className="mt-1 flex justify-between text-[10px] text-slate-600">
                 <span>12a</span>
@@ -420,6 +482,22 @@ export function AnalysisPanel({
                 <span>12p</span>
                 <span>6p</span>
                 <span>11p</span>
+              </div>
+              <div className="mt-1 min-h-[1.25rem] text-[11px] text-slate-400">
+                {selectedHour === null ? (
+                  <span className="text-slate-500">Tap a bar to see that hour.</span>
+                ) : (
+                  <span>
+                    <span className="font-medium text-slate-200">
+                      {formatHour(selectedHour)}
+                    </span>{" "}
+                    ·{" "}
+                    <span className="tabular-nums text-blue-300">
+                      {rhythm.byHour[selectedHour]}
+                    </span>{" "}
+                    min focused
+                  </span>
+                )}
               </div>
             </div>
           )}

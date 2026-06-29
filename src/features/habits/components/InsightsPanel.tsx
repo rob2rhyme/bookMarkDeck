@@ -342,6 +342,8 @@ export function InsightsPanel({
   const [weekOffset, setWeekOffset] = useState(0);
   const [openHabitId, setOpenHabitId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  // Tapped bar in the weekly chart — reveals its detail below (touch-friendly).
+  const [selectedBar, setSelectedBar] = useState<string | null>(null);
 
   const overall = useMemo(() => {
     let active = 0;
@@ -441,33 +443,86 @@ export function InsightsPanel({
         </div>
       ) : (
       <div className="flex h-28 items-end gap-2">
-        {bars.map((b) => (
-          <div key={b.key} className="flex h-full flex-1 flex-col items-center gap-1.5">
-            <div className="flex w-full flex-1 items-end">
-              <div
-                title={b.future ? "Upcoming" : `${b.done}/${b.due} done · ${b.pct}%`}
-                className={`w-full rounded ${
-                  b.future
-                    ? "bg-slate-800/40"
-                    : b.pct >= 100 && b.due > 0
-                      ? "bg-emerald-500"
-                      : b.isToday
-                        ? "bg-blue-500"
-                        : "bg-blue-500/40"
-                }`}
-                style={{ height: `${Math.max(b.future ? 0 : 4, b.pct)}%` }}
-              />
-            </div>
-            <span
-              className={`text-[11px] ${
-                b.isToday ? "font-medium text-slate-200" : "text-slate-500"
-              }`}
+        {bars.map((b) => {
+          const isSel = b.key === selectedBar;
+          return (
+            <button
+              type="button"
+              key={b.key}
+              aria-label={
+                b.future
+                  ? `${b.label}: upcoming`
+                  : `${b.label}: ${b.done} of ${b.due} done, ${b.pct}%`
+              }
+              aria-pressed={isSel}
+              disabled={b.future}
+              onClick={() =>
+                setSelectedBar((s) => (s === b.key ? null : b.key))
+              }
+              className="flex h-full flex-1 cursor-pointer flex-col items-center gap-1.5 outline-none disabled:cursor-default"
             >
-              {b.label}
-            </span>
-          </div>
-        ))}
+              <div className="flex w-full flex-1 items-end">
+                <div
+                  title={b.future ? "Upcoming" : `${b.done}/${b.due} done · ${b.pct}%`}
+                  className={`w-full rounded transition ${
+                    b.future
+                      ? "bg-slate-800/40"
+                      : b.pct >= 100 && b.due > 0
+                        ? "bg-emerald-500"
+                        : b.isToday
+                          ? "bg-blue-500"
+                          : "bg-blue-500/40"
+                  } ${
+                    isSel
+                      ? "ring-2 ring-blue-200 ring-offset-1 ring-offset-slate-900"
+                      : !b.future
+                        ? "hover:brightness-125"
+                        : ""
+                  }`}
+                  style={{ height: `${Math.max(b.future ? 0 : 4, b.pct)}%` }}
+                />
+              </div>
+              <span
+                className={`text-[11px] ${
+                  isSel || b.isToday
+                    ? "font-medium text-slate-200"
+                    : "text-slate-500"
+                }`}
+              >
+                {b.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
+      )}
+
+      {/* Tapped-bar readout — works on touch, where hover tooltips don't. */}
+      {!bars.every((b) => b.due === 0 && b.done === 0) && (
+        <div className="mt-2 min-h-[1.25rem] text-[11px] text-slate-400">
+          {(() => {
+            const sel = bars.find((b) => b.key === selectedBar);
+            if (!sel)
+              return (
+                <span className="text-slate-500">
+                  Tap a bar to see that day.
+                </span>
+              );
+            return (
+              <span>
+                <span className="font-medium text-slate-200">
+                  {fmtDateDay(sel.key)}
+                  {sel.isToday ? " (today)" : ""}
+                </span>{" "}
+                ·{" "}
+                <span className="tabular-nums text-blue-300">
+                  {sel.done}/{sel.due}
+                </span>{" "}
+                done · <span className="tabular-nums">{sel.pct}%</span>
+              </span>
+            );
+          })()}
+        </div>
       )}
 
       {/* Weekday pattern */}

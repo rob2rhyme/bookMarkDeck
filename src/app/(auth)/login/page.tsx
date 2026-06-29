@@ -34,13 +34,13 @@ export default function LoginPage() {
           <Image
             src="/logo.png"
             alt=""
-            width={60}
-            height={60}
-            className="h-[60px] w-[60px] rounded-2xl shadow-lg shadow-blue-950/40 animate-bd-breathe"
+            width={180}
+            height={180}
+            className="h-[180px] w-[180px] rounded-3xl shadow-xl shadow-blue-950/40 animate-bd-breathe"
             priority
           />
         </div>
-        <span className="animate-bd-fade-in text-sm tracking-wide">Loading…</span>
+        <span className="animate-bd-fade-in text-base tracking-wide">Loading…</span>
       </div>
     );
   }

@@ -38,6 +38,9 @@ function shortDate(key: string): string {
 
 export function TodoHistory({ todos }: TodoHistoryProps) {
   const [range, setRange] = useState<RangeKey>("week");
+  // Tapped bar — reveals that day's totals below (touch-friendly; the native
+  // `title` only shows on hover, which phones/PWAs don't have).
+  const [selected, setSelected] = useState<string | null>(null);
 
   // Per-day counts of added / completed, derived from the to-dos themselves:
   // adds bucket by the creation day, completions by the day they were marked
@@ -142,20 +145,29 @@ export function TodoHistory({ todos }: TodoHistoryProps) {
           <div className={`flex h-24 items-end ${gap}`}>
             {series.map((d) => {
               const h = Math.round((d.done / maxDone) * 100);
+              const isSel = d.key === selected;
               return (
-                <div
+                <button
+                  type="button"
                   key={d.key}
                   title={`${shortDate(d.key)} · ${d.done} completed · ${d.added} added`}
-                  className="flex h-full flex-1 flex-col items-center gap-1"
+                  aria-label={`${shortDate(d.key)}: ${d.done} completed, ${d.added} added`}
+                  aria-pressed={isSel}
+                  onClick={() => setSelected((s) => (s === d.key ? null : d.key))}
+                  className="flex h-full flex-1 cursor-pointer flex-col items-center gap-1 outline-none"
                 >
                   <div className="flex w-full flex-1 items-end">
                     <div
-                      className={`w-full rounded-t ${
+                      className={`w-full rounded-t transition ${
                         d.done > 0
                           ? d.isToday
                             ? "bg-teal-400"
                             : "bg-teal-500/50"
                           : "bg-slate-800"
+                      } ${
+                        isSel
+                          ? "ring-2 ring-teal-200 ring-offset-1 ring-offset-slate-900"
+                          : "hover:brightness-125"
                       }`}
                       style={{ height: `${Math.max(h, d.done > 0 ? 8 : 4)}%` }}
                     />
@@ -163,7 +175,7 @@ export function TodoHistory({ todos }: TodoHistoryProps) {
                   {!compact && (
                     <span
                       className={`text-[11px] ${
-                        d.isToday
+                        isSel || d.isToday
                           ? "font-medium text-slate-200"
                           : "text-slate-500"
                       }`}
@@ -177,7 +189,7 @@ export function TodoHistory({ todos }: TodoHistoryProps) {
                       ]}
                     </span>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -187,6 +199,31 @@ export function TodoHistory({ todos }: TodoHistoryProps) {
               <span>Today</span>
             </div>
           )}
+
+          {/* Tapped-bar readout — works on touch, where hover tooltips don't. */}
+          <div className="mt-2 min-h-[1.25rem] text-[11px] text-slate-400">
+            {(() => {
+              const sel = series.find((d) => d.key === selected);
+              if (!sel)
+                return (
+                  <span className="text-slate-500">
+                    Tap a bar to see that day’s totals.
+                  </span>
+                );
+              return (
+                <span>
+                  <span className="font-medium text-slate-200">
+                    {shortDate(sel.key)}
+                    {sel.isToday ? " (today)" : ""}
+                  </span>{" "}
+                  · <span className="tabular-nums text-teal-300">{sel.done}</span>{" "}
+                  completed ·{" "}
+                  <span className="tabular-nums text-sky-300">{sel.added}</span>{" "}
+                  added
+                </span>
+              );
+            })()}
+          </div>
 
           <div className="mt-4 grid grid-cols-3 gap-2.5">
             {[
