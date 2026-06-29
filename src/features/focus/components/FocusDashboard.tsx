@@ -31,7 +31,7 @@ import { useFocusJournal } from "@/features/focus/hooks/useFocusJournal";
 import { useFocusScores, type QuizResult } from "@/features/focus/hooks/useFocusScores";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
 import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
-import { isTopicId, topicLabel } from "@/features/focus/lib/topics";
+import { isTopicId, topicLabel, type TopicId } from "@/features/focus/lib/topics";
 import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
@@ -58,6 +58,10 @@ import type {
   JournalNote,
   Todo,
 } from "@/features/focus/lib/types";
+
+// Stable reference for Bible mode — a fresh `["bible"]` each render would make
+// QuizBox's pool recompute every timer tick and reset the answered state.
+const BIBLE_INTERESTS: TopicId[] = ["bible"];
 
 export function FocusDashboard() {
   const { data: session } = useSession();
@@ -593,7 +597,7 @@ export function FocusDashboard() {
         <QuoteBox
           email={email}
           connected={connected}
-          interests={settings.bibleMode ? ["bible"] : settings.interests}
+          interests={settings.bibleMode ? BIBLE_INTERESTS : settings.interests}
           quizDifficulty={settings.quizDifficulty}
           onQuizAnswered={onQuizAnswered}
         />

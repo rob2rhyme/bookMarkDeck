@@ -137,7 +137,9 @@ export function FocusSettingsModal({
     const set = new Set(settings.interests);
     if (set.has(id)) set.delete(id);
     else set.add(id);
-    onUpdate({ interests: [...set] });
+    // Interests and Bible mode are mutually exclusive — choosing an interest
+    // turns Bible mode off.
+    onUpdate({ interests: [...set], bibleMode: false });
   };
 
   return (
@@ -174,18 +176,26 @@ export function FocusSettingsModal({
 
         <SectionLabel>Need a push? — interests</SectionLabel>
         <div className="flex flex-wrap gap-1.5 pt-1.5">
-          {TOPICS.map((t) => {
+          {TOPICS.filter((t) => t.id !== "bible").map((t) => {
             const on = settings.interests.includes(t.id);
             return (
               <button
                 key={t.id}
                 type="button"
                 aria-pressed={on}
+                disabled={settings.bibleMode}
+                title={
+                  settings.bibleMode
+                    ? "Turn off Bible mode to choose interests"
+                    : undefined
+                }
                 onClick={() => toggleInterest(t.id)}
                 className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
-                  on
-                    ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
-                    : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                  settings.bibleMode
+                    ? "cursor-not-allowed border-slate-800 text-slate-600 opacity-50"
+                    : on
+                      ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
                 }`}
               >
                 {t.emoji} {t.label}
@@ -194,8 +204,9 @@ export function FocusSettingsModal({
           })}
         </div>
         <p className="mt-1.5 text-[11px] text-slate-500">
-          Tailors quotes and quizzes. Pick Music, Math or Astronomy for younger
-          learners. Leave empty for coding tips &amp; general trivia.
+          {settings.bibleMode
+            ? "Interests are paused while Bible mode is on — turn it off below to choose topics."
+            : "Tailors quotes and quizzes. Pick Music, Math or Astronomy for younger learners. Leave empty for coding tips & general trivia."}
         </p>
 
         <div className="mt-3">
