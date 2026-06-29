@@ -6,8 +6,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { IconAction } from "@/components/IconAction";
 import { NoteText } from "@/components/NoteText";
-import { BulletButton } from "@/components/BulletButton";
-import { appendBullet } from "@/utils/noteFormat";
+import { BulletButton, NumberButton } from "@/components/BulletButton";
+import { appendBullet, appendNumber } from "@/utils/noteFormat";
 import {
   Check,
   Emoji,
@@ -554,8 +554,9 @@ export function BookmarkCard({
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-            <div className="mt-1.5">
+            <div className="mt-1.5 flex gap-2">
               <BulletButton onInsert={() => setNote((n) => appendBullet(n))} />
+              <NumberButton onInsert={() => setNote((n) => appendNumber(n))} />
             </div>
           </>
         ) : (
@@ -892,8 +893,9 @@ export function BookmarkCard({
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
-                <div className="mt-1.5">
+                <div className="mt-1.5 flex gap-2">
                   <BulletButton onInsert={() => setNote((n) => appendBullet(n))} />
+                  <NumberButton onInsert={() => setNote((n) => appendNumber(n))} />
                 </div>
               </>
             ) : (

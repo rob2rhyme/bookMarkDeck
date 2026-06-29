@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import { BulletButton } from "@/components/BulletButton";
+import { BulletButton, NumberButton } from "@/components/BulletButton";
 import { Modal } from "@/components/Modal";
 import { Emoji } from "@/components/icons";
-import { appendBullet } from "@/utils/noteFormat";
+import { appendBullet, appendNumber } from "@/utils/noteFormat";
 import { habitEmoji } from "@/features/habits/lib/format";
 import { type Habit, type HabitEntry, habitTarget } from "@/features/habits/lib/types";
 
@@ -135,9 +135,12 @@ export function LogDetailModal({
           className="mt-1 w-full resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
         />
       </label>
-      <div className="mt-1.5">
+      <div className="mt-1.5 flex gap-2">
         <BulletButton
           onInsert={() => setNote((n) => appendBullet(n).slice(0, 280))}
+        />
+        <NumberButton
+          onInsert={() => setNote((n) => appendNumber(n).slice(0, 280))}
         />
       </div>
 

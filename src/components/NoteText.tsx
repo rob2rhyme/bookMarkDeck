@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode } from "react";
 
-import { hasBullets, toNoteBlocks } from "@/utils/noteFormat";
+import { hasBullets, hasNumberedList, toNoteBlocks } from "@/utils/noteFormat";
 
 // Shared, XSS-safe note renderer used everywhere a user-written note is shown
 // (journal, dreams, to-dos, habit notes, bookmark notes). It:
@@ -81,8 +81,8 @@ export function NoteText({
   text: string;
   className?: string;
 }) {
-  // Fast path: no bullets → inline span, byte-for-byte like the old display.
-  if (!hasBullets(text)) {
+  // Fast path: no lists → inline span, byte-for-byte like the old display.
+  if (!hasBullets(text) && !hasNumberedList(text)) {
     return (
       <span className={className}>
         <Inline text={text} />
@@ -102,6 +102,14 @@ export function NoteText({
               </li>
             ))}
           </ul>
+        ) : b.type === "ordered" ? (
+          <ol key={i} className="list-decimal space-y-0.5 pl-5">
+            {b.items.map((it, j) => (
+              <li key={j}>
+                <Inline text={it} />
+              </li>
+            ))}
+          </ol>
         ) : (
           <span key={i} className="block whitespace-pre-wrap">
             <Inline text={b.text} />

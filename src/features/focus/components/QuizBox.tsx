@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Check, X } from "@/components/icons";
 import type { QuizResult } from "@/features/focus/hooks/useFocusScores";
@@ -50,9 +50,16 @@ export function QuizBox({
   const [sessionPoints, setSessionPoints] = useState(0);
   const [streak, setStreak] = useState(0);
 
+  // Floor the card to its answered height before swapping to the next (shorter,
+  // unanswered) question, so the layout doesn't collapse and yank the page up.
+  // Released the moment the user answers again, letting feedback grow downward.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [minH, setMinH] = useState<number | undefined>(undefined);
+
   useEffect(() => {
     setIdx(Math.floor(Math.random() * pool.length));
     setPicked(null);
+    setMinH(undefined);
     // Re-pick when the interest pool changes; keep session score running.
   }, [pool]);
 
@@ -62,6 +69,7 @@ export function QuizBox({
 
   const choose = (choice: number) => {
     if (answered) return;
+    setMinH(undefined);
     setPicked(choice);
     const isRight = choice === quiz.answer;
     const points = isRight ? POINTS[quiz.level] : 0;
@@ -77,6 +85,7 @@ export function QuizBox({
   };
 
   const next = () => {
+    if (rootRef.current) setMinH(rootRef.current.offsetHeight);
     if (pool.length <= 1) {
       setPicked(null);
       return;
@@ -97,7 +106,11 @@ export function QuizBox({
   };
 
   return (
-    <div className="mt-6 rounded-xl border border-blue-500/25 bg-blue-950/10 p-4">
+    <div
+      ref={rootRef}
+      style={minH ? { minHeight: minH } : undefined}
+      className="mt-6 flex flex-col rounded-xl border border-blue-500/25 bg-blue-950/10 p-4 transition-[min-height] duration-200"
+    >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-blue-200/90">
@@ -150,6 +163,20 @@ export function QuizBox({
           );
         })}
       </div>
+
+      {!answered && (
+        <div className="mt-3 flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-800/80 bg-slate-950/20 px-4 py-6 text-center">
+          <span className="text-2xl opacity-80" aria-hidden="true">
+            🤔
+          </span>
+          <p className="text-[13px] font-medium text-slate-400">
+            Pick an answer above
+          </p>
+          <p className="text-[12px] leading-relaxed text-slate-500">
+            We&apos;ll show why it&apos;s right — plus a bonus “Did you know?” fact.
+          </p>
+        </div>
+      )}
 
       {answered && (
         <div className="mt-3">
