@@ -31,7 +31,7 @@ export function hueColor(hue: number, tone: "base" | "soft" | "ring" = "base"): 
 export const EMOJI_CHOICES = [
   "✅", "💧", "🏃", "😴", "🧘", "🎯", "📚", "🧠", "✍️", "🙏",
   "🧹", "🍳", "📵", "🥗", "💪", "🚶", "🦷", "💊", "🌱", "☀️",
-  "🎸", "🎨", "💰", "📝", "🛏️", "🚭", "🧴", "🐟",
+  "🎸", "🎨", "💰", "📝", "🛏️", "🚭", "🧴", "🐟", "🔄",
   "🍷", "🥃", "🍽️", "👨‍👩‍👧‍👦", "🏊", "🥾", "💨", "🦏", "⌨️", "☕", "🍿", "🏋️", "🚬", "🎹", "🎤", "🎸", "🚶", "🏕️", "🛝", 
   // Grooming & self-care
   "👂", "💅", "✂️", "👃", "🪒", "🚿", "🛁", "💄",
@@ -78,6 +78,7 @@ const EMOJI_KEYWORDS: ReadonlyArray<readonly [string[], string]> = [
   [["meditate", "mindful", "breathe", "stretch", "yoga"], "🧘"],
   [["sleep", "bed", "rest"], "😴"],
   [["journal", "write", "diary"], "✍️"],
+  [["reset", "let them", "let go", "refocus", "release"], "🔄"],
   [["pray", "prayer", "gratitude"], "🙏"],
   [["clean", "tidy", "chores"], "🧹"],
   [["pill", "vitamin", "supplement", "med"], "💊"],
