@@ -18,6 +18,8 @@ import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
 import { JournalCard } from "@/features/focus/components/JournalCard";
 import { MeditationCard } from "@/features/focus/components/MeditationCard";
 import { MeditationHistory } from "@/features/focus/components/MeditationHistory";
+import { LetThemCard } from "@/features/focus/components/LetThemCard";
+import { LetThemHistory } from "@/features/focus/components/LetThemHistory";
 import { LogPastSessionModal } from "@/features/focus/components/LogPastSessionModal";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
@@ -37,6 +39,7 @@ import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
 import { useHydrationHistory } from "@/features/focus/hooks/useHydrationHistory";
 import { useMeditationHistory } from "@/features/focus/hooks/useMeditationHistory";
+import { useLetThemHistory } from "@/features/focus/hooks/useLetThemHistory";
 import { AgendaCard } from "@/features/focus/components/AgendaCard";
 import { useGoogleEvents } from "@/features/focus/hooks/useGoogleEvents";
 import { useGoogleTodoSync } from "@/features/focus/hooks/useGoogleTodoSync";
@@ -105,6 +108,7 @@ export function FocusDashboard() {
   });
   const hydrationHistory = useHydrationHistory(email, connected);
   const meditationHistory = useMeditationHistory(email, connected);
+  const letThemHistory = useLetThemHistory(email, connected);
 
   const undo = useUndo();
 
@@ -341,6 +345,9 @@ export function FocusDashboard() {
       : []),
     ...(settings.meditationEnabled
       ? [{ id: "sec-meditation", label: "Meditate" }]
+      : []),
+    ...(settings.letThemEnabled
+      ? [{ id: "sec-letthem", label: "Reset" }]
       : []),
     { id: "sec-quiz", label: "Quiz" },
     { id: "sec-scores", label: "Scores" },
@@ -590,6 +597,26 @@ export function FocusDashboard() {
             onLog={activity.log}
           />
           <MeditationHistory available={connected} sessions={meditationHistory} />
+        </div>
+      )}
+
+      {settings.letThemEnabled && (
+        <div
+          id="sec-letthem"
+          className="mt-5 grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+        >
+          <LetThemCard
+            email={email}
+            connected={connected}
+            onLog={activity.log}
+            onStartFocus={(action) => {
+              tasks.addTask(action);
+              document
+                .getElementById("sec-timer")
+                ?.scrollIntoView({ behavior: "smooth" });
+            }}
+          />
+          <LetThemHistory available={connected} resets={letThemHistory} />
         </div>
       )}
 

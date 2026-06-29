@@ -49,6 +49,7 @@ const TYPE_META: Record<ActivityType, { dot: string; glyph: string }> = {
   bookmark: { dot: "border-blue-400", glyph: "🔖" },
   quiz: { dot: "border-blue-500", glyph: "🧠" },
   meditation: { dot: "border-blue-400", glyph: "🧘" },
+  reset: { dot: "border-teal-400", glyph: "✋" },
 };
 
 type TimelineItem = {

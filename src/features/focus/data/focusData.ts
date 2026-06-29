@@ -65,6 +65,8 @@ const contentDoc = (uid: string) =>
 const scoresCol = (uid: string) => collection(db, "users", uid, "focusScores");
 const meditationCol = (uid: string) =>
   collection(db, "users", uid, "meditationSessions");
+const resetsCol = (uid: string) =>
+  collection(db, "users", uid, "letThemResets");
 
 export type ActivityType =
   | "focus"
@@ -80,7 +82,8 @@ export type ActivityType =
   | "habit_skipped"
   | "bookmark"
   | "quiz"
-  | "meditation";
+  | "meditation"
+  | "reset";
 
 export type ActivityEvent = {
   id: string;
@@ -725,6 +728,61 @@ export function subscribeMeditationSessions(
           })
         ),
       onListenError("meditationSessions")
+    )
+  );
+}
+
+/* ----------------------------------------------------- let-them resets --- */
+//
+// users/{uid}/letThemResets/{id} — one doc per "Let them" reset the user
+// completes. Drives the Reset history + streak, the unified activity timeline,
+// and (via trackableSources) an optional daily habit.
+
+export type ResetRecord = {
+  id: string;
+  trigger: string; // what was pulling at them
+  action: string; // the "let me" next move
+  day: string; // YYYY-MM-DD
+  createdAt: string | null;
+};
+
+/** Persist a completed reset. Returns the new doc id. */
+export async function logReset(
+  emailHint: string,
+  rec: { trigger: string; action: string; day: string }
+): Promise<string> {
+  const uid = await uidFor(emailHint);
+  const id = crypto.randomUUID();
+  await setDoc(doc(resetsCol(uid), id), {
+    trigger: rec.trigger,
+    action: rec.action,
+    day: rec.day,
+    createdAt: serverTimestamp(),
+  });
+  return id;
+}
+
+export function subscribeResets(
+  emailHint: string,
+  cb: (resets: ResetRecord[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      resetsCol(uid),
+      (snap) =>
+        cb(
+          snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              trigger: typeof data.trigger === "string" ? data.trigger : "",
+              action: typeof data.action === "string" ? data.action : "",
+              day: typeof data.day === "string" ? data.day : "",
+              createdAt: timestampToIso(data.createdAt),
+            };
+          })
+        ),
+      onListenError("letThemResets")
     )
   );
 }

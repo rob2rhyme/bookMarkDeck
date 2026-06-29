@@ -318,6 +318,13 @@ export function FocusSettingsModal({
         <Toggle label="Show meditation card" checked={settings.meditationEnabled} onChange={(v) => onUpdate({ meditationEnabled: v })} />
         <NumberField label="Default length" value={settings.meditationMinutes} min={1} max={60} suffix="min" onChange={(v) => onUpdate({ meditationMinutes: v })} />
 
+        <SectionLabel>Let them — reset</SectionLabel>
+        <Toggle label="Show “Let them” reset card" checked={settings.letThemEnabled} onChange={(v) => onUpdate({ letThemEnabled: v })} />
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          A 60-second cognitive reframe next to Meditation — release what you
+          can&apos;t control, then refocus on what you can.
+        </p>
+
         <SectionLabel>Google sync</SectionLabel>
         <Toggle
           label="Sync with Google (Tasks + Calendar)"

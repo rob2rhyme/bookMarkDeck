@@ -35,6 +35,7 @@ export const HABIT_TEMPLATES: HabitTemplate[] = [
   { name: "Meditate", emoji: "🧠", hue: 270, type: "measurable", unit: "min", target: 10, step: 1, schedule: { type: "daily" }, identity: "be calm and present", group: "Mind", linkedSourceId: "meditation" },
   { name: "Journal", emoji: "✍️", hue: 45, type: "binary", schedule: { type: "daily" }, identity: "reflect daily", group: "Mind", linkedSourceId: "journal" },
   { name: "Gratitude", emoji: "🙏", hue: 40, type: "binary", schedule: { type: "daily" }, identity: "notice the good", group: "Mind" },
+  { name: "Daily reset", emoji: "🔄", hue: 170, type: "binary", schedule: { type: "daily" }, identity: "let go and refocus", group: "Mind", linkedSourceId: "let-them-reset" },
 
   { name: "Tidy 10 minutes", emoji: "🧹", hue: 190, type: "binary", schedule: { type: "daily" }, identity: "keep a calm space", group: "Home" },
   { name: "Cook at home", emoji: "🍳", hue: 20, type: "binary", schedule: { type: "timesPerWeek", count: 5 }, identity: "eat well", group: "Home" },

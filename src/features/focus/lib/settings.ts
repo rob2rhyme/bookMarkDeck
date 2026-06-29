@@ -43,6 +43,8 @@ export type FocusSettings = {
   quizDifficulty: QuizDifficulty;
   // Meditation card
   meditationEnabled: boolean;
+  // "Let them" reset card — a 60-second cognitive reframe next to Meditation.
+  letThemEnabled: boolean;
   meditationMinutes: number; // default sit/breath length
   meditationPattern: string; // a breathing pattern id (see lib/breathing.ts)
   meditationVoice: boolean; // spoken phase/step cues (Web Speech API)
@@ -67,6 +69,7 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   bibleMode: false,
   quizDifficulty: "all",
   meditationEnabled: true,
+  letThemEnabled: false,
   meditationMinutes: 5,
   meditationPattern: "box",
   meditationVoice: false,
@@ -104,6 +107,7 @@ export function normalizeSettings(raw: unknown): FocusSettings {
       ? r.quizDifficulty
       : DEFAULT_SETTINGS.quizDifficulty,
     meditationEnabled: bool(r.meditationEnabled, DEFAULT_SETTINGS.meditationEnabled),
+    letThemEnabled: bool(r.letThemEnabled, DEFAULT_SETTINGS.letThemEnabled),
     meditationMinutes: num(r.meditationMinutes, DEFAULT_SETTINGS.meditationMinutes, 1, 60),
     meditationPattern: isBreathPatternId(r.meditationPattern)
       ? (r.meditationPattern as string)

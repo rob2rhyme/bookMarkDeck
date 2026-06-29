@@ -21,6 +21,7 @@ import {
   subscribeHydration,
   subscribeMeditationSessions,
   subscribeNotes,
+  subscribeResets,
   subscribeSessions,
 } from "@/features/focus/data/focusData";
 import {
@@ -124,6 +125,18 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
     subscribe: (email, day, cb) =>
       subscribeSessions(email, (rows) =>
         cb(rows.filter((r) => r.day === day).reduce((s, r) => s + r.focusMin, 0))
+      ),
+    readCache: () => null,
+  },
+  {
+    id: "let-them-reset",
+    label: "Focus resets",
+    habitType: "any",
+    policy: "raiseOnly",
+    match: (h) => /reset|let them|let go|refocus|release/.test(text(h)),
+    subscribe: (email, day, cb) =>
+      subscribeResets(email, (rows) =>
+        cb(rows.filter((r) => r.day === day).length)
       ),
     readCache: () => null,
   },
