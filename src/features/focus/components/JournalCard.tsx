@@ -3,9 +3,9 @@
 import { useState } from "react";
 
 import { ChevronUp, Pencil, Trash2 } from "@/components/icons";
-import { BulletButton } from "@/components/BulletButton";
+import { BulletButton, NumberButton } from "@/components/BulletButton";
 import { NoteText } from "@/components/NoteText";
-import { appendBullet } from "@/utils/noteFormat";
+import { appendBullet, appendNumber } from "@/utils/noteFormat";
 import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
 import { todayKey } from "@/features/focus/data/focusData";
@@ -136,7 +136,10 @@ function NoteRow({
           className="w-full resize-y rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-100 focus:border-blue-400 focus:outline-none"
         />
         <div className="mt-2 flex items-center justify-between gap-2 text-xs font-medium">
-          <BulletButton onInsert={() => setDraft((d) => appendBullet(d))} />
+          <div className="flex gap-2">
+            <BulletButton onInsert={() => setDraft((d) => appendBullet(d))} />
+            <NumberButton onInsert={() => setDraft((d) => appendNumber(d))} />
+          </div>
           <div className="flex gap-2">
             <button
               type="button"
@@ -488,8 +491,9 @@ export function JournalCard({
         }`}
       />
 
-      <div className="mt-1.5">
+      <div className="mt-1.5 flex gap-2">
         <BulletButton onInsert={() => setDraft((d) => appendBullet(d))} />
+        <NumberButton onInsert={() => setDraft((d) => appendNumber(d))} />
       </div>
 
       {/* Dream attributes — optional, only while composing a dream. */}

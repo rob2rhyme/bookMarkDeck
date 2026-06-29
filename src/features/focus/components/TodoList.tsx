@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Check, CheckSquare, Pencil, Trash2, X } from "@/components/icons";
-import { BulletButton } from "@/components/BulletButton";
+import { BulletButton, NumberButton } from "@/components/BulletButton";
 import { NoteText } from "@/components/NoteText";
-import { appendBullet } from "@/utils/noteFormat";
+import { appendBullet, appendNumber } from "@/utils/noteFormat";
 import { DueField } from "@/features/focus/components/DueField";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
@@ -41,6 +41,38 @@ function remaining(dueAt: string, now: number): { text: string; tone: Tone } {
   else str = `${s}s`;
   if (overdue) return { text: `Overdue ${str}`, tone: "overdue" };
   return { text: `${str} left`, tone: a < 3600000 ? "soon" : "normal" };
+}
+
+/** A note textbox that both auto-grows to fit its content as the user types and
+ *  stays drag-resizable (the bottom-right handle), matching the Journal note. */
+function NoteTextarea({
+  value,
+  onChange,
+  ...rest
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Grow to fit content, but never shrink below whatever the user dragged to.
+    const dragged = el.dataset.dragged === "1" ? el.offsetHeight : 0;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(el.scrollHeight, dragged)}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      onMouseUp={(e) => {
+        // Remember a manual drag-resize so auto-grow won't undo it.
+        e.currentTarget.dataset.dragged = "1";
+      }}
+      rows={3}
+      className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+      {...rest}
+    />
+  );
 }
 
 const TONE_CLASS: Record<Tone, string> = {
@@ -171,16 +203,15 @@ export function TodoList({
             Add
           </button>
         </div>
-        <textarea
+        <NoteTextarea
           value={draftNote}
           onChange={(e) => setDraftNote(e.target.value)}
           placeholder="Add a note or link (optional)"
-          rows={2}
           aria-label="To-do note"
-          className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
         />
-        <div>
+        <div className="flex gap-2">
           <BulletButton onInsert={() => setDraftNote((n) => appendBullet(n))} />
+          <NumberButton onInsert={() => setDraftNote((n) => appendNumber(n))} />
         </div>
         <DueField value={draftDue} onChange={setDraftDue} />
       </form>
@@ -236,17 +267,18 @@ export function TodoList({
                     autoFocus
                     className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none"
                   />
-                  <textarea
+                  <NoteTextarea
                     value={editNote}
                     onChange={(e) => setEditNote(e.target.value)}
                     placeholder="Add a note (optional)"
-                    rows={2}
                     aria-label="To-do note"
-                    className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
                   />
-                  <div>
+                  <div className="flex gap-2">
                     <BulletButton
                       onInsert={() => setEditNote((n) => appendBullet(n))}
+                    />
+                    <NumberButton
+                      onInsert={() => setEditNote((n) => appendNumber(n))}
                     />
                   </div>
                   <DueField value={editDue} onChange={setEditDue} />

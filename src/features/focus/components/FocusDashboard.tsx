@@ -17,6 +17,7 @@ import { HydrationHistory } from "@/features/focus/components/HydrationHistory";
 import { HydrationTracker } from "@/features/focus/components/HydrationTracker";
 import { JournalCard } from "@/features/focus/components/JournalCard";
 import { MeditationCard } from "@/features/focus/components/MeditationCard";
+import { MeditationHistory } from "@/features/focus/components/MeditationHistory";
 import { LogPastSessionModal } from "@/features/focus/components/LogPastSessionModal";
 import { PomodoroTimer } from "@/features/focus/components/PomodoroTimer";
 import { QuoteBox } from "@/features/focus/components/QuoteBox";
@@ -35,6 +36,7 @@ import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
 import { useHydration } from "@/features/focus/hooks/useHydration";
 import { useHydrationHistory } from "@/features/focus/hooks/useHydrationHistory";
+import { useMeditationHistory } from "@/features/focus/hooks/useMeditationHistory";
 import { AgendaCard } from "@/features/focus/components/AgendaCard";
 import { useGoogleEvents } from "@/features/focus/hooks/useGoogleEvents";
 import { useGoogleTodoSync } from "@/features/focus/hooks/useGoogleTodoSync";
@@ -98,6 +100,7 @@ export function FocusDashboard() {
     onLog: activity.log,
   });
   const hydrationHistory = useHydrationHistory(email, connected);
+  const meditationHistory = useMeditationHistory(email, connected);
 
   const undo = useUndo();
 
@@ -533,18 +536,10 @@ export function FocusDashboard() {
       </div>
 
       {settings.hydrationEnabled && (
-        <div id="sec-hydration" className="mt-5 scroll-mt-20">
-          <HydrationHistory
-            available={connected}
-            history={hydrationHistory}
-            todayEvents={todayHydrationEvents}
-            goal={settings.waterGoal}
-          />
-        </div>
-      )}
-
-      {settings.hydrationEnabled && (
-        <div className="mt-5 scroll-mt-20">
+        <div
+          id="sec-hydration"
+          className="mt-5 grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+        >
           <HydrationTracker
             cups={hydration.cups}
             oz={hydration.oz}
@@ -555,11 +550,20 @@ export function FocusDashboard() {
             onRemove={hydration.removeCup}
             onDismiss={hydration.dismiss}
           />
+          <HydrationHistory
+            available={connected}
+            history={hydrationHistory}
+            todayEvents={todayHydrationEvents}
+            goal={settings.waterGoal}
+          />
         </div>
       )}
 
       {settings.meditationEnabled && (
-        <div id="sec-meditation" className="mt-5 scroll-mt-20">
+        <div
+          id="sec-meditation"
+          className="mt-5 grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+        >
           <MeditationCard
             email={email}
             connected={connected}
@@ -567,6 +571,7 @@ export function FocusDashboard() {
             onUpdate={update}
             onLog={activity.log}
           />
+          <MeditationHistory available={connected} sessions={meditationHistory} />
         </div>
       )}
 

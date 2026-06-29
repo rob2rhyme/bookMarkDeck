@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { appendBullet, hasBullets, toNoteBlocks } from "@/utils/noteFormat";
+import {
+  appendBullet,
+  appendNumber,
+  hasBullets,
+  hasNumberedList,
+  toNoteBlocks,
+} from "@/utils/noteFormat";
 
 describe("hasBullets", () => {
   it("detects -, *, • bullet lines", () => {
@@ -47,5 +53,48 @@ describe("appendBullet", () => {
   });
   it("does not add a blank line when text already ends in newline", () => {
     expect(appendBullet("hi\n")).toBe("hi\n- ");
+  });
+});
+
+describe("hasNumberedList", () => {
+  it("detects 1. and 2) numbered lines", () => {
+    expect(hasNumberedList("1. a")).toBe(true);
+    expect(hasNumberedList("2) b")).toBe(true);
+    expect(hasNumberedList("  3. indented")).toBe(true);
+  });
+  it("ignores plain text and numbers without a separator+space", () => {
+    expect(hasNumberedList("plain")).toBe(false);
+    expect(hasNumberedList("1.nospace")).toBe(false);
+    expect(hasNumberedList("step 1. do it")).toBe(false);
+  });
+});
+
+describe("toNoteBlocks (numbered)", () => {
+  it("groups consecutive numbered lines into one ordered list", () => {
+    expect(toNoteBlocks("1. a\n2. b\n3) c")).toEqual([
+      { type: "ordered", items: ["a", "b", "c"] },
+    ]);
+  });
+  it("keeps bullet and numbered lists as separate blocks", () => {
+    expect(toNoteBlocks("- a\n1. b")).toEqual([
+      { type: "list", items: ["a"] },
+      { type: "ordered", items: ["b"] },
+    ]);
+  });
+});
+
+describe("appendNumber", () => {
+  it("seeds the first item on empty text", () => {
+    expect(appendNumber("")).toBe("1. ");
+  });
+  it("starts a numbered line after plain content", () => {
+    expect(appendNumber("hi")).toBe("hi\n1. ");
+  });
+  it("continues the trailing numbered run", () => {
+    expect(appendNumber("1. a")).toBe("1. a\n2. ");
+    expect(appendNumber("1. a\n2. b")).toBe("1. a\n2. b\n3. ");
+  });
+  it("does not add a blank line when text already ends in newline", () => {
+    expect(appendNumber("1. a\n")).toBe("1. a\n2. ");
   });
 });
