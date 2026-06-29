@@ -245,7 +245,9 @@ export function HabitsDashboard() {
             Small, repeatable wins — the record of who you&apos;re becoming.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Full-width + wrap on mobile so "+ New habit" is never clipped behind
+            the toggle/Guide; natural single row from sm up (where it fits). */}
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
           <HabitsViewToggle />
           <Link
             href="/habits/guide"
@@ -256,7 +258,7 @@ export function HabitsDashboard() {
           <button
             type="button"
             onClick={openCreate}
-            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+            className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
           >
             + New habit
           </button>

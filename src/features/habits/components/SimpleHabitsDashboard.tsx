@@ -419,12 +419,14 @@ export function SimpleHabitsDashboard() {
             Small, repeatable wins — one tap a day.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Full-width + wrap on mobile so "+ New habit" is never clipped; natural
+            single row from sm up (where it fits). */}
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
           <HabitsViewToggle />
           <button
             type="button"
             onClick={openCreate}
-            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+            className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
           >
             + New habit
           </button>
