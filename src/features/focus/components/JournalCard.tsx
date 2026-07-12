@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { ChevronUp, Pencil, Trash2 } from "@/components/icons";
 import { BulletButton, NumberButton } from "@/components/BulletButton";
+import { DateInput } from "@/components/DateTimeField";
 import { NoteText } from "@/components/NoteText";
 import { appendBullet, appendNumber } from "@/utils/noteFormat";
 import { DreamBadges } from "@/features/focus/components/DreamBadges";
@@ -384,8 +385,7 @@ export function JournalCard({
       {/* Date — defaults to today; pick a past day to backfill mood/notes. */}
       <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
         <span>For</span>
-        <input
-          type="date"
+        <DateInput
           value={logDate}
           max={today}
           onChange={(e) => setLogDate(e.target.value || today)}

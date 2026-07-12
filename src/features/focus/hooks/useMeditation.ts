@@ -93,9 +93,14 @@ export function useMeditation({
   const complete = useCallback(() => {
     stopAmbient();
     cancelSpeech();
+    // Ring out the end of a sit — eyes are closed, so a single short chime is
+    // easy to miss. Three gentle bells, meditation-bell style; the global
+    // "Sound when timer ends" setting still silences it.
     if (soundEnabled) {
       initAudio();
       playChime("session", chimeSound);
+      window.setTimeout(() => playChime("session", chimeSound), 900);
+      window.setTimeout(() => playChime("session", chimeSound), 1800);
     }
     const min = minutesRef.current;
     notify("Meditation complete", `${min} min of calm — nicely done.`, {
@@ -177,8 +182,10 @@ export function useMeditation({
       minutes: number;
       steps?: string[];
     }) => {
+      // Unlock audio while we still have the user's gesture, so the completion
+      // bells can play from the timer even when the begin tone is off.
+      initAudio();
       if (soundEnabled) {
-        initAudio();
         playChime("break", chimeSound); // a soft tone to begin
       }
       requestNotificationPermission();

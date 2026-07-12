@@ -5,7 +5,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckSquare, Pencil, Trash2, X } from "@/components/icons";
 import { BulletButton, NumberButton } from "@/components/BulletButton";
 import { NoteText } from "@/components/NoteText";
-import { appendBullet, appendNumber } from "@/utils/noteFormat";
+import {
+  appendBullet,
+  appendNumber,
+  type ChecklistItem,
+  continueListOnEnter,
+  noteChecklistItems,
+  setNoteItemChecked,
+  toChecklistBlocks,
+} from "@/utils/noteFormat";
 import { DueField } from "@/features/focus/components/DueField";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
@@ -51,12 +59,17 @@ function remaining(dueAt: string, now: number): { text: string; tone: Tone } {
 }
 
 /** A note textbox that both auto-grows to fit its content as the user types and
- *  stays drag-resizable (the bottom-right handle), matching the Journal note. */
+ *  stays drag-resizable (the bottom-right handle), matching the Journal note.
+ *  In list mode (caret on a bullet/numbered line) Enter starts the next item;
+ *  Enter on an empty item ends the list. */
 function NoteTextarea({
   value,
-  onChange,
+  onValueChange,
   ...rest
-}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
+}: Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange"> & {
+  value: string;
+  onValueChange: (v: string) => void;
+}) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -70,7 +83,21 @@ function NoteTextarea({
     <textarea
       ref={ref}
       value={value}
-      onChange={onChange}
+      onChange={(e) => onValueChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+        const el = e.currentTarget;
+        // With text selected, default Enter (replace selection) is correct.
+        if (el.selectionStart !== el.selectionEnd) return;
+        const next = continueListOnEnter(
+          el.value,
+          el.selectionStart ?? el.value.length
+        );
+        if (!next) return; // not on a list line → default newline
+        e.preventDefault();
+        onValueChange(next.text);
+        requestAnimationFrame(() => el.setSelectionRange(next.caret, next.caret));
+      }}
       onMouseUp={(e) => {
         // Remember a manual drag-resize so auto-grow won't undo it.
         e.currentTarget.dataset.dragged = "1";
@@ -110,6 +137,104 @@ function DueBadge({ todo, now }: { todo: Todo; now: number }) {
     >
       {text}
     </span>
+  );
+}
+
+/** One mini-list row — the same circle-toggle in both states, filled when done. */
+function ChecklistRow({
+  item,
+  onToggle,
+}: {
+  item: ChecklistItem;
+  onToggle: (line: number, checked: boolean) => void;
+}) {
+  return (
+    <li className="flex items-start gap-2">
+      <button
+        type="button"
+        onClick={() => onToggle(item.line, !item.checked)}
+        aria-label={`Mark “${item.text}” ${item.checked ? "not done" : "done"}`}
+        title={item.checked ? "Undo — mark not done" : undefined}
+        className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border transition ${
+          item.checked
+            ? "border-emerald-500 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+            : "border-slate-600 hover:border-emerald-400"
+        }`}
+      >
+        {item.checked && <Check className="h-2.5 w-2.5" />}
+      </button>
+      <NoteText
+        text={item.text}
+        className={`min-w-0 flex-1 break-words ${
+          item.checked ? "text-slate-500 line-through" : ""
+        }`}
+      />
+    </li>
+  );
+}
+
+/** A to-do's note with its list lines as a checkable mini-list. Checked items
+ *  leave the list and land in a "Completed" fold inside the same box; the
+ *  parent to-do only moves to Done once every mini item is checked. Notes
+ *  without list lines fall back to the plain NoteText display. */
+function ChecklistNote({
+  note,
+  onToggleItem,
+}: {
+  note: string;
+  onToggleItem: (line: number, checked: boolean) => void;
+}) {
+  // Parse once per note change — TodoList re-renders every second while a
+  // due-date countdown runs, and the note only changes on edit.
+  const blocks = useMemo(() => toChecklistBlocks(note), [note]);
+  const completed = blocks.flatMap((b) =>
+    b.type === "items" ? b.items.filter((it) => it.checked) : []
+  );
+
+  if (!blocks.some((b) => b.type === "items")) {
+    return (
+      <NoteText
+        text={note}
+        className="mt-0.5 block whitespace-pre-wrap break-words text-xs text-slate-400"
+      />
+    );
+  }
+
+  return (
+    <div className="mt-0.5 text-xs text-slate-400">
+      {blocks.map((b, i) => {
+        if (b.type === "text") {
+          return b.text.trim() ? (
+            <NoteText
+              key={i}
+              text={b.text}
+              className="block whitespace-pre-wrap break-words"
+            />
+          ) : null;
+        }
+        const open = b.items.filter((it) => !it.checked);
+        if (open.length === 0) return null;
+        return (
+          <ul key={i} className="flex flex-col gap-1 py-0.5">
+            {open.map((it) => (
+              <ChecklistRow key={it.line} item={it} onToggle={onToggleItem} />
+            ))}
+          </ul>
+        );
+      })}
+      {completed.length > 0 && (
+        <details className="mt-1">
+          <summary className="cursor-pointer list-none text-[11px] font-medium text-emerald-300/80 transition hover:text-emerald-200">
+            ✓ Completed ({completed.length})
+          </summary>
+          <ul className="mt-1 flex flex-col gap-1">
+            {completed.map((it) => (
+              <ChecklistRow key={it.line} item={it} onToggle={onToggleItem} />
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -183,6 +308,22 @@ export function TodoList({
     setDraftNote("");
     setDraftDue(null);
     // Keep the project name — most project to-dos are added in batches.
+  };
+
+  // Check/uncheck one mini-list item inside a to-do's note. When the last open
+  // item gets checked, the whole to-do moves to Done. onToggle gets the
+  // *updated* todo so downstream mirrors (Google) see the new note, not a
+  // stale one.
+  const toggleNoteItem = (todo: Todo, line: number, checked: boolean) => {
+    const nextNote = setNoteItemChecked(todo.note, line, checked);
+    if (nextNote === todo.note) return;
+    onEdit(todo.id, { note: nextNote });
+    if (checked && !todo.done) {
+      const items = noteChecklistItems(nextNote);
+      if (items.length > 0 && items.every((it) => it.checked)) {
+        onToggle({ ...todo, note: nextNote });
+      }
+    }
   };
 
   const startEdit = (todo: Todo) => {
@@ -293,7 +434,7 @@ export function TodoList({
         </div>
         <NoteTextarea
           value={draftNote}
-          onChange={(e) => setDraftNote(e.target.value)}
+          onValueChange={setDraftNote}
           placeholder="Add a note or link (optional)"
           aria-label="To-do note"
         />
@@ -370,7 +511,7 @@ export function TodoList({
                   />
                   <NoteTextarea
                     value={editNote}
-                    onChange={(e) => setEditNote(e.target.value)}
+                    onValueChange={setEditNote}
                     placeholder="Add a note (optional)"
                     aria-label="To-do note"
                   />
@@ -420,9 +561,11 @@ export function TodoList({
                     className="block truncate text-sm text-slate-100"
                   />
                   {todo.note && (
-                    <NoteText
-                      text={todo.note}
-                      className="mt-0.5 block whitespace-pre-wrap break-words text-xs text-slate-400"
+                    <ChecklistNote
+                      note={todo.note}
+                      onToggleItem={(line, checked) =>
+                        toggleNoteItem(todo, line, checked)
+                      }
                     />
                   )}
                   <span className="flex flex-wrap items-center gap-2">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { TimeInput } from "@/components/DateTimeField";
 import { Modal } from "@/components/Modal";
 import { Emoji } from "@/components/icons";
 import {
@@ -524,8 +525,7 @@ export function CreateHabitModal({
             Reminder (optional)
           </p>
           <div className="flex items-center gap-2">
-            <input
-              type="time"
+            <TimeInput
               value={reminder}
               onChange={(e) => setReminder(e.target.value)}
               aria-label="Reminder time"

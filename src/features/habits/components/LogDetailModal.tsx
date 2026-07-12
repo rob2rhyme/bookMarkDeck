@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { BulletButton, NumberButton } from "@/components/BulletButton";
+import { DateInput, TimeInput } from "@/components/DateTimeField";
 import { Modal } from "@/components/Modal";
 import { Emoji } from "@/components/icons";
 import { appendBullet, appendNumber } from "@/utils/noteFormat";
@@ -89,8 +90,7 @@ export function LogDetailModal({
 
       <label className="mt-4 block text-xs text-slate-400">
         Date
-        <input
-          type="date"
+        <DateInput
           value={date}
           max={today}
           onChange={(e) => setDate(e.target.value || today)}
@@ -146,8 +146,7 @@ export function LogDetailModal({
 
       <label className="mt-3 block text-xs text-slate-400">
         Time (optional)
-        <input
-          type="time"
+        <TimeInput
           value={at}
           onChange={(e) => setAt(e.target.value)}
           className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
-import { Archive, Emoji, Pencil, Timer, Trash } from "@/components/icons";
+import { Archive, Check, Emoji, Pencil, Timer, Trash } from "@/components/icons";
 import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
 import { FocusCorrelationCard } from "@/features/habits/components/FocusCorrelationCard";
 import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
@@ -89,6 +89,7 @@ export function HabitsDashboard() {
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
   const [notesHabit, setNotesHabit] = useState<Habit | null>(null);
   const [areaFilter, setAreaFilter] = useState(""); // "" = all, "__none__" = no area
+  const [habitQuery, setHabitQuery] = useState(""); // search-to-quick-log filter
 
   // Import-from-JSON: a hidden file input, a preview to confirm, a result note.
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -180,7 +181,10 @@ export function HabitsDashboard() {
   const areaIcons = useMemo(() => areaIconByName(h.allHabits), [h.allHabits]);
   const hasAreas = areas.length > 0;
   const someUncategorized = h.habits.some((x) => !x.area?.trim());
+  const q = habitQuery.trim().toLowerCase();
   const visibleHabits = h.habits.filter((x) => {
+    if (q && !x.name.toLowerCase().includes(q) && !(x.area ?? "").toLowerCase().includes(q))
+      return false;
     if (!areaFilter) return true;
     if (areaFilter === "__none__") return !x.area?.trim();
     return x.area?.trim() === areaFilter;
@@ -475,6 +479,15 @@ export function HabitsDashboard() {
                 )}
               </div>
             </div>
+            {/* Search — find a habit fast and quick-log it with the ✓ on its row. */}
+            <input
+              type="search"
+              value={habitQuery}
+              onChange={(e) => setHabitQuery(e.target.value)}
+              placeholder="Search habits — quick log with ✓"
+              aria-label="Search habits"
+              className="mb-3 w-full rounded-full border border-slate-700 bg-slate-950/60 px-3.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+            />
             {/* Nudge once there are habits but no areas yet. */}
             {!hasAreas && h.habits.length > 0 && (
               <p className="mb-3 text-[11px] text-slate-500">
@@ -507,6 +520,11 @@ export function HabitsDashboard() {
               </div>
             )}
             <div className="flex flex-col gap-2">
+              {visibleHabits.length === 0 && q && (
+                <p className="rounded-xl border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-500">
+                  No habits match “{habitQuery.trim()}”.
+                </p>
+              )}
               {visibleHabits.map((habit) => {
                 const st = h.statsByHabit.get(habit.id)!;
                 return (
@@ -554,6 +572,28 @@ export function HabitsDashboard() {
                         )}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => h.toggleToday(habit)}
+                      aria-pressed={st.doneToday}
+                      aria-label={
+                        st.doneToday
+                          ? `Undo ${habit.name} for today`
+                          : `Log ${habit.name} done for today`
+                      }
+                      title={
+                        st.doneToday
+                          ? "Done today — tap to undo"
+                          : "Quick log — done today"
+                      }
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${
+                        st.doneToday
+                          ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
+                          : "border-slate-600 text-transparent hover:border-emerald-400 hover:text-emerald-400/60"
+                      }`}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
                     <RowMenu
                       label={`Options for ${habit.name}`}
                       items={[

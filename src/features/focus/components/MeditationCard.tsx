@@ -90,21 +90,26 @@ export function MeditationCard({
       {med.running ? (
         <div className="flex flex-col items-center gap-5 py-2">
           {activeMode === "breath" ? (
-            <div className="flex h-44 w-44 items-center justify-center">
-              <div
-                className="flex h-44 w-44 items-center justify-center rounded-full bg-blue-500/15 ring-1 ring-inset ring-blue-400/30"
-                style={{
-                  transform: `scale(${scale})`,
-                  transition: reduced ? undefined : "transform 200ms linear",
-                }}
-              >
-                <div className="text-center">
-                  <p className="text-sm font-medium text-blue-200">{pa.phase.label}</p>
-                  <p className="text-2xl font-semibold tabular-nums text-slate-100">
-                    {Math.ceil(pa.phaseRemaining)}
-                  </p>
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex h-44 w-44 items-center justify-center">
+                <div
+                  className="flex h-44 w-44 items-center justify-center rounded-full bg-blue-500/15 ring-1 ring-inset ring-blue-400/30"
+                  style={{
+                    transform: `scale(${scale})`,
+                    transition: reduced ? undefined : "transform 200ms linear",
+                  }}
+                >
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-blue-200">{pa.phase.label}</p>
+                    <p className="text-2xl font-semibold tabular-nums text-slate-100">
+                      {Math.ceil(pa.phaseRemaining)}
+                    </p>
+                  </div>
                 </div>
               </div>
+              <p className="text-xs tabular-nums text-slate-400">
+                {fmt(med.elapsedSec)} elapsed · {fmt(med.remainingSec)} left
+              </p>
             </div>
           ) : (
             <div className="flex h-44 w-44 flex-col items-center justify-center rounded-full bg-blue-500/10 ring-1 ring-inset ring-blue-400/20">
