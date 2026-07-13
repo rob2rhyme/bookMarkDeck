@@ -66,9 +66,11 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
 
 - Route groups: **`(app)`** (authenticated app) and **`(auth)`** (`/login`).
 - `src/app/(app)/layout.tsx` wraps pages in `<AppShell>` (`src/components/AppShell.tsx`) +
-  `<GlobalClientUI>`. `AppShell` renders the header (logo + account pill) and footer
-  (Privacy / Terms / FAQ). There is **no primary nav bar** yet.
+  `<GlobalClientUI>`. `AppShell` renders the header (logo + pillar nav pills + account
+  menu), a mobile bottom nav (pillars + ⌘K search), and the footer
+  (Guide / Privacy / Terms / FAQ).
 - Existing pages: `/` (home), `/folders/[folderKey]`, `/folders/manage`, `/folders/unstaged`,
+  `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/guide` (site guide),
   `/faq`, `/privacy`, `/terms`, `/login`.
 
 ## Styling
