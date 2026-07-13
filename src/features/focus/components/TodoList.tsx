@@ -603,7 +603,7 @@ export function TodoList({
                   type="button"
                   onClick={() => onToggle(todo)}
                   aria-label="Mark done"
-                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 transition hover:border-emerald-400"
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border border-slate-600 transition hover:border-emerald-400"
                 />
                 <div className="min-w-0 flex-1">
                   <NoteText
@@ -693,7 +693,7 @@ export function TodoList({
                     onClick={() => onToggle(todo)}
                     aria-label="Mark not done"
                     title="Undo — mark not done"
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-emerald-500 bg-emerald-500/20 text-emerald-300 transition hover:bg-emerald-500/30"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border border-emerald-500 bg-emerald-500/20 text-emerald-300 transition hover:bg-emerald-500/30"
                   >
                     <Check className="h-3 w-3" />
                   </button>
