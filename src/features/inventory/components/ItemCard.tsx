@@ -1,0 +1,134 @@
+"use client";
+
+import { Archive, Package, Pencil, Trash2 } from "@/components/icons";
+import type { InventoryItem } from "@/features/inventory/lib/types";
+import { formatMoney, itemValue, warrantyState } from "@/features/inventory/lib/value";
+
+type ItemCardProps = {
+  item: InventoryItem;
+  locationName?: string;
+  fallbackCurrency: string;
+  today: string;
+  onEdit: (item: InventoryItem) => void;
+  onArchive: (item: InventoryItem) => void;
+  onRemove: (item: InventoryItem) => void;
+};
+
+const WARRANTY_BADGE: Record<string, { label: string; cls: string }> = {
+  expired: { label: "Warranty ended", cls: "bg-red-500/20 text-red-200" },
+  soon: { label: "Warranty ending", cls: "bg-amber-500/20 text-amber-200" },
+};
+
+export function ItemCard({
+  item,
+  locationName,
+  fallbackCurrency,
+  today,
+  onEdit,
+  onArchive,
+  onRemove,
+}: ItemCardProps) {
+  const currency = item.currency ?? fallbackCurrency;
+  const value = itemValue(item);
+  const photo = item.photos[0]?.url;
+  const w = warrantyState(item, today);
+  const badge = WARRANTY_BADGE[w];
+
+  return (
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-900/60 shadow-sm transition hover:border-slate-700">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-950/60">
+        {photo ? (
+          // Arbitrary user URLs aren't in next/image's allowlist, so use a plain img.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photo}
+            alt={item.name}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-slate-700">
+            <Package className="h-10 w-10" />
+          </div>
+        )}
+        {badge && (
+          <span
+            className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-medium backdrop-blur ${badge.cls}`}
+          >
+            {badge.label}
+          </span>
+        )}
+        {item.lentTo && (
+          <span className="absolute left-2 top-2 rounded-full bg-violet-500/25 px-2 py-0.5 text-[10px] font-medium text-violet-100 backdrop-blur">
+            Lent · {item.lentTo}
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-100" title={item.name}>
+            {item.name}
+          </h4>
+          {value > 0 && (
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-300">
+              {formatMoney(value, currency)}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {locationName && (
+            <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
+              📍 {locationName}
+            </span>
+          )}
+          {item.category && (
+            <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-200">
+              {item.category}
+            </span>
+          )}
+          {item.quantity > 1 && (
+            <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-300 tabular-nums">
+              ×{item.quantity}
+            </span>
+          )}
+          {item.condition && (
+            <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium capitalize text-slate-400">
+              {item.condition}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-auto flex items-center justify-end gap-1 pt-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => onEdit(item)}
+            aria-label={`Edit ${item.name}`}
+            className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-blue-300"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onArchive(item)}
+            aria-label={`${item.archived ? "Unarchive" : "Archive"} ${item.name}`}
+            className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-amber-300"
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(item)}
+            aria-label={`Delete ${item.name}`}
+            className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-red-300"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ItemCard;
