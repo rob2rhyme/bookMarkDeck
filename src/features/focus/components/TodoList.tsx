@@ -315,6 +315,7 @@ export function TodoList({
   // *updated* todo so downstream mirrors (Google) see the new note, not a
   // stale one.
   const toggleNoteItem = (todo: Todo, line: number, checked: boolean) => {
+    if (listOf(todo) !== "project") return; // Project-only feature
     const nextNote = setNoteItemChecked(todo.note, line, checked);
     if (nextNote === todo.note) return;
     onEdit(todo.id, { note: nextNote });
@@ -560,14 +561,22 @@ export function TodoList({
                     text={todo.text}
                     className="block truncate text-sm text-slate-100"
                   />
-                  {todo.note && (
-                    <ChecklistNote
-                      note={todo.note}
-                      onToggleItem={(line, checked) =>
-                        toggleNoteItem(todo, line, checked)
-                      }
-                    />
-                  )}
+                  {/* Checkable mini-lists are Project-only (app-private, never
+                      mirrored to Google) — Personal notes stay plain display. */}
+                  {todo.note &&
+                    (listOf(todo) === "project" ? (
+                      <ChecklistNote
+                        note={todo.note}
+                        onToggleItem={(line, checked) =>
+                          toggleNoteItem(todo, line, checked)
+                        }
+                      />
+                    ) : (
+                      <NoteText
+                        text={todo.note}
+                        className="mt-0.5 block whitespace-pre-wrap break-words text-xs text-slate-400"
+                      />
+                    ))}
                   <span className="flex flex-wrap items-center gap-2">
                     {todo.project && (
                       <span className="max-w-full truncate rounded-full bg-blue-500/15 px-1.5 text-[10px] font-medium text-blue-200">
