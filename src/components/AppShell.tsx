@@ -227,6 +227,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="h-px flex-1 bg-slate-800" />
           </div>
           <div className="flex items-center gap-4">
+            <Link className="hover:text-blue-300" href="/guide">
+              Guide
+            </Link>
             <Link className="hover:text-blue-300" href="/privacy">
               Privacy
             </Link>

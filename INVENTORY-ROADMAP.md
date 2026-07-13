@@ -5,7 +5,60 @@ Planning doc for adding a home-inventory feature to Bookmark Deck. Companion to
 near-term, on-brand build; Phases 2–4 + the commercialization track are a
 deliberate, separately-funded decision (see §6).
 
-Status: **proposed / not started.** No inventory code exists yet.
+Status: **Phase 1 core scaffold shipped** (PR #159 — items, nested locations,
+lending, value dashboard, attention panel, grid/list, search, CSV/JSON
+export/import, URL photos). The rest of Phase 1 + the storage decision are
+covered by the next-up plan below.
+
+---
+
+## ⭐ Next-up plan (recommended approach — research pass 2026-07-13)
+
+Deep-research conclusions (multi-source, pricing independently verified — full
+detail in `ANALYSIS-PHOTO-STORAGE.md`):
+
+### Storage decision: Cloudflare R2, not Firebase Storage
+
+**Photos go to Cloudflare R2 + Cloudflare Images Transformations.** This
+**removes the Blaze prerequisite** (§6.1) — Firestore + Firebase Auth stay on
+the free Spark plan; only the R2 object key is stored on the item. Free
+egress + 10 GB free storage + 5,000 free unique transforms/mo ≈ $0/mo at this
+app's scale. Uploads authorize through a Next.js presign route (session +
+Firebase ID-token verify), keys server-composed as
+`users/{uid}/inventory/{itemId}/{photoId}.webp`. Runner-up: Supabase Storage;
+honorable mention: Backblaze B2 + Cloudflare. See the analysis doc for the
+size-cap gotcha and the migration path from the current `ItemPhoto` shape.
+
+### Build order
+
+**A — ship soon (on-brand, no paid infra), in priority order:**
+1. **Link item → its online life** — attach a bookmark (product page, manual,
+   warranty registration) to any item. *The thesis made literal; no competitor
+   connects items to a personal bookmark library. Do this first.*
+2. **Seconds-to-add capture** — name-only add; every other field enrich-later.
+   Kills the #1 abandonment driver ("ten fields = never").
+3. **"Where is it?" retrieval** — forgiving fuzzy find returning the
+   container/location first.
+4. **Lending ledger view** — calm "who has my stuff / due back when" surface
+   over the fields already stored.
+5. **Warranty & maintenance reminders** — Attention panel + nav badge; reuse
+   the focus `sw.js` push.
+6. **Duplicate-purchase guard** — "do I already own this?" search-before-you-buy.
+7. **Link item → Focus project** — connective tissue across pillars.
+8. **Declutter companion** — keep/donate/sell tagging wired into habits.
+9. **Barcode quick-add** — client `BarcodeDetector`, manual fallback (capture
+   only; product lookup is a B item).
+10. **Kits / collections**, **insurance PDF export** (client-side), **value &
+    depreciation curves** (pure math in `lib/value.ts`).
+
+**B — worth it, needs the storage decision (now R2, not Blaze):** native
+camera capture + client compression (the keystone); receipt/document
+attachments; on-device receipt OCR (privacy-safe); UPC/product enrichment
+(proxied, metered); AI photo auto-fill only ever as billing-gated premium.
+
+**C — skip (off-brand):** social/public shelves, home-finance dashboards,
+insurance RCV/ACV mode, household multi-user (deliberate "not now"), full
+inbox receipt import, QR label printing, GPS photo tagging.
 
 ---
 
@@ -118,6 +171,9 @@ type InventorySettings = { defaultCurrency: string; defaultView: "grid"|"shelf"|
   `where`/`orderBy` + `firestore.indexes.json` only past ~5k.
 
 ### 2.4 Photo-storage decision
+**Superseded (2026-07-13): use Cloudflare R2 — see the Next-up plan above and
+`ANALYSIS-PHOTO-STORAGE.md`.** Original Phase-1 reasoning kept for the record:
+
 **Use Firebase Storage** (Option A). It ships inside the already-installed
 `firebase@^12` SDK (**zero new dependency**), reuses the same `uid` from
 `ensureFirebaseGoogleAuth`, keeps uploads **client-side**, and needs only console
@@ -225,8 +281,10 @@ worthy" and "cheap reuse" are different feature sets; be clear-eyed about that.
 ---
 
 ## 6. Open decisions (gating)
-1. **Enable Blaze plan?** Hard prerequisite for Storage (and all later phases).
-   If "not yet," P1 falls back to URL-only photos (a weaker v0.5).
+1. **Enable Blaze plan?** ~~Hard prerequisite for Storage~~ **Resolved
+   (2026-07-13): no.** Photos go to Cloudflare R2 (see the Next-up plan);
+   Firebase stays on Spark. Blaze only returns if a later phase needs Cloud
+   Functions.
 2. **Currency:** single default (recommended for P1) vs per-item.
 3. **Activity-timeline integration:** add inventory events to the shared
    `ActivityType` union (recommended — cheap, enriches the log) vs keep local.
