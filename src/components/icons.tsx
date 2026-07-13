@@ -318,6 +318,25 @@ export function Plus({ className }: IconProps) {
   );
 }
 
+export function Package({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M20.5 7.3 12 12 3.5 7.3" />
+      <path d="M12 12v9.5" />
+      <path d="M20.5 7.3v9.4a1 1 0 0 1-.5.87l-7.5 4.2a1 1 0 0 1-1 0l-7.5-4.2a1 1 0 0 1-.5-.87V7.3a1 1 0 0 1 .5-.87l7.5-4.2a1 1 0 0 1 1 0l7.5 4.2a1 1 0 0 1 .5.87Z" />
+    </svg>
+  );
+}
+
+export function Tag({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 2.8 12V4a1 1 0 0 1 1-1h8a2 2 0 0 1 1.4.6l7.4 7.4a2 2 0 0 1 0 2.8Z" />
+      <circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function HelpCircle({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...baseProps(className)}>

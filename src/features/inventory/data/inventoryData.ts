@@ -1,0 +1,317 @@
+// src/features/inventory/data/inventoryData.ts
+//
+// Firestore persistence for the "My Stuff" inventory pillar. Mirrors focusData.ts
+// and the firestoreShortcuts pattern: authenticate with ensureFirebaseGoogleAuth
+// (emailHint), then scope all data under users/{uid}.
+//
+//   users/{uid}/inventoryItems/{itemId}       -> one doc per item
+//   users/{uid}/inventoryLocations/{id}        -> nestable storage locations
+//   users/{uid}/inventorySettings/settings     -> settings doc
+//
+// The existing recursive owner rule (match /users/{uid}/{document=**}) already
+// covers these — see FIRESTORE_RULES.md. No Firebase Storage yet; photos hold a
+// direct URL until the Blaze-gated upload pipeline lands.
+
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
+
+import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
+import {
+  normalizeSettings,
+  type InventoryItem,
+  type InventoryLocation,
+  type InventorySettings,
+  type ItemCondition,
+} from "@/features/inventory/lib/types";
+
+const itemsCol = (uid: string) => collection(db, "users", uid, "inventoryItems");
+const locationsCol = (uid: string) =>
+  collection(db, "users", uid, "inventoryLocations");
+const settingsDoc = (uid: string) =>
+  doc(db, "users", uid, "inventorySettings", "settings");
+
+async function uidFor(emailHint: string): Promise<string> {
+  const user = await ensureFirebaseGoogleAuth(emailHint);
+  return user.uid;
+}
+
+/** Local YYYY-MM-DD for "today" — computed client-side, never during render. */
+export function todayKey(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = (now.getMonth() + 1).toString().padStart(2, "0");
+  const d = now.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function timestampToIso(value: unknown): string | null {
+  if (value && typeof (value as { toDate?: unknown }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return typeof value === "string" ? value : null;
+}
+
+const CONDITIONS = new Set<ItemCondition>(["new", "good", "fair", "poor"]);
+const numOrUndef = (v: unknown): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) ? v : undefined;
+const strOrUndef = (v: unknown): string | undefined =>
+  typeof v === "string" && v.trim() ? v : undefined;
+
+/** Drop undefined keys — Firestore rejects `undefined` field values. */
+function prune<T extends Record<string, unknown>>(o: T): T {
+  for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k];
+  return o;
+}
+
+/* ----------------------------------------------------------------- items --- */
+
+function mapItem(d: {
+  id: string;
+  data: () => Record<string, unknown>;
+}): InventoryItem {
+  const data = d.data();
+  const cond = data.condition;
+  const photos = Array.isArray(data.photos) ? data.photos : [];
+  return prune({
+    id: d.id,
+    name: typeof data.name === "string" ? data.name : "",
+    description: strOrUndef(data.description),
+    locationId: typeof data.locationId === "string" ? data.locationId : null,
+    category: strOrUndef(data.category),
+    tags: Array.isArray(data.tags)
+      ? data.tags.filter((t): t is string => typeof t === "string")
+      : [],
+    quantity: Math.max(1, Math.round(numOrUndef(data.quantity) ?? 1)),
+    purchaseDate: strOrUndef(data.purchaseDate),
+    price: numOrUndef(data.price),
+    currency: strOrUndef(data.currency),
+    retailer: strOrUndef(data.retailer),
+    manufacturer: strOrUndef(data.manufacturer),
+    model: strOrUndef(data.model),
+    serial: strOrUndef(data.serial),
+    warrantyExpiry: strOrUndef(data.warrantyExpiry),
+    condition:
+      typeof cond === "string" && CONDITIONS.has(cond as ItemCondition)
+        ? (cond as ItemCondition)
+        : undefined,
+    value: numOrUndef(data.value),
+    notes: strOrUndef(data.notes),
+    lentTo: typeof data.lentTo === "string" ? data.lentTo : null,
+    lentDate: typeof data.lentDate === "string" ? data.lentDate : null,
+    dueDate: typeof data.dueDate === "string" ? data.dueDate : null,
+    photos: photos
+      .map((p) => {
+        const r = (p ?? {}) as Record<string, unknown>;
+        if (typeof r.url !== "string" || !r.url.trim()) return null;
+        return prune({
+          id: typeof r.id === "string" ? r.id : crypto.randomUUID(),
+          url: r.url,
+          path: strOrUndef(r.path),
+          w: numOrUndef(r.w),
+          h: numOrUndef(r.h),
+        });
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null),
+    archived: Boolean(data.archived),
+    createdAt: timestampToIso(data.createdAt),
+    updatedAt: timestampToIso(data.updatedAt),
+  }) as InventoryItem;
+}
+
+function itemPayload(item: InventoryItem): Record<string, unknown> {
+  return prune({
+    name: item.name,
+    description: strOrUndef(item.description),
+    locationId: item.locationId ?? null,
+    category: strOrUndef(item.category),
+    tags: item.tags ?? [],
+    quantity: Math.max(1, Math.round(item.quantity || 1)),
+    purchaseDate: strOrUndef(item.purchaseDate),
+    price: numOrUndef(item.price),
+    currency: strOrUndef(item.currency),
+    retailer: strOrUndef(item.retailer),
+    manufacturer: strOrUndef(item.manufacturer),
+    model: strOrUndef(item.model),
+    serial: strOrUndef(item.serial),
+    warrantyExpiry: strOrUndef(item.warrantyExpiry),
+    condition: item.condition,
+    value: numOrUndef(item.value),
+    notes: strOrUndef(item.notes),
+    lentTo: item.lentTo?.trim() ? item.lentTo.trim() : null,
+    lentDate: item.lentDate ?? null,
+    dueDate: item.dueDate ?? null,
+    photos: (item.photos ?? []).map((p) =>
+      prune({ id: p.id, url: p.url, path: p.path, w: p.w, h: p.h })
+    ),
+    archived: Boolean(item.archived),
+    createdAt: item.createdAt ?? serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function fetchItems(emailHint: string): Promise<InventoryItem[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(itemsCol(uid));
+  return snap.docs.map(mapItem).filter((i) => i.name.trim().length > 0);
+}
+
+/** Full-document write (no merge) — hook state is the source of truth, so this
+ *  also clears fields the user emptied. Id-preserving, so re-saving is idempotent. */
+export async function saveItem(
+  emailHint: string,
+  item: InventoryItem
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(doc(itemsCol(uid), item.id), itemPayload(item));
+}
+
+export async function deleteItem(emailHint: string, id: string): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(itemsCol(uid), id));
+}
+
+/* ------------------------------------------------------------- locations --- */
+
+function mapLocation(d: {
+  id: string;
+  data: () => Record<string, unknown>;
+}): InventoryLocation {
+  const data = d.data();
+  return {
+    id: d.id,
+    name: typeof data.name === "string" ? data.name : "",
+    parentId: typeof data.parentId === "string" ? data.parentId : null,
+    sortOrder: numOrUndef(data.sortOrder),
+    createdAt: timestampToIso(data.createdAt),
+    updatedAt: timestampToIso(data.updatedAt),
+  };
+}
+
+export async function fetchLocations(
+  emailHint: string
+): Promise<InventoryLocation[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(locationsCol(uid));
+  return snap.docs.map(mapLocation).filter((l) => l.name.trim().length > 0);
+}
+
+export async function saveLocation(
+  emailHint: string,
+  location: InventoryLocation
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(locationsCol(uid), location.id),
+    prune({
+      name: location.name,
+      parentId: location.parentId ?? null,
+      sortOrder: location.sortOrder,
+      createdAt: location.createdAt ?? serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+    { merge: true }
+  );
+}
+
+export async function deleteLocation(
+  emailHint: string,
+  id: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(locationsCol(uid), id));
+}
+
+/* -------------------------------------------------------------- settings --- */
+
+export async function fetchSettings(
+  emailHint: string
+): Promise<InventorySettings | null> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDoc(settingsDoc(uid));
+  if (!snap.exists()) return null;
+  return normalizeSettings(snap.data());
+}
+
+export async function saveSettings(
+  emailHint: string,
+  settings: InventorySettings
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(settingsDoc(uid), { ...settings, updatedAt: serverTimestamp() });
+}
+
+/* --------------------------------------------------------------- import --- */
+
+/** Restore an inventory JSON backup into cloud data. Id-preserving and
+ *  best-effort: one failed write doesn't abort the rest. */
+export async function restoreInventoryBackup(
+  emailHint: string,
+  b: { items: InventoryItem[]; locations: InventoryLocation[]; settings: InventorySettings }
+): Promise<void> {
+  await Promise.allSettled([
+    ...b.locations.map((l) => saveLocation(emailHint, l)),
+    ...b.items.map((i) => saveItem(emailHint, i)),
+    saveSettings(emailHint, b.settings),
+  ]);
+}
+
+/* --------------------------------------------------- realtime listeners --- */
+
+type Unsub = () => void;
+
+function onListenError(label: string) {
+  return (err: unknown) => {
+    console.error(`[inventory] ${label} listener error:`, err);
+  };
+}
+
+function listen(emailHint: string, attach: (uid: string) => Unsub): Unsub {
+  let unsub: Unsub = () => {};
+  let cancelled = false;
+  uidFor(emailHint)
+    .then((uid) => {
+      if (!cancelled) unsub = attach(uid);
+    })
+    .catch((err) => {
+      console.error("[inventory] listener auth failed:", err);
+    });
+  return () => {
+    cancelled = true;
+    unsub();
+  };
+}
+
+export function subscribeItems(
+  emailHint: string,
+  cb: (items: InventoryItem[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      itemsCol(uid),
+      (snap) => cb(snap.docs.map(mapItem).filter((i) => i.name.trim().length > 0)),
+      onListenError("items")
+    )
+  );
+}
+
+export function subscribeLocations(
+  emailHint: string,
+  cb: (locations: InventoryLocation[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      locationsCol(uid),
+      (snap) =>
+        cb(snap.docs.map(mapLocation).filter((l) => l.name.trim().length > 0)),
+      onListenError("locations")
+    )
+  );
+}

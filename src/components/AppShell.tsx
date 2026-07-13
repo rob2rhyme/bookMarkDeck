@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppearanceSettingsPanel } from "@/components/AppearanceSettingsPanel";
 import { CursorOverlay } from "@/components/CursorOverlay";
 import { CursorSettingsPanel } from "@/components/CursorSettingsPanel";
-import { Bookmark, Repeat, Search, Timer } from "@/components/icons";
+import { Bookmark, Package, Repeat, Search, Timer } from "@/components/icons";
 import {
   COMMAND_PALETTE_STATE_EVENT,
   OPEN_COMMAND_PALETTE_EVENT,
@@ -19,6 +19,7 @@ const DESTINATIONS = [
   { href: "/", label: "Bookmarks", Icon: Bookmark },
   { href: "/focus", label: "Focus", Icon: Timer },
   { href: "/habits", label: "Habits", Icon: Repeat },
+  { href: "/inventory", label: "My Stuff", Icon: Package },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
