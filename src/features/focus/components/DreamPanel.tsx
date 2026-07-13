@@ -70,10 +70,12 @@ function DreamCard({
   note,
   today,
   onTagClick,
+  query,
 }: {
   note: JournalNote;
   today: string;
   onTagClick: (tag: string) => void;
+  query?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { preview, truncated } = firstWords(note.text);
@@ -98,6 +100,7 @@ function DreamCard({
           </span>
           <NoteText
             text={open ? note.text : preview}
+            highlight={query}
             className="mt-0.5 block whitespace-pre-wrap break-words text-sm text-slate-200"
           />
         </span>
@@ -385,6 +388,7 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
                 note={n}
                 today={today}
                 onTagClick={setSelectedTag}
+                query={query}
               />
             ))}
         </ul>

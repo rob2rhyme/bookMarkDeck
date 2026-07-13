@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { HighlightedText } from "@/components/HighlightedText";
 import { Modal } from "@/components/Modal";
 import {
   Bookmark,
@@ -290,10 +291,12 @@ export function CommandPalette() {
                     {c.icon}
                   </span>
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm">{c.label}</span>
+                    <span className="truncate text-sm">
+                      <HighlightedText text={c.label} query={query} />
+                    </span>
                     {c.hint && (
                       <span className="truncate text-xs text-slate-500">
-                        {c.hint}
+                        <HighlightedText text={c.hint} query={query} />
                       </span>
                     )}
                   </span>

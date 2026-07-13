@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from "react";
 
+import { highlightToNodes } from "@/components/HighlightedText";
 import { hasBullets, hasNumberedList, toNoteBlocks } from "@/utils/noteFormat";
 
 // Shared, XSS-safe note renderer used everywhere a user-written note is shown
@@ -20,8 +21,9 @@ function hostLabel(url: string): string {
   }
 }
 
-/** Build inline nodes for one line, linkifying URLs. */
-function linkify(text: string): ReactNode[] {
+/** Build inline nodes for one line, linkifying URLs and (optionally)
+ *  highlighting search matches in the plain-text portions. */
+function linkify(text: string, highlight?: string): ReactNode[] {
   const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
   const nodes: ReactNode[] = [];
   let last = 0;
@@ -29,7 +31,7 @@ function linkify(text: string): ReactNode[] {
   let m: RegExpExecArray | null;
 
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m.index > last) nodes.push(...highlightToNodes(text.slice(last, m.index), highlight));
     let url: string;
     let label: string;
     let tail = "";
@@ -60,14 +62,14 @@ function linkify(text: string): ReactNode[] {
     if (tail) nodes.push(tail);
     last = m.index + m[0].length;
   }
-  if (last < text.length) nodes.push(text.slice(last));
+  if (last < text.length) nodes.push(...highlightToNodes(text.slice(last), highlight));
   return nodes;
 }
 
-function Inline({ text }: { text: string }) {
+function Inline({ text, highlight }: { text: string; highlight?: string }) {
   return (
     <>
-      {linkify(text).map((n, i) => (
+      {linkify(text, highlight).map((n, i) => (
         <Fragment key={i}>{n}</Fragment>
       ))}
     </>
@@ -77,15 +79,18 @@ function Inline({ text }: { text: string }) {
 export function NoteText({
   text,
   className,
+  highlight,
 }: {
   text: string;
   className?: string;
+  /** When set, case-insensitive matches of this query are wrapped in <mark>. */
+  highlight?: string;
 }) {
   // Fast path: no lists → inline span, byte-for-byte like the old display.
   if (!hasBullets(text) && !hasNumberedList(text)) {
     return (
       <span className={className}>
-        <Inline text={text} />
+        <Inline text={text} highlight={highlight} />
       </span>
     );
   }
@@ -98,7 +103,7 @@ export function NoteText({
           <ul key={i} className="list-disc space-y-0.5 pl-5">
             {b.items.map((it, j) => (
               <li key={j}>
-                <Inline text={it} />
+                <Inline text={it} highlight={highlight} />
               </li>
             ))}
           </ul>
@@ -106,13 +111,13 @@ export function NoteText({
           <ol key={i} className="list-decimal space-y-0.5 pl-5">
             {b.items.map((it, j) => (
               <li key={j}>
-                <Inline text={it} />
+                <Inline text={it} highlight={highlight} />
               </li>
             ))}
           </ol>
         ) : (
           <span key={i} className="block whitespace-pre-wrap">
-            <Inline text={b.text} />
+            <Inline text={b.text} highlight={highlight} />
           </span>
         )
       )}

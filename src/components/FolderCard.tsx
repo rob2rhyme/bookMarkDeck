@@ -3,11 +3,14 @@
 
 import { useState } from "react";
 
+import { HighlightedText } from "@/components/HighlightedText";
 import { FolderTree } from "@/components/icons";
 import { Bookmark } from "@/types/bookmark";
 
 type FolderCardProps = {
   name: string;
+  /** Active search query — matched characters in the name are highlighted. */
+  query?: string;
   count: number;
   subfolderCount?: number;
   previews?: Bookmark[];
@@ -119,6 +122,7 @@ function FolderPreviewTile({ bookmark }: { bookmark: Bookmark }) {
 
 export function FolderCard({
   name,
+  query,
   count,
   subfolderCount = 0,
   previews,
@@ -168,7 +172,9 @@ export function FolderCard({
       )}
       <div className="flex items-center justify-between">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
+          <p className="truncate text-sm font-semibold text-slate-100">
+            <HighlightedText text={name} query={query} />
+          </p>
           <p className="text-[11px] text-slate-400">
             {count} bookmark{count !== 1 ? "s" : ""}
             {" • "}

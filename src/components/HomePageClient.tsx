@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { FolderCard } from "@/components/FolderCard";
+import { HighlightedText } from "@/components/HighlightedText";
 import { ShortcutIcon } from "@/components/ShortcutIcon";
 import { Modal } from "@/components/Modal";
 import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
@@ -729,7 +730,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="flex items-center gap-2">
               <span className="truncate text-base font-semibold leading-tight text-slate-100">
-                {bookmark.title || hostname}
+                <HighlightedText text={bookmark.title || hostname} query={search} />
               </span>
               {usageLabel && (
                 <span className="rounded-full border border-slate-700/80 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
@@ -1935,6 +1936,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                 <FolderCard
                   key={folder.id}
                   name={folder.name}
+                  query={search}
                   count={items.length}
                   subfolderCount={childrenByParentId.get(folder.id)?.length ?? 0}
                   previews={items}
@@ -2437,6 +2439,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                             <BookmarkCard
                               key={`${tag}-${b.id}`}
                               bookmark={b}
+                              query={search}
                               folderOptions={folderOptions}
                               folderName={
                                 typeof b.folderId === "string"

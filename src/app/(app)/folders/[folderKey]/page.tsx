@@ -636,6 +636,7 @@ export default function FolderPage() {
                       <FolderCard
                         key={folder.id}
                         name={folder.name}
+                        query={bookmarkQuery}
                         count={bookmarkCountByFolderId.get(folder.id) ?? 0}
                         subfolderCount={childrenByParentId.get(folder.id)?.length ?? 0}
                         previews={bookmarksByFolderId.get(folder.id) ?? []}
@@ -710,6 +711,7 @@ export default function FolderPage() {
                     <BookmarkCard
                       key={bookmark.id}
                       bookmark={bookmark}
+                      query={bookmarkQuery}
                       folderOptions={folderOptions}
                       folderName={
                         !bookmark.folderId || bookmark.folderId === currentFolder.id

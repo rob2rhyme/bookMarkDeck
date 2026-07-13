@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Check, CheckSquare, Pencil, Search, Trash2, X } from "@/components/icons";
 import { BulletButton, NumberButton } from "@/components/BulletButton";
+import { HighlightedText } from "@/components/HighlightedText";
 import { NoteText } from "@/components/NoteText";
 import {
   appendBullet,
@@ -607,6 +608,7 @@ export function TodoList({
                 <div className="min-w-0 flex-1">
                   <NoteText
                     text={todo.text}
+                    highlight={query}
                     className="block truncate text-sm text-slate-100"
                   />
                   {/* Checkable mini-lists are Project-only (app-private, never
@@ -628,7 +630,7 @@ export function TodoList({
                   <span className="flex flex-wrap items-center gap-2">
                     {todo.project && (
                       <span className="max-w-full truncate rounded-full bg-blue-500/15 px-1.5 text-[10px] font-medium text-blue-200">
-                        📁 {todo.project}
+                        📁 <HighlightedText text={todo.project} query={query} />
                       </span>
                     )}
                     <DueBadge todo={todo} now={now} />
@@ -697,6 +699,7 @@ export function TodoList({
                   </button>
                   <NoteText
                     text={todo.text}
+                    highlight={query}
                     className="min-w-0 flex-1 truncate text-sm text-slate-500 line-through"
                   />
                   <button
