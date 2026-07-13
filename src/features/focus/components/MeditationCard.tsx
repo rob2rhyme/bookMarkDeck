@@ -21,6 +21,12 @@ import type { FocusSettings } from "@/features/focus/lib/settings";
 
 const MINUTE_OPTIONS = [2, 5, 10, 15, 20] as const;
 
+// Session-progress ring around the breathing ball — same treatment as the
+// scroll-to-top fab's ring. The 192px box leaves the arc outside the ball's
+// full-inhale (scale 1 = 176px) edge.
+const ARC_RADIUS = 93;
+const ARC_CIRCUMFERENCE = 2 * Math.PI * ARC_RADIUS;
+
 type MeditationCardProps = {
   email?: string | null;
   connected: boolean;
@@ -77,6 +83,8 @@ export function MeditationCard({
   // Pacer geometry while a breath session runs.
   const pa = phaseAt(pattern, med.elapsedSec);
   const scale = reduced ? 0.85 : breathScale(pattern, med.elapsedSec);
+  const sessionProgress =
+    med.durationSec > 0 ? Math.min(1, med.elapsedSec / med.durationSec) : 0;
 
   return (
     <section className="rounded-2xl border border-slate-800/70 bg-slate-900/85 p-4 shadow-sm sm:p-8">
@@ -91,19 +99,47 @@ export function MeditationCard({
         <div className="flex flex-col items-center gap-5 py-2">
           {activeMode === "breath" ? (
             <div className="flex flex-col items-center gap-2">
-              <div className="flex h-44 w-44 items-center justify-center">
-                <div
-                  className="flex h-44 w-44 items-center justify-center rounded-full bg-blue-500/15 ring-1 ring-inset ring-blue-400/30"
-                  style={{
-                    transform: `scale(${scale})`,
-                    transition: reduced ? undefined : "transform 200ms linear",
-                  }}
+              <div className="relative h-48 w-48">
+                {/* Session-progress ring */}
+                <svg
+                  viewBox="0 0 192 192"
+                  className="absolute inset-0 -rotate-90"
+                  aria-hidden="true"
                 >
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-blue-200">{pa.phase.label}</p>
-                    <p className="text-2xl font-semibold tabular-nums text-slate-100">
-                      {Math.ceil(pa.phaseRemaining)}
-                    </p>
+                  <circle
+                    cx="96"
+                    cy="96"
+                    r={ARC_RADIUS}
+                    fill="none"
+                    strokeWidth="2.5"
+                    className="stroke-white/10"
+                  />
+                  <circle
+                    cx="96"
+                    cy="96"
+                    r={ARC_RADIUS}
+                    fill="none"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeDasharray={ARC_CIRCUMFERENCE}
+                    strokeDashoffset={ARC_CIRCUMFERENCE * (1 - sessionProgress)}
+                    className="stroke-blue-400 transition-[stroke-dashoffset] duration-150 ease-out"
+                  />
+                </svg>
+                <div className="absolute inset-2 flex items-center justify-center">
+                  <div
+                    className="flex h-44 w-44 items-center justify-center rounded-full bg-blue-500/15 ring-1 ring-inset ring-blue-400/30"
+                    style={{
+                      transform: `scale(${scale})`,
+                      transition: reduced ? undefined : "transform 200ms linear",
+                    }}
+                  >
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-blue-200">{pa.phase.label}</p>
+                      <p className="text-2xl font-semibold tabular-nums text-slate-100">
+                        {Math.ceil(pa.phaseRemaining)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
