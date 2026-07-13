@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 
+import { DateInput } from "@/components/DateTimeField";
 import { Modal } from "@/components/Modal";
 import type { FocusTask } from "@/features/focus/lib/types";
 
@@ -63,8 +64,7 @@ export function LogPastSessionModal({
 
       <label className="mt-4 block text-xs text-slate-400">
         Date
-        <input
-          type="date"
+        <DateInput
           value={date}
           max={today}
           onChange={(e) => setDate(e.target.value || today)}

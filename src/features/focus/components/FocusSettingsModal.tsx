@@ -49,7 +49,7 @@ function NumberField({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-800/60 py-2.5">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-800/60 py-2.5">
       <label className="text-sm text-slate-200">{label}</label>
       <div className="flex items-center gap-1.5">
         <input
@@ -81,7 +81,7 @@ function Toggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-800/60 py-2.5">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-800/60 py-2.5">
       <label className="text-sm text-slate-200">{label}</label>
       <button
         type="button"
@@ -151,7 +151,7 @@ export function FocusSettingsModal({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Focus settings"
-        className="animate-bd-scale-in w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
+        className="animate-bd-scale-in w-full max-w-md overflow-x-hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-50">Settings</h2>
@@ -222,12 +222,12 @@ export function FocusSettingsModal({
           </p>
         </div>
 
-        <div className="mt-3 flex items-center justify-between border-b border-slate-800/60 py-2.5">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-800/60 py-2.5">
           <label className="text-sm text-slate-200">Quiz difficulty</label>
           <div
             role="group"
             aria-label="Quiz difficulty"
-            className="flex gap-1.5"
+            className="flex flex-wrap gap-1.5"
           >
             {QUIZ_DIFFICULTIES.map((d) => {
               const on = settings.quizDifficulty === d.id;
@@ -258,7 +258,7 @@ export function FocusSettingsModal({
         <SectionLabel>Automation</SectionLabel>
         <Toggle label="Auto-start breaks" checked={settings.autoStartBreaks} onChange={(v) => onUpdate({ autoStartBreaks: v })} />
         <Toggle label="Auto-start next focus" checked={settings.autoStartFocus} onChange={(v) => onUpdate({ autoStartFocus: v })} />
-        <div className="flex items-center justify-between border-b border-slate-800/60 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-800/60 py-2.5">
           <label className="text-sm text-slate-200">Sound when timer ends</label>
           <div className="flex items-center gap-3">
             <button
@@ -289,7 +289,7 @@ export function FocusSettingsModal({
             </button>
           </div>
         </div>
-        <div className="flex items-center justify-between border-b border-slate-800/60 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-800/60 py-2.5">
           <label className="text-sm text-slate-200">Sound</label>
           <select
             value={settings.chimeSound}

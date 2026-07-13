@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { DateInput, TimeInput } from "@/components/DateTimeField";
+
 type DueFieldProps = {
   value: string | null; // ISO datetime or null
   onChange: (iso: string | null) => void;
@@ -118,15 +120,13 @@ export function DueField({ value, onChange }: DueFieldProps) {
           </div>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-2.5">
-            <input
-              type="date"
+            <DateInput
               value={date}
               onChange={(e) => setDate(e.target.value)}
               aria-label="Custom due date"
               className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-sm text-slate-200 focus:border-blue-400 focus:outline-none"
             />
-            <input
-              type="time"
+            <TimeInput
               value={time}
               onChange={(e) => setTime(e.target.value)}
               aria-label="Custom due time"
