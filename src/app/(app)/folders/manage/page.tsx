@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
+import { HighlightedText } from "@/components/HighlightedText";
 import { ChevronUp, DotsVertical, ExternalLink, FolderMoveInto, FolderPlus, FolderTree, Pencil, Trash2 } from "@/components/icons";
 import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { makeFolderOptions } from "@/utils/folderOptions";
@@ -714,7 +715,7 @@ export default function FolderManagementPage() {
               className="truncate text-sm font-semibold text-slate-100"
               title={option.label}
             >
-              {label}
+              <HighlightedText text={label} query={query} />
             </p>
             <p className="text-xs text-slate-400">
               {count} bookmark{count !== 1 ? "s" : ""}

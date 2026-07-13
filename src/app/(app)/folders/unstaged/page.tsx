@@ -302,6 +302,7 @@ export default function UnstagedFolderPage() {
                 <BookmarkCard
                   key={bookmark.id}
                   bookmark={bookmark}
+                  query={bookmarkQuery}
                   folderOptions={folderOptions}
                   onUpdate={updateBookmark}
                   onDelete={handleDelete}

@@ -157,6 +157,14 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 
+## Git & PR workflow
+
+- **Default: ship each fix via a PR and merge it.** For every change, open a pull
+  request and merge it into `main` once verification passes (lint + typecheck +
+  build + `npm run test`) — do this without asking. Only pause to ask first when
+  there's urgency or risk that warrants a check (e.g. a large/irreversible change,
+  ambiguous requirements, or a failing/blocked CI). Standing owner preference.
+
 ## Conventions
 
 - File comments are sparse; match the surrounding density. `@/` is the `src/` alias.

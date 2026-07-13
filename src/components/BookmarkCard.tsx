@@ -4,6 +4,7 @@
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { HighlightedText } from "@/components/HighlightedText";
 import { IconAction } from "@/components/IconAction";
 import { NoteText } from "@/components/NoteText";
 import { BulletButton, NumberButton } from "@/components/BulletButton";
@@ -55,6 +56,8 @@ type Props = {
   bookmark: Bookmark;
   onUpdate: (id: string, data: Partial<Bookmark>) => void;
   onDelete: (id: string) => void;
+  /** Active search query — matched characters in title/URL are highlighted. */
+  query?: string;
   usageLabel?: string;
   folderOptions: Array<{ id: string; name: string; label: string }>;
   folderName?: string;
@@ -94,6 +97,7 @@ export function BookmarkCard({
   bookmark,
   onUpdate,
   onDelete,
+  query,
   usageLabel,
   folderOptions,
   folderName,
@@ -495,10 +499,10 @@ export function BookmarkCard({
             ) : (
               <>
                 <p className="line-clamp-2 text-sm font-semibold text-slate-100">
-                  {bookmark.title || bookmark.url}
+                  <HighlightedText text={bookmark.title || bookmark.url} query={query} />
                 </p>
                 <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-400">
-                  {hostnameForDisplay}
+                  <HighlightedText text={hostnameForDisplay} query={query} />
                 </p>
               </>
             )}
@@ -709,7 +713,7 @@ export function BookmarkCard({
                 </span>
               )}
               <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
-                {bookmark.title || bookmark.url}
+                <HighlightedText text={bookmark.title || bookmark.url} query={query} />
               </span>
             </div>
           ) : (
@@ -788,7 +792,7 @@ export function BookmarkCard({
                 <>
                   {selectMode ? (
                     <p className="line-clamp-2 break-words text-sm font-semibold text-slate-900 dark:text-slate-50">
-                      {bookmark.title}
+                      <HighlightedText text={bookmark.title} query={query} />
                     </p>
                   ) : (
                     <a
@@ -797,11 +801,11 @@ export function BookmarkCard({
                       rel="noreferrer"
                       className="line-clamp-2 break-words text-sm font-semibold text-slate-900 hover:text-blue-600 dark:text-slate-50 dark:hover:text-blue-400"
                     >
-                      {bookmark.title}
+                      <HighlightedText text={bookmark.title} query={query} />
                     </a>
                   )}
                   <p className="mt-1 line-clamp-1 break-all text-xs text-slate-500 dark:text-slate-400">
-                    {bookmark.url}
+                    <HighlightedText text={bookmark.url} query={query} />
                   </p>
                 </>
               )}
