@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Check, CheckSquare, Pencil, Trash2, X } from "@/components/icons";
+import { Check, CheckSquare, Pencil, Search, Trash2, X } from "@/components/icons";
 import { BulletButton, NumberButton } from "@/components/BulletButton";
 import { NoteText } from "@/components/NoteText";
 import {
@@ -17,6 +17,7 @@ import {
 import { DueField } from "@/features/focus/components/DueField";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
+import { filterTodos } from "@/features/focus/lib/todoSearch";
 import type { Todo, TodoList as TodoListKey } from "@/features/focus/lib/types";
 
 type TodoListProps = {
@@ -253,6 +254,7 @@ export function TodoList({
   const [draftNote, setDraftNote] = useState("");
   const [draftDue, setDraftDue] = useState<string | null>(null);
   const [draftProject, setDraftProject] = useState("");
+  const [search, setSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -299,6 +301,20 @@ export function TodoList({
       }),
     [activeInList]
   );
+
+  // Quick search filters whichever list (Personal/Project) is showing, matching
+  // the to-do text, note, and project name. Tab counts stay unfiltered totals.
+  const query = search.trim();
+  const filteredActive = useMemo(
+    () => filterTodos(sortedActive, query),
+    [sortedActive, query]
+  );
+  const filteredDone = useMemo(
+    () => filterTodos(doneInList, query),
+    [doneInList, query]
+  );
+  // A live query reveals matching Done items even when the fold is collapsed.
+  const doneOpen = showDone || query.length > 0;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -476,6 +492,34 @@ export function TodoList({
         </div>
       )}
 
+      {activeInList.length + doneInList.length > 0 && (
+        <div className="relative mt-4">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
+            <Search className="h-4 w-4" />
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={
+              list === "project" ? "Search project fixes" : "Search to-dos"
+            }
+            aria-label="Search to-dos"
+            className="w-full rounded-lg border border-slate-700 bg-slate-950/60 py-2 pl-9 pr-9 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              className="absolute inset-y-0 right-2 flex items-center text-slate-500 transition hover:text-slate-300"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       <ul className="mt-4 flex flex-col gap-2">
         {sortedActive.length === 0 ? (
           <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
@@ -483,8 +527,12 @@ export function TodoList({
               ? "No project fixes. Add one — it stays private, off your Google Calendar."
               : "Nothing to do. Add a to-do — give it a due date for a live countdown."}
           </li>
+        ) : filteredActive.length === 0 ? (
+          <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+            No to-dos match “{query}”.
+          </li>
         ) : (
-          sortedActive.map((todo) => {
+          filteredActive.map((todo) => {
             if (editingId === todo.id) {
               return (
                 <li
@@ -613,18 +661,27 @@ export function TodoList({
         )}
       </ul>
 
-      {doneInList.length > 0 && (
+      {filteredDone.length > 0 && (
         <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => setShowDone((v) => !v)}
-            className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
-          >
-            {showDone ? "▾" : "▸"} Done ({doneInList.length})
-          </button>
-          {showDone && (
+          {/* While searching, the fold is locked open to surface matches, so the
+              header is static text — not a toggle that would look inert and
+              quietly flip showDone under the query. */}
+          {query ? (
+            <span className="text-xs font-medium text-slate-500">
+              Done ({filteredDone.length})
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDone((v) => !v)}
+              className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
+            >
+              {showDone ? "▾" : "▸"} Done ({filteredDone.length})
+            </button>
+          )}
+          {doneOpen && (
             <ul className="mt-2 flex flex-col gap-1.5">
-              {doneInList.map((todo) => (
+              {filteredDone.map((todo) => (
                 <li
                   key={todo.id}
                   className="group flex items-center gap-3 rounded-lg px-3 py-1.5"
