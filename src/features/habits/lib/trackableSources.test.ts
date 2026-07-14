@@ -8,7 +8,13 @@ vi.mock("@/features/focus/data/focusData", () => ({
   subscribeNotes: () => () => {},
   subscribeMeditationSessions: () => () => {},
   subscribeSessions: () => () => {},
+  subscribeResets: () => () => {},
   saveHydration: async () => {},
+}));
+// inventoryData also imports the Firebase client — stub it (the declutter source
+// wires to it), so importing the registry stays node-safe.
+vi.mock("@/features/inventory/data/inventoryData", () => ({
+  subscribeItems: () => () => {},
 }));
 
 import {
@@ -74,6 +80,13 @@ describe("resolveSource", () => {
     const d = habit({ type: "binary", name: "Deep work block" });
     expect(resolveSource(d)?.id).toBe("focus");
     expect(sourceById("focus")?.habitType).toBe("any");
+  });
+
+  it("links a declutter habit to the inventory source", () => {
+    const d = habit({ type: "binary", name: "Declutter one thing" });
+    expect(resolveSource(d)?.id).toBe("declutter");
+    const donate = habit({ type: "binary", name: "Donate something" });
+    expect(resolveSource(donate)?.id).toBe("declutter");
   });
 
   it("honors an explicit opt-out, but still surfaces the candidate to re-link", () => {

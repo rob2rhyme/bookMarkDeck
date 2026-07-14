@@ -186,6 +186,29 @@ export function useInventory(email?: string | null, connected = false) {
     [canSync, email]
   );
 
+  /** Let an item go: stamp the release date (declutter signal) and archive it
+   *  out of the active catalog. Keeps disposition + record for history. */
+  const releaseItem = useCallback(
+    (id: string, day: string) => {
+      setItems((prev) => {
+        const next = prev.map((i) =>
+          i.id === id
+            ? {
+                ...i,
+                releasedDate: day || null,
+                archived: true,
+                updatedAt: new Date().toISOString(),
+              }
+            : i
+        );
+        const updated = next.find((i) => i.id === id);
+        if (canSync && email && updated) saveItem(email, updated).catch(() => {});
+        return next;
+      });
+    },
+    [canSync, email]
+  );
+
   const active = useMemo(() => items.filter((i) => !i.archived), [items]);
 
   return {
@@ -197,6 +220,7 @@ export function useInventory(email?: string | null, connected = false) {
     removeItem,
     setArchived,
     markReturned,
+    releaseItem,
     pushToCloud,
     pullFromCloud,
     setItems,

@@ -6,8 +6,10 @@ import { Modal } from "@/components/Modal";
 import { X } from "@/components/icons";
 import {
   CONDITIONS,
+  DISPOSITIONS,
   type InventoryItem,
   type ItemCondition,
+  type ItemDisposition,
   type ItemLink,
 } from "@/features/inventory/lib/types";
 import {
@@ -54,6 +56,7 @@ type Draft = {
   lentTo: string;
   dueDate: string;
   projectName: string;
+  disposition: "" | ItemDisposition;
   notes: string;
   links: ItemLink[];
 };
@@ -80,6 +83,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     lentTo: item.lentTo ?? "",
     dueDate: item.dueDate ?? "",
     projectName: item.projectName ?? "",
+    disposition: item.disposition ?? "",
     notes: item.notes ?? "",
     links: item.links ?? [],
   };
@@ -195,6 +199,7 @@ export function ItemFormModal({
       lentDate: lentTo ? item.lentDate ?? stamp : null,
       dueDate: lentTo ? trimmedOrUndef(draft.dueDate) ?? null : null,
       projectName: trimmedOrUndef(draft.projectName),
+      disposition: draft.disposition || undefined,
       notes: trimmedOrUndef(draft.notes),
     };
     onSave(next);
@@ -492,21 +497,39 @@ export function ItemFormModal({
               />
             </Field>
 
-            <Field label="Focus project">
-              <input
-                type="text"
-                list="inventory-focus-projects"
-                value={draft.projectName}
-                onChange={(e) => set("projectName", e.target.value)}
-                placeholder="Tie this to a Focus project…"
-                className={fieldClass}
-              />
-              <datalist id="inventory-focus-projects">
-                {focusProjects.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Focus project">
+                <input
+                  type="text"
+                  list="inventory-focus-projects"
+                  value={draft.projectName}
+                  onChange={(e) => set("projectName", e.target.value)}
+                  placeholder="Tie this to a Focus project…"
+                  className={fieldClass}
+                />
+                <datalist id="inventory-focus-projects">
+                  {focusProjects.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </Field>
+              <Field label="Declutter">
+                <select
+                  value={draft.disposition}
+                  onChange={(e) =>
+                    set("disposition", e.target.value as Draft["disposition"])
+                  }
+                  className={fieldClass}
+                >
+                  <option value="">Keeping it</option>
+                  {DISPOSITIONS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
 
             <Field label="Photo URL">
               <input

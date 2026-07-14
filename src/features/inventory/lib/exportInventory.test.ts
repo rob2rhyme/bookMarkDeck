@@ -50,6 +50,8 @@ describe("inventory JSON round-trip", () => {
           warrantyExpiry: "2027-01-01",
           maintenanceDate: "2026-10-01",
           projectName: "Photo studio",
+          disposition: "sell",
+          releasedDate: "2026-07-14",
         }),
       ],
       locations: [
@@ -61,9 +63,11 @@ describe("inventory JSON round-trip", () => {
     const parsed = inventoryFromJson(json);
     expect(parsed).not.toBeNull();
     expect(parsed!.items[0].name).toBe("Camera");
-    // Maintenance + project survive the round-trip (not silently dropped).
+    // Maintenance + project + declutter survive the round-trip (not dropped).
     expect(parsed!.items[0].maintenanceDate).toBe("2026-10-01");
     expect(parsed!.items[0].projectName).toBe("Photo studio");
+    expect(parsed!.items[0].disposition).toBe("sell");
+    expect(parsed!.items[0].releasedDate).toBe("2026-07-14");
     expect(parsed!.locations[0].name).toBe("Office");
     expect(parsed!.settings).toEqual({ defaultCurrency: "EUR", defaultView: "list" });
     expect(backupCount(parsed!)).toBe(2);

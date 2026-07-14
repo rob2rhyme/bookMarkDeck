@@ -10,6 +10,7 @@ import {
   type InventoryItem,
   type InventoryLocation,
   type ItemCondition,
+  type ItemDisposition,
 } from "@/features/inventory/lib/types";
 
 const ITEM_COLUMNS = [
@@ -31,6 +32,8 @@ const ITEM_COLUMNS = [
   "lent_to",
   "due_date",
   "project",
+  "disposition",
+  "released_date",
   "tags",
   "links",
   "notes",
@@ -61,6 +64,8 @@ export function itemsToCsv(
       lent_to: i.lentTo ?? "",
       due_date: i.dueDate ?? "",
       project: i.projectName ?? "",
+      disposition: i.disposition ?? "",
+      released_date: i.releasedDate ?? "",
       tags: i.tags.join("; "),
       links: (i.links ?? []).map((l) => l.url).join("; "),
       notes: i.notes ?? "",
@@ -88,6 +93,17 @@ const CONDITION_SET = new Set<ItemCondition>(["new", "good", "fair", "poor"]);
 const asCondition = (v: unknown): ItemCondition | undefined =>
   typeof v === "string" && CONDITION_SET.has(v as ItemCondition)
     ? (v as ItemCondition)
+    : undefined;
+
+const DISPOSITION_SET = new Set<ItemDisposition>([
+  "donate",
+  "sell",
+  "giveaway",
+  "trash",
+]);
+const asDisposition = (v: unknown): ItemDisposition | undefined =>
+  typeof v === "string" && DISPOSITION_SET.has(v as ItemDisposition)
+    ? (v as ItemDisposition)
     : undefined;
 
 function pruneUndefined<T extends Record<string, unknown>>(o: T): T {
@@ -152,6 +168,8 @@ function coerceItem(raw: unknown): InventoryItem | null {
     lentDate: isDay(r.lentDate) ? r.lentDate : null,
     dueDate: isDay(r.dueDate) ? r.dueDate : null,
     projectName: str(r.projectName).trim() || undefined,
+    disposition: asDisposition(r.disposition),
+    releasedDate: isDay(r.releasedDate) ? r.releasedDate : null,
     links: coerceLinks(r.links),
     photos: coercePhotos(r.photos),
     archived: Boolean(r.archived),

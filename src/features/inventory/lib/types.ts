@@ -12,6 +12,17 @@ export const CONDITIONS: { id: ItemCondition; label: string }[] = [
   { id: "poor", label: "Poor" },
 ];
 
+/** Declutter intent — where an item is headed when you're letting it go.
+ *  Undefined = keeping it (the default). */
+export type ItemDisposition = "donate" | "sell" | "giveaway" | "trash";
+
+export const DISPOSITIONS: { id: ItemDisposition; label: string }[] = [
+  { id: "donate", label: "Donate" },
+  { id: "sell", label: "Sell" },
+  { id: "giveaway", label: "Give away" },
+  { id: "trash", label: "Toss" },
+];
+
 /**
  * A photo reference. In Phase 1 (pre-Storage) `url` holds a direct link the user
  * pasted; once Firebase Storage lands (Blaze-gated), `path` will hold the object
@@ -61,6 +72,8 @@ export type InventoryItem = {
   lentTo?: string | null;
   lentDate?: string | null; // YYYY-MM-DD
   dueDate?: string | null; // YYYY-MM-DD (return-by for a lent item)
+  disposition?: ItemDisposition; // declutter intent (undefined = keeping it)
+  releasedDate?: string | null; // YYYY-MM-DD it was actually let go (declutter signal)
   links: ItemLink[]; // bookmarks attached to this item (manual, product page, …)
   projectName?: string; // a Focus project label this item belongs to ("" = none)
   photos: ItemPhoto[];

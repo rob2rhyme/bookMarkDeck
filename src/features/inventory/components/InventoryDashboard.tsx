@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { HandHelping, MapPin, Package, Plus, Search, Tag, X } from "@/components/icons";
+import { HandHelping, MapPin, Package, Plus, Search, Sparkles, Tag, X } from "@/components/icons";
 import { downloadText } from "@/utils/download";
 import { restoreInventoryBackup } from "@/features/inventory/data/inventoryData";
 import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
@@ -27,7 +27,9 @@ import { LocationManager } from "@/features/inventory/components/LocationManager
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
 import { WhereIsModal } from "@/features/inventory/components/WhereIsModal";
 import { LendingLedgerModal } from "@/features/inventory/components/LendingLedgerModal";
+import { DeclutterModal } from "@/features/inventory/components/DeclutterModal";
 import { lendingLedger } from "@/features/inventory/lib/lending";
+import { declutterSummary } from "@/features/inventory/lib/declutter";
 
 function mergeById<T extends { id: string }>(prev: T[], incoming: T[]): T[] {
   const map = new Map(prev.map((x) => [x.id, x]));
@@ -74,6 +76,7 @@ export function InventoryDashboard() {
   const [locOpen, setLocOpen] = useState(false);
   const [whereOpen, setWhereOpen] = useState(false);
   const [lendOpen, setLendOpen] = useState(false);
+  const [declutterOpen, setDeclutterOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -93,6 +96,7 @@ export function InventoryDashboard() {
 
   const lending = useMemo(() => lendingLedger(inv.active, today), [inv.active, today]);
   const overdueCount = lending.filter((e) => e.status === "overdue").length;
+  const declutter = useMemo(() => declutterSummary(inv.active), [inv.active]);
 
   const visible = useMemo(() => {
     const base = showArchived ? inv.items : inv.active;
@@ -179,6 +183,18 @@ export function InventoryDashboard() {
                 }`}
               >
                 {lending.length}
+              </span>
+            </button>
+          )}
+          {declutter.count > 0 && (
+            <button
+              type="button"
+              onClick={() => setDeclutterOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+            >
+              <Sparkles className="h-4 w-4" /> Declutter
+              <span className="rounded-full bg-emerald-500/20 px-1.5 text-[11px] tabular-nums text-emerald-100">
+                {declutter.count}
               </span>
             </button>
           )}
@@ -432,6 +448,14 @@ export function InventoryDashboard() {
         onReturned={inv.markReturned}
         onEdit={openEdit}
         onClose={() => setLendOpen(false)}
+      />
+      <DeclutterModal
+        open={declutterOpen}
+        items={inv.active}
+        currency={settings.defaultCurrency}
+        onReleased={(id) => inv.releaseItem(id, today || todayKey())}
+        onEdit={openEdit}
+        onClose={() => setDeclutterOpen(false)}
       />
     </div>
   );
