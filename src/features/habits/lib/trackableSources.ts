@@ -24,6 +24,8 @@ import {
   subscribeResets,
   subscribeSessions,
 } from "@/features/focus/data/focusData";
+import { subscribeItems } from "@/features/inventory/data/inventoryData";
+import { releasedOn } from "@/features/inventory/lib/declutter";
 import {
   getFocusHydrationCache,
   isWaterHabit,
@@ -138,6 +140,17 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
       subscribeResets(email, (rows) =>
         cb(rows.filter((r) => r.day === day).length)
       ),
+    readCache: () => null,
+  },
+  {
+    id: "declutter",
+    label: "Items decluttered",
+    habitType: "any",
+    policy: "raiseOnly",
+    match: (h) => /declutter|tidy|purge|donate|give ?away|minimalis/.test(text(h)),
+    // Count how many inventory items were let go today (My Stuff → declutter).
+    subscribe: (email, day, cb) =>
+      subscribeItems(email, (items) => cb(releasedOn(items, day))),
     readCache: () => null,
   },
 ];

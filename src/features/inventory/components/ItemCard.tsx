@@ -1,7 +1,7 @@
 "use client";
 
 import { Archive, Package, Pencil, Trash2 } from "@/components/icons";
-import type { InventoryItem } from "@/features/inventory/lib/types";
+import { DISPOSITIONS, type InventoryItem } from "@/features/inventory/lib/types";
 import { formatMoney, itemValue, warrantyState } from "@/features/inventory/lib/value";
 
 type ItemCardProps = {
@@ -94,6 +94,14 @@ export function ItemCard({
               title={`Focus project: ${item.projectName}`}
             >
               🎯 {item.projectName}
+            </span>
+          )}
+          {item.disposition && (
+            <span
+              className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-200"
+              title="On the way out"
+            >
+              ✨ {DISPOSITIONS.find((d) => d.id === item.disposition)?.label ?? item.disposition}
             </span>
           )}
           {item.quantity > 1 && (
