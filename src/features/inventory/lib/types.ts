@@ -77,6 +77,7 @@ export type InventoryItem = {
   releasedDate?: string | null; // YYYY-MM-DD it was actually let go (declutter signal)
   links: ItemLink[]; // bookmarks attached to this item (manual, product page, …)
   projectName?: string; // a Focus project label this item belongs to ("" = none)
+  collection?: string; // a kit/collection this item is part of ("" = none)
   photos: ItemPhoto[];
   archived?: boolean;
   createdAt: string | null;

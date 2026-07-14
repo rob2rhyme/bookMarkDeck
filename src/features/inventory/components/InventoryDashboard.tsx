@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { HandHelping, MapPin, Package, Plus, Search, Sparkles, Tag, X } from "@/components/icons";
+import { HandHelping, Layers, MapPin, Package, Plus, Search, Sparkles, Tag, X } from "@/components/icons";
 import { downloadText } from "@/utils/download";
 import { restoreInventoryBackup } from "@/features/inventory/data/inventoryData";
 import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
@@ -28,8 +28,10 @@ import { ValuePanel } from "@/features/inventory/components/ValuePanel";
 import { WhereIsModal } from "@/features/inventory/components/WhereIsModal";
 import { LendingLedgerModal } from "@/features/inventory/components/LendingLedgerModal";
 import { DeclutterModal } from "@/features/inventory/components/DeclutterModal";
+import { CollectionsModal } from "@/features/inventory/components/CollectionsModal";
 import { lendingLedger } from "@/features/inventory/lib/lending";
 import { declutterSummary } from "@/features/inventory/lib/declutter";
+import { collectionGroups, collectionNames } from "@/features/inventory/lib/collections";
 
 function mergeById<T extends { id: string }>(prev: T[], incoming: T[]): T[] {
   const map = new Map(prev.map((x) => [x.id, x]));
@@ -48,6 +50,7 @@ function matches(item: InventoryItem, q: string): boolean {
     item.barcode,
     item.notes,
     item.projectName,
+    item.collection,
     item.tags.join(" "),
     item.links.map((l) => l.title).join(" "),
   ]
@@ -78,6 +81,7 @@ export function InventoryDashboard() {
   const [whereOpen, setWhereOpen] = useState(false);
   const [lendOpen, setLendOpen] = useState(false);
   const [declutterOpen, setDeclutterOpen] = useState(false);
+  const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -98,6 +102,8 @@ export function InventoryDashboard() {
   const lending = useMemo(() => lendingLedger(inv.active, today), [inv.active, today]);
   const overdueCount = lending.filter((e) => e.status === "overdue").length;
   const declutter = useMemo(() => declutterSummary(inv.active), [inv.active]);
+  const collections = useMemo(() => collectionNames(inv.active), [inv.active]);
+  const collectionCount = useMemo(() => collectionGroups(inv.active).length, [inv.active]);
 
   const visible = useMemo(() => {
     const base = showArchived ? inv.items : inv.active;
@@ -196,6 +202,18 @@ export function InventoryDashboard() {
               <Sparkles className="h-4 w-4" /> Declutter
               <span className="rounded-full bg-emerald-500/20 px-1.5 text-[11px] tabular-nums text-emerald-100">
                 {declutter.count}
+              </span>
+            </button>
+          )}
+          {collectionCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setCollectionsOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-teal-400 hover:text-teal-300"
+            >
+              <Layers className="h-4 w-4" /> Kits
+              <span className="rounded-full bg-teal-500/20 px-1.5 text-[11px] tabular-nums text-teal-100">
+                {collectionCount}
               </span>
             </button>
           )}
@@ -419,6 +437,7 @@ export function InventoryDashboard() {
         tree={loc.tree}
         categorySuggestions={categorySuggestions}
         focusProjects={focusProjects}
+        collections={collections}
         defaultCurrency={settings.defaultCurrency}
         today={today}
         bookmarks={bookmarkLibrary}
@@ -457,6 +476,13 @@ export function InventoryDashboard() {
         onReleased={(id) => inv.releaseItem(id, today || todayKey())}
         onEdit={openEdit}
         onClose={() => setDeclutterOpen(false)}
+      />
+      <CollectionsModal
+        open={collectionsOpen}
+        items={inv.active}
+        currency={settings.defaultCurrency}
+        onEdit={openEdit}
+        onClose={() => setCollectionsOpen(false)}
       />
     </div>
   );

@@ -345,6 +345,15 @@ export default function GuidePage() {
               red — with a one-tap <em>Returned</em> when it comes home.
             </p>
           </Sub>
+          <Sub title="Kits & collections">
+            <p>
+              Give related items the same <strong>Collection / kit</strong> name
+              — a camera bag, a board-game shelf, a first-aid kit — and{" "}
+              <strong>Kits</strong> gathers each set with its piece count and
+              total value, so you can see the whole thing at a glance and spot a
+              missing part.
+            </p>
+          </Sub>
           <Sub title="Declutter">
             <p>
               Tag anything you&apos;re moving on — <strong>donate, sell, give

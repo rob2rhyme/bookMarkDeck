@@ -30,6 +30,7 @@ type ItemFormModalProps = {
   tree: LocationNode[];
   categorySuggestions: string[];
   focusProjects: string[]; // the user's Focus project labels (read-only)
+  collections: string[]; // existing kit/collection names (for the picker)
   defaultCurrency: string;
   today: string; // YYYY-MM-DD
   bookmarks: ItemLink[]; // the user's bookmark library (read-only)
@@ -60,6 +61,7 @@ type Draft = {
   lentTo: string;
   dueDate: string;
   projectName: string;
+  collection: string;
   disposition: "" | ItemDisposition;
   notes: string;
   links: ItemLink[];
@@ -88,6 +90,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     lentTo: item.lentTo ?? "",
     dueDate: item.dueDate ?? "",
     projectName: item.projectName ?? "",
+    collection: item.collection ?? "",
     disposition: item.disposition ?? "",
     notes: item.notes ?? "",
     links: item.links ?? [],
@@ -119,6 +122,7 @@ export function ItemFormModal({
   tree,
   categorySuggestions,
   focusProjects,
+  collections,
   defaultCurrency,
   today,
   bookmarks,
@@ -251,6 +255,7 @@ export function ItemFormModal({
       lentDate: lentTo ? item.lentDate ?? stamp : null,
       dueDate: lentTo ? trimmedOrUndef(draft.dueDate) ?? null : null,
       projectName: trimmedOrUndef(draft.projectName),
+      collection: trimmedOrUndef(draft.collection),
       disposition: draft.disposition || undefined,
       notes: trimmedOrUndef(draft.notes),
     };
@@ -634,6 +639,22 @@ export function ItemFormModal({
                 </select>
               </Field>
             </div>
+
+            <Field label="Collection / kit">
+              <input
+                type="text"
+                list="inventory-collections"
+                value={draft.collection}
+                onChange={(e) => set("collection", e.target.value)}
+                placeholder="Group it — camera bag, board games…"
+                className={fieldClass}
+              />
+              <datalist id="inventory-collections">
+                {collections.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </Field>
 
             <Field label="Photo URL">
               <input

@@ -62,10 +62,11 @@ size-cap gotcha and the migration path from the current `ItemPhoto` shape.
 9. ✅ **Barcode quick-add** — client `BarcodeDetector`, manual fallback (capture
    only). (PR #167 — `BarcodeScanner`, `useBarcodeSupported`, Barcode field.
    *Product lookup shipped separately as a B item — see below.*)
-10. **Kits / collections** _(todo)_, **insurance PDF export** (client-side)
-    _(todo)_, ✅ **value & depreciation curves** (pure math in `lib/value.ts` —
-    straight-line/category-aware resale estimate + 5-year curve in the value
-    panel; PR-B this cycle).
+10. ✅ **Kits / collections** (single `collection` label + `collectionGroups`
+    grouping, "Kits" modal with per-kit count/value, form datalist + card
+    chip), **insurance PDF export** (client-side) _(todo)_, ✅ **value &
+    depreciation curves** (pure math in `lib/value.ts` — straight-line/
+    category-aware resale estimate + 5-year curve in the value panel).
 
 **B — worth it, needs the storage decision (now R2, not Blaze):** native
 camera capture + client compression (the keystone); receipt/document
