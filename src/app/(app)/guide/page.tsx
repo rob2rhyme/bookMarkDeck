@@ -295,12 +295,14 @@ export default function GuidePage() {
           <Sub title="Add & organize">
             <p>
               A name is enough to add an item — category, tags, quantity,
-              purchase details, serial, condition, estimated value, a photo URL,
-              and notes all fold away under <em>Add details</em> for later.
-              Organize items into <strong>nestable locations</strong> — rooms,
-              shelves, boxes — and browse in grid or list view. While naming a
-              new item, a gentle &ldquo;you may already own this&rdquo; hint
-              helps before you buy a duplicate.
+              purchase details, serial, condition, estimated value, a{" "}
+              <strong>photo</strong> (snap one with your camera, upload a file,
+              or paste a URL — it&apos;s compressed on your device before it
+              saves), and notes all fold away under <em>Add details</em> for
+              later. Organize items into <strong>nestable locations</strong> —
+              rooms, shelves, boxes — and browse in grid or list view. While
+              naming a new item, a gentle &ldquo;you may already own this&rdquo;
+              hint helps before you buy a duplicate.
             </p>
           </Sub>
           <Sub title="Find it — and find where it is">

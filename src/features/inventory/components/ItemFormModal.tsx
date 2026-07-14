@@ -23,6 +23,7 @@ import {
 import { useBarcodeSupported } from "@/features/inventory/hooks/useBarcodeSupported";
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 import type { ProductInfo } from "@/features/inventory/lib/productLookup";
+import { compressImageFile } from "@/features/inventory/lib/image";
 
 type ItemFormModalProps = {
   open: boolean;
@@ -137,6 +138,8 @@ export function ItemFormModal({
   const [lookupStatus, setLookupStatus] = useState<
     "idle" | "loading" | "found" | "none"
   >("idle");
+  const [compressing, setCompressing] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const barcodeSupported = useBarcodeSupported();
 
   // Seed the form when it opens (or when the target item changes). New items
@@ -149,6 +152,8 @@ export function ItemFormModal({
       setLinkQuery("");
       setScanning(false);
       setLookupStatus("idle");
+      setCompressing(false);
+      setPhotoError(null);
     }
     if (!open) setDraft(null);
   }, [open, item, defaultCurrency]);
@@ -193,6 +198,22 @@ export function ItemFormModal({
       }
     } catch {
       setLookupStatus("none");
+    }
+  };
+
+  // Camera capture / file pick → compress client-side → store as a compact
+  // data: URL on the item (R2 upload will slot in here later).
+  const onPickPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setPhotoError(null);
+    setCompressing(true);
+    try {
+      const { dataUrl } = await compressImageFile(file);
+      set("photoUrl", dataUrl);
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : "Couldn't process that image.");
+    } finally {
+      setCompressing(false);
     }
   };
 
@@ -656,15 +677,69 @@ export function ItemFormModal({
               </datalist>
             </Field>
 
-            <Field label="Photo URL">
+            <div>
+              <span className={labelClass}>Photo</span>
+              {draft.photoUrl && (
+                <div className="mb-2 flex items-center gap-3">
+                  {/* Data/URL photos aren't in next/image's allowlist. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={draft.photoUrl}
+                    alt=""
+                    className="h-16 w-16 rounded-lg border border-slate-700 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => set("photoUrl", "")}
+                    className="text-xs font-medium text-slate-400 transition hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <label className="cursor-pointer rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300">
+                  📷 Take photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      onPickPhoto(f);
+                    }}
+                  />
+                </label>
+                <label className="cursor-pointer rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300">
+                  Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      onPickPhoto(f);
+                    }}
+                  />
+                </label>
+              </div>
+              {compressing && (
+                <p className="mt-1 text-[11px] text-slate-400">Optimizing photo…</p>
+              )}
+              {photoError && (
+                <p className="mt-1 text-[11px] text-amber-300/90">{photoError}</p>
+              )}
               <input
                 type="url"
-                value={draft.photoUrl}
+                value={draft.photoUrl.startsWith("data:") ? "" : draft.photoUrl}
                 onChange={(e) => set("photoUrl", e.target.value)}
-                placeholder="https://…  (uploads land with the R2 pipeline — see roadmap)"
-                className={fieldClass}
+                placeholder="or paste an image URL…"
+                className={`${fieldClass} mt-2`}
               />
-            </Field>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <Field label="Lent to">
