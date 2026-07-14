@@ -32,6 +32,7 @@ import {
   type InventoryLocation,
   type InventorySettings,
   type ItemCondition,
+  type ItemDisposition,
   type ItemDoc,
   type ItemDocKind,
 } from "@/features/inventory/lib/types";
@@ -65,6 +66,12 @@ function timestampToIso(value: unknown): string | null {
 }
 
 const CONDITIONS = new Set<ItemCondition>(["new", "good", "fair", "poor"]);
+const DISPOSITION_SET = new Set<ItemDisposition>([
+  "donate",
+  "sell",
+  "giveaway",
+  "trash",
+]);
 const numOrUndef = (v: unknown): number | undefined =>
   typeof v === "number" && Number.isFinite(v) ? v : undefined;
 const strOrUndef = (v: unknown): string | undefined =>
@@ -102,7 +109,9 @@ function mapItem(d: {
     manufacturer: strOrUndef(data.manufacturer),
     model: strOrUndef(data.model),
     serial: strOrUndef(data.serial),
+    barcode: strOrUndef(data.barcode),
     warrantyExpiry: strOrUndef(data.warrantyExpiry),
+    maintenanceDate: strOrUndef(data.maintenanceDate),
     condition:
       typeof cond === "string" && CONDITIONS.has(cond as ItemCondition)
         ? (cond as ItemCondition)
@@ -112,6 +121,14 @@ function mapItem(d: {
     lentTo: typeof data.lentTo === "string" ? data.lentTo : null,
     lentDate: typeof data.lentDate === "string" ? data.lentDate : null,
     dueDate: typeof data.dueDate === "string" ? data.dueDate : null,
+    disposition:
+      typeof data.disposition === "string" &&
+      DISPOSITION_SET.has(data.disposition as ItemDisposition)
+        ? (data.disposition as ItemDisposition)
+        : undefined,
+    releasedDate: typeof data.releasedDate === "string" ? data.releasedDate : null,
+    projectName: strOrUndef(data.projectName),
+    collection: strOrUndef(data.collection),
     links: (Array.isArray(data.links) ? data.links : [])
       .map((l) => {
         const r = (l ?? {}) as Record<string, unknown>;
@@ -158,13 +175,19 @@ function itemPayload(item: InventoryItem): Record<string, unknown> {
     manufacturer: strOrUndef(item.manufacturer),
     model: strOrUndef(item.model),
     serial: strOrUndef(item.serial),
+    barcode: strOrUndef(item.barcode),
     warrantyExpiry: strOrUndef(item.warrantyExpiry),
+    maintenanceDate: strOrUndef(item.maintenanceDate),
     condition: item.condition,
     value: numOrUndef(item.value),
     notes: strOrUndef(item.notes),
     lentTo: item.lentTo?.trim() ? item.lentTo.trim() : null,
     lentDate: item.lentDate ?? null,
     dueDate: item.dueDate ?? null,
+    disposition: item.disposition,
+    releasedDate: item.releasedDate ?? null,
+    projectName: strOrUndef(item.projectName),
+    collection: strOrUndef(item.collection),
     links: (item.links ?? []).map((l) => ({ id: l.id, title: l.title, url: l.url })),
     photos: (item.photos ?? []).map((p) =>
       prune({ id: p.id, url: p.url, path: p.path, w: p.w, h: p.h })
@@ -248,7 +271,8 @@ export async function saveItemDoc(emailHint: string, d: ItemDoc): Promise<void> 
       path: strOrUndef(d.path),
       w: d.w,
       h: d.h,
-      createdAt: serverTimestamp(),
+      // Preserve the original stamp on rewrite so doc ordering never resets.
+      createdAt: d.createdAt ?? serverTimestamp(),
     })
   );
 }

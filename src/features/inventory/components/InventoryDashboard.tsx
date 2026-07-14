@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { HandHelping, Layers, MapPin, Package, Plus, Search, Sparkles, Tag, X } from "@/components/icons";
@@ -54,9 +54,12 @@ import {
   insuranceReportHtml,
 } from "@/features/inventory/lib/insuranceReport";
 
+/** Merge-by-id where EXISTING records win — imports only add what's missing,
+ *  keeping the "nothing is overwritten" promise (a stale backup can't clobber
+ *  recent edits). */
 function mergeById<T extends { id: string }>(prev: T[], incoming: T[]): T[] {
   const map = new Map(prev.map((x) => [x.id, x]));
-  for (const x of incoming) map.set(x.id, x);
+  for (const x of incoming) if (!map.has(x.id)) map.set(x.id, x);
   return [...map.values()];
 }
 
@@ -94,7 +97,18 @@ export function InventoryDashboard() {
 
   // Compute "today" after mount so warranty math is hydration-safe.
   const [today, setToday] = useState("");
-  useEffect(() => setToday(todayKey()), []);
+  useEffect(() => {
+    setToday(todayKey());
+    // Refresh across midnight so long-lived tabs don't stamp yesterday on
+    // lends/releases or show day-off warranty chips.
+    const id = setInterval(() => {
+      setToday((prev) => {
+        const now = todayKey();
+        return prev === now ? prev : now;
+      });
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
@@ -132,11 +146,14 @@ export function InventoryDashboard() {
       .filter((i) => matches(i, query.trim()))
       .filter((i) => {
         if (!locationFilter) return true;
-        if (locationFilter === "__none__") return !i.locationId;
+        // A dangling locationId (location deleted before this fix, or by an
+        // older client) counts as unassigned so the item never vanishes.
+        if (locationFilter === "__none__")
+          return !i.locationId || !loc.nameById[i.locationId];
         return i.locationId === locationFilter;
       })
       .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
-  }, [inv.items, inv.active, showArchived, query, locationFilter]);
+  }, [inv.items, inv.active, showArchived, query, locationFilter, loc.nameById]);
 
   const openAdd = () => {
     setEditing(blankItem(settings.defaultCurrency));
@@ -189,9 +206,25 @@ export function InventoryDashboard() {
     openEdit(item);
   };
 
-  // Attachments live in their own subcollection; the form drives them via these.
-  const fetchDocs = (itemId: string): Promise<ItemDoc[]> =>
-    connected && email ? fetchItemDocs(email, itemId) : Promise.resolve([]);
+  // Keep LocationManager's promise: items in a deleted location become
+  // Unassigned for real (their docs update too, when connected) instead of
+  // dangling with an id no view can surface.
+  const removeLocationAndUnassign = (id: string) => {
+    inv.items
+      .filter((i) => i.locationId === id)
+      .forEach((i) => inv.upsertItem({ ...i, locationId: null }));
+    loc.removeLocation(id);
+  };
+
+  // Attachments live in their own subcollection; the form drives them via
+  // these. fetchDocs is memoized because the detail modal's load effect
+  // depends on it — a fresh identity every render would reset its carousel
+  // and refetch docs whenever any background snapshot re-renders us.
+  const fetchDocs = useCallback(
+    (itemId: string): Promise<ItemDoc[]> =>
+      connected && email ? fetchItemDocs(email, itemId) : Promise.resolve([]),
+    [connected, email]
+  );
   const addDoc = (d: ItemDoc): Promise<void> =>
     connected && email ? saveItemDoc(email, d) : Promise.resolve();
   const removeDoc = (id: string): Promise<void> =>
@@ -270,7 +303,18 @@ export function InventoryDashboard() {
     loc.setLocations((prev) => mergeById(prev, backup.locations));
     inv.setItems((prev) => mergeById(prev, backup.items));
     update(backup.settings);
-    if (connected && email) await restoreInventoryBackup(email, backup);
+    if (connected && email) {
+      // Push only the records that were actually NEW locally — restoring the
+      // whole backup would overwrite newer cloud docs, and the snapshot echo
+      // would then undo the local no-overwrite merge.
+      const itemIds = new Set(inv.items.map((i) => i.id));
+      const locIds = new Set(loc.locations.map((l) => l.id));
+      await restoreInventoryBackup(email, {
+        ...backup,
+        items: backup.items.filter((i) => !itemIds.has(i.id)),
+        locations: backup.locations.filter((l) => !locIds.has(l.id)),
+      });
+    }
     setDataMsg(`Imported ${backupCount(backup)} record${backupCount(backup) === 1 ? "" : "s"}.`);
   };
 
@@ -493,7 +537,9 @@ export function InventoryDashboard() {
             {
               key: "__none__",
               label: "Unassigned",
-              items: visible.filter((i) => !i.locationId),
+              items: visible.filter(
+                (i) => !i.locationId || !loc.nameById[i.locationId]
+              ),
             },
           ]
             .filter((g) => g.items.length > 0)
@@ -633,7 +679,7 @@ export function InventoryDashboard() {
         countByLocation={countByLocation}
         onAdd={loc.addLocation}
         onRename={loc.renameLocation}
-        onRemove={loc.removeLocation}
+        onRemove={removeLocationAndUnassign}
         onClose={() => setLocOpen(false)}
       />
       <WhereIsModal

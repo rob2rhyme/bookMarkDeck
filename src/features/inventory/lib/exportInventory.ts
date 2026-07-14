@@ -39,6 +39,9 @@ const ITEM_COLUMNS = [
   "tags",
   "links",
   "notes",
+  "description",
+  "lent_date",
+  "archived",
 ];
 
 export function itemsToCsv(
@@ -73,6 +76,9 @@ export function itemsToCsv(
       tags: i.tags.join("; "),
       links: (i.links ?? []).map((l) => l.url).join("; "),
       notes: i.notes ?? "",
+      description: i.description ?? "",
+      lent_date: i.lentDate ?? "",
+      archived: i.archived ? "yes" : "",
     }));
   return toCsv(ITEM_COLUMNS, rows);
 }
