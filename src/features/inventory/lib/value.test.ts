@@ -19,6 +19,7 @@ function item(partial: Partial<InventoryItem>): InventoryItem {
     locationId: partial.locationId ?? null,
     tags: partial.tags ?? [],
     quantity: partial.quantity ?? 1,
+    links: partial.links ?? [],
     photos: partial.photos ?? [],
     createdAt: null,
     updatedAt: null,

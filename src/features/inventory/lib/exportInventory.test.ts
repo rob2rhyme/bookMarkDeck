@@ -15,6 +15,7 @@ function item(partial: Partial<InventoryItem>): InventoryItem {
     locationId: partial.locationId ?? null,
     tags: partial.tags ?? [],
     quantity: partial.quantity ?? 1,
+    links: partial.links ?? [],
     photos: partial.photos ?? [],
     createdAt: null,
     updatedAt: null,
@@ -66,5 +67,26 @@ describe("inventory JSON round-trip", () => {
     });
     const parsed = inventoryFromJson(json);
     expect(parsed!.items.map((i) => i.name)).toEqual(["Keeper"]);
+  });
+
+  it("round-trips item links and drops malformed ones", () => {
+    const backup: InventoryBackup = {
+      items: [
+        item({
+          name: "Drill",
+          links: [{ id: "bm1", title: "Manual", url: "https://bosch.com/manual" }],
+        }),
+      ],
+      locations: [],
+      settings: { defaultCurrency: "USD", defaultView: "grid" },
+    };
+    const parsed = inventoryFromJson(inventoryToJson(backup, "2026-07-14T00:00:00Z"));
+    expect(parsed!.items[0].links).toEqual([
+      { id: "bm1", title: "Manual", url: "https://bosch.com/manual" },
+    ]);
+    const junk = inventoryFromJson(
+      JSON.stringify({ items: [{ id: "a", name: "X", links: [{ title: "no url" }] }] })
+    );
+    expect(junk!.items[0].links).toEqual([]);
   });
 });

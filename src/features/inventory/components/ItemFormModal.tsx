@@ -3,11 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { X } from "@/components/icons";
 import {
   CONDITIONS,
   type InventoryItem,
   type ItemCondition,
+  type ItemLink,
 } from "@/features/inventory/lib/types";
+import {
+  filterBookmarks,
+  similarItems,
+} from "@/features/inventory/lib/inventorySearch";
 import {
   flattenTree,
   type LocationNode,
@@ -20,6 +26,8 @@ type ItemFormModalProps = {
   categorySuggestions: string[];
   defaultCurrency: string;
   today: string; // YYYY-MM-DD
+  bookmarks: ItemLink[]; // the user's bookmark library (read-only)
+  existingItems: InventoryItem[]; // for the "already own this?" nudge
   onSave: (item: InventoryItem) => void;
   onClose: () => void;
 };
@@ -44,6 +52,7 @@ type Draft = {
   lentTo: string;
   dueDate: string;
   notes: string;
+  links: ItemLink[];
 };
 
 function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
@@ -67,6 +76,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     lentTo: item.lentTo ?? "",
     dueDate: item.dueDate ?? "",
     notes: item.notes ?? "",
+    links: item.links ?? [],
   };
 }
 
@@ -96,14 +106,24 @@ export function ItemFormModal({
   categorySuggestions,
   defaultCurrency,
   today,
+  bookmarks,
+  existingItems,
   onSave,
   onClose,
 }: ItemFormModalProps) {
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [linkQuery, setLinkQuery] = useState("");
 
-  // Seed the form when it opens (or when the target item changes).
+  // Seed the form when it opens (or when the target item changes). New items
+  // start with details folded away — a name is enough to save (quick add);
+  // editing opens everything.
   useEffect(() => {
-    if (open && item) setDraft(toDraft(item, defaultCurrency));
+    if (open && item) {
+      setDraft(toDraft(item, defaultCurrency));
+      setShowDetails(Boolean(item.updatedAt || item.name));
+      setLinkQuery("");
+    }
     if (!open) setDraft(null);
   }, [open, item, defaultCurrency]);
 
@@ -116,6 +136,23 @@ export function ItemFormModal({
   const canSave = draft.name.trim().length > 0;
   // `today` is set post-mount; guard the lend-date stamp in the unlikely early case.
   const stamp = today || new Date().toISOString().slice(0, 10);
+
+  // "Do I already own this?" — a gentle nudge while naming a NEW item.
+  const lookalikes = isNew ? similarItems(existingItems, draft.name) : [];
+  const attachedIds = new Set(draft.links.map((l) => l.id));
+  const linkResults = filterBookmarks(bookmarks, linkQuery).filter(
+    (b) => !attachedIds.has(b.id)
+  );
+
+  const attachLink = (b: ItemLink) => {
+    set("links", [...draft.links, b]);
+    setLinkQuery("");
+  };
+  const detachLink = (id: string) =>
+    set(
+      "links",
+      draft.links.filter((l) => l.id !== id)
+    );
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,6 +181,7 @@ export function ItemFormModal({
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
+      links: draft.links,
       photos,
       lentTo,
       // Stamp a lend-out date the first time something is marked lent.
@@ -167,6 +205,11 @@ export function ItemFormModal({
           <h2 className="text-lg font-semibold text-slate-50">
             {isNew ? "Add item" : "Edit item"}
           </h2>
+          {isNew && (
+            <span className="text-[11px] text-slate-500">
+              A name is enough — fill the rest in later.
+            </span>
+          )}
         </div>
 
         <Field label="Name">
@@ -179,6 +222,19 @@ export function ItemFormModal({
             className={fieldClass}
           />
         </Field>
+
+        {lookalikes.length > 0 && (
+          <p className="rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
+            Looks like you may already own this:{" "}
+            {lookalikes.map((i, idx) => (
+              <span key={i.id}>
+                {idx > 0 && ", "}
+                <strong>{i.name}</strong>
+              </span>
+            ))}
+            <span className="text-amber-200/60"> — still adding is fine.</span>
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Category">
@@ -205,178 +261,262 @@ export function ItemFormModal({
               <option value="">Unassigned</option>
               {flatLocations.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {`${"  ".repeat(l.depth)}${l.name}`}
+                  {`${"  ".repeat(l.depth)}${l.name}`}
                 </option>
               ))}
             </select>
           </Field>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="Quantity">
-            <input
-              type="number"
-              min={1}
-              value={draft.quantity}
-              onChange={(e) => set("quantity", e.target.value)}
-              className={fieldClass}
-            />
-          </Field>
-          <Field label="Est. value">
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={draft.value}
-              onChange={(e) => set("value", e.target.value)}
-              placeholder="0"
-              className={fieldClass}
-            />
-          </Field>
-          <Field label="Currency">
-            <input
-              type="text"
-              value={draft.currency}
-              onChange={(e) => set("currency", e.target.value.toUpperCase())}
-              maxLength={3}
-              className={fieldClass}
-            />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Paid (price)">
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={draft.price}
-              onChange={(e) => set("price", e.target.value)}
-              placeholder="0"
-              className={fieldClass}
-            />
-          </Field>
-          <Field label="Condition">
-            <select
-              value={draft.condition}
-              onChange={(e) => set("condition", e.target.value as Draft["condition"])}
-              className={fieldClass}
-            >
-              <option value="">—</option>
-              {CONDITIONS.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
+        {/* Links — the item's online life, picked from the bookmark library. */}
+        <div>
+          <span className={labelClass}>
+            Links — manual, product page, warranty…
+          </span>
+          {draft.links.length > 0 && (
+            <ul className="mb-1.5 flex flex-wrap gap-1.5">
+              {draft.links.map((l) => (
+                <li
+                  key={l.id}
+                  className="flex max-w-full items-center gap-1 rounded-full border border-blue-400/40 bg-blue-500/10 py-0.5 pl-2.5 pr-1 text-xs text-blue-200"
+                >
+                  <span className="truncate" title={l.url}>
+                    🔗 {l.title}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => detachLink(l.id)}
+                    aria-label={`Remove link ${l.title}`}
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-blue-300/70 transition hover:text-blue-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </li>
               ))}
-            </select>
-          </Field>
+            </ul>
+          )}
+          {bookmarks.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              No bookmarks yet — save some on the Bookmarks page, then attach
+              them here.
+            </p>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={linkQuery}
+                onChange={(e) => setLinkQuery(e.target.value)}
+                placeholder="Search your bookmarks to attach…"
+                aria-label="Search bookmarks to attach"
+                className={fieldClass}
+              />
+              {linkQuery.trim() && (
+                <ul className="mt-1 overflow-hidden rounded-lg border border-slate-800 bg-slate-950/60">
+                  {linkResults.length === 0 ? (
+                    <li className="px-3 py-2 text-xs text-slate-500">
+                      No bookmarks match “{linkQuery.trim()}”.
+                    </li>
+                  ) : (
+                    linkResults.map((b) => (
+                      <li key={b.id}>
+                        <button
+                          type="button"
+                          onClick={() => attachLink(b)}
+                          className="flex w-full items-baseline gap-2 px-3 py-1.5 text-left transition hover:bg-slate-800/60"
+                        >
+                          <span className="min-w-0 truncate text-sm text-slate-200">
+                            {b.title}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-[11px] text-slate-500">
+                            {b.url}
+                          </span>
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Purchase date">
-            <input
-              type="date"
-              value={draft.purchaseDate}
-              onChange={(e) => set("purchaseDate", e.target.value)}
-              className={fieldClass}
-            />
-          </Field>
-          <Field label="Warranty expires">
-            <input
-              type="date"
-              value={draft.warrantyExpiry}
-              onChange={(e) => set("warrantyExpiry", e.target.value)}
-              className={fieldClass}
-            />
-          </Field>
-        </div>
+        {!showDetails ? (
+          <button
+            type="button"
+            onClick={() => setShowDetails(true)}
+            className="self-start text-xs font-medium text-blue-300 transition hover:text-blue-200"
+          >
+            ▸ Add details — value, warranty, serial, photo…
+          </button>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Quantity">
+                <input
+                  type="number"
+                  min={1}
+                  value={draft.quantity}
+                  onChange={(e) => set("quantity", e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Est. value">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draft.value}
+                  onChange={(e) => set("value", e.target.value)}
+                  placeholder="0"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Currency">
+                <input
+                  type="text"
+                  value={draft.currency}
+                  onChange={(e) => set("currency", e.target.value.toUpperCase())}
+                  maxLength={3}
+                  className={fieldClass}
+                />
+              </Field>
+            </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="Maker">
-            <input
-              type="text"
-              value={draft.manufacturer}
-              onChange={(e) => set("manufacturer", e.target.value)}
-              className={fieldClass}
-            />
-          </Field>
-          <Field label="Model">
-            <input
-              type="text"
-              value={draft.model}
-              onChange={(e) => set("model", e.target.value)}
-              className={fieldClass}
-            />
-          </Field>
-          <Field label="Serial">
-            <input
-              type="text"
-              value={draft.serial}
-              onChange={(e) => set("serial", e.target.value)}
-              className={fieldClass}
-            />
-          </Field>
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Paid (price)">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draft.price}
+                  onChange={(e) => set("price", e.target.value)}
+                  placeholder="0"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Condition">
+                <select
+                  value={draft.condition}
+                  onChange={(e) => set("condition", e.target.value as Draft["condition"])}
+                  className={fieldClass}
+                >
+                  <option value="">—</option>
+                  {CONDITIONS.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
 
-        <Field label="Retailer">
-          <input
-            type="text"
-            value={draft.retailer}
-            onChange={(e) => set("retailer", e.target.value)}
-            placeholder="Where you bought it"
-            className={fieldClass}
-          />
-        </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Purchase date">
+                <input
+                  type="date"
+                  value={draft.purchaseDate}
+                  onChange={(e) => set("purchaseDate", e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Warranty expires">
+                <input
+                  type="date"
+                  value={draft.warrantyExpiry}
+                  onChange={(e) => set("warrantyExpiry", e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+            </div>
 
-        <Field label="Tags (comma-separated)">
-          <input
-            type="text"
-            value={draft.tags}
-            onChange={(e) => set("tags", e.target.value)}
-            placeholder="fragile, gift, work"
-            className={fieldClass}
-          />
-        </Field>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Maker">
+                <input
+                  type="text"
+                  value={draft.manufacturer}
+                  onChange={(e) => set("manufacturer", e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Model">
+                <input
+                  type="text"
+                  value={draft.model}
+                  onChange={(e) => set("model", e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Serial">
+                <input
+                  type="text"
+                  value={draft.serial}
+                  onChange={(e) => set("serial", e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+            </div>
 
-        <Field label="Photo URL">
-          <input
-            type="url"
-            value={draft.photoUrl}
-            onChange={(e) => set("photoUrl", e.target.value)}
-            placeholder="https://…  (uploads land with Firebase Storage — see roadmap)"
-            className={fieldClass}
-          />
-        </Field>
+            <Field label="Retailer">
+              <input
+                type="text"
+                value={draft.retailer}
+                onChange={(e) => set("retailer", e.target.value)}
+                placeholder="Where you bought it"
+                className={fieldClass}
+              />
+            </Field>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Lent to">
-            <input
-              type="text"
-              value={draft.lentTo}
-              onChange={(e) => set("lentTo", e.target.value)}
-              placeholder="Nobody"
-              className={fieldClass}
-            />
-          </Field>
-          <Field label="Return by">
-            <input
-              type="date"
-              value={draft.dueDate}
-              onChange={(e) => set("dueDate", e.target.value)}
-              disabled={!draft.lentTo.trim()}
-              className={`${fieldClass} disabled:opacity-40`}
-            />
-          </Field>
-        </div>
+            <Field label="Tags (comma-separated)">
+              <input
+                type="text"
+                value={draft.tags}
+                onChange={(e) => set("tags", e.target.value)}
+                placeholder="fragile, gift, work"
+                className={fieldClass}
+              />
+            </Field>
 
-        <Field label="Notes">
-          <textarea
-            value={draft.notes}
-            onChange={(e) => set("notes", e.target.value)}
-            rows={2}
-            className={`${fieldClass} resize-y`}
-          />
-        </Field>
+            <Field label="Photo URL">
+              <input
+                type="url"
+                value={draft.photoUrl}
+                onChange={(e) => set("photoUrl", e.target.value)}
+                placeholder="https://…  (uploads land with the R2 pipeline — see roadmap)"
+                className={fieldClass}
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Lent to">
+                <input
+                  type="text"
+                  value={draft.lentTo}
+                  onChange={(e) => set("lentTo", e.target.value)}
+                  placeholder="Nobody"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Return by">
+                <input
+                  type="date"
+                  value={draft.dueDate}
+                  onChange={(e) => set("dueDate", e.target.value)}
+                  disabled={!draft.lentTo.trim()}
+                  className={`${fieldClass} disabled:opacity-40`}
+                />
+              </Field>
+            </div>
+
+            <Field label="Notes">
+              <textarea
+                value={draft.notes}
+                onChange={(e) => set("notes", e.target.value)}
+                rows={2}
+                className={`${fieldClass} resize-y`}
+              />
+            </Field>
+          </>
+        )}
 
         <div className="mt-2 flex gap-2">
           <button

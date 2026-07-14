@@ -30,6 +30,7 @@ const ITEM_COLUMNS = [
   "lent_to",
   "due_date",
   "tags",
+  "links",
   "notes",
 ];
 
@@ -57,6 +58,7 @@ export function itemsToCsv(
       lent_to: i.lentTo ?? "",
       due_date: i.dueDate ?? "",
       tags: i.tags.join("; "),
+      links: (i.links ?? []).map((l) => l.url).join("; "),
       notes: i.notes ?? "",
     }));
   return toCsv(ITEM_COLUMNS, rows);
@@ -87,6 +89,20 @@ const asCondition = (v: unknown): ItemCondition | undefined =>
 function pruneUndefined<T extends Record<string, unknown>>(o: T): T {
   for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k];
   return o;
+}
+
+function coerceLinks(raw: unknown): InventoryItem["links"] {
+  return (Array.isArray(raw) ? raw : [])
+    .map((l) => {
+      const r = rec(l);
+      if (typeof r.url !== "string" || !r.url.trim()) return null;
+      return {
+        id: typeof r.id === "string" ? r.id : r.url,
+        title: typeof r.title === "string" && r.title.trim() ? r.title : r.url,
+        url: r.url,
+      };
+    })
+    .filter((l): l is NonNullable<typeof l> => l !== null);
 }
 
 function coercePhotos(raw: unknown): InventoryItem["photos"] {
@@ -130,6 +146,7 @@ function coerceItem(raw: unknown): InventoryItem | null {
     lentTo: str(r.lentTo).trim() || null,
     lentDate: isDay(r.lentDate) ? r.lentDate : null,
     dueDate: isDay(r.dueDate) ? r.dueDate : null,
+    links: coerceLinks(r.links),
     photos: coercePhotos(r.photos),
     archived: Boolean(r.archived),
     createdAt: strOrNull(r.createdAt),

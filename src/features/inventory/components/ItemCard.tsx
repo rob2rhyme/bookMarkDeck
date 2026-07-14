@@ -100,6 +100,34 @@ export function ItemCard({
           )}
         </div>
 
+        {item.links.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {item.links.slice(0, 2).map((l) => (
+              <a
+                key={l.id}
+                href={l.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={l.url}
+                className="max-w-full truncate rounded-full border border-blue-400/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-200 transition hover:border-blue-400/60 hover:text-blue-100"
+              >
+                🔗 {l.title}
+              </a>
+            ))}
+            {item.links.length > 2 && (
+              <span
+                className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium tabular-nums text-slate-400"
+                title={item.links
+                  .slice(2)
+                  .map((l) => l.title)
+                  .join(", ")}
+              >
+                +{item.links.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mt-auto flex items-center justify-end gap-1 pt-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
           <button
             type="button"

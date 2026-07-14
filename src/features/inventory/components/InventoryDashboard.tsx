@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Package, Plus, Search, Tag, X } from "@/components/icons";
 import { downloadText } from "@/utils/download";
 import { restoreInventoryBackup } from "@/features/inventory/data/inventoryData";
+import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
 import { useInventory, blankItem } from "@/features/inventory/hooks/useInventory";
 import { useInventoryLocations } from "@/features/inventory/hooks/useInventoryLocations";
 import { useInventorySettings } from "@/features/inventory/hooks/useInventorySettings";
@@ -40,6 +41,7 @@ function matches(item: InventoryItem, q: string): boolean {
     item.serial,
     item.notes,
     item.tags.join(" "),
+    item.links.map((l) => l.title).join(" "),
   ]
     .filter(Boolean)
     .join(" ")
@@ -55,6 +57,7 @@ export function InventoryDashboard() {
   const { settings, update } = useInventorySettings(email, connected);
   const inv = useInventory(email, connected);
   const loc = useInventoryLocations(email, connected);
+  const bookmarkLibrary = useBookmarkLibrary(email);
 
   // Compute "today" after mount so warranty math is hydration-safe.
   const [today, setToday] = useState("");
@@ -362,6 +365,8 @@ export function InventoryDashboard() {
         categorySuggestions={categorySuggestions}
         defaultCurrency={settings.defaultCurrency}
         today={today}
+        bookmarks={bookmarkLibrary}
+        existingItems={inv.items}
         onSave={inv.upsertItem}
         onClose={() => setFormOpen(false)}
       />
