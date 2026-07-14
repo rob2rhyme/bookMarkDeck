@@ -7,6 +7,7 @@ import { HandHelping, MapPin, Package, Plus, Search, Tag, X } from "@/components
 import { downloadText } from "@/utils/download";
 import { restoreInventoryBackup } from "@/features/inventory/data/inventoryData";
 import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
+import { useFocusProjects } from "@/features/inventory/hooks/useFocusProjects";
 import { useInventory, blankItem } from "@/features/inventory/hooks/useInventory";
 import { useInventoryLocations } from "@/features/inventory/hooks/useInventoryLocations";
 import { useInventorySettings } from "@/features/inventory/hooks/useInventorySettings";
@@ -43,6 +44,7 @@ function matches(item: InventoryItem, q: string): boolean {
     item.model,
     item.serial,
     item.notes,
+    item.projectName,
     item.tags.join(" "),
     item.links.map((l) => l.title).join(" "),
   ]
@@ -61,6 +63,7 @@ export function InventoryDashboard() {
   const inv = useInventory(email, connected);
   const loc = useInventoryLocations(email, connected);
   const bookmarkLibrary = useBookmarkLibrary(email);
+  const focusProjects = useFocusProjects(email);
 
   // Compute "today" after mount so warranty math is hydration-safe.
   const [today, setToday] = useState("");
@@ -398,6 +401,7 @@ export function InventoryDashboard() {
         item={editing}
         tree={loc.tree}
         categorySuggestions={categorySuggestions}
+        focusProjects={focusProjects}
         defaultCurrency={settings.defaultCurrency}
         today={today}
         bookmarks={bookmarkLibrary}
