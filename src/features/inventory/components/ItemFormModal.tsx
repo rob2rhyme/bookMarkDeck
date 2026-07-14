@@ -20,6 +20,8 @@ import {
   flattenTree,
   type LocationNode,
 } from "@/features/inventory/hooks/useInventoryLocations";
+import { useBarcodeSupported } from "@/features/inventory/hooks/useBarcodeSupported";
+import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 
 type ItemFormModalProps = {
   open: boolean;
@@ -50,6 +52,7 @@ type Draft = {
   manufacturer: string;
   model: string;
   serial: string;
+  barcode: string;
   retailer: string;
   tags: string;
   photoUrl: string;
@@ -77,6 +80,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     manufacturer: item.manufacturer ?? "",
     model: item.model ?? "",
     serial: item.serial ?? "",
+    barcode: item.barcode ?? "",
     retailer: item.retailer ?? "",
     tags: item.tags.join(", "),
     photoUrl: item.photos[0]?.url ?? "",
@@ -124,6 +128,8 @@ export function ItemFormModal({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const barcodeSupported = useBarcodeSupported();
 
   // Seed the form when it opens (or when the target item changes). New items
   // start with details folded away — a name is enough to save (quick add);
@@ -133,6 +139,7 @@ export function ItemFormModal({
       setDraft(toDraft(item, defaultCurrency));
       setShowDetails(Boolean(item.updatedAt || item.name));
       setLinkQuery("");
+      setScanning(false);
     }
     if (!open) setDraft(null);
   }, [open, item, defaultCurrency]);
@@ -187,6 +194,7 @@ export function ItemFormModal({
       manufacturer: trimmedOrUndef(draft.manufacturer),
       model: trimmedOrUndef(draft.model),
       serial: trimmedOrUndef(draft.serial),
+      barcode: trimmedOrUndef(draft.barcode),
       retailer: trimmedOrUndef(draft.retailer),
       tags: draft.tags
         .split(",")
@@ -477,6 +485,28 @@ export function ItemFormModal({
               </Field>
             </div>
 
+            <Field label="Barcode (UPC / EAN)">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={draft.barcode}
+                  onChange={(e) => set("barcode", e.target.value)}
+                  placeholder={barcodeSupported ? "Scan or type…" : "Type the code…"}
+                  className={fieldClass}
+                />
+                {barcodeSupported && (
+                  <button
+                    type="button"
+                    onClick={() => setScanning(true)}
+                    className="shrink-0 rounded-lg border border-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+                  >
+                    Scan
+                  </button>
+                )}
+              </div>
+            </Field>
+
             <Field label="Retailer">
               <input
                 type="text"
@@ -590,6 +620,16 @@ export function ItemFormModal({
           </button>
         </div>
       </form>
+
+      {scanning && (
+        <BarcodeScanner
+          onDetect={(code) => {
+            set("barcode", code);
+            setScanning(false);
+          }}
+          onCancel={() => setScanning(false)}
+        />
+      )}
     </Modal>
   );
 }
