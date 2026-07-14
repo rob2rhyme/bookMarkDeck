@@ -128,7 +128,7 @@ export type InventoryLocation = {
   updatedAt: string | null;
 };
 
-export type InventoryView = "grid" | "list";
+export type InventoryView = "grid" | "list" | "shelf";
 
 export type InventorySettings = {
   defaultCurrency: string;
@@ -147,7 +147,10 @@ export function normalizeSettings(raw: unknown): InventorySettings {
       typeof r.defaultCurrency === "string" && r.defaultCurrency.trim()
         ? r.defaultCurrency
         : DEFAULT_INVENTORY_SETTINGS.defaultCurrency,
-    defaultView: r.defaultView === "list" ? "list" : "grid",
+    defaultView:
+      r.defaultView === "list" || r.defaultView === "shelf"
+        ? r.defaultView
+        : "grid",
   };
 }
 

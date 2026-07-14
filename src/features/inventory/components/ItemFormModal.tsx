@@ -14,6 +14,7 @@ import {
   type ItemDoc,
   type ItemDocKind,
   type ItemLink,
+  type ItemPhoto,
 } from "@/features/inventory/lib/types";
 import { docKindLabel, suggestDocName } from "@/features/inventory/lib/documents";
 import {
@@ -71,8 +72,7 @@ type Draft = {
   barcode: string;
   retailer: string;
   tags: string;
-  photoUrl: string;
-  photoPath: string; // R2 object key when the photo was uploaded ("" = data URL / URL)
+  photos: ItemPhoto[]; // full list — first photo is the card cover
   lentTo: string;
   dueDate: string;
   projectName: string;
@@ -101,8 +101,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     barcode: item.barcode ?? "",
     retailer: item.retailer ?? "",
     tags: item.tags.join(", "),
-    photoUrl: item.photos[0]?.url ?? "",
-    photoPath: item.photos[0]?.path ?? "",
+    photos: item.photos ?? [],
     lentTo: item.lentTo ?? "",
     dueDate: item.dueDate ?? "",
     projectName: item.projectName ?? "",
@@ -159,6 +158,7 @@ export function ItemFormModal({
   >("idle");
   const [compressing, setCompressing] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoUrlInput, setPhotoUrlInput] = useState("");
   const [docs, setDocs] = useState<ItemDoc[]>([]);
   // R2 objects uploaded in THIS editing session that no saved record points at
   // yet. Anything still here when the modal closes (cancel, or replaced before
@@ -190,6 +190,7 @@ export function ItemFormModal({
       setAddingDoc(false);
       setDocKind("receipt");
       setOcrStatus("idle");
+      setPhotoUrlInput("");
       sessionUploadsRef.current.clear();
     }
     if (!open) setDraft(null);
@@ -232,7 +233,10 @@ export function ItemFormModal({
         manufacturer: keep(d.manufacturer, info.brand),
         model: keep(d.model, info.model),
         price: d.price.trim() ? d.price : info.price != null ? String(info.price) : d.price,
-        photoUrl: keep(d.photoUrl, info.imageUrl),
+        photos:
+          d.photos.length === 0 && info.imageUrl
+            ? [{ id: crypto.randomUUID(), url: info.imageUrl }]
+            : d.photos,
       };
     });
   };
@@ -263,28 +267,74 @@ export function ItemFormModal({
     onClose();
   };
 
+  // Multi-photo caps. R2 photos are just keys on the doc, so 8 is plenty; when
+  // R2 is off each photo is a data: URL living ON the Firestore item doc
+  // (1 MiB cap), so hold data:-URL photos to 3 — honest, not faked.
+  const MAX_PHOTOS = 8;
+  const MAX_DATA_PHOTOS = 3;
+
   // Camera capture / file pick → compress client-side → upload to R2 when
-  // configured; otherwise keep the compressed data: URL.
+  // configured; otherwise keep the compressed data: URL. Appends to the list —
+  // the first photo is the card cover.
   const onPickPhoto = async (file: File | undefined) => {
-    if (!file || !item) return;
+    if (!file || !item || !draft) return;
     setPhotoError(null);
+    if (draft.photos.length >= MAX_PHOTOS) {
+      setPhotoError(`Up to ${MAX_PHOTOS} photos per item.`);
+      return;
+    }
     setCompressing(true);
     try {
-      const { dataUrl, mime } = await compressImageFile(file);
+      const { dataUrl, mime, w, h } = await compressImageFile(file);
       const uploaded = await uploadInventoryPhoto(dataUrlToBlob(dataUrl), mime, item.id);
       if (uploaded) {
         sessionUploadsRef.current.add(uploaded.path);
-        set("photoUrl", uploaded.url);
-        set("photoPath", uploaded.path);
+        // Functional append — the draft may have moved while we awaited.
+        setDraft((d) =>
+          d
+            ? {
+                ...d,
+                photos: [
+                  ...d.photos,
+                  { id: crypto.randomUUID(), url: uploaded.url, path: uploaded.path, w, h },
+                ],
+              }
+            : d
+        );
       } else {
-        set("photoUrl", dataUrl);
-        set("photoPath", "");
+        const dataCount = draft.photos.filter((p) =>
+          p.url.startsWith("data:")
+        ).length;
+        if (dataCount >= MAX_DATA_PHOTOS) {
+          setPhotoError(
+            `Up to ${MAX_DATA_PHOTOS} photos until cloud photo storage (R2) is set up — see the roadmap.`
+          );
+          return;
+        }
+        setDraft((d) =>
+          d
+            ? {
+                ...d,
+                photos: [...d.photos, { id: crypto.randomUUID(), url: dataUrl, w, h }],
+              }
+            : d
+        );
       }
     } catch (e) {
       setPhotoError(e instanceof Error ? e.message : "Couldn't process that image.");
     } finally {
       setCompressing(false);
     }
+  };
+
+  const removePhoto = (id: string) => {
+    if (!draft) return;
+    // The R2 object (if any) is swept on save/close — never immediately, so
+    // cancelling the edit can't lose a saved photo's object.
+    set(
+      "photos",
+      draft.photos.filter((p) => p.id !== id)
+    );
   };
 
   // On-device receipt OCR (beta): read a receipt and prefill the empty
@@ -397,15 +447,7 @@ export function ItemFormModal({
     e.preventDefault();
     if (!canSave) return;
     const lentTo = trimmedOrUndef(draft.lentTo) ?? null;
-    const photos = draft.photoUrl.trim()
-      ? [
-          {
-            id: item.photos[0]?.id ?? crypto.randomUUID(),
-            url: draft.photoUrl.trim(),
-            ...(draft.photoPath ? { path: draft.photoPath } : {}),
-          },
-        ]
-      : [];
+    const photos = draft.photos.filter((p) => p.url.trim());
     const next: InventoryItem = {
       ...item,
       name: draft.name.trim(),
@@ -893,27 +935,34 @@ export function ItemFormModal({
             </Field>
 
             <div>
-              <span className={labelClass}>Photo</span>
-              {draft.photoUrl && (
-                <div className="mb-2 flex items-center gap-3">
-                  {/* Data/URL photos aren't in next/image's allowlist. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={draft.photoUrl}
-                    alt=""
-                    className="h-16 w-16 rounded-lg border border-slate-700 object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      set("photoUrl", "");
-                      set("photoPath", "");
-                    }}
-                    className="text-xs font-medium text-slate-400 transition hover:text-red-300"
-                  >
-                    Remove
-                  </button>
-                </div>
+              <span className={labelClass}>
+                Photos{draft.photos.length > 1 ? ` (${draft.photos.length})` : ""}
+                {" — first is the cover"}
+              </span>
+              {draft.photos.length > 0 && (
+                <ul className="mb-2 flex flex-wrap gap-2">
+                  {draft.photos.map((p, idx) => (
+                    <li key={p.id} className="relative">
+                      {/* Data/URL photos aren't in next/image's allowlist. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.url}
+                        alt={idx === 0 ? "Cover photo" : `Photo ${idx + 1}`}
+                        className={`h-16 w-16 rounded-lg border object-cover ${
+                          idx === 0 ? "border-blue-400/60" : "border-slate-700"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(p.id)}
+                        aria-label={`Remove photo ${idx + 1}`}
+                        className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-800 text-slate-300 ring-1 ring-slate-600 transition hover:bg-red-500/80 hover:text-white"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
               <div className="flex flex-wrap gap-2">
                 <label className="cursor-pointer rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300">
@@ -950,16 +999,33 @@ export function ItemFormModal({
               {photoError && (
                 <p className="mt-1 text-[11px] text-amber-300/90">{photoError}</p>
               )}
-              <input
-                type="url"
-                value={draft.photoUrl.startsWith("data:") ? "" : draft.photoUrl}
-                onChange={(e) => {
-                  set("photoUrl", e.target.value);
-                  if (draft.photoPath) set("photoPath", "");
-                }}
-                placeholder="or paste an image URL…"
-                className={`${fieldClass} mt-2`}
-              />
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="url"
+                  value={photoUrlInput}
+                  onChange={(e) => setPhotoUrlInput(e.target.value)}
+                  placeholder="or paste an image URL…"
+                  aria-label="Add a photo by URL"
+                  className={fieldClass}
+                />
+                {photoUrlInput.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = photoUrlInput.trim();
+                      if (!url || draft.photos.length >= MAX_PHOTOS) return;
+                      set("photos", [
+                        ...draft.photos,
+                        { id: crypto.randomUUID(), url },
+                      ]);
+                      setPhotoUrlInput("");
+                    }}
+                    className="shrink-0 rounded-lg border border-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+                  >
+                    Add
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Receipts & documents — stored per-item, saved (synced) items only */}

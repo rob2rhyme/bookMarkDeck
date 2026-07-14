@@ -60,6 +60,14 @@ objects when a photo is replaced/cleared, an attachment or item is deleted, or
 an in-modal upload is cancelled before saving. Best-effort by design — a
 failed delete only leaves an orphan.
 
+✅ **P1 premium layout complete (PR #178):** **multi-photo** per item (append
+capture/upload/URL; first photo is the cover; capped at 8 on R2 / 3 as
+data:-URLs to respect the 1 MiB item-doc limit), **item detail view**
+(read-only: photo carousel + full-screen lightbox, facts, warranty countdown,
+links, notes, attachments; Edit hands off to the form; opened from card
+photo/title, Attention panel, and Where-is picks), and **shelf view** (third
+view mode — items grouped by location breadcrumb with per-spot count/value).
+
 ### Build order
 
 **A — ship soon (on-brand, no paid infra), in priority order:**

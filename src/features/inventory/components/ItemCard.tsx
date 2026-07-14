@@ -9,6 +9,7 @@ type ItemCardProps = {
   locationName?: string;
   fallbackCurrency: string;
   today: string;
+  onOpen: (item: InventoryItem) => void;
   onEdit: (item: InventoryItem) => void;
   onArchive: (item: InventoryItem) => void;
   onRemove: (item: InventoryItem) => void;
@@ -24,6 +25,7 @@ export function ItemCard({
   locationName,
   fallbackCurrency,
   today,
+  onOpen,
   onEdit,
   onArchive,
   onRemove,
@@ -36,7 +38,12 @@ export function ItemCard({
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-900/60 shadow-sm transition hover:border-slate-700">
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-950/60">
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        aria-label={`View ${item.name}`}
+        className="relative block aspect-[4/3] w-full cursor-pointer overflow-hidden bg-slate-950/60"
+      >
         {photo ? (
           // Arbitrary user URLs aren't in next/image's allowlist, so use a plain img.
           // eslint-disable-next-line @next/next/no-img-element
@@ -51,6 +58,11 @@ export function ItemCard({
             <Package className="h-10 w-10" />
           </div>
         )}
+        {item.photos.length > 1 && (
+          <span className="absolute bottom-2 right-2 rounded-full bg-slate-950/70 px-2 py-0.5 text-[10px] font-medium tabular-nums text-slate-200 backdrop-blur">
+            📷 {item.photos.length}
+          </span>
+        )}
         {badge && (
           <span
             className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-medium backdrop-blur ${badge.cls}`}
@@ -63,13 +75,18 @@ export function ItemCard({
             Lent · {item.lentTo}
           </span>
         )}
-      </div>
+      </button>
 
       <div className="flex flex-1 flex-col gap-2 p-3">
         <div className="flex items-start justify-between gap-2">
-          <h4 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-100" title={item.name}>
+          <button
+            type="button"
+            onClick={() => onOpen(item)}
+            title={item.name}
+            className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-slate-100 transition hover:text-blue-200"
+          >
             {item.name}
-          </h4>
+          </button>
           {value > 0 && (
             <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-300">
               {formatMoney(value, currency)}
