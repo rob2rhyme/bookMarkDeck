@@ -23,10 +23,18 @@ function loadLocal(email?: string | null): InventoryItem[] {
     const raw = window.localStorage.getItem(keyFor(email));
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (i): i is InventoryItem =>
-        i && typeof i.id === "string" && typeof i.name === "string"
-    );
+    return parsed
+      .filter(
+        (i): i is InventoryItem =>
+          i && typeof i.id === "string" && typeof i.name === "string"
+      )
+      // Backfill array fields for items cached before the field existed.
+      .map((i) => ({
+        ...i,
+        tags: Array.isArray(i.tags) ? i.tags : [],
+        links: Array.isArray(i.links) ? i.links : [],
+        photos: Array.isArray(i.photos) ? i.photos : [],
+      }));
   } catch {
     return [];
   }
@@ -41,6 +49,7 @@ export function blankItem(currency: string): InventoryItem {
     tags: [],
     quantity: 1,
     currency,
+    links: [],
     photos: [],
     lentTo: null,
     lentDate: null,

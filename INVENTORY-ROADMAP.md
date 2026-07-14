@@ -32,18 +32,20 @@ size-cap gotcha and the migration path from the current `ItemPhoto` shape.
 ### Build order
 
 **A — ship soon (on-brand, no paid infra), in priority order:**
-1. **Link item → its online life** — attach a bookmark (product page, manual,
+1. ✅ **Link item → its online life** — attach a bookmark (product page, manual,
    warranty registration) to any item. *The thesis made literal; no competitor
-   connects items to a personal bookmark library. Do this first.*
-2. **Seconds-to-add capture** — name-only add; every other field enrich-later.
-   Kills the #1 abandonment driver ("ten fields = never").
+   connects items to a personal bookmark library.* (shipped: `links[]` on items,
+   read-only bookmark picker, card chips)
+2. ✅ **Seconds-to-add capture** — name-only add; every other field folded under
+   "Add details". Kills the #1 abandonment driver ("ten fields = never").
 3. **"Where is it?" retrieval** — forgiving fuzzy find returning the
    container/location first.
 4. **Lending ledger view** — calm "who has my stuff / due back when" surface
    over the fields already stored.
 5. **Warranty & maintenance reminders** — Attention panel + nav badge; reuse
    the focus `sw.js` push.
-6. **Duplicate-purchase guard** — "do I already own this?" search-before-you-buy.
+6. ✅ **Duplicate-purchase guard** — "do I already own this?" nudge while naming
+   a new item.
 7. **Link item → Focus project** — connective tissue across pillars.
 8. **Declutter companion** — keep/donate/sell tagging wired into habits.
 9. **Barcode quick-add** — client `BarcodeDetector`, manual fallback (capture

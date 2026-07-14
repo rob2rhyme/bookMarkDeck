@@ -26,6 +26,18 @@ export type ItemPhoto = {
   h?: number;
 };
 
+/**
+ * A link from an item to its online life — a snapshot of a bookmark from the
+ * user's library (`id` is the bookmark id). Denormalized title/url so the item
+ * still renders if the bookmark is later edited or removed. Read-only toward
+ * bookmark data — the inventory feature never writes bookmarks.
+ */
+export type ItemLink = {
+  id: string;
+  title: string;
+  url: string;
+};
+
 export type InventoryItem = {
   id: string;
   name: string;
@@ -48,6 +60,7 @@ export type InventoryItem = {
   lentTo?: string | null;
   lentDate?: string | null; // YYYY-MM-DD
   dueDate?: string | null; // YYYY-MM-DD (return-by for a lent item)
+  links: ItemLink[]; // bookmarks attached to this item (manual, product page, …)
   photos: ItemPhoto[];
   archived?: boolean;
   createdAt: string | null;

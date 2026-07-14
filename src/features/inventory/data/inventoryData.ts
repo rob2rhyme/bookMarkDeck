@@ -107,6 +107,18 @@ function mapItem(d: {
     lentTo: typeof data.lentTo === "string" ? data.lentTo : null,
     lentDate: typeof data.lentDate === "string" ? data.lentDate : null,
     dueDate: typeof data.dueDate === "string" ? data.dueDate : null,
+    links: (Array.isArray(data.links) ? data.links : [])
+      .map((l) => {
+        const r = (l ?? {}) as Record<string, unknown>;
+        if (typeof r.url !== "string" || !r.url.trim()) return null;
+        return {
+          id: typeof r.id === "string" ? r.id : r.url,
+          title:
+            typeof r.title === "string" && r.title.trim() ? r.title : r.url,
+          url: r.url,
+        };
+      })
+      .filter((l): l is NonNullable<typeof l> => l !== null),
     photos: photos
       .map((p) => {
         const r = (p ?? {}) as Record<string, unknown>;
@@ -148,6 +160,7 @@ function itemPayload(item: InventoryItem): Record<string, unknown> {
     lentTo: item.lentTo?.trim() ? item.lentTo.trim() : null,
     lentDate: item.lentDate ?? null,
     dueDate: item.dueDate ?? null,
+    links: (item.links ?? []).map((l) => ({ id: l.id, title: l.title, url: l.url })),
     photos: (item.photos ?? []).map((p) =>
       prune({ id: p.id, url: p.url, path: p.path, w: p.w, h: p.h })
     ),

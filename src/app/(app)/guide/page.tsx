@@ -293,12 +293,20 @@ export default function GuidePage() {
 
         <Section id="stuff" title="My Stuff — what you own">
           <p className="text-slate-300">
-            A calm catalog of your belongings: each item takes a name (and, if
-            you want, category, tags, quantity, purchase details, serial,
-            condition, an estimated value, a photo URL, and notes). Organize
-            items into <strong>nestable locations</strong> — rooms, shelves,
-            boxes — and filter or search by name, tag, or serial in grid or
-            list view.
+            A calm catalog of your belongings: a name is enough to add an item
+            — category, tags, quantity, purchase details, serial, condition,
+            estimated value, a photo URL, and notes all fold away under{" "}
+            <em>Add details</em> for later. Organize items into{" "}
+            <strong>nestable locations</strong> — rooms, shelves, boxes — and
+            filter or search by name, tag, serial, or link in grid or list
+            view. While naming a new item, a gentle &ldquo;you may already own
+            this&rdquo; hint helps before you buy a duplicate.
+          </p>
+          <p className="text-slate-300">
+            Every item can <strong>link to its online life</strong>: attach
+            bookmarks from your library — the manual, the product page, the
+            warranty portal — and open them right from the item&apos;s card.
+            Bookmarks feed the things, too.
           </p>
           <p className="text-slate-300">
             The <strong>value panel</strong> totals what it&apos;s all worth,
