@@ -17,6 +17,26 @@ const EXT: Record<string, string> = {
   "image/png": "png",
 };
 
+// Per-user issuance throttle (per server instance). R2 presigned PUTs can't
+// carry a size condition, so issuance is the choke point against scripted
+// presign→PUT cost abuse. Generous for real use: a burst of photo + attachment
+// uploads stays well under it.
+const WINDOW_MS = 60_000;
+const MAX_PER_WINDOW = 20;
+const issued = new Map<string, number[]>();
+
+function throttled(sub: string): boolean {
+  const now = Date.now();
+  const recent = (issued.get(sub) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (recent.length >= MAX_PER_WINDOW) {
+    issued.set(sub, recent);
+    return true;
+  }
+  recent.push(now);
+  issued.set(sub, recent);
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!jwt?.sub) {
@@ -40,7 +60,21 @@ export async function POST(req: NextRequest) {
   }
   const contentType =
     typeof body.contentType === "string" ? body.contentType : "image/webp";
-  const ext = EXT[contentType] ?? "bin";
+  const ext = EXT[contentType];
+  // Images only — and the type is SIGNED below, so the PUT can't smuggle
+  // anything else (e.g. text/html served off the public bucket domain).
+  if (!ext) {
+    return NextResponse.json(
+      { enabled: true, error: "unsupported_type" },
+      { status: 400 }
+    );
+  }
+  if (throttled(String(jwt.sub))) {
+    return NextResponse.json(
+      { enabled: true, error: "rate_limited" },
+      { status: 429 }
+    );
+  }
   const itemId =
     (typeof body.itemId === "string" ? body.itemId : "")
       .replace(/[^a-zA-Z0-9_-]/g, "")
@@ -58,6 +92,7 @@ export async function POST(req: NextRequest) {
     secretAccessKey,
     now: new Date(),
     expiresSeconds: 300,
+    contentType,
   });
 
   return NextResponse.json({

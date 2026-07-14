@@ -40,6 +40,12 @@ function loadLocal(email?: string | null): InventoryItem[] {
   }
 }
 
+// Cloud saves are optimistic; log failures instead of swallowing them so a
+// rejected write (e.g. a doc pushed over Firestore's 1 MiB cap) is diagnosable.
+const onSaveError = (err: unknown) => {
+  console.error("[inventory] save failed:", err);
+};
+
 /** A new blank item with sensible defaults — the form fills the rest. */
 export function blankItem(currency: string): InventoryItem {
   return {
@@ -135,7 +141,7 @@ export function useInventory(email?: string | null, connected = false) {
           ? prev.map((i) => (i.id === clean.id ? clean : i))
           : [clean, ...prev];
       });
-      if (canSync && email) saveItem(email, clean).catch(() => {});
+      if (canSync && email) saveItem(email, clean).catch(onSaveError);
     },
     [canSync, email]
   );
@@ -156,7 +162,7 @@ export function useInventory(email?: string | null, connected = false) {
           i.id === id ? { ...i, archived, updatedAt: new Date().toISOString() } : i
         );
         const updated = next.find((i) => i.id === id);
-        if (canSync && email && updated) saveItem(email, updated).catch(() => {});
+        if (canSync && email && updated) saveItem(email, updated).catch(onSaveError);
         return next;
       });
     },
@@ -179,7 +185,7 @@ export function useInventory(email?: string | null, connected = false) {
             : i
         );
         const updated = next.find((i) => i.id === id);
-        if (canSync && email && updated) saveItem(email, updated).catch(() => {});
+        if (canSync && email && updated) saveItem(email, updated).catch(onSaveError);
         return next;
       });
     },
@@ -202,7 +208,7 @@ export function useInventory(email?: string | null, connected = false) {
             : i
         );
         const updated = next.find((i) => i.id === id);
-        if (canSync && email && updated) saveItem(email, updated).catch(() => {});
+        if (canSync && email && updated) saveItem(email, updated).catch(onSaveError);
         return next;
       });
     },

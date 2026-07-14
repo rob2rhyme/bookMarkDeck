@@ -60,15 +60,24 @@ export type PresignInput = {
   expiresSeconds?: number; // default 300
   region?: string; // default "auto" (R2)
   method?: string; // default "PUT"
+  /** When set, `content-type` is a SIGNED header — R2 rejects a PUT whose
+   *  Content-Type differs, so a caller can't smuggle e.g. text/html. */
+  contentType?: string;
 };
 
-/** Build a presigned URL for a direct browser PUT to R2. Signs only `host`, with
- *  an UNSIGNED-PAYLOAD, so the client PUT needs no special signed headers. */
+/** Build a presigned URL for a direct browser PUT to R2. Signs `host` (plus
+ *  `content-type` when given), with an UNSIGNED-PAYLOAD. */
 export function presignR2Put(input: PresignInput): string {
   const region = input.region ?? "auto";
   const service = "s3";
   const method = input.method ?? "PUT";
   const host = `${input.accountId}.r2.cloudflarestorage.com`;
+
+  const headerMap: Record<string, string> = { host };
+  if (input.contentType) headerMap["content-type"] = input.contentType;
+  const headerNames = Object.keys(headerMap).sort();
+  const canonicalHeaders = headerNames.map((n) => `${n}:${headerMap[n]}\n`).join("");
+  const signedHeaders = headerNames.join(";");
 
   const amzDate = input.now.toISOString().replace(/[:-]|\.\d{3}/g, ""); // YYYYMMDDTHHMMSSZ
   const dateStamp = amzDate.slice(0, 8);
@@ -81,7 +90,7 @@ export function presignR2Put(input: PresignInput): string {
     "X-Amz-Credential": credential,
     "X-Amz-Date": amzDate,
     "X-Amz-Expires": String(input.expiresSeconds ?? 300),
-    "X-Amz-SignedHeaders": "host",
+    "X-Amz-SignedHeaders": signedHeaders,
   };
   const canonicalQuery = Object.keys(query)
     .sort()
@@ -92,8 +101,8 @@ export function presignR2Put(input: PresignInput): string {
     method,
     canonicalUri,
     canonicalQuery,
-    `host:${host}\n`,
-    "host",
+    canonicalHeaders,
+    signedHeaders,
     "UNSIGNED-PAYLOAD",
   ].join("\n");
 

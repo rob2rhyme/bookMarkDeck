@@ -68,6 +68,15 @@ describe("presignR2Put", () => {
     const b = presignR2Put({ ...base, method: "DELETE" });
     expect(a).not.toBe(b);
   });
+
+  it("signs content-type when given, so a mismatched PUT is rejected", () => {
+    const url = presignR2Put({ ...base, contentType: "image/webp" });
+    expect(url).toContain("X-Amz-SignedHeaders=content-type%3Bhost");
+    expect(url).not.toBe(presignR2Put(base));
+    expect(url).not.toBe(presignR2Put({ ...base, contentType: "image/png" }));
+    // host-only requests are unchanged by the feature
+    expect(presignR2Put(base)).toContain("X-Amz-SignedHeaders=host");
+  });
 });
 
 describe("isOwnedInventoryPath", () => {

@@ -164,6 +164,11 @@ export function ItemFormModal({
   // yet. Anything still here when the modal closes (cancel, or replaced before
   // save) is swept from the bucket — the orphan-control half of the R2 path.
   const sessionUploadsRef = useRef<Set<string>>(new Set());
+  // Monotonic id for the CURRENT editing session. In-flight async work
+  // (lookup, OCR, photo compress+upload, attachment add) captures it and bails
+  // if the modal was closed/reopened meanwhile — otherwise a slow promise from
+  // item A's session would land in item B's draft (or leak an R2 object).
+  const sessionIdRef = useRef(0);
   const [docsLoading, setDocsLoading] = useState(false);
   const [addingDoc, setAddingDoc] = useState(false);
   const [docKind, setDocKind] = useState<ItemDocKind>("receipt");
@@ -194,6 +199,8 @@ export function ItemFormModal({
       sessionUploadsRef.current.clear();
     }
     if (!open) setDraft(null);
+    // Any open/close/item change starts a new session; stale async work bails.
+    sessionIdRef.current += 1;
   }, [open, item, defaultCurrency]);
 
   // Load an existing item's attachments on open (lazy — never in the item list).
@@ -244,12 +251,14 @@ export function ItemFormModal({
   const runLookup = async (raw: string) => {
     const code = raw.trim();
     if (!code) return;
+    const sid = sessionIdRef.current;
     setLookupStatus("loading");
     try {
       const res = await fetch(
         `/api/inventory/product-lookup?code=${encodeURIComponent(code)}`
       );
       const data = (await res.json()) as { found?: boolean; product?: ProductInfo };
+      if (sid !== sessionIdRef.current) return; // modal moved on
       if (data?.found && data.product) {
         fillEmptyFrom(data.product);
         setLookupStatus("found");
@@ -269,9 +278,12 @@ export function ItemFormModal({
 
   // Multi-photo caps. R2 photos are just keys on the doc, so 8 is plenty; when
   // R2 is off each photo is a data: URL living ON the Firestore item doc
-  // (1 MiB cap), so hold data:-URL photos to 3 — honest, not faked.
+  // (1 MiB cap), so hold data:-URL photos to 3 AND a total string budget —
+  // one boundary-size photo could otherwise push the doc past the cap and the
+  // whole save would be rejected. Honest, not faked.
   const MAX_PHOTOS = 8;
   const MAX_DATA_PHOTOS = 3;
+  const MAX_DATA_BYTES = 700_000; // headroom under 1 MiB for the rest of the doc
 
   // Camera capture / file pick → compress client-side → upload to R2 when
   // configured; otherwise keep the compressed data: URL. Appends to the list —
@@ -283,10 +295,17 @@ export function ItemFormModal({
       setPhotoError(`Up to ${MAX_PHOTOS} photos per item.`);
       return;
     }
+    const sid = sessionIdRef.current;
     setCompressing(true);
     try {
       const { dataUrl, mime, w, h } = await compressImageFile(file);
       const uploaded = await uploadInventoryPhoto(dataUrlToBlob(dataUrl), mime, item.id);
+      if (sid !== sessionIdRef.current) {
+        // Modal closed/switched items while we worked: never touch the new
+        // session's draft, and don't strand the object we just uploaded.
+        if (uploaded) deleteInventoryObjects([uploaded.path]);
+        return;
+      }
       if (uploaded) {
         sessionUploadsRef.current.add(uploaded.path);
         // Functional append — the draft may have moved while we awaited.
@@ -302,12 +321,16 @@ export function ItemFormModal({
             : d
         );
       } else {
-        const dataCount = draft.photos.filter((p) =>
-          p.url.startsWith("data:")
-        ).length;
-        if (dataCount >= MAX_DATA_PHOTOS) {
+        const dataPhotos = draft.photos.filter((p) => p.url.startsWith("data:"));
+        const dataBytes = dataPhotos.reduce((s, p) => s + p.url.length, 0);
+        if (
+          dataPhotos.length >= MAX_DATA_PHOTOS ||
+          dataBytes + dataUrl.length > MAX_DATA_BYTES
+        ) {
           setPhotoError(
-            `Up to ${MAX_DATA_PHOTOS} photos until cloud photo storage (R2) is set up — see the roadmap.`
+            dataPhotos.length >= MAX_DATA_PHOTOS
+              ? `Up to ${MAX_DATA_PHOTOS} photos until cloud photo storage (R2) is set up — see the roadmap.`
+              : "Not enough room to store this photo on the item without cloud photo storage (R2) — try a smaller photo or set up R2."
           );
           return;
         }
@@ -341,10 +364,12 @@ export function ItemFormModal({
   // retailer / purchase date / price. Nothing is uploaded; the image isn't kept.
   const scanReceipt = async (file: File | undefined) => {
     if (!file) return;
+    const sid = sessionIdRef.current;
     setOcrStatus("scanning");
     try {
       const { dataUrl } = await compressImageFile(file, { maxEdge: 1600, quality: 0.7 });
       const f = await runReceiptOcr(dataUrl);
+      if (sid !== sessionIdRef.current) return; // modal moved on
       const got = Boolean(f.merchant || f.date || f.total != null);
       setDraft((d) =>
         d
@@ -371,6 +396,7 @@ export function ItemFormModal({
 
   const addDoc = async (file: File | undefined) => {
     if (!file || !item) return;
+    const sid = sessionIdRef.current;
     setDocError(null);
     setAddingDoc(true);
     let uploadedPath: string | undefined;
@@ -387,6 +413,12 @@ export function ItemFormModal({
         item.id
       );
       uploadedPath = uploaded?.path;
+      if (sid !== sessionIdRef.current) {
+        // Modal closed/switched items mid-flight — don't persist a row the
+        // user walked away from, and don't strand the uploaded object.
+        if (uploadedPath) deleteInventoryObjects([uploadedPath]);
+        return;
+      }
       const newDoc: ItemDoc = {
         id: crypto.randomUUID(),
         itemId: item.id,
@@ -964,7 +996,10 @@ export function ItemFormModal({
                   ))}
                 </ul>
               )}
-              <div className="flex flex-wrap gap-2">
+              {/* One photo at a time — keeps the count/byte caps honest. */}
+              <div
+                className={`flex flex-wrap gap-2 ${compressing ? "pointer-events-none opacity-50" : ""}`}
+              >
                 <label className="cursor-pointer rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300">
                   📷 Take photo
                   <input
@@ -972,6 +1007,7 @@ export function ItemFormModal({
                     accept="image/*"
                     capture="environment"
                     className="hidden"
+                    disabled={compressing}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       e.target.value = "";
@@ -985,6 +1021,7 @@ export function ItemFormModal({
                     type="file"
                     accept="image/*"
                     className="hidden"
+                    disabled={compressing}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       e.target.value = "";
@@ -1011,6 +1048,7 @@ export function ItemFormModal({
                 {photoUrlInput.trim() && (
                   <button
                     type="button"
+                    disabled={compressing}
                     onClick={() => {
                       const url = photoUrlInput.trim();
                       if (!url || draft.photos.length >= MAX_PHOTOS) return;
