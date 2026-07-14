@@ -7,8 +7,11 @@ deliberate, separately-funded decision (see §6).
 
 Status: **Phase 1 core scaffold shipped** (PR #159 — items, nested locations,
 lending, value dashboard, attention panel, grid/list, search, CSV/JSON
-export/import, URL photos). The rest of Phase 1 + the storage decision are
-covered by the next-up plan below.
+export/import, URL photos). **Block-A near-complete** (PRs #160–#167 + this
+cycle): retrieval, lending ledger, warranty/maintenance reminders + nav badge,
+Focus-project links, declutter→habits, barcode capture, and value/depreciation
+curves are all shipped — only **kits/collections** and **insurance PDF export**
+remain in A. Photo storage + product enrichment (B) tracked below.
 
 ---
 
@@ -38,20 +41,31 @@ size-cap gotcha and the migration path from the current `ItemPhoto` shape.
    read-only bookmark picker, card chips)
 2. ✅ **Seconds-to-add capture** — name-only add; every other field folded under
    "Add details". Kills the #1 abandonment driver ("ten fields = never").
-3. **"Where is it?" retrieval** — forgiving fuzzy find returning the
-   container/location first.
-4. **Lending ledger view** — calm "who has my stuff / due back when" surface
-   over the fields already stored.
-5. **Warranty & maintenance reminders** — Attention panel + nav badge; reuse
-   the focus `sw.js` push.
+3. ✅ **"Where is it?" retrieval** — forgiving fuzzy find returning the
+   container/location first. (PR #162 — `whereIs` + location breadcrumb,
+   `WhereIsModal`, lent/unassigned fallbacks.)
+4. ✅ **Lending ledger view** — calm "who has my stuff / due back when" surface
+   over the fields already stored. (PR #163 — `lendingLedger`, "On loan" modal,
+   `markReturned`.)
+5. ✅ **Warranty & maintenance reminders** — Attention panel + nav badge. (PR
+   #164 — `maintenanceDate`, `maintenanceOverdue/Soon` buckets, `reminderCount`,
+   amber My-Stuff nav badge. In-app only; push-when-closed stays a P2 Cloud
+   Function, deliberately not faked.)
 6. ✅ **Duplicate-purchase guard** — "do I already own this?" nudge while naming
    a new item.
-7. **Link item → Focus project** — connective tissue across pillars.
-8. **Declutter companion** — keep/donate/sell tagging wired into habits.
-9. **Barcode quick-add** — client `BarcodeDetector`, manual fallback (capture
-   only; product lookup is a B item).
-10. **Kits / collections**, **insurance PDF export** (client-side), **value &
-    depreciation curves** (pure math in `lib/value.ts`).
+7. ✅ **Link item → Focus project** — connective tissue across pillars. (PR #165
+   — `projectName`, read-only `useFocusProjects`, form datalist + card chip;
+   also fixed a maintenance/project export round-trip gap.)
+8. ✅ **Declutter companion** — keep/donate/sell tagging wired into habits. (PR
+   #166 — `disposition`/`releasedDate`, `DeclutterModal`, `releaseItem`, and a
+   `declutter` habits `TrackableSource` that counts items released today.)
+9. ✅ **Barcode quick-add** — client `BarcodeDetector`, manual fallback (capture
+   only). (PR #167 — `BarcodeScanner`, `useBarcodeSupported`, Barcode field.
+   *Product lookup shipped separately as a B item — see below.*)
+10. **Kits / collections** _(todo)_, **insurance PDF export** (client-side)
+    _(todo)_, ✅ **value & depreciation curves** (pure math in `lib/value.ts` —
+    straight-line/category-aware resale estimate + 5-year curve in the value
+    panel; PR-B this cycle).
 
 **B — worth it, needs the storage decision (now R2, not Blaze):** native
 camera capture + client compression (the keystone); receipt/document

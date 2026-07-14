@@ -292,31 +292,78 @@ export default function GuidePage() {
         </Section>
 
         <Section id="stuff" title="My Stuff — what you own">
-          <p className="text-slate-300">
-            A calm catalog of your belongings: a name is enough to add an item
-            — category, tags, quantity, purchase details, serial, condition,
-            estimated value, a photo URL, and notes all fold away under{" "}
-            <em>Add details</em> for later. Organize items into{" "}
-            <strong>nestable locations</strong> — rooms, shelves, boxes — and
-            filter or search by name, tag, serial, or link in grid or list
-            view. While naming a new item, a gentle &ldquo;you may already own
-            this&rdquo; hint helps before you buy a duplicate.
-          </p>
-          <p className="text-slate-300">
-            Every item can <strong>link to its online life</strong>: attach
-            bookmarks from your library — the manual, the product page, the
-            warranty portal — and open them right from the item&apos;s card.
-            Bookmarks feed the things, too.
-          </p>
-          <p className="text-slate-300">
-            The <strong>value panel</strong> totals what it&apos;s all worth,
-            broken down by category and location. The{" "}
-            <strong>attention panel</strong> flags what needs a look:
-            warranties ending within 30 days or already ended, and anything
-            you&apos;ve <strong>lent out</strong> (with overdue return dates in
-            red). Archive items you no longer track, and export everything as
-            CSV or a JSON backup — imports merge by id, never duplicating.
-          </p>
+          <Sub title="Add & organize">
+            <p>
+              A name is enough to add an item — category, tags, quantity,
+              purchase details, serial, condition, estimated value, a photo URL,
+              and notes all fold away under <em>Add details</em> for later.
+              Organize items into <strong>nestable locations</strong> — rooms,
+              shelves, boxes — and browse in grid or list view. While naming a
+              new item, a gentle &ldquo;you may already own this&rdquo; hint
+              helps before you buy a duplicate.
+            </p>
+          </Sub>
+          <Sub title="Find it — and find where it is">
+            <p>
+              Search spans name, category, maker, model, serial, barcode,
+              project, notes, tags, and links; a location filter narrows to one
+              room or the unassigned pile. When you just need to know{" "}
+              <em>where</em> something is, <strong>Where is it?</strong> is a
+              forgiving quick-find — type &ldquo;where&apos;s my passport&rdquo;
+              and it answers with the full location path (Bedroom › Desk
+              drawer), or <em>With Alex</em> if it&apos;s lent out.
+            </p>
+          </Sub>
+          <Sub title="Links & projects — connective tissue">
+            <p>
+              Every item can <strong>link to its online life</strong>: attach
+              bookmarks from your library — the manual, the product page, the
+              warranty portal — and open them from the item&apos;s card. An item
+              can also be tied to a <strong>Focus project</strong>, so the thing
+              and the work you do with it stay connected.
+            </p>
+          </Sub>
+          <Sub title="What it&apos;s worth — and depreciation">
+            <p>
+              The <strong>value panel</strong> totals your catalogue by category
+              and location, and adds a <strong>resale estimate</strong>: what
+              you paid versus what it&apos;s worth now, with the percentage
+              retained and a five-year <strong>depreciation curve</strong>. The
+              estimate is a straight-line, category-aware guide (electronics
+              fall fast, furniture slowly) — an appraisal it is not, and your own
+              value estimate always overrides it.
+            </p>
+          </Sub>
+          <Sub title="Warranty, upkeep & lending">
+            <p>
+              The <strong>attention panel</strong> flags what needs a look:
+              warranties ending within 30 days or already gone, and{" "}
+              <strong>maintenance</strong> due or coming up. The count also rides
+              as a badge on the <em>My Stuff</em> nav tab, so it reaches you from
+              any pillar. Lent something out? <strong>On loan</strong> is the
+              ledger of who has what and when it&apos;s due back — overdue in
+              red — with a one-tap <em>Returned</em> when it comes home.
+            </p>
+          </Sub>
+          <Sub title="Declutter">
+            <p>
+              Tag anything you&apos;re moving on — <strong>donate, sell, give
+              away, or toss</strong>. The <strong>Declutter</strong> pile groups
+              them by intent with an estimated recoup for the sells, and a
+              one-tap <em>Let go</em> when it&apos;s gone. Name a habit like
+              &ldquo;declutter&rdquo; or &ldquo;donate&rdquo; and it ticks off
+              automatically each time you release something.
+            </p>
+          </Sub>
+          <Sub title="Barcode, photos & your data">
+            <p>
+              On a supporting browser (Chromium), <strong>Scan</strong> reads an
+              item&apos;s barcode from the camera into the Barcode field — or
+              type it anywhere. Add a photo by URL. Everything exports as CSV or
+              a full JSON backup, and imports merge by id, so restoring never
+              duplicates. Archive items you no longer actively track.
+            </p>
+          </Sub>
         </Section>
 
         <Section id="sync" title="Sync & privacy">
