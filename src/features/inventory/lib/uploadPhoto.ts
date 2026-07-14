@@ -1,7 +1,7 @@
-// Client helper: upload a compressed image to Cloudflare R2 via the presign
-// route. Returns the stored {path, url} on success, or null when R2 isn't
-// configured (or anything fails) — the caller then falls back to a data: URL, so
-// photo capture keeps working with or without R2.
+// Client helpers for the R2 object store: upload a compressed image via the
+// presign route (photos AND attachments share it), and best-effort deletion of
+// objects whose photo/attachment/item was removed. Returns/uses null-tolerant
+// shapes so everything keeps working as data: URLs when R2 isn't configured.
 
 export type UploadResult = { path: string; url: string };
 
@@ -43,4 +43,21 @@ export async function uploadInventoryPhoto(
   } catch {
     return null;
   }
+}
+
+/**
+ * Fire-and-forget cleanup of R2 objects (photo replaced/cleared, attachment or
+ * item deleted). Falsy/empty entries are dropped, so callers can pass optional
+ * `path` fields straight through. Failures only leave orphans — never surfaced.
+ */
+export function deleteInventoryObjects(
+  paths: Array<string | undefined | null>
+): void {
+  const keys = [...new Set(paths.filter((p): p is string => Boolean(p?.trim())))];
+  if (keys.length === 0) return;
+  fetch("/api/inventory/object/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paths: keys }),
+  }).catch(() => {});
 }

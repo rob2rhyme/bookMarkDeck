@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Modal } from "@/components/Modal";
 import { ExternalLink, X } from "@/components/icons";
@@ -28,7 +28,10 @@ import { useBarcodeSupported } from "@/features/inventory/hooks/useBarcodeSuppor
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 import type { ProductInfo } from "@/features/inventory/lib/productLookup";
 import { compressImageFile, dataUrlToBlob } from "@/features/inventory/lib/image";
-import { uploadInventoryPhoto } from "@/features/inventory/lib/uploadPhoto";
+import {
+  deleteInventoryObjects,
+  uploadInventoryPhoto,
+} from "@/features/inventory/lib/uploadPhoto";
 import { runReceiptOcr } from "@/features/inventory/lib/ocrEngine";
 
 type ItemFormModalProps = {
@@ -157,6 +160,10 @@ export function ItemFormModal({
   const [compressing, setCompressing] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [docs, setDocs] = useState<ItemDoc[]>([]);
+  // R2 objects uploaded in THIS editing session that no saved record points at
+  // yet. Anything still here when the modal closes (cancel, or replaced before
+  // save) is swept from the bucket — the orphan-control half of the R2 path.
+  const sessionUploadsRef = useRef<Set<string>>(new Set());
   const [docsLoading, setDocsLoading] = useState(false);
   const [addingDoc, setAddingDoc] = useState(false);
   const [docKind, setDocKind] = useState<ItemDocKind>("receipt");
@@ -183,6 +190,7 @@ export function ItemFormModal({
       setAddingDoc(false);
       setDocKind("receipt");
       setOcrStatus("idle");
+      sessionUploadsRef.current.clear();
     }
     if (!open) setDraft(null);
   }, [open, item, defaultCurrency]);
@@ -249,17 +257,23 @@ export function ItemFormModal({
     }
   };
 
-  // Camera capture / file pick → compress client-side → store as a compact
-  // data: URL on the item (R2 upload will slot in here later).
+  const closeAndSweep = () => {
+    deleteInventoryObjects([...sessionUploadsRef.current]);
+    sessionUploadsRef.current.clear();
+    onClose();
+  };
+
+  // Camera capture / file pick → compress client-side → upload to R2 when
+  // configured; otherwise keep the compressed data: URL.
   const onPickPhoto = async (file: File | undefined) => {
     if (!file || !item) return;
     setPhotoError(null);
     setCompressing(true);
     try {
       const { dataUrl, mime } = await compressImageFile(file);
-      // Upload to R2 when configured; otherwise keep the compressed data: URL.
       const uploaded = await uploadInventoryPhoto(dataUrlToBlob(dataUrl), mime, item.id);
       if (uploaded) {
+        sessionUploadsRef.current.add(uploaded.path);
         set("photoUrl", uploaded.url);
         set("photoPath", uploaded.path);
       } else {
@@ -309,17 +323,27 @@ export function ItemFormModal({
     if (!file || !item) return;
     setDocError(null);
     setAddingDoc(true);
+    let uploadedPath: string | undefined;
     try {
-      const { dataUrl, w, h } = await compressImageFile(file, {
+      const { dataUrl, mime, w, h } = await compressImageFile(file, {
         maxEdge: 1500,
         quality: 0.6,
       });
+      // Same R2-or-data:-URL dual path as photos — attachments share the
+      // presign route; the doc row stays the only pointer to the object.
+      const uploaded = await uploadInventoryPhoto(
+        dataUrlToBlob(dataUrl),
+        mime,
+        item.id
+      );
+      uploadedPath = uploaded?.path;
       const newDoc: ItemDoc = {
         id: crypto.randomUUID(),
         itemId: item.id,
         name: suggestDocName(docKind, docs),
         kind: docKind,
-        data: dataUrl,
+        data: uploaded ? uploaded.url : dataUrl,
+        ...(uploaded ? { path: uploaded.path } : {}),
         w,
         h,
         createdAt: null,
@@ -327,6 +351,8 @@ export function ItemFormModal({
       await onAddDoc(newDoc);
       setDocs((prev) => [...prev, newDoc]);
     } catch (e) {
+      // The doc row never landed — don't strand the uploaded object.
+      if (uploadedPath) deleteInventoryObjects([uploadedPath]);
       setDocError(e instanceof Error ? e.message : "Couldn't attach that file.");
     } finally {
       setAddingDoc(false);
@@ -334,9 +360,11 @@ export function ItemFormModal({
   };
 
   const removeDoc = async (id: string) => {
+    const path = docs.find((d) => d.id === id)?.path;
     setDocs((prev) => prev.filter((d) => d.id !== id));
     try {
       await onRemoveDoc(id);
+      if (path) deleteInventoryObjects([path]);
     } catch {
       /* best-effort; the row is already gone from the UI */
     }
@@ -411,6 +439,16 @@ export function ItemFormModal({
       disposition: draft.disposition || undefined,
       notes: trimmedOrUndef(draft.notes),
     };
+    // Orphan control: R2 objects the save no longer references — the item's
+    // previous photo when replaced/cleared, and any session uploads that were
+    // superseded before saving — get swept. The kept path is exempted.
+    const kept = new Set(next.photos.map((p) => p.path).filter(Boolean));
+    const sweep = [
+      ...(item.photos ?? []).map((p) => p.path),
+      ...sessionUploadsRef.current,
+    ].filter((p): p is string => Boolean(p) && !kept.has(p));
+    sessionUploadsRef.current.clear();
+    deleteInventoryObjects(sweep);
     onSave(next);
     onClose();
   };
@@ -418,7 +456,7 @@ export function ItemFormModal({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={closeAndSweep}
       label={isNew ? "Add item" : "Edit item"}
       panelClassName="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
@@ -1052,7 +1090,7 @@ export function ItemFormModal({
         <div className="mt-2 flex gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeAndSweep}
             className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
           >
             Cancel

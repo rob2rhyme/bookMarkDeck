@@ -37,6 +37,19 @@ export function awsUriEncode(str: string, encodeSlash = true): string {
   return out;
 }
 
+/**
+ * True when `path` is an object key inside the caller's own inventory prefix
+ * (`inventory/{userSeg}/…`) — the delete route's authorization check. Strict:
+ * exact prefix, no traversal segments, no URLs, and only the character set the
+ * presign route can produce.
+ */
+export function isOwnedInventoryPath(path: string, userSeg: string): boolean {
+  if (!/^[a-f0-9]{16}$/.test(userSeg)) return false;
+  if (!path.startsWith(`inventory/${userSeg}/`)) return false;
+  if (path.includes("..") || path.includes("//")) return false;
+  return /^[a-zA-Z0-9/_.-]+$/.test(path);
+}
+
 export type PresignInput = {
   accountId: string; // R2 account id → {id}.r2.cloudflarestorage.com
   bucket: string;
