@@ -331,7 +331,10 @@ export default function GuidePage() {
               bookmarks from your library — the manual, the product page, the
               warranty portal — and open them from the item&apos;s card. An item
               can also be tied to a <strong>Focus project</strong>, so the thing
-              and the work you do with it stay connected.
+              and the work you do with it stay connected. My Stuff moments —
+              added, lent, returned, let go — also land in the Focus page&apos;s
+              unified <strong>activity timeline</strong>, alongside your focus
+              blocks and habits.
             </p>
           </Sub>
           <Sub title="What it&apos;s worth — and depreciation">

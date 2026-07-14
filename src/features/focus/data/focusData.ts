@@ -83,7 +83,12 @@ export type ActivityType =
   | "bookmark"
   | "quiz"
   | "meditation"
-  | "reset";
+  | "reset"
+  // My Stuff (inventory) moments — logged by the inventory feature.
+  | "item_added"
+  | "item_lent"
+  | "item_returned"
+  | "item_released";
 
 export type ActivityEvent = {
   id: string;

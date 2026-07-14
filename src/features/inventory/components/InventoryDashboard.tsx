@@ -28,6 +28,10 @@ import {
   itemsToCsv,
 } from "@/features/inventory/lib/exportInventory";
 import { todayKey } from "@/features/inventory/data/inventoryData";
+import {
+  logActivity,
+  type ActivityType,
+} from "@/features/focus/data/focusData";
 import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
 import type { InventoryItem, ItemDoc } from "@/features/inventory/lib/types";
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
@@ -142,6 +146,41 @@ export function InventoryDashboard() {
     setEditing(item);
     setFormOpen(true);
   };
+  // Surface My Stuff moments in the unified Focus activity timeline —
+  // fire-and-forget nicety, never in the save path (open decision #3).
+  const logEvent = (type: ActivityType, summary: string) => {
+    if (connected && email) {
+      logActivity(email, type, summary, today || todayKey()).catch(() => {});
+    }
+  };
+  const saveItem = (item: InventoryItem) => {
+    const prev = inv.items.find((i) => i.id === item.id);
+    inv.upsertItem(item);
+    if (!prev) {
+      logEvent("item_added", `Added to My Stuff: ${item.name}`);
+    } else {
+      if (!prev.lentTo?.trim() && item.lentTo?.trim())
+        logEvent("item_lent", `Lent out: ${item.name} → ${item.lentTo.trim()}`);
+      if (prev.lentTo?.trim() && !item.lentTo?.trim())
+        logEvent("item_returned", `Returned: ${item.name}`);
+    }
+  };
+  const returnItem = (id: string) => {
+    const it = inv.items.find((i) => i.id === id);
+    inv.markReturned(id);
+    if (it) {
+      logEvent(
+        "item_returned",
+        `Returned: ${it.name}${it.lentTo?.trim() ? ` (from ${it.lentTo.trim()})` : ""}`
+      );
+    }
+  };
+  const releaseAndLog = (id: string) => {
+    const it = inv.items.find((i) => i.id === id);
+    inv.releaseItem(id, today || todayKey());
+    if (it) logEvent("item_released", `Let go of: ${it.name}`);
+  };
+
   // Read-only detail view; its Edit button hands off to the form.
   const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
   const openDetail = (item: InventoryItem) => setDetailItem(item);
@@ -585,7 +624,7 @@ export function InventoryDashboard() {
         onFetchDocs={fetchDocs}
         onAddDoc={addDoc}
         onRemoveDoc={removeDoc}
-        onSave={inv.upsertItem}
+        onSave={saveItem}
         onClose={() => setFormOpen(false)}
       />
       <LocationManager
@@ -619,7 +658,7 @@ export function InventoryDashboard() {
         open={lendOpen}
         items={inv.active}
         today={today}
-        onReturned={inv.markReturned}
+        onReturned={returnItem}
         onEdit={openEdit}
         onClose={() => setLendOpen(false)}
       />
@@ -627,7 +666,7 @@ export function InventoryDashboard() {
         open={declutterOpen}
         items={inv.active}
         currency={settings.defaultCurrency}
-        onReleased={(id) => inv.releaseItem(id, today || todayKey())}
+        onReleased={releaseAndLog}
         onEdit={openEdit}
         onClose={() => setDeclutterOpen(false)}
       />
