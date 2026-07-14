@@ -96,6 +96,14 @@ export function ItemCard({
               🎯 {item.projectName}
             </span>
           )}
+          {item.collection && (
+            <span
+              className="max-w-full truncate rounded-full bg-teal-500/15 px-2 py-0.5 text-[10px] font-medium text-teal-200"
+              title={`Collection: ${item.collection}`}
+            >
+              🧰 {item.collection}
+            </span>
+          )}
           {item.disposition && (
             <span
               className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-200"

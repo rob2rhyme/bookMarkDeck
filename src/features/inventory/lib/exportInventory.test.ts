@@ -50,6 +50,7 @@ describe("inventory JSON round-trip", () => {
           warrantyExpiry: "2027-01-01",
           maintenanceDate: "2026-10-01",
           projectName: "Photo studio",
+          collection: "Camera bag",
           disposition: "sell",
           releasedDate: "2026-07-14",
           barcode: "0123456789012",
@@ -67,6 +68,7 @@ describe("inventory JSON round-trip", () => {
     // Maintenance + project + declutter survive the round-trip (not dropped).
     expect(parsed!.items[0].maintenanceDate).toBe("2026-10-01");
     expect(parsed!.items[0].projectName).toBe("Photo studio");
+    expect(parsed!.items[0].collection).toBe("Camera bag");
     expect(parsed!.items[0].disposition).toBe("sell");
     expect(parsed!.items[0].releasedDate).toBe("2026-07-14");
     expect(parsed!.items[0].barcode).toBe("0123456789012");
