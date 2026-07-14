@@ -88,6 +88,14 @@ export function ItemCard({
               {item.category}
             </span>
           )}
+          {item.projectName && (
+            <span
+              className="max-w-full truncate rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-medium text-indigo-200"
+              title={`Focus project: ${item.projectName}`}
+            >
+              🎯 {item.projectName}
+            </span>
+          )}
           {item.quantity > 1 && (
             <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-300 tabular-nums">
               ×{item.quantity}

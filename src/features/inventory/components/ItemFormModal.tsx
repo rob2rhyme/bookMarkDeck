@@ -24,6 +24,7 @@ type ItemFormModalProps = {
   item: InventoryItem | null; // the item to edit, or a blank one to create
   tree: LocationNode[];
   categorySuggestions: string[];
+  focusProjects: string[]; // the user's Focus project labels (read-only)
   defaultCurrency: string;
   today: string; // YYYY-MM-DD
   bookmarks: ItemLink[]; // the user's bookmark library (read-only)
@@ -52,6 +53,7 @@ type Draft = {
   photoUrl: string;
   lentTo: string;
   dueDate: string;
+  projectName: string;
   notes: string;
   links: ItemLink[];
 };
@@ -77,6 +79,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     photoUrl: item.photos[0]?.url ?? "",
     lentTo: item.lentTo ?? "",
     dueDate: item.dueDate ?? "",
+    projectName: item.projectName ?? "",
     notes: item.notes ?? "",
     links: item.links ?? [],
   };
@@ -106,6 +109,7 @@ export function ItemFormModal({
   item,
   tree,
   categorySuggestions,
+  focusProjects,
   defaultCurrency,
   today,
   bookmarks,
@@ -190,6 +194,7 @@ export function ItemFormModal({
       // Stamp a lend-out date the first time something is marked lent.
       lentDate: lentTo ? item.lentDate ?? stamp : null,
       dueDate: lentTo ? trimmedOrUndef(draft.dueDate) ?? null : null,
+      projectName: trimmedOrUndef(draft.projectName),
       notes: trimmedOrUndef(draft.notes),
     };
     onSave(next);
@@ -485,6 +490,22 @@ export function ItemFormModal({
                 placeholder="fragile, gift, work"
                 className={fieldClass}
               />
+            </Field>
+
+            <Field label="Focus project">
+              <input
+                type="text"
+                list="inventory-focus-projects"
+                value={draft.projectName}
+                onChange={(e) => set("projectName", e.target.value)}
+                placeholder="Tie this to a Focus project…"
+                className={fieldClass}
+              />
+              <datalist id="inventory-focus-projects">
+                {focusProjects.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
             </Field>
 
             <Field label="Photo URL">

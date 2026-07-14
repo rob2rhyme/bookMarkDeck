@@ -62,6 +62,7 @@ export type InventoryItem = {
   lentDate?: string | null; // YYYY-MM-DD
   dueDate?: string | null; // YYYY-MM-DD (return-by for a lent item)
   links: ItemLink[]; // bookmarks attached to this item (manual, product page, …)
+  projectName?: string; // a Focus project label this item belongs to ("" = none)
   photos: ItemPhoto[];
   archived?: boolean;
   createdAt: string | null;

@@ -43,7 +43,15 @@ describe("itemsToCsv", () => {
 describe("inventory JSON round-trip", () => {
   it("re-imports what it exported, dropping malformed records", () => {
     const backup: InventoryBackup = {
-      items: [item({ name: "Camera", value: 900, warrantyExpiry: "2027-01-01" })],
+      items: [
+        item({
+          name: "Camera",
+          value: 900,
+          warrantyExpiry: "2027-01-01",
+          maintenanceDate: "2026-10-01",
+          projectName: "Photo studio",
+        }),
+      ],
       locations: [
         { id: "loc1", name: "Office", parentId: null, createdAt: null, updatedAt: null },
       ],
@@ -53,6 +61,9 @@ describe("inventory JSON round-trip", () => {
     const parsed = inventoryFromJson(json);
     expect(parsed).not.toBeNull();
     expect(parsed!.items[0].name).toBe("Camera");
+    // Maintenance + project survive the round-trip (not silently dropped).
+    expect(parsed!.items[0].maintenanceDate).toBe("2026-10-01");
+    expect(parsed!.items[0].projectName).toBe("Photo studio");
     expect(parsed!.locations[0].name).toBe("Office");
     expect(parsed!.settings).toEqual({ defaultCurrency: "EUR", defaultView: "list" });
     expect(backupCount(parsed!)).toBe(2);
