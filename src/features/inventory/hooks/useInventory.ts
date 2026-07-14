@@ -163,6 +163,29 @@ export function useInventory(email?: string | null, connected = false) {
     [canSync, email]
   );
 
+  /** Clear the lending fields — the item is back home. */
+  const markReturned = useCallback(
+    (id: string) => {
+      setItems((prev) => {
+        const next = prev.map((i) =>
+          i.id === id
+            ? {
+                ...i,
+                lentTo: null,
+                lentDate: null,
+                dueDate: null,
+                updatedAt: new Date().toISOString(),
+              }
+            : i
+        );
+        const updated = next.find((i) => i.id === id);
+        if (canSync && email && updated) saveItem(email, updated).catch(() => {});
+        return next;
+      });
+    },
+    [canSync, email]
+  );
+
   const active = useMemo(() => items.filter((i) => !i.archived), [items]);
 
   return {
@@ -173,6 +196,7 @@ export function useInventory(email?: string | null, connected = false) {
     upsertItem,
     removeItem,
     setArchived,
+    markReturned,
     pushToCloud,
     pullFromCloud,
     setItems,

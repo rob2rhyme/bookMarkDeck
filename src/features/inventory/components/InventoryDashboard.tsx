@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { MapPin, Package, Plus, Search, Tag, X } from "@/components/icons";
+import { HandHelping, MapPin, Package, Plus, Search, Tag, X } from "@/components/icons";
 import { downloadText } from "@/utils/download";
 import { restoreInventoryBackup } from "@/features/inventory/data/inventoryData";
 import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
@@ -25,6 +25,8 @@ import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
 import { WhereIsModal } from "@/features/inventory/components/WhereIsModal";
+import { LendingLedgerModal } from "@/features/inventory/components/LendingLedgerModal";
+import { lendingLedger } from "@/features/inventory/lib/lending";
 
 function mergeById<T extends { id: string }>(prev: T[], incoming: T[]): T[] {
   const map = new Map(prev.map((x) => [x.id, x]));
@@ -68,6 +70,7 @@ export function InventoryDashboard() {
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [locOpen, setLocOpen] = useState(false);
   const [whereOpen, setWhereOpen] = useState(false);
+  const [lendOpen, setLendOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -84,6 +87,9 @@ export function InventoryDashboard() {
     for (const i of inv.active) if (i.locationId) c[i.locationId] = (c[i.locationId] ?? 0) + 1;
     return c;
   }, [inv.active]);
+
+  const lending = useMemo(() => lendingLedger(inv.active, today), [inv.active, today]);
+  const overdueCount = lending.filter((e) => e.status === "overdue").length;
 
   const visible = useMemo(() => {
     const base = showArchived ? inv.items : inv.active;
@@ -153,6 +159,24 @@ export function InventoryDashboard() {
               className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
             >
               <MapPin className="h-4 w-4" /> Where is it?
+            </button>
+          )}
+          {lending.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setLendOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400 hover:text-violet-300"
+            >
+              <HandHelping className="h-4 w-4" /> On loan
+              <span
+                className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                  overdueCount > 0
+                    ? "bg-red-500/25 text-red-200"
+                    : "bg-violet-500/20 text-violet-100"
+                }`}
+              >
+                {lending.length}
+              </span>
             </button>
           )}
           <button
@@ -396,6 +420,14 @@ export function InventoryDashboard() {
         locations={loc.locations}
         onPick={openEdit}
         onClose={() => setWhereOpen(false)}
+      />
+      <LendingLedgerModal
+        open={lendOpen}
+        items={inv.active}
+        today={today}
+        onReturned={inv.markReturned}
+        onEdit={openEdit}
+        onClose={() => setLendOpen(false)}
       />
     </div>
   );
