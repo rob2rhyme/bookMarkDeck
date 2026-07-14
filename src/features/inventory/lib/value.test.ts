@@ -4,14 +4,22 @@ import {
   attention,
   attentionCount,
   daysUntil,
+  depreciationFor,
   formatMoney,
+  itemResale,
   itemValue,
   maintenanceState,
   reminderCount,
+  resaleCurve,
+  straightLineValue,
+  totalPaid,
+  totalResale,
   totalValue,
+  unitResale,
   valueByCategory,
   valueByLocation,
   warrantyState,
+  yearsBetween,
 } from "@/features/inventory/lib/value";
 import type { InventoryItem, InventoryLocation } from "@/features/inventory/lib/types";
 
@@ -118,6 +126,73 @@ describe("warrantyState / attention", () => {
     // reminders (overdue return, not the on-time one).
     expect(attentionCount(a)).toBe(6);
     expect(reminderCount(a)).toBe(5);
+  });
+});
+
+describe("depreciation / resale", () => {
+  const today = "2026-07-14";
+
+  it("straight-lines from price to the salvage floor over the life", () => {
+    const p = { lifeYears: 7, salvageRate: 0.1 };
+    expect(straightLineValue(1000, 0, p)).toBe(1000); // new
+    expect(straightLineValue(1000, 3.5, p)).toBe(550); // halfway
+    expect(straightLineValue(1000, 7, p)).toBeCloseTo(100); // at life → floor
+    expect(straightLineValue(1000, 20, p)).toBeCloseTo(100); // beyond → floor
+    expect(straightLineValue(0, 2, p)).toBe(0);
+  });
+
+  it("picks category-typical params, else the default", () => {
+    expect(depreciationFor("Electronics").lifeYears).toBe(4);
+    expect(depreciationFor("Furniture").lifeYears).toBe(12);
+    expect(depreciationFor("Groceries")).toEqual({ lifeYears: 7, salvageRate: 0.1 });
+    expect(depreciationFor(undefined).lifeYears).toBe(7);
+  });
+
+  it("measures fractional years, never negative", () => {
+    expect(yearsBetween("2024-07-14", today)).toBeCloseTo(2, 1);
+    expect(yearsBetween("2030-01-01", today)).toBe(0); // future purchase
+  });
+
+  it("resolves unit resale by override → depreciated price → price → 0", () => {
+    // manual value always wins
+    expect(unitResale(item({ value: 500, price: 1000, purchaseDate: "2000-01-01" }), today)).toBe(500);
+    // priced + bought today → age 0 → full price
+    expect(unitResale(item({ price: 1000, purchaseDate: today }), today)).toBe(1000);
+    // priced + ancient (past its life) → salvage floor (default 10%)
+    expect(unitResale(item({ price: 1000, purchaseDate: "1990-01-01" }), today)).toBeCloseTo(100);
+    // priced, no date → can't age it, use price
+    expect(unitResale(item({ price: 200 }), today)).toBe(200);
+    // nothing priced
+    expect(unitResale(item({}), today)).toBe(0);
+    // quantity multiplies
+    expect(itemResale(item({ price: 200, quantity: 3 }), today)).toBe(600);
+  });
+
+  it("totals paid vs resale over live items only", () => {
+    const items = [
+      item({ price: 1000, purchaseDate: today, quantity: 2 }), // paid 2000, resale 2000 (age 0)
+      item({ price: 500, purchaseDate: "1990-01-01" }), // paid 500, resale ~50 (floor)
+      item({ price: 999, archived: true }), // excluded
+    ];
+    expect(totalPaid(items)).toBe(2500);
+    expect(totalResale(items, today)).toBeCloseTo(2050);
+  });
+
+  it("projects a non-increasing portfolio curve; year 0 equals resale now", () => {
+    const items = [
+      item({ price: 1000, purchaseDate: today }), // declines
+      item({ value: 500 }), // manual → flat
+      item({ price: 200 }), // undated → flat
+    ];
+    const curve = resaleCurve(items, today, 5);
+    expect(curve).toHaveLength(6);
+    expect(curve[0].total).toBeCloseTo(totalResale(items, today));
+    expect(curve[0].total).toBeCloseTo(1700); // 1000 + 500 + 200
+    for (let i = 1; i < curve.length; i++) {
+      expect(curve[i].total).toBeLessThanOrEqual(curve[i - 1].total);
+    }
+    // the flat items keep a floor under the curve
+    expect(curve[5].total).toBeGreaterThan(700);
   });
 });
 

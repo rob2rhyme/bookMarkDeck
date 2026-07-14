@@ -165,6 +165,128 @@ export function reminderCountFor(items: InventoryItem[], today: string): number 
   return reminderCount(attention(items, today));
 }
 
+// ── Depreciation / resale estimate ──────────────────────────────────────────
+// A deliberately simple, honest heuristic: straight-line decline from the
+// purchase price to a salvage floor over a category-typical useful life. It is
+// an *estimate* of resale worth, kept separate from the catalog "total value"
+// (which uses your manual estimate or purchase price). Pure + unit-tested.
+
+export type DepreciationParams = {
+  /** Years from new until value reaches the salvage floor. */
+  lifeYears: number;
+  /** Residual fraction of the price the item never drops below (0–1). */
+  salvageRate: number;
+};
+
+export const DEFAULT_DEPRECIATION: DepreciationParams = {
+  lifeYears: 7,
+  salvageRate: 0.1,
+};
+
+// Keyword → typical life/salvage. First match wins; order most-specific first.
+const DEPRECIATION_TABLE: { test: RegExp; params: DepreciationParams }[] = [
+  { test: /phone|laptop|computer|tablet|camera|tv|monitor|console|electronic|gadget/, params: { lifeYears: 4, salvageRate: 0.05 } },
+  { test: /appliance|kitchen|fridge|washer|dryer|microwave|vacuum/, params: { lifeYears: 8, salvageRate: 0.05 } },
+  { test: /tool|drill|saw|power/, params: { lifeYears: 10, salvageRate: 0.15 } },
+  { test: /car|vehicle|bike|bicycle|scooter/, params: { lifeYears: 8, salvageRate: 0.1 } },
+  { test: /furniture|sofa|couch|desk|chair|table|bed/, params: { lifeYears: 12, salvageRate: 0.15 } },
+  { test: /jewel|watch|gold|art|collectib/, params: { lifeYears: 25, salvageRate: 0.6 } },
+];
+
+/** Typical depreciation params for a (free-text) category; default otherwise. */
+export function depreciationFor(category?: string): DepreciationParams {
+  const c = (category ?? "").toLowerCase();
+  if (c) {
+    for (const row of DEPRECIATION_TABLE) if (row.test.test(c)) return row.params;
+  }
+  return DEFAULT_DEPRECIATION;
+}
+
+/** Fractional years between two YYYY-MM-DD dates (0 if unknown or negative). */
+export function yearsBetween(from: string, today: string): number {
+  const d = daysUntil(today, from); // today - from, in days
+  if (d === null) return 0;
+  return Math.max(0, d / 365.25);
+}
+
+/** Straight-line price → salvage over `lifeYears`, clamped. `ageYears` ≥ 0. */
+export function straightLineValue(
+  price: number,
+  ageYears: number,
+  params: DepreciationParams = DEFAULT_DEPRECIATION
+): number {
+  if (!(price > 0)) return 0;
+  const frac = Math.min(1, Math.max(0, ageYears / params.lifeYears));
+  return price * (1 - (1 - params.salvageRate) * frac);
+}
+
+/**
+ * Per-unit estimated resale value now: a manual `value` wins (your own
+ * estimate); otherwise depreciate the purchase `price` by age; with a price but
+ * no purchase date, fall back to the price; nothing priced → 0.
+ */
+export function unitResale(item: InventoryItem, today: string): number {
+  if (typeof item.value === "number" && Number.isFinite(item.value)) return item.value;
+  const price = typeof item.price === "number" && Number.isFinite(item.price) ? item.price : 0;
+  if (price <= 0) return 0;
+  if (!item.purchaseDate) return price;
+  return straightLineValue(price, yearsBetween(item.purchaseDate, today), depreciationFor(item.category));
+}
+
+/** Estimated resale of an item line (unit resale × quantity). */
+export function itemResale(item: InventoryItem, today: string): number {
+  return unitResale(item, today) * Math.max(1, item.quantity || 1);
+}
+
+/** Total estimated resale now across live items. */
+export function totalResale(items: InventoryItem[], today: string): number {
+  return live(items).reduce((sum, i) => sum + itemResale(i, today), 0);
+}
+
+/** Total originally paid (purchase price × qty) across live items. */
+export function totalPaid(items: InventoryItem[]): number {
+  return live(items).reduce((sum, i) => {
+    const p = typeof i.price === "number" && Number.isFinite(i.price) ? i.price : 0;
+    return sum + p * Math.max(1, i.quantity || 1);
+  }, 0);
+}
+
+export type CurvePoint = { year: number; total: number };
+
+/**
+ * Portfolio resale projected forward `years` (0…years), summing each live
+ * item's straight-line value at that future age. Manual-valued and undated
+ * items hold flat (no model to decline them). Monotonically non-increasing.
+ */
+export function resaleCurve(
+  items: InventoryItem[],
+  today: string,
+  years = 5
+): CurvePoint[] {
+  const live_ = live(items);
+  const points: CurvePoint[] = [];
+  for (let y = 0; y <= years; y++) {
+    let total = 0;
+    for (const i of live_) {
+      const qty = Math.max(1, i.quantity || 1);
+      if (typeof i.value === "number" && Number.isFinite(i.value)) {
+        total += i.value * qty; // manual estimate holds flat
+        continue;
+      }
+      const price = typeof i.price === "number" && Number.isFinite(i.price) ? i.price : 0;
+      if (price <= 0) continue;
+      if (!i.purchaseDate) {
+        total += price * qty; // undated: can't age it
+        continue;
+      }
+      const age = yearsBetween(i.purchaseDate, today) + y;
+      total += straightLineValue(price, age, depreciationFor(i.category)) * qty;
+    }
+    points.push({ year: y, total });
+  }
+  return points;
+}
+
 /** Locale money formatting; falls back to a plain number if the code is bad. */
 export function formatMoney(amount: number, currency: string): string {
   try {

@@ -4,9 +4,13 @@ import type { InventoryItem, InventoryLocation } from "@/features/inventory/lib/
 import {
   formatMoney,
   itemCount,
+  resaleCurve,
+  totalPaid,
+  totalResale,
   totalValue,
   valueByCategory,
   valueByLocation,
+  type CurvePoint,
   type Rollup,
 } from "@/features/inventory/lib/value";
 
@@ -14,6 +18,7 @@ type ValuePanelProps = {
   items: InventoryItem[];
   locations: InventoryLocation[];
   currency: string;
+  today: string; // YYYY-MM-DD — needed for the depreciation estimate
 };
 
 function Bars({ rows, currency }: { rows: Rollup[]; currency: string }) {
@@ -46,11 +51,49 @@ function Bars({ rows, currency }: { rows: Rollup[]; currency: string }) {
   );
 }
 
-export function ValuePanel({ items, locations, currency }: ValuePanelProps) {
+function ResaleCurve({ points }: { points: CurvePoint[] }) {
+  const W = 100;
+  const H = 32;
+  const max = Math.max(1, points[0]?.total ?? 1);
+  const n = points.length - 1;
+  const coords = points.map((p, i) => {
+    const x = n === 0 ? 0 : (i / n) * W;
+    const y = H - (p.total / max) * H;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const line = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c}`).join(" ");
+  const area = `${line} L${W},${H} L0,${H} Z`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-10 w-full" aria-hidden>
+      <defs>
+        <linearGradient id="resaleGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#34d399" stopOpacity="0.35" />
+          <stop offset="1" stopColor="#34d399" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#resaleGrad)" />
+      <path
+        d={line}
+        fill="none"
+        stroke="#34d399"
+        strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function ValuePanel({ items, locations, currency, today }: ValuePanelProps) {
   const total = totalValue(items);
   const count = itemCount(items);
   const byCategory = valueByCategory(items);
   const byLocation = valueByLocation(items, locations);
+
+  const paid = totalPaid(items);
+  const resaleNow = totalResale(items, today);
+  const retained = paid > 0 ? Math.round((resaleNow / paid) * 100) : 0;
+  const curve = resaleCurve(items, today, 5);
 
   return (
     <div className="rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 sm:p-6">
@@ -83,6 +126,37 @@ export function ValuePanel({ items, locations, currency }: ValuePanelProps) {
           <Bars rows={byLocation} currency={currency} />
         </section>
       </div>
+
+      {paid > 0 && (
+        <section className="mt-5 border-t border-slate-800/60 pt-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Resale estimate
+              </h4>
+              <p className="mt-1 text-sm text-slate-400">
+                Paid{" "}
+                <span className="tabular-nums text-slate-300">
+                  {formatMoney(paid, currency)}
+                </span>{" "}
+                · worth now{" "}
+                <span className="font-semibold tabular-nums text-emerald-300">
+                  ≈ {formatMoney(resaleNow, currency)}
+                </span>
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-slate-800/70 px-2 py-0.5 text-[11px] tabular-nums text-slate-300">
+              {retained}% retained
+            </span>
+          </div>
+          <div className="mt-2">
+            <ResaleCurve points={curve} />
+          </div>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Straight-line estimate by category, projected 5 years out — a guide, not an appraisal.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
