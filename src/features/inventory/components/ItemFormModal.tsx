@@ -27,7 +27,8 @@ import {
 import { useBarcodeSupported } from "@/features/inventory/hooks/useBarcodeSupported";
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 import type { ProductInfo } from "@/features/inventory/lib/productLookup";
-import { compressImageFile } from "@/features/inventory/lib/image";
+import { compressImageFile, dataUrlToBlob } from "@/features/inventory/lib/image";
+import { uploadInventoryPhoto } from "@/features/inventory/lib/uploadPhoto";
 import { runReceiptOcr } from "@/features/inventory/lib/ocrEngine";
 
 type ItemFormModalProps = {
@@ -68,6 +69,7 @@ type Draft = {
   retailer: string;
   tags: string;
   photoUrl: string;
+  photoPath: string; // R2 object key when the photo was uploaded ("" = data URL / URL)
   lentTo: string;
   dueDate: string;
   projectName: string;
@@ -97,6 +99,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     retailer: item.retailer ?? "",
     tags: item.tags.join(", "),
     photoUrl: item.photos[0]?.url ?? "",
+    photoPath: item.photos[0]?.path ?? "",
     lentTo: item.lentTo ?? "",
     dueDate: item.dueDate ?? "",
     projectName: item.projectName ?? "",
@@ -249,12 +252,20 @@ export function ItemFormModal({
   // Camera capture / file pick → compress client-side → store as a compact
   // data: URL on the item (R2 upload will slot in here later).
   const onPickPhoto = async (file: File | undefined) => {
-    if (!file) return;
+    if (!file || !item) return;
     setPhotoError(null);
     setCompressing(true);
     try {
-      const { dataUrl } = await compressImageFile(file);
-      set("photoUrl", dataUrl);
+      const { dataUrl, mime } = await compressImageFile(file);
+      // Upload to R2 when configured; otherwise keep the compressed data: URL.
+      const uploaded = await uploadInventoryPhoto(dataUrlToBlob(dataUrl), mime, item.id);
+      if (uploaded) {
+        set("photoUrl", uploaded.url);
+        set("photoPath", uploaded.path);
+      } else {
+        set("photoUrl", dataUrl);
+        set("photoPath", "");
+      }
     } catch (e) {
       setPhotoError(e instanceof Error ? e.message : "Couldn't process that image.");
     } finally {
@@ -359,7 +370,13 @@ export function ItemFormModal({
     if (!canSave) return;
     const lentTo = trimmedOrUndef(draft.lentTo) ?? null;
     const photos = draft.photoUrl.trim()
-      ? [{ id: item.photos[0]?.id ?? crypto.randomUUID(), url: draft.photoUrl.trim() }]
+      ? [
+          {
+            id: item.photos[0]?.id ?? crypto.randomUUID(),
+            url: draft.photoUrl.trim(),
+            ...(draft.photoPath ? { path: draft.photoPath } : {}),
+          },
+        ]
       : [];
     const next: InventoryItem = {
       ...item,
@@ -850,7 +867,10 @@ export function ItemFormModal({
                   />
                   <button
                     type="button"
-                    onClick={() => set("photoUrl", "")}
+                    onClick={() => {
+                      set("photoUrl", "");
+                      set("photoPath", "");
+                    }}
                     className="text-xs font-medium text-slate-400 transition hover:text-red-300"
                   >
                     Remove
@@ -895,7 +915,10 @@ export function ItemFormModal({
               <input
                 type="url"
                 value={draft.photoUrl.startsWith("data:") ? "" : draft.photoUrl}
-                onChange={(e) => set("photoUrl", e.target.value)}
+                onChange={(e) => {
+                  set("photoUrl", e.target.value);
+                  if (draft.photoPath) set("photoPath", "");
+                }}
                 placeholder="or paste an image URL…"
                 className={`${fieldClass} mt-2`}
               />

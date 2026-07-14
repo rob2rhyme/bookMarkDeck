@@ -32,6 +32,30 @@ Firebase ID-token verify), keys server-composed as
 honorable mention: Backblaze B2 + Cloudflare. See the analysis doc for the
 size-cap gotcha and the migration path from the current `ItemPhoto` shape.
 
+#### ✅ R2 plumbing shipped (feature-gated) — activation is env-only
+
+The presign path is built and inert until you provision R2 — no code change to
+turn it on:
+
+1. Create an R2 bucket; add an **API token** (Object Read & Write) → the access
+   key id + secret.
+2. Give the bucket **public read** (enable the `r2.dev` URL, or map a custom
+   domain) and a **CORS** rule allowing `PUT` (and `GET`) from your app origin.
+3. Set the five env vars (see `.env.example`): `R2_ACCOUNT_ID`,
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`,
+   `R2_PUBLIC_BASE_URL` (the public base, e.g. `https://pub-….r2.dev`).
+
+Then a captured photo compresses on-device, calls
+`/api/inventory/photo/presign` (session-gated; key composed server-side as
+`inventory/{sha256(session-sub)[:16]}/{itemId}/{photoId}.webp` — a client can't
+target another prefix), PUTs the bytes straight to R2, and stores `{ url, path }`
+on the item. If R2 isn't configured (or a PUT
+fails) it transparently falls back to the compressed `data:` URL. SigV4 is
+hand-rolled (`lib/r2.ts`, no AWS SDK) and unit-tested. **Not yet migrated:**
+attachments (`inventoryDocs`) still use `data:` URLs — same presign route is
+reusable for them next; and a cleanup pass to delete R2 objects when a
+photo/item is removed.
+
 ### Build order
 
 **A — ship soon (on-brand, no paid infra), in priority order:**
