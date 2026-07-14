@@ -1,7 +1,11 @@
 "use client";
 
 import type { InventoryItem } from "@/features/inventory/lib/types";
-import { attention, attentionCount, daysUntil } from "@/features/inventory/lib/value";
+import {
+  attention,
+  attentionCount,
+  daysUntil,
+} from "@/features/inventory/lib/value";
 
 type AttentionPanelProps = {
   items: InventoryItem[];
@@ -43,7 +47,7 @@ export function AttentionPanel({ items, today, onSelect }: AttentionPanelProps) 
       <div className="rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 sm:p-6">
         <h3 className="text-sm font-semibold text-slate-200">Attention</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Nothing needs a look — warranties are current and nothing&apos;s lent out.
+          Nothing needs a look — warranties and upkeep are current, and nothing&apos;s lent out.
         </p>
       </div>
     );
@@ -88,6 +92,50 @@ export function AttentionPanel({ items, today, onSelect }: AttentionPanelProps) 
                     item={i}
                     detail={d != null ? `${d}d left` : "soon"}
                     tone="text-amber-300"
+                    onSelect={onSelect}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {a.maintenanceOverdue.length > 0 && (
+          <section>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-red-300/80">
+              Maintenance overdue
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {a.maintenanceOverdue.map((i) => {
+                const d = i.maintenanceDate ? daysUntil(i.maintenanceDate, today) : null;
+                return (
+                  <Row
+                    key={i.id}
+                    item={i}
+                    detail={d != null ? `${Math.abs(d)}d over` : "overdue"}
+                    tone="text-red-300"
+                    onSelect={onSelect}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {a.maintenanceSoon.length > 0 && (
+          <section>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-sky-300/80">
+              Maintenance due soon
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {a.maintenanceSoon.map((i) => {
+                const d = i.maintenanceDate ? daysUntil(i.maintenanceDate, today) : null;
+                return (
+                  <Row
+                    key={i.id}
+                    item={i}
+                    detail={d != null ? `${d}d left` : "soon"}
+                    tone="text-sky-300"
                     onSelect={onSelect}
                   />
                 );

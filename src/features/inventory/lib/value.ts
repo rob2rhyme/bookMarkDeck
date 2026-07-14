@@ -84,21 +84,38 @@ export function warrantyState(item: InventoryItem, today: string): WarrantyState
   return "ok";
 }
 
+export type MaintenanceState = "none" | "ok" | "soon" | "overdue";
+
+/** Next-maintenance status relative to `today`. "soon" = due within 30 days. */
+export function maintenanceState(item: InventoryItem, today: string): MaintenanceState {
+  if (!item.maintenanceDate) return "none";
+  const d = daysUntil(item.maintenanceDate, today);
+  if (d === null) return "none";
+  if (d < 0) return "overdue";
+  if (d <= 30) return "soon";
+  return "ok";
+}
+
 export type Attention = {
   warrantyExpired: InventoryItem[];
   warrantySoon: InventoryItem[];
+  maintenanceOverdue: InventoryItem[];
+  maintenanceSoon: InventoryItem[];
   lentOut: InventoryItem[];
   returnOverdue: InventoryItem[];
 };
 
 /**
- * Items that need a look: warranties ending or gone, and things lent out (with
- * an overdue-return sub-bucket). Zero new infra — computed client-side on load.
+ * Items that need a look: warranties ending or gone, upkeep due or coming up,
+ * and things lent out (with an overdue-return sub-bucket). Zero new infra —
+ * computed client-side on load.
  */
 export function attention(items: InventoryItem[], today: string): Attention {
   const out: Attention = {
     warrantyExpired: [],
     warrantySoon: [],
+    maintenanceOverdue: [],
+    maintenanceSoon: [],
     lentOut: [],
     returnOverdue: [],
   };
@@ -106,6 +123,9 @@ export function attention(items: InventoryItem[], today: string): Attention {
     const w = warrantyState(i, today);
     if (w === "expired") out.warrantyExpired.push(i);
     else if (w === "soon") out.warrantySoon.push(i);
+    const m = maintenanceState(i, today);
+    if (m === "overdue") out.maintenanceOverdue.push(i);
+    else if (m === "soon") out.maintenanceSoon.push(i);
     if (i.lentTo?.trim()) {
       out.lentOut.push(i);
       const d = i.dueDate ? daysUntil(i.dueDate, today) : null;
@@ -115,12 +135,34 @@ export function attention(items: InventoryItem[], today: string): Attention {
   return out;
 }
 
+/** Everything the Attention panel shows (returnOverdue is a subset of lentOut). */
 export function attentionCount(a: Attention): number {
   return (
     a.warrantyExpired.length +
     a.warrantySoon.length +
+    a.maintenanceOverdue.length +
+    a.maintenanceSoon.length +
     a.lentOut.length
   );
+}
+
+/**
+ * Time-based reminders worth a nudge — warranties ending/ended, upkeep
+ * due/soon, and overdue returns (but not every open loan). Drives the nav badge.
+ */
+export function reminderCount(a: Attention): number {
+  return (
+    a.warrantyExpired.length +
+    a.warrantySoon.length +
+    a.maintenanceOverdue.length +
+    a.maintenanceSoon.length +
+    a.returnOverdue.length
+  );
+}
+
+/** Reminder count straight from items — convenience for the nav badge hook. */
+export function reminderCountFor(items: InventoryItem[], today: string): number {
+  return reminderCount(attention(items, today));
 }
 
 /** Locale money formatting; falls back to a plain number if the code is bad. */

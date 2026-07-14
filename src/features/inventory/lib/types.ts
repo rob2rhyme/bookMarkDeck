@@ -54,6 +54,7 @@ export type InventoryItem = {
   model?: string;
   serial?: string;
   warrantyExpiry?: string; // YYYY-MM-DD → surfaces in the Attention panel
+  maintenanceDate?: string; // YYYY-MM-DD → next service/upkeep; surfaces in Attention
   condition?: ItemCondition;
   value?: number; // manual current-value estimate (per unit)
   notes?: string;
