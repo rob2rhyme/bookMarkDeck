@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { Package, Plus, Search, Tag, X } from "@/components/icons";
+import { MapPin, Package, Plus, Search, Tag, X } from "@/components/icons";
 import { downloadText } from "@/utils/download";
 import { restoreInventoryBackup } from "@/features/inventory/data/inventoryData";
 import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
@@ -24,6 +24,7 @@ import { ItemCard } from "@/features/inventory/components/ItemCard";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
+import { WhereIsModal } from "@/features/inventory/components/WhereIsModal";
 
 function mergeById<T extends { id: string }>(prev: T[], incoming: T[]): T[] {
   const map = new Map(prev.map((x) => [x.id, x]));
@@ -66,6 +67,7 @@ export function InventoryDashboard() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [locOpen, setLocOpen] = useState(false);
+  const [whereOpen, setWhereOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -143,7 +145,16 @@ export function InventoryDashboard() {
             A calm catalog of what you own — where it is, what it&apos;s worth, what needs a look.
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {total > 0 && (
+            <button
+              type="button"
+              onClick={() => setWhereOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+            >
+              <MapPin className="h-4 w-4" /> Where is it?
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setLocOpen(true)}
@@ -378,6 +389,13 @@ export function InventoryDashboard() {
         onRename={loc.renameLocation}
         onRemove={loc.removeLocation}
         onClose={() => setLocOpen(false)}
+      />
+      <WhereIsModal
+        open={whereOpen}
+        items={inv.active}
+        locations={loc.locations}
+        onPick={openEdit}
+        onClose={() => setWhereOpen(false)}
       />
     </div>
   );
