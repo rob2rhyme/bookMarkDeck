@@ -14,6 +14,7 @@ import {
   COMMAND_PALETTE_STATE_EVENT,
   OPEN_COMMAND_PALETTE_EVENT,
 } from "@/components/CommandPalette";
+import { useInventoryReminderCount } from "@/features/inventory/hooks/useInventoryReminderCount";
 
 const DESTINATIONS = [
   { href: "/", label: "Bookmarks", Icon: Bookmark },
@@ -27,6 +28,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const avatarSrc = session?.user?.image ?? null;
   const avatarLabel = session?.user?.name ?? session?.user?.email ?? "Account";
+  // Cross-page reminder count for the "My Stuff" pill (warranty/upkeep/returns).
+  const inventoryReminders = useInventoryReminderCount(session?.user?.email);
 
   // Which top-level pillar are we on? (Bookmarks is the default "/" home.)
   const activeHref =
@@ -122,17 +125,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                   {/* Top nav tabs are redundant with the mobile bottom nav, so
                       they only show from sm up. */}
-                  {otherTabs.map((tab) => (
-                    <Link
-                      key={tab.href}
-                      href={tab.href}
-                      aria-label={tab.label}
-                      className="hidden items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:inline-flex sm:px-3 sm:py-1.5 sm:text-sm"
-                    >
-                      <tab.Icon className="h-4 w-4" />
-                      <span className="hidden sm:inline">{tab.label}</span>
-                    </Link>
-                  ))}
+                  {otherTabs.map((tab) => {
+                    const reminders =
+                      tab.href === "/inventory" ? inventoryReminders : 0;
+                    return (
+                      <Link
+                        key={tab.href}
+                        href={tab.href}
+                        aria-label={
+                          reminders > 0
+                            ? `${tab.label}, ${reminders} need attention`
+                            : tab.label
+                        }
+                        className="hidden items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:inline-flex sm:px-3 sm:py-1.5 sm:text-sm"
+                      >
+                        <tab.Icon className="h-4 w-4" />
+                        <span className="hidden sm:inline">{tab.label}</span>
+                        {reminders > 0 && (
+                          <span
+                            aria-hidden
+                            className="rounded-full bg-amber-500/25 px-1.5 text-[10px] font-semibold tabular-nums text-amber-200"
+                          >
+                            {reminders}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
                   <div className="relative" ref={menuRef}>
                     <button
                       type="button"
@@ -257,16 +276,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           {DESTINATIONS.map((tab) => {
             const active = tab.href === activeHref;
+            const reminders = tab.href === "/inventory" ? inventoryReminders : 0;
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
+                aria-label={
+                  reminders > 0
+                    ? `${tab.label}, ${reminders} need attention`
+                    : undefined
+                }
                 className={`flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-medium transition ${
                   active ? "text-blue-300" : "text-slate-400"
                 }`}
               >
-                <tab.Icon className="h-6 w-6" />
+                <span className="relative">
+                  <tab.Icon className="h-6 w-6" />
+                  {reminders > 0 && (
+                    <span
+                      aria-hidden
+                      className="absolute -right-2 -top-1 min-w-[15px] rounded-full bg-amber-500 px-1 text-center text-[9px] font-bold leading-[15px] text-slate-950"
+                    >
+                      {reminders}
+                    </span>
+                  )}
+                </span>
                 {tab.label}
               </Link>
             );

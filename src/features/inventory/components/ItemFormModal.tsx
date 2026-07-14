@@ -42,6 +42,7 @@ type Draft = {
   currency: string;
   purchaseDate: string;
   warrantyExpiry: string;
+  maintenanceDate: string;
   condition: "" | ItemCondition;
   manufacturer: string;
   model: string;
@@ -66,6 +67,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     currency: item.currency ?? fallbackCurrency,
     purchaseDate: item.purchaseDate ?? "",
     warrantyExpiry: item.warrantyExpiry ?? "",
+    maintenanceDate: item.maintenanceDate ?? "",
     condition: item.condition ?? "",
     manufacturer: item.manufacturer ?? "",
     model: item.model ?? "",
@@ -172,6 +174,7 @@ export function ItemFormModal({
       currency: trimmedOrUndef(draft.currency) ?? defaultCurrency,
       purchaseDate: trimmedOrUndef(draft.purchaseDate),
       warrantyExpiry: trimmedOrUndef(draft.warrantyExpiry),
+      maintenanceDate: trimmedOrUndef(draft.maintenanceDate),
       condition: draft.condition || undefined,
       manufacturer: trimmedOrUndef(draft.manufacturer),
       model: trimmedOrUndef(draft.model),
@@ -410,7 +413,7 @@ export function ItemFormModal({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <Field label="Purchase date">
                 <input
                   type="date"
@@ -424,6 +427,14 @@ export function ItemFormModal({
                   type="date"
                   value={draft.warrantyExpiry}
                   onChange={(e) => set("warrantyExpiry", e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Maintenance due">
+                <input
+                  type="date"
+                  value={draft.maintenanceDate}
+                  onChange={(e) => set("maintenanceDate", e.target.value)}
                   className={fieldClass}
                 />
               </Field>

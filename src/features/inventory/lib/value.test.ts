@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   attention,
+  attentionCount,
   daysUntil,
   formatMoney,
   itemValue,
+  maintenanceState,
+  reminderCount,
   totalValue,
   valueByCategory,
   valueByLocation,
@@ -87,11 +90,19 @@ describe("warrantyState / attention", () => {
     expect(warrantyState(item({ warrantyExpiry: "2026-07-30" }), today)).toBe("soon");
     expect(warrantyState(item({ warrantyExpiry: "2027-01-01" }), today)).toBe("ok");
   });
-  it("buckets items needing attention, flagging overdue returns", () => {
+  it("classifies maintenance windows", () => {
+    expect(maintenanceState(item({}), today)).toBe("none");
+    expect(maintenanceState(item({ maintenanceDate: "2026-07-01" }), today)).toBe("overdue");
+    expect(maintenanceState(item({ maintenanceDate: "2026-07-30" }), today)).toBe("soon");
+    expect(maintenanceState(item({ maintenanceDate: "2027-01-01" }), today)).toBe("ok");
+  });
+  it("buckets items needing attention, flagging overdue returns and upkeep", () => {
     const a = attention(
       [
         item({ name: "Laptop", warrantyExpiry: "2026-07-01" }),
         item({ name: "Drill", warrantyExpiry: "2026-08-01" }),
+        item({ name: "Furnace", maintenanceDate: "2026-07-05" }),
+        item({ name: "Bike", maintenanceDate: "2026-07-25" }),
         item({ name: "Book", lentTo: "Sam", dueDate: "2026-07-10" }),
         item({ name: "Charger", lentTo: "Kim", dueDate: "2026-08-10" }),
       ],
@@ -99,8 +110,14 @@ describe("warrantyState / attention", () => {
     );
     expect(a.warrantyExpired.map((i) => i.name)).toEqual(["Laptop"]);
     expect(a.warrantySoon.map((i) => i.name)).toEqual(["Drill"]);
+    expect(a.maintenanceOverdue.map((i) => i.name)).toEqual(["Furnace"]);
+    expect(a.maintenanceSoon.map((i) => i.name)).toEqual(["Bike"]);
     expect(a.lentOut).toHaveLength(2);
     expect(a.returnOverdue.map((i) => i.name)).toEqual(["Book"]);
+    // panel counts everything shown (both loans); the nav badge counts only
+    // reminders (overdue return, not the on-time one).
+    expect(attentionCount(a)).toBe(6);
+    expect(reminderCount(a)).toBe(5);
   });
 });
 
