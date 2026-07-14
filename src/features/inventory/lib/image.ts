@@ -25,6 +25,21 @@ export function dataUrlBytes(dataUrl: string): number {
   return Math.floor((b64.length * 3) / 4);
 }
 
+/** The MIME type declared in a `data:` URL (defaults to image/webp). */
+export function mimeOf(dataUrl: string): string {
+  const m = /^data:([^;,]+)/.exec(dataUrl);
+  return m ? m[1] : "image/webp";
+}
+
+/** Decode a base64 `data:` URL into a Blob (for uploading the compressed bytes). */
+export function dataUrlToBlob(dataUrl: string): Blob {
+  const comma = dataUrl.indexOf(",");
+  const bytes = atob(dataUrl.slice(comma + 1));
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mimeOf(dataUrl) });
+}
+
 export type CompressOptions = {
   maxEdge?: number; // longest-edge cap in px
   quality?: number; // 0–1 encoder quality
@@ -71,7 +86,7 @@ async function loadBitmap(file: File): Promise<{ width: number; height: number; 
 export async function compressImageFile(
   file: File,
   opts: CompressOptions = {}
-): Promise<{ dataUrl: string; w: number; h: number; bytes: number }> {
+): Promise<{ dataUrl: string; w: number; h: number; bytes: number; mime: string }> {
   if (!file.type.startsWith("image/")) throw new Error("Not an image file.");
   const mime = opts.mime ?? "image/webp";
   const maxBytes = opts.maxBytes ?? 900_000;
@@ -101,12 +116,12 @@ export async function compressImageFile(
       last = dataUrl;
       lastDims = { w, h };
       if (dataUrlBytes(dataUrl) <= maxBytes) {
-        return { dataUrl, w, h, bytes: dataUrlBytes(dataUrl) };
+        return { dataUrl, w, h, bytes: dataUrlBytes(dataUrl), mime: mimeOf(dataUrl) };
       }
     }
     const bytes = dataUrlBytes(last);
     if (bytes > maxBytes) throw new Error("Photo is too large to store — try a smaller image.");
-    return { dataUrl: last, w: lastDims.w, h: lastDims.h, bytes };
+    return { dataUrl: last, w: lastDims.w, h: lastDims.h, bytes, mime: mimeOf(last) };
   } finally {
     bitmap.close();
   }
