@@ -76,8 +76,11 @@ camera capture + client compression** (the keystone — shipped as a **Firebase
 MVP** per owner call: `lib/image.ts` compresses the picked/captured photo
 client-side to a compact WebP and stores it as a `data:` URL on the item doc,
 no new infra; `ItemPhoto.path` stays reserved so the same compressed blob can
-migrate to **R2** later — that migration swaps only the sink); receipt/document
-attachments; on-device receipt OCR (privacy-safe); ✅ **UPC/product
+migrate to **R2** later — that migration swaps only the sink); ✅ **receipt/
+document attachments** (per-item `inventoryDocs` subcollection so attachments
+never bloat the item doc or the item list — loaded lazily when you open an item;
+capture/upload → compressed → stored with a kind label; `ItemDoc.data`
+R2-migratable too); on-device receipt OCR (privacy-safe); ✅ **UPC/product
 enrichment** (shipped — session-gated `/api/inventory/product-lookup` proxy;
 UPCitemdb trial by default, paid provider via `UPC_LOOKUP_URL`/`UPC_LOOKUP_KEY`;
 scan/type → auto-fills empty name/make/model/category/price/photo); AI photo

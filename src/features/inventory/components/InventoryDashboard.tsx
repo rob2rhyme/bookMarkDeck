@@ -5,7 +5,13 @@ import { useSession } from "next-auth/react";
 
 import { HandHelping, Layers, MapPin, Package, Plus, Search, Sparkles, Tag, X } from "@/components/icons";
 import { downloadText } from "@/utils/download";
-import { restoreInventoryBackup } from "@/features/inventory/data/inventoryData";
+import {
+  deleteItemDoc,
+  deleteItemDocs,
+  fetchItemDocs,
+  restoreInventoryBackup,
+  saveItemDoc,
+} from "@/features/inventory/data/inventoryData";
 import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
 import { useFocusProjects } from "@/features/inventory/hooks/useFocusProjects";
 import { useInventory, blankItem } from "@/features/inventory/hooks/useInventory";
@@ -19,7 +25,7 @@ import {
   itemsToCsv,
 } from "@/features/inventory/lib/exportInventory";
 import { todayKey } from "@/features/inventory/data/inventoryData";
-import type { InventoryItem } from "@/features/inventory/lib/types";
+import type { InventoryItem, ItemDoc } from "@/features/inventory/lib/types";
 import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
@@ -128,6 +134,18 @@ export function InventoryDashboard() {
   const openEdit = (item: InventoryItem) => {
     setEditing(item);
     setFormOpen(true);
+  };
+
+  // Attachments live in their own subcollection; the form drives them via these.
+  const fetchDocs = (itemId: string): Promise<ItemDoc[]> =>
+    connected && email ? fetchItemDocs(email, itemId) : Promise.resolve([]);
+  const addDoc = (d: ItemDoc): Promise<void> =>
+    connected && email ? saveItemDoc(email, d) : Promise.resolve();
+  const removeDoc = (id: string): Promise<void> =>
+    connected && email ? deleteItemDoc(email, id) : Promise.resolve();
+  const removeItemAndDocs = (item: InventoryItem) => {
+    inv.removeItem(item.id);
+    if (connected && email) deleteItemDocs(email, item.id).catch(() => {});
   };
 
   const exportCsv = () =>
@@ -414,7 +432,7 @@ export function InventoryDashboard() {
               today={today}
               onEdit={openEdit}
               onArchive={(it) => inv.setArchived(it.id, !it.archived)}
-              onRemove={(it) => inv.removeItem(it.id)}
+              onRemove={removeItemAndDocs}
             />
           ))}
         </div>
@@ -490,6 +508,10 @@ export function InventoryDashboard() {
         today={today}
         bookmarks={bookmarkLibrary}
         existingItems={inv.items}
+        canAttach={connected}
+        onFetchDocs={fetchDocs}
+        onAddDoc={addDoc}
+        onRemoveDoc={removeDoc}
         onSave={inv.upsertItem}
         onClose={() => setFormOpen(false)}
       />

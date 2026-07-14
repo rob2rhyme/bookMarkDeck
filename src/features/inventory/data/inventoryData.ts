@@ -19,8 +19,10 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
@@ -30,11 +32,14 @@ import {
   type InventoryLocation,
   type InventorySettings,
   type ItemCondition,
+  type ItemDoc,
+  type ItemDocKind,
 } from "@/features/inventory/lib/types";
 
 const itemsCol = (uid: string) => collection(db, "users", uid, "inventoryItems");
 const locationsCol = (uid: string) =>
   collection(db, "users", uid, "inventoryLocations");
+const docsCol = (uid: string) => collection(db, "users", uid, "inventoryDocs");
 const settingsDoc = (uid: string) =>
   doc(db, "users", uid, "inventorySettings", "settings");
 
@@ -189,6 +194,76 @@ export async function saveItem(
 export async function deleteItem(emailHint: string, id: string): Promise<void> {
   const uid = await uidFor(emailHint);
   await deleteDoc(doc(itemsCol(uid), id));
+}
+
+/* ----------------------------------------------------------- attachments --- */
+
+const DOC_KIND_SET = new Set<ItemDocKind>([
+  "receipt",
+  "manual",
+  "warranty",
+  "photo",
+  "other",
+]);
+
+function mapDoc(d: { id: string; data: () => Record<string, unknown> }): ItemDoc {
+  const data = d.data();
+  const kind = data.kind as ItemDocKind;
+  return {
+    id: d.id,
+    itemId: typeof data.itemId === "string" ? data.itemId : "",
+    name: typeof data.name === "string" ? data.name : "",
+    kind: DOC_KIND_SET.has(kind) ? kind : "other",
+    data: typeof data.data === "string" ? data.data : "",
+    w: numOrUndef(data.w),
+    h: numOrUndef(data.h),
+    createdAt: timestampToIso(data.createdAt),
+  };
+}
+
+/** Attachments for one item, oldest first. Loaded on demand (not subscribed),
+ *  so the item list never carries attachment bytes. */
+export async function fetchItemDocs(
+  emailHint: string,
+  itemId: string
+): Promise<ItemDoc[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(query(docsCol(uid), where("itemId", "==", itemId)));
+  return snap.docs
+    .map(mapDoc)
+    .filter((d) => d.data.length > 0)
+    .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
+}
+
+export async function saveItemDoc(emailHint: string, d: ItemDoc): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(docsCol(uid), d.id),
+    prune({
+      itemId: d.itemId,
+      name: d.name,
+      kind: d.kind,
+      data: d.data,
+      w: d.w,
+      h: d.h,
+      createdAt: serverTimestamp(),
+    })
+  );
+}
+
+export async function deleteItemDoc(emailHint: string, id: string): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(docsCol(uid), id));
+}
+
+/** Remove every attachment for an item — called when the item itself is deleted. */
+export async function deleteItemDocs(
+  emailHint: string,
+  itemId: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(query(docsCol(uid), where("itemId", "==", itemId)));
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
 }
 
 /* ------------------------------------------------------------- locations --- */

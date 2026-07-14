@@ -7,6 +7,7 @@ the signed-in user's document, scoped by Firebase `uid`:
 users/{uid}/inventoryItems/{itemId}
 users/{uid}/inventoryLocations/{locationId}
 users/{uid}/inventorySettings/settings
+users/{uid}/inventoryDocs/{docId}          # receipt/manual attachments (per item)
 ```
 
 ## Firestore — no change required ✅
