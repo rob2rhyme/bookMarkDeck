@@ -98,15 +98,17 @@ export const DOC_KINDS: { id: ItemDocKind; label: string }[] = [
  * An attachment (receipt, manual, warranty card, …) for an item. Stored in its
  * own subcollection (`inventoryDocs`) keyed by `itemId`, NOT on the item doc —
  * so several compressed images never bloat the item or slow the item list; they
- * load only when you open the item. `data` is a compressed image data: URL
- * (R2-migratable, same as photos).
+ * load only when you open the item. `data` is the display URL — the R2 public
+ * URL when uploaded (`path` holds the object key), else a compressed image
+ * data: URL fallback (same dual scheme as photos).
  */
 export type ItemDoc = {
   id: string;
   itemId: string;
   name: string;
   kind: ItemDocKind;
-  data: string; // compressed image data: URL
+  data: string; // display URL: R2 public URL or data: URL fallback
+  path?: string; // R2 object key when uploaded
   w?: number;
   h?: number;
   createdAt: string | null;

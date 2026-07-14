@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { awsUriEncode, presignR2Put, signingKey } from "@/features/inventory/lib/r2";
+import {
+  awsUriEncode,
+  isOwnedInventoryPath,
+  presignR2Put,
+  signingKey,
+} from "@/features/inventory/lib/r2";
 
 describe("signingKey", () => {
   it("matches an independent computation of the SigV4 HMAC chain", () => {
@@ -56,5 +61,37 @@ describe("presignR2Put", () => {
     const a = presignR2Put(base);
     const b = presignR2Put({ ...base, key: "inventory/ab/it1/other.webp" });
     expect(a).not.toBe(b);
+  });
+
+  it("changes the signature when the method changes (PUT vs DELETE)", () => {
+    const a = presignR2Put(base);
+    const b = presignR2Put({ ...base, method: "DELETE" });
+    expect(a).not.toBe(b);
+  });
+});
+
+describe("isOwnedInventoryPath", () => {
+  const seg = "0123456789abcdef";
+
+  it("accepts a key inside the caller's prefix", () => {
+    expect(isOwnedInventoryPath(`inventory/${seg}/item1/photo.webp`, seg)).toBe(true);
+    expect(isOwnedInventoryPath(`inventory/${seg}/misc/a-b_c.jpg`, seg)).toBe(true);
+  });
+
+  it("rejects other users' prefixes and non-inventory roots", () => {
+    expect(isOwnedInventoryPath("inventory/ffffffffffffffff/x.webp", seg)).toBe(false);
+    expect(isOwnedInventoryPath(`other/${seg}/x.webp`, seg)).toBe(false);
+    expect(isOwnedInventoryPath(`inventory/${seg}`, seg)).toBe(false);
+  });
+
+  it("rejects traversal, URLs, and junk characters", () => {
+    expect(isOwnedInventoryPath(`inventory/${seg}/../evil.webp`, seg)).toBe(false);
+    expect(isOwnedInventoryPath(`inventory/${seg}//x.webp`, seg)).toBe(false);
+    expect(isOwnedInventoryPath(`https://x/inventory/${seg}/a.webp`, seg)).toBe(false);
+    expect(isOwnedInventoryPath(`inventory/${seg}/a b.webp`, seg)).toBe(false);
+  });
+
+  it("rejects a malformed user segment outright", () => {
+    expect(isOwnedInventoryPath(`inventory/short/x.webp`, "short")).toBe(false);
   });
 });

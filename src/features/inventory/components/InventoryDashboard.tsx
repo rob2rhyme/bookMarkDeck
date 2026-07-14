@@ -25,6 +25,7 @@ import {
   itemsToCsv,
 } from "@/features/inventory/lib/exportInventory";
 import { todayKey } from "@/features/inventory/data/inventoryData";
+import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
 import type { InventoryItem, ItemDoc } from "@/features/inventory/lib/types";
 import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
@@ -144,8 +145,20 @@ export function InventoryDashboard() {
   const removeDoc = (id: string): Promise<void> =>
     connected && email ? deleteItemDoc(email, id) : Promise.resolve();
   const removeItemAndDocs = (item: InventoryItem) => {
+    // Sweep the item's R2 objects (photo + attachments) before their pointer
+    // records disappear — best-effort orphan control, then delete the records.
+    const photoPaths = (item.photos ?? []).map((p) => p.path);
+    if (connected && email) {
+      fetchItemDocs(email, item.id)
+        .then((ds) =>
+          deleteInventoryObjects([...photoPaths, ...ds.map((d) => d.path)])
+        )
+        .catch(() => deleteInventoryObjects(photoPaths))
+        .finally(() => deleteItemDocs(email, item.id).catch(() => {}));
+    } else {
+      deleteInventoryObjects(photoPaths);
+    }
     inv.removeItem(item.id);
-    if (connected && email) deleteItemDocs(email, item.id).catch(() => {});
   };
 
   const exportCsv = () =>

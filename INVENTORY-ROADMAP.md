@@ -51,10 +51,14 @@ Then a captured photo compresses on-device, calls
 target another prefix), PUTs the bytes straight to R2, and stores `{ url, path }`
 on the item. If R2 isn't configured (or a PUT
 fails) it transparently falls back to the compressed `data:` URL. SigV4 is
-hand-rolled (`lib/r2.ts`, no AWS SDK) and unit-tested. **Not yet migrated:**
-attachments (`inventoryDocs`) still use `data:` URLs — same presign route is
-reusable for them next; and a cleanup pass to delete R2 objects when a
-photo/item is removed.
+hand-rolled (`lib/r2.ts`, no AWS SDK) and unit-tested. ✅ **Attachments
+migrated:** `inventoryDocs` share the same presign route (`ItemDoc.path` holds
+the key; `data:` fallback stays). ✅ **Orphan cleanup:** a session-gated
+`/api/inventory/object/delete` route (keys must sit in the caller's own
+`inventory/{userSeg}/` prefix — `isOwnedInventoryPath`, unit-tested) sweeps R2
+objects when a photo is replaced/cleared, an attachment or item is deleted, or
+an in-modal upload is cancelled before saving. Best-effort by design — a
+failed delete only leaves an orphan.
 
 ### Build order
 
