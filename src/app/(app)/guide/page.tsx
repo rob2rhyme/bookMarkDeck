@@ -295,14 +295,23 @@ export default function GuidePage() {
           <Sub title="Add & organize">
             <p>
               A name is enough to add an item — category, tags, quantity,
-              purchase details, serial, condition, estimated value, a{" "}
-              <strong>photo</strong> (snap one with your camera, upload a file,
-              or paste a URL — it&apos;s compressed on your device before it
-              saves), and notes all fold away under <em>Add details</em> for
-              later. Organize items into <strong>nestable locations</strong> —
-              rooms, shelves, boxes — and browse in grid or list view. While
-              naming a new item, a gentle &ldquo;you may already own this&rdquo;
-              hint helps before you buy a duplicate.
+              purchase details, serial, condition, estimated value,{" "}
+              <strong>photos</strong> (snap them with your camera, upload
+              files, or paste URLs — each is compressed on your device before
+              it saves; the first one is the card cover), and notes all fold
+              away under <em>Add details</em> for later. Organize items into{" "}
+              <strong>nestable locations</strong> — rooms, shelves, boxes —
+              and browse in grid, list, or <strong>shelf</strong> view, which
+              groups everything by where it lives with a per-spot count and
+              value. While naming a new item, a gentle &ldquo;you may already
+              own this&rdquo; hint helps before you buy a duplicate.
+            </p>
+            <p>
+              Tap any item&apos;s photo or name to open its{" "}
+              <strong>detail view</strong> — photo carousel (tap again for
+              full-screen, with paging), the facts at a glance, warranty
+              countdown, links, notes, and attached receipts — with one Edit
+              button when something needs changing.
             </p>
           </Sub>
           <Sub title="Find it — and find where it is">

@@ -15,7 +15,10 @@ import {
 import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
 import { useFocusProjects } from "@/features/inventory/hooks/useFocusProjects";
 import { useInventory, blankItem } from "@/features/inventory/hooks/useInventory";
-import { useInventoryLocations } from "@/features/inventory/hooks/useInventoryLocations";
+import {
+  flattenTree,
+  useInventoryLocations,
+} from "@/features/inventory/hooks/useInventoryLocations";
 import { useInventorySettings } from "@/features/inventory/hooks/useInventorySettings";
 import { useInventorySync } from "@/features/inventory/hooks/useInventorySync";
 import {
@@ -27,8 +30,11 @@ import {
 import { todayKey } from "@/features/inventory/data/inventoryData";
 import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
 import type { InventoryItem, ItemDoc } from "@/features/inventory/lib/types";
+import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
+import { formatMoney, totalValue } from "@/features/inventory/lib/value";
 import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
+import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
@@ -135,6 +141,13 @@ export function InventoryDashboard() {
   const openEdit = (item: InventoryItem) => {
     setEditing(item);
     setFormOpen(true);
+  };
+  // Read-only detail view; its Edit button hands off to the form.
+  const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
+  const openDetail = (item: InventoryItem) => setDetailItem(item);
+  const editFromDetail = (item: InventoryItem) => {
+    setDetailItem(null);
+    openEdit(item);
   };
 
   // Attachments live in their own subcollection; the form drives them via these.
@@ -349,7 +362,7 @@ export function InventoryDashboard() {
       {total > 0 && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <ValuePanel items={inv.active} locations={loc.locations} currency={settings.defaultCurrency} today={today} />
-          <AttentionPanel items={inv.active} today={today} onSelect={openEdit} />
+          <AttentionPanel items={inv.active} today={today} onSelect={openDetail} />
         </div>
       )}
 
@@ -393,7 +406,7 @@ export function InventoryDashboard() {
           ))}
         </select>
         <div className="inline-flex rounded-lg border border-slate-700 bg-slate-950/50 p-0.5 text-xs font-medium">
-          {(["grid", "list"] as const).map((v) => (
+          {(["grid", "list", "shelf"] as const).map((v) => (
             <button
               key={v}
               type="button"
@@ -428,6 +441,52 @@ export function InventoryDashboard() {
         <p className="rounded-2xl border border-dashed border-slate-700/70 bg-slate-950/30 px-4 py-10 text-center text-sm text-slate-400">
           No items match your search.
         </p>
+      ) : settings.defaultView === "shelf" ? (
+        /* Shelf view — items grouped by where they live, tree order,
+           Unassigned last. */
+        <div className="flex flex-col gap-6">
+          {[
+            ...flattenTree(loc.tree).map((l) => ({
+              key: l.id,
+              label: (locationPathsById(loc.locations)[l.id] ?? [l.name]).join(" → "),
+              items: visible.filter((i) => i.locationId === l.id),
+            })),
+            {
+              key: "__none__",
+              label: "Unassigned",
+              items: visible.filter((i) => !i.locationId),
+            },
+          ]
+            .filter((g) => g.items.length > 0)
+            .map((g) => (
+              <section key={g.key}>
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <h3 className="min-w-0 truncate text-sm font-semibold text-slate-200">
+                    📍 {g.label}
+                  </h3>
+                  <span className="shrink-0 text-xs text-slate-500 tabular-nums">
+                    {g.items.length} item{g.items.length === 1 ? "" : "s"}
+                    {totalValue(g.items) > 0 &&
+                      ` · ${formatMoney(totalValue(g.items), settings.defaultCurrency)}`}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {g.items.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      fallbackCurrency={settings.defaultCurrency}
+                      today={today}
+                      onOpen={openDetail}
+                      onEdit={openEdit}
+                      onArchive={(it) => inv.setArchived(it.id, !it.archived)}
+                      onRemove={removeItemAndDocs}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+        </div>
       ) : (
         <div
           className={
@@ -443,6 +502,7 @@ export function InventoryDashboard() {
               locationName={item.locationId ? loc.nameById[item.locationId] : undefined}
               fallbackCurrency={settings.defaultCurrency}
               today={today}
+              onOpen={openDetail}
               onEdit={openEdit}
               onArchive={(it) => inv.setArchived(it.id, !it.archived)}
               onRemove={removeItemAndDocs}
@@ -541,8 +601,19 @@ export function InventoryDashboard() {
         open={whereOpen}
         items={inv.active}
         locations={loc.locations}
-        onPick={openEdit}
+        onPick={openDetail}
         onClose={() => setWhereOpen(false)}
+      />
+      <ItemDetailModal
+        open={detailItem !== null}
+        item={detailItem}
+        locations={loc.locations}
+        fallbackCurrency={settings.defaultCurrency}
+        today={today}
+        canAttach={connected && Boolean(email)}
+        onFetchDocs={fetchDocs}
+        onEdit={editFromDetail}
+        onClose={() => setDetailItem(null)}
       />
       <LendingLedgerModal
         open={lendOpen}
