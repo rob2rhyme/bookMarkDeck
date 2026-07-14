@@ -71,8 +71,12 @@ size-cap gotcha and the migration path from the current `ItemPhoto` shape.
     — straight-line/category-aware resale estimate + 5-year curve in the value
     panel). **→ Block A complete.**
 
-**B — worth it, needs the storage decision (now R2, not Blaze):** native
-camera capture + client compression (the keystone); receipt/document
+**B — worth it, needs the storage decision (now R2, not Blaze):** ✅ **native
+camera capture + client compression** (the keystone — shipped as a **Firebase
+MVP** per owner call: `lib/image.ts` compresses the picked/captured photo
+client-side to a compact WebP and stores it as a `data:` URL on the item doc,
+no new infra; `ItemPhoto.path` stays reserved so the same compressed blob can
+migrate to **R2** later — that migration swaps only the sink); receipt/document
 attachments; on-device receipt OCR (privacy-safe); ✅ **UPC/product
 enrichment** (shipped — session-gated `/api/inventory/product-lookup` proxy;
 UPCitemdb trial by default, paid provider via `UPC_LOOKUP_URL`/`UPC_LOOKUP_KEY`;
