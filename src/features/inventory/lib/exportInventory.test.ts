@@ -52,6 +52,7 @@ describe("inventory JSON round-trip", () => {
           projectName: "Photo studio",
           disposition: "sell",
           releasedDate: "2026-07-14",
+          barcode: "0123456789012",
         }),
       ],
       locations: [
@@ -68,6 +69,7 @@ describe("inventory JSON round-trip", () => {
     expect(parsed!.items[0].projectName).toBe("Photo studio");
     expect(parsed!.items[0].disposition).toBe("sell");
     expect(parsed!.items[0].releasedDate).toBe("2026-07-14");
+    expect(parsed!.items[0].barcode).toBe("0123456789012");
     expect(parsed!.locations[0].name).toBe("Office");
     expect(parsed!.settings).toEqual({ defaultCurrency: "EUR", defaultView: "list" });
     expect(backupCount(parsed!)).toBe(2);

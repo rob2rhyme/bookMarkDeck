@@ -45,6 +45,7 @@ function matches(item: InventoryItem, q: string): boolean {
     item.manufacturer,
     item.model,
     item.serial,
+    item.barcode,
     item.notes,
     item.projectName,
     item.tags.join(" "),
