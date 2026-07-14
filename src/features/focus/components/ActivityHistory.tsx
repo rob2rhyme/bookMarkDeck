@@ -50,6 +50,10 @@ const TYPE_META: Record<ActivityType, { dot: string; glyph: string }> = {
   quiz: { dot: "border-blue-500", glyph: "🧠" },
   meditation: { dot: "border-blue-400", glyph: "🧘" },
   reset: { dot: "border-teal-400", glyph: "✋" },
+  item_added: { dot: "border-cyan-500", glyph: "📦" },
+  item_lent: { dot: "border-violet-400", glyph: "🤝" },
+  item_returned: { dot: "border-emerald-400", glyph: "📥" },
+  item_released: { dot: "border-amber-400", glyph: "✨" },
 };
 
 type TimelineItem = {

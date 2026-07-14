@@ -356,8 +356,10 @@ worthy" and "cheap reuse" are different feature sets; be clear-eyed about that.
    Firebase stays on Spark. Blaze only returns if a later phase needs Cloud
    Functions.
 2. **Currency:** single default (recommended for P1) vs per-item.
-3. **Activity-timeline integration:** add inventory events to the shared
-   `ActivityType` union (recommended — cheap, enriches the log) vs keep local.
+3. **Activity-timeline integration:** ~~add inventory events vs keep local~~
+   **Resolved (PR #179): added.** `item_added` / `item_lent` / `item_returned`
+   / `item_released` in the shared `ActivityType` union, logged fire-and-forget
+   from the dashboard when connected; glyphs in `ActivityHistory`.
 4. **Brand framing:** ship as **"My Stuff"** (personal, on-brand) rather than
    "Home Inventory" (insurance-SaaS connotation).
 5. **The big one — P1→P2 boundary is a go/no-go** on "are we building a paid
