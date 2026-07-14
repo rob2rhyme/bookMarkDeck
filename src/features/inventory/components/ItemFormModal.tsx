@@ -22,6 +22,7 @@ import {
 } from "@/features/inventory/hooks/useInventoryLocations";
 import { useBarcodeSupported } from "@/features/inventory/hooks/useBarcodeSupported";
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
+import type { ProductInfo } from "@/features/inventory/lib/productLookup";
 
 type ItemFormModalProps = {
   open: boolean;
@@ -129,6 +130,9 @@ export function ItemFormModal({
   const [showDetails, setShowDetails] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState<
+    "idle" | "loading" | "found" | "none"
+  >("idle");
   const barcodeSupported = useBarcodeSupported();
 
   // Seed the form when it opens (or when the target item changes). New items
@@ -140,6 +144,7 @@ export function ItemFormModal({
       setShowDetails(Boolean(item.updatedAt || item.name));
       setLinkQuery("");
       setScanning(false);
+      setLookupStatus("idle");
     }
     if (!open) setDraft(null);
   }, [open, item, defaultCurrency]);
@@ -147,6 +152,45 @@ export function ItemFormModal({
   const flatLocations = useMemo(() => flattenTree(tree), [tree]);
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) =>
     setDraft((d) => (d ? { ...d, [k]: v } : d));
+
+  // Prefill only the fields the user hasn't already filled — a lookup never
+  // clobbers your own entries.
+  const fillEmptyFrom = (info: ProductInfo) => {
+    setShowDetails(true);
+    setDraft((d) => {
+      if (!d) return d;
+      const keep = (cur: string, next?: string) => (cur.trim() ? cur : next ?? cur);
+      return {
+        ...d,
+        name: keep(d.name, info.name),
+        category: keep(d.category, info.category),
+        manufacturer: keep(d.manufacturer, info.brand),
+        model: keep(d.model, info.model),
+        price: d.price.trim() ? d.price : info.price != null ? String(info.price) : d.price,
+        photoUrl: keep(d.photoUrl, info.imageUrl),
+      };
+    });
+  };
+
+  const runLookup = async (raw: string) => {
+    const code = raw.trim();
+    if (!code) return;
+    setLookupStatus("loading");
+    try {
+      const res = await fetch(
+        `/api/inventory/product-lookup?code=${encodeURIComponent(code)}`
+      );
+      const data = (await res.json()) as { found?: boolean; product?: ProductInfo };
+      if (data?.found && data.product) {
+        fillEmptyFrom(data.product);
+        setLookupStatus("found");
+      } else {
+        setLookupStatus("none");
+      }
+    } catch {
+      setLookupStatus("none");
+    }
+  };
 
   if (!open || !item || !draft) return null;
   const isNew = !item.updatedAt && item.name === "";
@@ -491,10 +535,23 @@ export function ItemFormModal({
                   type="text"
                   inputMode="numeric"
                   value={draft.barcode}
-                  onChange={(e) => set("barcode", e.target.value)}
+                  onChange={(e) => {
+                    set("barcode", e.target.value);
+                    if (lookupStatus !== "idle") setLookupStatus("idle");
+                  }}
                   placeholder={barcodeSupported ? "Scan or type…" : "Type the code…"}
                   className={fieldClass}
                 />
+                {draft.barcode.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => runLookup(draft.barcode)}
+                    disabled={lookupStatus === "loading"}
+                    className="shrink-0 rounded-lg border border-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+                  >
+                    {lookupStatus === "loading" ? "…" : "Look up"}
+                  </button>
+                )}
                 {barcodeSupported && (
                   <button
                     type="button"
@@ -505,6 +562,23 @@ export function ItemFormModal({
                   </button>
                 )}
               </div>
+              {lookupStatus !== "idle" && (
+                <p
+                  className={`mt-1 text-[11px] ${
+                    lookupStatus === "found"
+                      ? "text-emerald-300"
+                      : lookupStatus === "none"
+                        ? "text-amber-300/90"
+                        : "text-slate-400"
+                  }`}
+                >
+                  {lookupStatus === "loading"
+                    ? "Looking up product…"
+                    : lookupStatus === "found"
+                      ? "Filled in what we found — check and tweak."
+                      : "No product match — fill in the details yourself."}
+                </p>
+              )}
             </Field>
 
             <Field label="Retailer">
@@ -626,6 +700,7 @@ export function ItemFormModal({
           onDetect={(code) => {
             set("barcode", code);
             setScanning(false);
+            runLookup(code);
           }}
           onCancel={() => setScanning(false)}
         />

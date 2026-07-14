@@ -358,10 +358,13 @@ export default function GuidePage() {
           <Sub title="Barcode, photos & your data">
             <p>
               On a supporting browser (Chromium), <strong>Scan</strong> reads an
-              item&apos;s barcode from the camera into the Barcode field — or
-              type it anywhere. Add a photo by URL. Everything exports as CSV or
-              a full JSON backup, and imports merge by id, so restoring never
-              duplicates. Archive items you no longer actively track.
+              item&apos;s barcode from the camera — or type it and press{" "}
+              <strong>Look up</strong>. Either way, a match auto-fills the empty
+              fields (name, make, model, category, price, photo); your own
+              entries are never overwritten. You can always add a photo by URL
+              too. Everything exports as CSV or a full JSON backup, and imports
+              merge by id, so restoring never duplicates. Archive items you no
+              longer actively track.
             </p>
           </Sub>
         </Section>
