@@ -80,7 +80,11 @@ migrate to **R2** later — that migration swaps only the sink); ✅ **receipt/
 document attachments** (per-item `inventoryDocs` subcollection so attachments
 never bloat the item doc or the item list — loaded lazily when you open an item;
 capture/upload → compressed → stored with a kind label; `ItemDoc.data`
-R2-migratable too); on-device receipt OCR (privacy-safe); ✅ **UPC/product
+R2-migratable too); ✅ **on-device receipt OCR** (privacy-safe, beta —
+Tesseract.js WASM dynamic-imported only on a scan; pure `parseReceiptText`
+extracts merchant/date/total and prefills empty retailer/date/price; image
+read locally, never uploaded; needs `wasm-unsafe-eval` in the prod CSP);
+✅ **UPC/product
 enrichment** (shipped — session-gated `/api/inventory/product-lookup` proxy;
 UPCitemdb trial by default, paid provider via `UPC_LOOKUP_URL`/`UPC_LOOKUP_KEY`;
 scan/type → auto-fills empty name/make/model/category/price/photo); AI photo

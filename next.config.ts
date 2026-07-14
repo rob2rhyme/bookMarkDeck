@@ -5,11 +5,13 @@ const isDev = process.env.NODE_ENV !== "production";
 
 // 'unsafe-eval' is only needed by the dev server (HMR / fast refresh); the
 // production bundle does not eval, so we drop it there to shrink XSS surface.
+// 'wasm-unsafe-eval' (prod) narrowly permits WebAssembly compilation — needed
+// for the on-device receipt OCR (Tesseract.js WASM); it does NOT allow JS eval.
 // 'unsafe-inline' for scripts is kept for now: removing it requires per-request
 // nonces, which would force every currently-static page to render dynamically.
 const scriptSrc = isDev
   ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:"
-  : "script-src 'self' 'unsafe-inline' https:";
+  : "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https:";
 
 const baseCsp = [
   "default-src 'self' https: data: blob:",

@@ -372,8 +372,11 @@ export default function GuidePage() {
               item&apos;s barcode from the camera — or type it and press{" "}
               <strong>Look up</strong>. Either way, a match auto-fills the empty
               fields (name, make, model, category, price, photo); your own
-              entries are never overwritten. You can always add a photo by URL
-              too. On a synced item, <strong>Receipts &amp; documents</strong>{" "}
+              entries are never overwritten. You can also{" "}
+              <strong>Scan a receipt</strong> (beta, entirely on your device) to
+              fill in the retailer, purchase date, and price — the photo is read
+              locally and never uploaded. You can always add a photo by URL too.
+              On a synced item, <strong>Receipts &amp; documents</strong>{" "}
               lets you attach receipts, manuals, and warranty cards (snap or
               upload — each is compressed and kept with the item, opened in a
               tap). Everything exports as CSV or a full JSON backup, and imports
