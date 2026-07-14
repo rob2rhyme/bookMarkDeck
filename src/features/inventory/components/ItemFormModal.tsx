@@ -28,6 +28,7 @@ import { useBarcodeSupported } from "@/features/inventory/hooks/useBarcodeSuppor
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 import type { ProductInfo } from "@/features/inventory/lib/productLookup";
 import { compressImageFile } from "@/features/inventory/lib/image";
+import { runReceiptOcr } from "@/features/inventory/lib/ocrEngine";
 
 type ItemFormModalProps = {
   open: boolean;
@@ -157,6 +158,9 @@ export function ItemFormModal({
   const [addingDoc, setAddingDoc] = useState(false);
   const [docKind, setDocKind] = useState<ItemDocKind>("receipt");
   const [docError, setDocError] = useState<string | null>(null);
+  const [ocrStatus, setOcrStatus] = useState<
+    "idle" | "scanning" | "done" | "none" | "error"
+  >("idle");
   const barcodeSupported = useBarcodeSupported();
 
   // Seed the form when it opens (or when the target item changes). New items
@@ -175,6 +179,7 @@ export function ItemFormModal({
       setDocError(null);
       setAddingDoc(false);
       setDocKind("receipt");
+      setOcrStatus("idle");
     }
     if (!open) setDraft(null);
   }, [open, item, defaultCurrency]);
@@ -254,6 +259,38 @@ export function ItemFormModal({
       setPhotoError(e instanceof Error ? e.message : "Couldn't process that image.");
     } finally {
       setCompressing(false);
+    }
+  };
+
+  // On-device receipt OCR (beta): read a receipt and prefill the empty
+  // retailer / purchase date / price. Nothing is uploaded; the image isn't kept.
+  const scanReceipt = async (file: File | undefined) => {
+    if (!file) return;
+    setOcrStatus("scanning");
+    try {
+      const { dataUrl } = await compressImageFile(file, { maxEdge: 1600, quality: 0.7 });
+      const f = await runReceiptOcr(dataUrl);
+      const got = Boolean(f.merchant || f.date || f.total != null);
+      setDraft((d) =>
+        d
+          ? {
+              ...d,
+              retailer: d.retailer.trim() ? d.retailer : f.merchant ?? d.retailer,
+              purchaseDate: d.purchaseDate.trim()
+                ? d.purchaseDate
+                : f.date ?? d.purchaseDate,
+              price: d.price.trim()
+                ? d.price
+                : f.total != null
+                  ? String(f.total)
+                  : d.price,
+            }
+          : d
+      );
+      if (got) setShowDetails(true);
+      setOcrStatus(got ? "done" : "none");
+    } catch {
+      setOcrStatus("error");
     }
   };
 
@@ -518,6 +555,52 @@ export function ItemFormModal({
           </button>
         ) : (
           <>
+            <div>
+              <label
+                className={`flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 px-3 py-2 text-sm font-medium transition ${
+                  ocrStatus === "scanning"
+                    ? "text-slate-400"
+                    : "cursor-pointer text-slate-300 hover:border-blue-400 hover:text-blue-300"
+                }`}
+              >
+                🧾{" "}
+                {ocrStatus === "scanning"
+                  ? "Reading receipt…"
+                  : "Scan a receipt to fill in details"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={ocrStatus === "scanning"}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    scanReceipt(f);
+                  }}
+                />
+              </label>
+              {ocrStatus === "done" && (
+                <p className="mt-1 text-[11px] text-emerald-300">
+                  Filled in what I could read — check the details.
+                </p>
+              )}
+              {ocrStatus === "none" && (
+                <p className="mt-1 text-[11px] text-amber-300/90">
+                  Couldn&apos;t read much — fill the details in yourself.
+                </p>
+              )}
+              {ocrStatus === "error" && (
+                <p className="mt-1 text-[11px] text-amber-300/90">
+                  Receipt scan didn&apos;t work — you can still type the details.
+                </p>
+              )}
+              <p className="mt-1 text-[10px] text-slate-500">
+                Reads on your device (beta). First use downloads a small
+                text-recognition model.
+              </p>
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               <Field label="Quantity">
                 <input
