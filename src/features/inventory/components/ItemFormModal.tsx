@@ -3,15 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Modal } from "@/components/Modal";
-import { X } from "@/components/icons";
+import { ExternalLink, X } from "@/components/icons";
 import {
   CONDITIONS,
   DISPOSITIONS,
+  DOC_KINDS,
   type InventoryItem,
   type ItemCondition,
   type ItemDisposition,
+  type ItemDoc,
+  type ItemDocKind,
   type ItemLink,
 } from "@/features/inventory/lib/types";
+import { docKindLabel, suggestDocName } from "@/features/inventory/lib/documents";
 import {
   filterBookmarks,
   similarItems,
@@ -36,6 +40,10 @@ type ItemFormModalProps = {
   today: string; // YYYY-MM-DD
   bookmarks: ItemLink[]; // the user's bookmark library (read-only)
   existingItems: InventoryItem[]; // for the "already own this?" nudge
+  canAttach: boolean; // synced → attachments (subcollection) available
+  onFetchDocs: (itemId: string) => Promise<ItemDoc[]>;
+  onAddDoc: (d: ItemDoc) => Promise<void>;
+  onRemoveDoc: (docId: string) => Promise<void>;
   onSave: (item: InventoryItem) => void;
   onClose: () => void;
 };
@@ -128,6 +136,10 @@ export function ItemFormModal({
   today,
   bookmarks,
   existingItems,
+  canAttach,
+  onFetchDocs,
+  onAddDoc,
+  onRemoveDoc,
   onSave,
   onClose,
 }: ItemFormModalProps) {
@@ -140,6 +152,11 @@ export function ItemFormModal({
   >("idle");
   const [compressing, setCompressing] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [docs, setDocs] = useState<ItemDoc[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [addingDoc, setAddingDoc] = useState(false);
+  const [docKind, setDocKind] = useState<ItemDocKind>("receipt");
+  const [docError, setDocError] = useState<string | null>(null);
   const barcodeSupported = useBarcodeSupported();
 
   // Seed the form when it opens (or when the target item changes). New items
@@ -154,9 +171,32 @@ export function ItemFormModal({
       setLookupStatus("idle");
       setCompressing(false);
       setPhotoError(null);
+      setDocs([]);
+      setDocError(null);
+      setAddingDoc(false);
+      setDocKind("receipt");
     }
     if (!open) setDraft(null);
   }, [open, item, defaultCurrency]);
+
+  // Load an existing item's attachments on open (lazy — never in the item list).
+  useEffect(() => {
+    if (!open || !item || !canAttach || !item.updatedAt) return;
+    let cancelled = false;
+    setDocsLoading(true);
+    onFetchDocs(item.id)
+      .then((list) => {
+        if (!cancelled) setDocs(list);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setDocsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, item, canAttach]);
 
   const flatLocations = useMemo(() => flattenTree(tree), [tree]);
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) =>
@@ -214,6 +254,43 @@ export function ItemFormModal({
       setPhotoError(e instanceof Error ? e.message : "Couldn't process that image.");
     } finally {
       setCompressing(false);
+    }
+  };
+
+  const addDoc = async (file: File | undefined) => {
+    if (!file || !item) return;
+    setDocError(null);
+    setAddingDoc(true);
+    try {
+      const { dataUrl, w, h } = await compressImageFile(file, {
+        maxEdge: 1500,
+        quality: 0.6,
+      });
+      const newDoc: ItemDoc = {
+        id: crypto.randomUUID(),
+        itemId: item.id,
+        name: suggestDocName(docKind, docs),
+        kind: docKind,
+        data: dataUrl,
+        w,
+        h,
+        createdAt: null,
+      };
+      await onAddDoc(newDoc);
+      setDocs((prev) => [...prev, newDoc]);
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : "Couldn't attach that file.");
+    } finally {
+      setAddingDoc(false);
+    }
+  };
+
+  const removeDoc = async (id: string) => {
+    setDocs((prev) => prev.filter((d) => d.id !== id));
+    try {
+      await onRemoveDoc(id);
+    } catch {
+      /* best-effort; the row is already gone from the UI */
     }
   };
 
@@ -740,6 +817,99 @@ export function ItemFormModal({
                 className={`${fieldClass} mt-2`}
               />
             </div>
+
+            {/* Receipts & documents — stored per-item, saved (synced) items only */}
+            {!isNew && (
+              <div>
+                <span className={labelClass}>Receipts &amp; documents</span>
+                {!canAttach ? (
+                  <p className="text-xs text-slate-500">
+                    Sign in to sync to attach receipts and documents.
+                  </p>
+                ) : (
+                  <>
+                    {docsLoading ? (
+                      <p className="text-xs text-slate-500">Loading attachments…</p>
+                    ) : (
+                      docs.length > 0 && (
+                        <ul className="mb-2 flex flex-col gap-1.5">
+                          {docs.map((d) => (
+                            <li
+                              key={d.id}
+                              className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-1.5"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={d.data}
+                                alt=""
+                                className="h-10 w-10 shrink-0 rounded object-cover"
+                              />
+                              <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+                                {d.name}
+                              </span>
+                              <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                                {docKindLabel(d.kind)}
+                              </span>
+                              <a
+                                href={d.data}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Open ${d.name}`}
+                                className="shrink-0 rounded-md p-1 text-slate-500 transition hover:text-blue-300"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => removeDoc(d.id)}
+                                aria-label={`Remove ${d.name}`}
+                                className="shrink-0 rounded-md p-1 text-slate-500 transition hover:text-red-300"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={docKind}
+                        onChange={(e) => setDocKind(e.target.value as ItemDocKind)}
+                        aria-label="Attachment type"
+                        className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-100 focus:border-blue-400 focus:outline-none"
+                      >
+                        {DOC_KINDS.map((k) => (
+                          <option key={k.id} value={k.id}>
+                            {k.label}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="cursor-pointer rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300">
+                        + Attach
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            e.target.value = "";
+                            addDoc(f);
+                          }}
+                        />
+                      </label>
+                      {addingDoc && (
+                        <span className="text-[11px] text-slate-400">Attaching…</span>
+                      )}
+                    </div>
+                    {docError && (
+                      <p className="mt-1 text-[11px] text-amber-300/90">{docError}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <Field label="Lent to">

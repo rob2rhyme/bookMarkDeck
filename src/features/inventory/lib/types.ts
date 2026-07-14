@@ -84,6 +84,34 @@ export type InventoryItem = {
   updatedAt: string | null;
 };
 
+export type ItemDocKind = "receipt" | "manual" | "warranty" | "photo" | "other";
+
+export const DOC_KINDS: { id: ItemDocKind; label: string }[] = [
+  { id: "receipt", label: "Receipt" },
+  { id: "manual", label: "Manual" },
+  { id: "warranty", label: "Warranty" },
+  { id: "photo", label: "Photo" },
+  { id: "other", label: "Other" },
+];
+
+/**
+ * An attachment (receipt, manual, warranty card, …) for an item. Stored in its
+ * own subcollection (`inventoryDocs`) keyed by `itemId`, NOT on the item doc —
+ * so several compressed images never bloat the item or slow the item list; they
+ * load only when you open the item. `data` is a compressed image data: URL
+ * (R2-migratable, same as photos).
+ */
+export type ItemDoc = {
+  id: string;
+  itemId: string;
+  name: string;
+  kind: ItemDocKind;
+  data: string; // compressed image data: URL
+  w?: number;
+  h?: number;
+  createdAt: string | null;
+};
+
 /**
  * Nestable storage location — same shape family as src/types/folder.ts, kept
  * separate (its own subcollection) so the feature is removable and never reuses

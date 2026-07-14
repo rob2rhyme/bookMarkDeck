@@ -373,7 +373,10 @@ export default function GuidePage() {
               <strong>Look up</strong>. Either way, a match auto-fills the empty
               fields (name, make, model, category, price, photo); your own
               entries are never overwritten. You can always add a photo by URL
-              too. Everything exports as CSV or a full JSON backup, and imports
+              too. On a synced item, <strong>Receipts &amp; documents</strong>{" "}
+              lets you attach receipts, manuals, and warranty cards (snap or
+              upload — each is compressed and kept with the item, opened in a
+              tap). Everything exports as CSV or a full JSON backup, and imports
               merge by id, so restoring never duplicates. Need a record for
               insurance? <strong>Insurance report (PDF)</strong> prints a clean
               schedule of your belongings — item, location, purchase date,
