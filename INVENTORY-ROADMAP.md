@@ -69,8 +69,11 @@ size-cap gotcha and the migration path from the current `ItemPhoto` shape.
 
 **B — worth it, needs the storage decision (now R2, not Blaze):** native
 camera capture + client compression (the keystone); receipt/document
-attachments; on-device receipt OCR (privacy-safe); UPC/product enrichment
-(proxied, metered); AI photo auto-fill only ever as billing-gated premium.
+attachments; on-device receipt OCR (privacy-safe); ✅ **UPC/product
+enrichment** (shipped — session-gated `/api/inventory/product-lookup` proxy;
+UPCitemdb trial by default, paid provider via `UPC_LOOKUP_URL`/`UPC_LOOKUP_KEY`;
+scan/type → auto-fills empty name/make/model/category/price/photo); AI photo
+auto-fill only ever as billing-gated premium.
 
 **C — skip (off-brand):** social/public shelves, home-finance dashboards,
 insurance RCV/ACV mode, household multi-user (deliberate "not now"), full

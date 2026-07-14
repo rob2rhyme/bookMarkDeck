@@ -1,0 +1,70 @@
+// Pure helpers for turning a scanned/typed barcode into item fields. The network
+// call lives in the API route (src/app/api/inventory/product-lookup); everything
+// here is pure + unit-tested (see productLookup.test.ts).
+
+/** Normalized product facts we can prefill an item from. All optional. */
+export type ProductInfo = {
+  name?: string;
+  brand?: string;
+  model?: string;
+  category?: string;
+  price?: number;
+  imageUrl?: string;
+};
+
+/** Keep only the characters a barcode can carry; empty when nothing usable. */
+export function normalizeBarcode(raw: string): string {
+  return (raw ?? "").trim().replace(/\s+/g, "");
+}
+
+/** A plausible UPC/EAN/ITF length (8–14 digits) — cheap guard before a lookup. */
+export function looksScannable(code: string): boolean {
+  const c = normalizeBarcode(code);
+  return /^\d{8,14}$/.test(c);
+}
+
+const str = (v: unknown): string | undefined => {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  return t.length ? t : undefined;
+};
+
+const num = (v: unknown): number | undefined => {
+  const n = typeof v === "string" ? parseFloat(v) : typeof v === "number" ? v : NaN;
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+};
+
+/**
+ * Normalize an UPCitemdb (`/prod/.../lookup`) response into ProductInfo.
+ * Returns null when there's no usable item. Picks the lowest recorded price
+ * (a resale-friendly floor) and the first image. Defensive against any shape.
+ */
+export function parseUpcItemDb(json: unknown): ProductInfo | null {
+  const root = (json ?? {}) as Record<string, unknown>;
+  const items = Array.isArray(root.items) ? root.items : [];
+  const first = items[0] as Record<string, unknown> | undefined;
+  if (!first || typeof first !== "object") return null;
+
+  const images = Array.isArray(first.images) ? first.images : [];
+  const imageUrl = images.map(str).find(Boolean);
+
+  const info: ProductInfo = {
+    name: str(first.title),
+    brand: str(first.brand),
+    model: str(first.model),
+    category: str(first.category),
+    price: num(first.lowest_recorded_price) ?? num(first.highest_recorded_price),
+    imageUrl,
+  };
+
+  // Nothing worth prefilling → treat as a miss.
+  if (!info.name && !info.brand && !info.model && !info.category) return null;
+  return info;
+}
+
+/** UPCitemdb often returns a deep taxonomy path; keep the leaf as the category. */
+export function shortCategory(category?: string): string | undefined {
+  if (!category) return undefined;
+  const leaf = category.split(">").pop()?.trim();
+  return leaf && leaf.length ? leaf : category;
+}
