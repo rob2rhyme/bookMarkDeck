@@ -287,7 +287,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     ? `${tab.label}, ${reminders} need attention`
                     : undefined
                 }
-                className={`flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-medium transition ${
+                className={`flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2.5 text-[10px] font-medium leading-tight transition ${
                   active ? "text-blue-300" : "text-slate-400"
                 }`}
               >
@@ -296,13 +296,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {reminders > 0 && (
                     <span
                       aria-hidden
-                      className="absolute -right-2 -top-1 min-w-[15px] rounded-full bg-amber-500 px-1 text-center text-[9px] font-bold leading-[15px] text-slate-950"
+                      className="absolute -right-1.5 -top-1 min-w-[14px] rounded-full bg-amber-500 px-1 text-center text-[9px] font-bold leading-[14px] text-slate-950"
                     >
                       {reminders}
                     </span>
                   )}
                 </span>
-                {tab.label}
+                <span className="w-full truncate text-center">{tab.label}</span>
               </Link>
             );
           })}
@@ -311,10 +311,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() =>
               window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))
             }
-            className="flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-medium text-slate-400 transition hover:text-slate-200"
+            className="flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2.5 text-[10px] font-medium leading-tight text-slate-400 transition hover:text-slate-200"
           >
             <Search className="h-6 w-6" />
-            Search
+            <span className="w-full truncate text-center">Search</span>
           </button>
         </nav>
       )}
