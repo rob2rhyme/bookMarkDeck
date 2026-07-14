@@ -64,9 +64,12 @@ size-cap gotcha and the migration path from the current `ItemPhoto` shape.
    *Product lookup shipped separately as a B item — see below.*)
 10. ✅ **Kits / collections** (single `collection` label + `collectionGroups`
     grouping, "Kits" modal with per-kit count/value, form datalist + card
-    chip), **insurance PDF export** (client-side) _(todo)_, ✅ **value &
-    depreciation curves** (pure math in `lib/value.ts` — straight-line/
-    category-aware resale estimate + 5-year curve in the value panel).
+    chip), ✅ **insurance PDF export** (client-side — `buildInsuranceReport` +
+    `insuranceReportHtml` printed via a hidden iframe → Save as PDF; schedule
+    of belongings with paid/estimated-value totals, zero deps, nothing leaves
+    the device), ✅ **value & depreciation curves** (pure math in `lib/value.ts`
+    — straight-line/category-aware resale estimate + 5-year curve in the value
+    panel). **→ Block A complete.**
 
 **B — worth it, needs the storage decision (now R2, not Blaze):** native
 camera capture + client compression (the keystone); receipt/document

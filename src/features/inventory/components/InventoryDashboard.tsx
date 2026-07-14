@@ -32,6 +32,10 @@ import { CollectionsModal } from "@/features/inventory/components/CollectionsMod
 import { lendingLedger } from "@/features/inventory/lib/lending";
 import { declutterSummary } from "@/features/inventory/lib/declutter";
 import { collectionGroups, collectionNames } from "@/features/inventory/lib/collections";
+import {
+  buildInsuranceReport,
+  insuranceReportHtml,
+} from "@/features/inventory/lib/insuranceReport";
 
 function mergeById<T extends { id: string }>(prev: T[], incoming: T[]): T[] {
   const map = new Map(prev.map((x) => [x.id, x]));
@@ -137,6 +141,42 @@ export function InventoryDashboard() {
       ),
       "application/json"
     );
+
+  // Client-side "insurance PDF": render a schedule into a hidden iframe and open
+  // the print dialog (Save as PDF). No dependency, nothing leaves the device.
+  const printInsuranceReport = () => {
+    const report = buildInsuranceReport(inv.active, loc.nameById, today || todayKey());
+    const html = insuranceReportHtml(report, {
+      owner: session?.user?.name ?? undefined,
+      generatedAt: new Date().toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      currency: settings.defaultCurrency,
+    });
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText =
+      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    document.body.appendChild(iframe);
+    const win = iframe.contentWindow;
+    const cdoc = win?.document;
+    if (!win || !cdoc) {
+      iframe.remove();
+      return;
+    }
+    cdoc.open();
+    cdoc.write(html);
+    cdoc.close();
+    win.onafterprint = () => iframe.remove();
+    setTimeout(() => {
+      win.focus();
+      win.print();
+    }, 300);
+    // Safety net if onafterprint never fires (e.g. dialog dismissed oddly).
+    setTimeout(() => iframe.parentNode && iframe.remove(), 60000);
+  };
 
   const importJson = async (file: File) => {
     const backup = inventoryFromJson(await file.text());
@@ -411,6 +451,14 @@ export function InventoryDashboard() {
             className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
           >
             Export JSON
+          </button>
+          <button
+            type="button"
+            onClick={printInsuranceReport}
+            disabled={inv.active.length === 0}
+            className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100 disabled:opacity-50"
+          >
+            Insurance report (PDF)
           </button>
           <label className="cursor-pointer rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100">
             Import JSON

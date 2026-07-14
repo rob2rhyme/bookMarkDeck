@@ -372,8 +372,12 @@ export default function GuidePage() {
               fields (name, make, model, category, price, photo); your own
               entries are never overwritten. You can always add a photo by URL
               too. Everything exports as CSV or a full JSON backup, and imports
-              merge by id, so restoring never duplicates. Archive items you no
-              longer actively track.
+              merge by id, so restoring never duplicates. Need a record for
+              insurance? <strong>Insurance report (PDF)</strong> prints a clean
+              schedule of your belongings — item, location, purchase date,
+              serial, paid, and estimated value with totals — right from your
+              browser (choose <em>Save as PDF</em>); nothing leaves your device.
+              Archive items you no longer actively track.
             </p>
           </Sub>
         </Section>
