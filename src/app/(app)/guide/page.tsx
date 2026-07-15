@@ -78,10 +78,11 @@ export default function GuidePage() {
         <Section id="start" title="Getting started">
           <p className="text-slate-300">
             Sign in with Google on the login page — that&apos;s the only
-            account you need. You land on <strong>Bookmarks</strong> (the home
+            account you need, and one sign-in connects cloud sync for every
+            pillar at once. You land on <strong>Bookmarks</strong> (the home
             page); the other pillars are one tap away in the header pills, or
             in the bottom bar on your phone. Everything you add is saved on
-            your device instantly; syncing it to your account is always
+            your device instantly; what reaches your account is always
             explicit and always yours (see{" "}
             <a href="#sync" className="text-blue-300 hover:text-blue-200">
               Sync &amp; privacy
@@ -295,15 +296,24 @@ export default function GuidePage() {
           <Sub title="Add & organize">
             <p>
               A name is enough to add an item — category, tags, quantity,
-              purchase details, serial, condition, estimated value,{" "}
-              <strong>photos</strong> (snap them with your camera, upload
-              files, or paste URLs — each is compressed on your device before
-              it saves; the first one is the card cover), and notes all fold
-              away under <em>Add details</em> for later. Organize items into{" "}
+              purchase details (price plus a <strong>tax rate</strong>, so the
+              true total is on record), serial, condition (including{" "}
+              <em>Open box</em>), whether it&apos;s still{" "}
+              <strong>in its original box</strong>, a <strong>store URL</strong>{" "}
+              for re-buying, estimated value, <strong>photos</strong> (snap
+              them with your camera, upload files, or paste URLs — each is
+              compressed on your device before it saves; the first one is the
+              card cover), and notes all fold away under <em>Add details</em>{" "}
+              for later. Organize items into{" "}
               <strong>nestable locations</strong> — rooms, shelves, boxes —
-              and browse in grid, list, or <strong>shelf</strong> view, which
+              and browse in <strong>grid</strong> view,{" "}
+              <strong>list</strong> view (wide cards that lay out the full
+              record — photo, price with tax, condition, status, links — like a
+              ledger), or <strong>shelf</strong> view, which
               groups everything by where it lives with a per-spot count and
-              value. Starting fresh? A one-tap offer can{" "}
+              value. Deleted something by accident? Every delete offers a brief{" "}
+              <strong>Undo</strong> that brings the item back whole — photos
+              and receipts included. Starting fresh? A one-tap offer can{" "}
               <strong>seed a handful of common rooms</strong> so the page is
               never blank — rename or nest them however you like. While naming a
               new item, a gentle &ldquo;you may already own this&rdquo; hint
@@ -312,9 +322,24 @@ export default function GuidePage() {
             <p>
               Tap any item&apos;s photo or name to open its{" "}
               <strong>detail view</strong> — photo carousel (tap again for
-              full-screen, with paging), the facts at a glance, warranty
+              full-screen, with paging), the facts at a glance (with{" "}
+              <em>price + tax = total</em> when a tax rate is set), warranty
               countdown, links, notes, and attached receipts — with one Edit
-              button when something needs changing.
+              button when something needs changing. A <strong>Share</strong>{" "}
+              button sends the item to a friend through Messages, WhatsApp, or
+              any app in your share sheet (with a copy-to-clipboard fallback),
+              and <em>View in store</em> jumps to its store page.
+            </p>
+          </Sub>
+          <Sub title="Price comparison">
+            <p>
+              Save <strong>compare links</strong> on an item — store, URL, and
+              the price you saw — and the detail view lines them up
+              cheapest-first, starring the best offer and showing how much
+              you&apos;d save versus what you paid. If the item has a barcode
+              and a <strong>live price lookup</strong> finds current offers,
+              those take over automatically (badged <em>Live prices</em>) and
+              your saved links wait as the fallback.
             </p>
           </Sub>
           <Sub title="Find it, and ask about it">
@@ -368,6 +393,29 @@ export default function GuidePage() {
               any pillar. Lent something out? <strong>On loan</strong> is the
               ledger of who has what and when it&apos;s due back — overdue in
               red — with a one-tap <em>Returned</em> when it comes home.
+            </p>
+          </Sub>
+          <Sub title="Item history — every item tells its story">
+            <p>
+              Each item keeps a quiet <strong>life log</strong>. Its detail view
+              shows a status you can set in one tap —{" "}
+              <em>Have it · Misplaced · Lost</em> — plus{" "}
+              <strong>✨ Used today</strong> to note you actually used it. Lending
+              is tracked end to end: who you lent it to, when, how many days it
+              was out, and its <strong>condition going out versus coming
+              back</strong>. Below that, an at-a-glance line (&ldquo;in your care
+              120d · used 8× · lent 2×&rdquo;) and a timeline of everything —
+              acquired, moved between locations, lent, returned, found — build up
+              automatically as you use the app; nothing to fill in.
+            </p>
+          </Sub>
+          <Sub title="Trending — what you actually reach for">
+            <p>
+              Once there&apos;s some history, a <strong>🔥 Trending</strong>{" "}
+              section ranks your <em>most used</em>, <em>most lent</em>, and{" "}
+              <em>most moved</em> items over the last 90 days. It&apos;s a
+              mirror, not a scoreboard — handy for spotting what deserves a
+              better home, and what you could let go.
             </p>
           </Sub>
           <Sub title="Kits & collections">
@@ -481,16 +529,25 @@ export default function GuidePage() {
               so two people sharing a browser don&apos;t mix.
             </p>
           </Sub>
+          <Sub title="One sign-in covers everything">
+            <p>
+              Signing in with Google once connects cloud sync for{" "}
+              <strong>every</strong> pillar — Bookmarks, Focus, Habits, and My
+              Stuff — automatically and silently on your next visit. No more
+              per-app &ldquo;Sign in to sync&rdquo; taps. (If the silent
+              connection ever can&apos;t complete, that button simply
+              reappears — one tap reconnects all pillars at once.)
+            </p>
+          </Sub>
           <Sub title="What syncs, and how">
             <p>
               <strong>Bookmarks &amp; shortcuts</strong> sync only when you
               press <em>Sync to cloud</em> / <em>Sync from cloud</em> on the
               home page — explicit by design, with the last 7 snapshots kept as
               restorable backups. <strong>Focus, Habits, and My Stuff</strong>{" "}
-              save to your account automatically once you&apos;ve connected
-              (&ldquo;Sign in to sync&rdquo;), and each still has manual
-              sync/export buttons. Cloud data lives in Firebase under your
-              Google account and is scoped to you alone.
+              save to your account automatically while you&apos;re signed in,
+              and each still has manual sync/export buttons. Cloud data lives
+              in Firebase under your Google account and is scoped to you alone.
             </p>
           </Sub>
           <Sub title="Privacy">
@@ -553,7 +610,8 @@ export default function GuidePage() {
             </li>
             <li>
               Deletes almost everywhere offer a brief <strong>Undo</strong> —
-              bookmarks, shortcuts, to-dos, journal notes, activity entries.
+              bookmarks, shortcuts, to-dos, journal notes, activity entries,
+              and My Stuff items (photos and receipts come back too).
             </li>
             <li>
               Long page? A scroll-to-top button with a progress ring appears
