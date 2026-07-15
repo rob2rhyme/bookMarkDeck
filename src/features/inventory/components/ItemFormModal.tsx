@@ -159,8 +159,11 @@ function buildCompareLinks(rows: DraftPriceLink[]): PriceLink[] | undefined {
   return cleaned.length ? cleaned : undefined;
 }
 
+// text-base on mobile: iOS Safari auto-zooms (and pans) the page when a focused
+// input's font-size is under 16px, which made the sheet feel like it drifted on
+// every tap. 16px suppresses the zoom; sm+ keeps the denser 14px.
 const fieldClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none";
+  "w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-base sm:text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none";
 const labelClass = "mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -655,7 +658,7 @@ export function ItemFormModal({
       onClose={closeAndSweep}
       label={isNew ? "Add item" : "Edit item"}
       overlayClassName="inset-0 flex items-stretch justify-center sm:items-center sm:px-4 sm:py-[5vh]"
-      panelClassName="flex w-full flex-col max-h-[100dvh] sm:max-w-lg sm:max-h-[90vh] overflow-y-auto border-slate-800 bg-slate-900 p-4 sm:p-6 shadow-2xl outline-none sm:rounded-2xl sm:border"
+      panelClassName="flex w-full flex-col max-h-[100dvh] sm:max-w-lg sm:max-h-[90vh] overflow-y-auto overflow-x-hidden border-slate-800 bg-slate-900 p-4 sm:p-6 shadow-2xl outline-none sm:rounded-2xl sm:border"
     >
       <form onSubmit={submit} className="flex flex-col gap-2">
         <div className="sticky -top-4 z-10 -mx-4 -mt-4 mb-1 flex items-center justify-between gap-2 border-b border-slate-800/70 bg-slate-900/95 px-4 pb-2.5 pt-4 backdrop-blur sm:-top-6 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
@@ -1119,7 +1122,7 @@ export function ItemFormModal({
                 <button
                   type="button"
                   onClick={addCompareLink}
-                  className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] font-medium text-slate-300 transition hover:border-blue-400 hover:text-blue-300"
+                  className="shrink-0 whitespace-nowrap rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:border-blue-400 hover:text-blue-300"
                 >
                   + Store
                 </button>
@@ -1131,8 +1134,14 @@ export function ItemFormModal({
                 </p>
               ) : (
                 <ul className="flex flex-col gap-1.5">
+                  {/* One card per store: store + price + remove on the first
+                      line, the (long) URL on its own full-width line. Grid
+                      cells clamp the inputs — never wider than the sheet. */}
                   {draft.compareLinks.map((l) => (
-                    <li key={l.id} className="flex items-center gap-1.5">
+                    <li
+                      key={l.id}
+                      className="grid grid-cols-[minmax(0,1fr)_5.5rem_auto] items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950/40 p-2"
+                    >
                       <input
                         type="text"
                         value={l.store}
@@ -1141,18 +1150,7 @@ export function ItemFormModal({
                         }
                         placeholder="Store"
                         aria-label="Store name"
-                        className={`${fieldClass} w-24 shrink-0`}
-                      />
-                      <input
-                        type="url"
-                        inputMode="url"
-                        value={l.url}
-                        onChange={(e) =>
-                          updateCompareLink(l.id, { url: e.target.value })
-                        }
-                        placeholder="https://…"
-                        aria-label="Store URL"
-                        className={`${fieldClass} min-w-0 flex-1`}
+                        className={fieldClass}
                       />
                       <input
                         type="number"
@@ -1164,16 +1162,27 @@ export function ItemFormModal({
                         }
                         placeholder="Price"
                         aria-label="Price at this store"
-                        className={`${fieldClass} w-20 shrink-0`}
+                        className={fieldClass}
                       />
                       <button
                         type="button"
                         onClick={() => removeCompareLink(l.id)}
                         aria-label="Remove store"
-                        className="shrink-0 rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-red-300"
+                        className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-red-300"
                       >
                         <X className="h-4 w-4" />
                       </button>
+                      <input
+                        type="url"
+                        inputMode="url"
+                        value={l.url}
+                        onChange={(e) =>
+                          updateCompareLink(l.id, { url: e.target.value })
+                        }
+                        placeholder="https://…"
+                        aria-label="Store URL"
+                        className={`${fieldClass} col-span-3`}
+                      />
                     </li>
                   ))}
                 </ul>
