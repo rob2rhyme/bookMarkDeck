@@ -16,6 +16,7 @@ type LocationManagerProps = {
   onAdd: (name: string, parentId: string | null) => void;
   onRename: (id: string, name: string) => void;
   onRemove: (id: string) => void;
+  onPrintLabels: () => Promise<void>;
   onClose: () => void;
 };
 
@@ -29,6 +30,7 @@ export function LocationManager({
   onAdd,
   onRename,
   onRemove,
+  onPrintLabels,
   onClose,
 }: LocationManagerProps) {
   const flat = useMemo(() => flattenTree(tree), [tree]);
@@ -36,6 +38,16 @@ export function LocationManager({
   const [parentId, setParentId] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [printing, setPrinting] = useState(false);
+
+  const printLabels = async () => {
+    setPrinting(true);
+    try {
+      await onPrintLabels();
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   const add = (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,9 +184,21 @@ export function LocationManager({
         ))}
       </ul>
 
+      {flat.length > 0 && (
+        <button
+          type="button"
+          onClick={printLabels}
+          disabled={printing}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50"
+        >
+          🏷️ {printing ? "Preparing labels…" : "Print QR labels"}
+        </button>
+      )}
+
       <p className="mt-3 text-[11px] text-slate-500">
         Deleting a location keeps its items (they become Unassigned) and lifts any
-        nested locations up a level.
+        nested locations up a level. Print QR labels to stick on boxes — scan one
+        to see what&apos;s inside without unpacking.
       </p>
     </Modal>
   );
