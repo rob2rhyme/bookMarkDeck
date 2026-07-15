@@ -22,6 +22,13 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#020617",
+  width: "device-width",
+  initialScale: 1,
+  // iOS Safari auto-zooms the page when a focused input's font-size is under
+  // 16px, leaving the layout zoomed + horizontally pannable (modals appear to
+  // drift sideways). maximumScale suppresses that *automatic* zoom app-wide;
+  // Safari still allows user-initiated pinch zoom, so accessibility is intact.
+  maximumScale: 1,
 };
 
 export default function RootLayout({

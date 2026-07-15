@@ -1,286 +1,92 @@
 # Bookmark Deck
 
-Bookmark Deck is a privacy-first bookmark manager built with Next.js (App Router), TypeScript, and Tailwind.
+A calm, private home for your online life — and the life around it. Four pillars share one roof:
 
-It supports local-first bookmark management, optional Firebase sync, route-based folder pages, bookmark bulk actions, and web app shortcuts.
+| Pillar | What it holds |
+|---|---|
+| **Bookmarks** (home) | The sites and apps you use — nestable folders, app shortcuts, search, import/export |
+| **Focus** (`/focus`) | The work you do — Pomodoro timer, tasks & to-dos, journal, analysis, wellbeing extras |
+| **Habits** (`/habits`) | The consistency you build — forgiving streaks, insights, gentle reminders |
+| **My Stuff** (`/inventory`) | The things you own — home inventory with photos, values, warranties, lending & more |
 
-## Overview
+Everything is **local-first** (saves to your device instantly, works offline, installable as a PWA) and syncs to your own Google account when you're signed in. **One sign-in connects sync for every pillar** — no per-app prompts. No analytics, no ads.
 
-Bookmark Deck is designed for fast, personal bookmark organization:
+## What's inside
 
-- Primary storage is local browser storage.
-- Optional cloud sync uses your Google sign-in and Firebase Firestore.
-- Folders are first-class entities with adjacency-list hierarchy (`id`, `name`, `parentId`).
-- UI uses a shared app shell across pages (global header/footer/cursor + global scroll-to-top FAB).
-- PWA foundation is enabled (manifest + service worker registration + offline page).
+### Bookmarks — the home page
+- Bookmark cards with title, URL, icon, folder, tags, and a private (hidden-by-default) note; pin favorites; usage-based **Trending**.
+- **App shortcuts**: a separate launcher row for the handful of apps you open constantly.
+- **Nestable folders** with dedicated pages, breadcrumbs, subtree search, bulk select/move/delete (with Undo), a full **Manage** tree, and **✨ Auto-organize** that proposes a categorization plan before you apply it.
+- Import browser bookmarks (Netscape HTML) or a JSON backup with a merge preview; export standard HTML; cloud sync keeps your **last 7 snapshots** restorable.
+- **⌘K command palette**: jump anywhere, add a bookmark, search everything.
 
-## Key Features
+### Focus — the work hub
+- Settings-driven **Pomodoro** + stopwatch, timestamp-accurate in background tabs, with chimes and system notifications (even when the tab is closed).
+- **Tasks** (what the timer works on) vs **to-dos** (your checklist — personal ones can mirror to Google Tasks/Calendar); intentions, reflections, and a "work on this in Focus" hand-off from any bookmark.
+- **Journal**: daily mood, timestamped notes, and a dream log with streaks and a heatmap.
+- **Analysis**: daily-goal pace, streaks, 7-day chart, mood trend, focus rhythm by hour, weekly top tasks, top resources.
+- Optional wellbeing extras: hydration tracking, guided **meditation** & breathing, "Let them" 60-second resets, interest-tuned quotes and a points-earning quiz.
 
-### Bookmarks
+### Habits — the record of consistency
+- Yes/no or measurable habits, scheduled daily / specific days / times-a-week, for building or quitting.
+- **Forgiving streaks** (today-not-yet doesn't break one; planned skips are neutral), weekly bars, best weekdays, 30-day rates, a tappable year heatmap, and habit→focus hand-offs.
 
-- Add, edit, and delete bookmarks.
-- Bookmark fields: title, URL, icon, `folderId` (plus legacy `folder` during transition), tags, note.
-- Pin/unpin favorites.
-- Usage tracking (`hits`, `lastUsedAt`) for trending sorting.
-- Import browser bookmark HTML (Netscape format).
-- Export bookmark HTML.
-- Undo after delete / bulk delete / clear-all (snapshot restore).
+### My Stuff — home inventory
+- Add items fast: **barcode scan** (phone camera, webcam, or USB scanner) with free product-database lookup, **on-device label OCR**, receipt scan — nothing camera-touched ever leaves the device.
+- Full records: photos (compressed locally), price **plus tax rate**, condition (incl. *Open box*), **in-original-box?**, serial, warranty & maintenance dates, store URL, tags, nestable **locations** (rooms → shelves → boxes) with printable **QR labels**.
+- Three views: grid, **detail-rich list** (ledger-style wide cards), and shelf (grouped by location).
+- **Price comparison**: save competitor store links per item; live barcode-matched offers take over automatically when available.
+- **Lending & item history**: who has what and when it's due, condition out vs. back, one-tap status (*Have / Misplaced / Lost*), "Used today", and an automatic per-item activity timeline.
+- **🔥 Trending** (most used / lent / moved, 90 days), value panel with a category-aware **resale estimate** and depreciation curve, attention panel + nav badge for warranties/upkeep, wishlist with already-own detection, kits/collections, declutter pile, daily **Rediscover** nudge, "where's my…" quick-find, insurance report (PDF), CSV/JSON export & merge-safe import, and an optional PIN/biometric **app lock**.
+- Deletes offer **Undo** — items come back whole, photos and receipts included.
 
-### Search and Filters
+### Personalization
+- Appearance settings (fonts — including your own font file, kept on-device — and size tuning), decorative cursor companions, and a mobile bottom nav.
 
-- Search by title, URL, note, folder, or tag.
-- Filters for favorites and entries with notes.
+## Getting started
 
-### Folders
-
-- Nested folders support arbitrary depth.
-- Folder cards on Home route to dedicated folder pages.
-- Home shows root folders (`parentId = null`); subfolders are shown on folder pages.
-- `Unstaged` remains a virtual/system bucket (`bookmark.folderId = null`).
-
-### Folder Pages (Route-Based)
-
-- `/folders/unstaged` for bookmarks with no folder label.
-- Canonical route is `/folders/[folderId]`.
-- Legacy name-key routes still resolve for root folders, then canonicalize to folder ID route.
-- Folder pages render:
-  - clickable breadcrumbs (ancestor segments link to `/folders/{id}`),
-  - child folders (`parentId == currentFolderId`),
-  - bookmarks assigned to current folder (`bookmark.folderId == currentFolderId`).
-
-### Bulk Select (Bookmarks)
-
-On folder pages (`/folders/*`):
-
-- Select mode with multi-select checkboxes.
-- Bulk actions: Move, Delete, Select all, Clear, Cancel.
-- Move supports:
-  - existing folders,
-  - `Unstaged` (sets `folder: undefined`),
-  - `New folder…` flow.
-
-### Cloud Sync and Backups
-
-- Optional sync via Firebase Firestore.
-- Firestore user doc now stores both `bookmarks` and `folders` arrays.
-- Bookmark snapshots are kept in cloud backups (up to 7 latest backups).
-- Backup payload can include both bookmarks and shortcuts.
-- Download backup JSON from the app.
-
-### App Shortcuts
-
-- App shortcuts are quick links to the web apps you use most (name, URL, icon).
-- Clicking a shortcut opens its URL in a new browser tab.
-- Shortcuts cache locally and sync (name / URL / icon) via Firestore like bookmarks.
-
-### UI System
-
-- Shared SVG icon set in `src/components/icons.tsx`.
-- Tooltip wrapper for icon actions in bookmark cards.
-- Press micro-interactions (`active:scale-95`) on icon buttons.
-- Optional haptic tap utility (`src/utils/haptics.ts`) for coarse pointers.
-- Global scroll-to-top FAB mounted from app layout.
-
-### PWA and Offline
-
-- App manifest: `public/manifest.webmanifest`.
-- Service worker: `public/sw.js` (registered in `src/app/GlobalClientUI.tsx`).
-- Offline fallback route: `/offline`.
-- Cache policy is intentionally narrow:
-  - static same-origin assets use cache-first,
-  - navigations use network-first with offline fallback,
-  - `/api/*` is excluded from service-worker caching.
-
-## Folder Navigation Model
-
-Folders are identified by stable `id` values.
-
-Canonical routes:
-
-- `/folders/unstaged`
-- `/folders/[folderId]`
-
-Legacy compatibility:
-
-- If `/folders/[param]` does not match a folder ID, the app attempts legacy root-folder lookup by normalized name key.
-- On successful legacy lookup, route canonicalizes to `/folders/{folderId}`.
-
-Breadcrumbs are computed by walking parent pointers (`parentId`) to root with a cycle guard.
-
-Example:
-
-- Tree:
-  - `CODING`
-  - `CODING / BACK END`
-  - `CODING / BACK END / API`
-- Breadcrumb on API page:
-  - `CODING / BACK END / API`
-
-## Deprecated Behavior
-
-- Legacy label-key folder identity is deprecated.
-- Route-based folder pages with folder IDs are canonical.
-- Scroll-to-top is no longer Home-only; it is global.
-
-## Folder Storage Model
-
-Local storage v2 key:
-
-- `bookmarkdeck:v2[:userId]`
-
-Shape:
-
-```ts
-{
-  version: 2,
-  bookmarks: Bookmark[],
-  folders: Folder[]
-}
+```bash
+npm install
+cp .env.example .env.local   # fill in the values below
+npm run dev
 ```
 
-Bookmark-folder relation:
+Required environment (see `.env.example` for the full annotated list):
 
-- `bookmark.folderId` is authoritative.
-- `bookmark.folder` is retained temporarily for migration compatibility.
-- Folder rename updates `Folder.name` only; bookmarks stay linked by `folderId` (no bookmark rewrite).
+- **next-auth**: `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- **Firebase (client)**: `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`
+- Optional: web-push keys (timer alerts), QStash (scheduled push), `UPC_LOOKUP_*` (paid barcode/price tier), R2 (photo storage)
 
-Migration summary:
+> For fully zero-click sync, whitelist your Google OAuth client ID on the Firebase project's Google provider — otherwise sync still works via a single tap.
 
-- Existing label folders are migrated into root folders.
-- Legacy folder labels from bookmarks and old empty-folder local storage are deduplicated by normalized label.
-- Bookmarks are mapped to new folder IDs.
-- Legacy empty-folder key is removed after successful v2 upgrade.
+### Scripts
 
-## Enhancement Roadmap (A→Z)
+- `npm run dev` — dev server
+- `npm run build` / `npm run start` — production build & serve
+- `npm run typecheck` / `npm run lint` — TypeScript validation
+- `npm run test` — Vitest unit suite (`npm run test:watch` for watch mode)
 
-This section is the implementation plan for upcoming premium enhancements.
+CI (`.github/workflows/ci.yml`) runs typecheck + tests + build on every PR.
 
-### A. Foundation and Shell Consistency
+## Tech overview
 
-1. Keep App Router global shell (`AppShell`) as the single source for header/footer/background cursor.
-2. Keep `ScrollToTopFab` global via `GlobalClientUI`.
-3. Keep unstaged support in data and route, without making it the primary Home CTA.
+- **Next.js 16** (App Router) · React 19 · TypeScript · Tailwind CSS v4 · deployed on Vercel.
+- **Dual-layer auth**: next-auth (Google) owns the session; Firebase Auth owns Firestore access. A silent id_token bridge connects the two, so one Google sign-in covers every pillar's sync (see `CLAUDE.md` → *Auth*).
+- **Data**: one Firestore document per user (`users/{uid}`) plus per-feature subcollections; `localStorage` is a per-user local cache. Cloud writes are optimistic and fail-safe.
+- **PWA**: manifest + conservative service worker (network-first navigations, cache-first hashed assets, `/api/*` untouched) + offline fallback.
+- Feature pillars live under `src/features/{focus,habits,inventory}` and are removable; shared UI in `src/components`.
 
-Acceptance:
-- One global header/footer on every route.
-- Folder pages match Home visual chrome.
+### More documentation
 
-### B. PWA Hardening
+- **In-app**: `/guide` (the full user guide), `/faq`, `/habits/guide`, `/privacy`, `/terms`
+- **Repo**: `CLAUDE.md` (architecture source of truth), `FOCUS-INTEGRATION.md`, `INVENTORY-ROADMAP.md`, `SECURITY.md`, `CAPACITOR_IOS.md`, `TROUBLESHOOTING.md`
 
-1. Add install prompt UX and status indicator.
-2. Version/cache-bust service worker strategy.
-3. Add richer offline page guidance for sync-dependent actions.
-4. Define explicit no-cache list for sensitive endpoints.
+## Privacy summary
 
-Acceptance:
-- Installable app in supported browsers.
-- Predictable offline behavior across route navigations.
-
-### C. Drag-and-Drop Bookmark Reordering
-
-1. Implement folder-page drag reorder with `@dnd-kit/core` + `@dnd-kit/sortable`.
-2. Disable drag while `selectMode` or card editing is active.
-3. Persist folder order state device-locally (and optionally cloud-sync later).
-4. Add drag handle affordance and accessible keyboard fallback.
-
-Acceptance:
-- Reorder persists after refresh.
-- No conflicts with bulk select/edit/delete flows.
-
-### E. Icon Library for Bookmarks and Shortcuts
-
-1. Add icon-picker modal with curated SVG icon tokens.
-2. Keep URL icon input as optional advanced mode.
-3. Store icon token keys for local consistency.
-
-Acceptance:
-- Users can assign consistent icons without external URLs.
-- Keyboard/mobile accessible picker.
-
-### F. Search, Tags, and Bulk UX Expansion
-
-1. Add saved filters and advanced search chips.
-2. Add bulk tag assignment/removal flows.
-3. Improve batch feedback and undo messaging precision.
-
-### G. Sync and Backup Enhancements
-
-1. Add backup restore chooser directly in UI.
-2. Expose sync conflict notes/timestamps more clearly.
-3. Add optional backup export automation settings.
-
-### H. Performance and Reliability
-
-1. Virtualize large bookmark grids where needed.
-2. Reduce icon/favicon layout shift.
-3. Add targeted client-side error boundaries for folder pages.
-
-### I. Security and Hardening
-
-1. Periodically review CSP rules for production.
-2. Keep dependency overrides patched and verified against firebase/grpc.
-
-### J. QA and Release
-
-1. Add route-level manual QA scripts for folder flows.
-2. Add smoke tests for bulk move/delete and undo.
-3. Run release checklist for `typecheck`, `lint`, `build`, and offline regression.
-
-## Project Structure
-
-```txt
-src/
-  app/
-    layout.tsx                  # Root layout
-    GlobalClientUI.tsx          # Global client-only UI mount (FAB + SW registration)
-    page.tsx                    # Home page
-    folders/
-      unstaged/page.tsx         # Unstaged folder route
-      [folderKey]/page.tsx      # Named folder route
-    offline/page.tsx            # Offline fallback route
-    privacy/page.tsx
-    terms/page.tsx
-    faq/page.tsx
-  components/
-    AppShell.tsx                # Shared chrome (header/footer/dragon cursor/frame)
-    HomePageClient.tsx          # Home-specific content
-    BookmarkCard.tsx
-    ShortcutCard.tsx
-    ScrollToTopFab.tsx          # Global FAB
-    icons.tsx                   # Shared SVG icons
-    DragonCursor.tsx
-  hooks/
-    useBookmarks.ts
-    useShortcuts.ts
-  utils/
-    haptics.ts
-    parseBookmarkHtml.ts
-    bookmarksToHtml.ts
-    firestoreBookmarks.ts
-    firestoreShortcuts.ts
-```
-
-## Scripts
-
-### Web app
-
-- `npm run dev` - start Next.js dev server
-- `npm run build` - production build
-- `npm run start` - run production server
-- `npm run typecheck` - TypeScript validation
-- `npm run lint` - ESLint
-
-## Known Issues / Notes
-
-- `baseline-browser-mapping` warning may appear during lint/build when the dataset is stale. It is non-fatal.
-  - Suggested update: `npm i baseline-browser-mapping@latest -D`
-- Current PWA service worker is intentionally conservative and does not cache `/api/*`.
-
-## Privacy Summary
-
-- Local data: browser `localStorage`.
-- Optional cloud data: Firebase Firestore under your Google-authenticated account.
-- No in-app analytics/tracking SDK is currently used.
+- Local data lives in your browser; cloud data lives in Firebase Firestore scoped to your Google account alone.
+- Camera features (barcode, label OCR, receipt scan) run entirely on-device.
+- No analytics, tracking, or ad SDKs.
+- Leaving: export your data, delete locally, sync the empty state, and revoke access at myaccount.google.com/permissions.
 
 ## License
 
