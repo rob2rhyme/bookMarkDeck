@@ -48,6 +48,11 @@ match /users/{uid}/inventoryWishlist/{wishId} {
 
 Only **add** rules for these new collections — never loosen existing ones.
 
+> **App-lock is intentionally *not* here.** The My Stuff privacy lock (PIN hash +
+> optional WebAuthn credential id) is device-bound and lives only in per-user
+> `localStorage` — it is deliberately never written to Firestore, so it needs no
+> rule. Don't "sync" it later; a lock belongs on the device, not in the cloud.
+
 ## Firebase Storage — deferred (Blaze-gated) ⏳
 
 Phase 1 stores photos as direct URLs the user pastes (no upload). The

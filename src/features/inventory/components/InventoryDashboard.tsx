@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { HandHelping, Layers, MapPin, Package, Plus, Search, Sparkles, Tag, X } from "@/components/icons";
+import { HandHelping, Layers, MapPin, Package, Plus, Search, Settings, Sparkles, Tag, X } from "@/components/icons";
 import { downloadText } from "@/utils/download";
 import {
   deleteItemDoc,
@@ -53,6 +53,9 @@ import { upkeepCount } from "@/features/inventory/lib/maintenanceCalendar";
 import { StarterRoomsCard } from "@/features/inventory/components/StarterRoomsCard";
 import { useStarterRooms } from "@/features/inventory/hooks/useStarterRooms";
 import { missingStarterRooms } from "@/features/inventory/lib/starterRooms";
+import { useAppLock } from "@/features/inventory/hooks/useAppLock";
+import { AppLockGate } from "@/features/inventory/components/AppLockGate";
+import { AppLockModal } from "@/features/inventory/components/AppLockModal";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
@@ -109,6 +112,7 @@ export function InventoryDashboard() {
   const bookmarkLibrary = useBookmarkLibrary(email);
   const wishlist = useWishlist(email, connected);
   const focusProjects = useFocusProjects(email);
+  const lock = useAppLock(email);
 
   // Compute "today" after mount so warranty math is hydration-safe.
   const [today, setToday] = useState("");
@@ -134,6 +138,7 @@ export function InventoryDashboard() {
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [lockOpen, setLockOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -393,6 +398,20 @@ export function InventoryDashboard() {
 
   const total = inv.active.length;
 
+  // Privacy screen: while locked, the inventory content is replaced by the
+  // unlock gate (the app chrome around it stays). Local-only, device-bound.
+  if (lock.locked) {
+    return (
+      <AppLockGate
+        hasBiometric={lock.hasBiometric}
+        biometricAvailable={lock.biometricAvailable}
+        onUnlockPin={lock.unlockWithPin}
+        onUnlockBiometric={lock.unlockWithBiometric}
+        onReset={lock.resetLock}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -483,6 +502,24 @@ export function InventoryDashboard() {
               </span>
             )}
           </button>
+          <button
+            type="button"
+            onClick={lock.enabled ? lock.lockNow : () => setLockOpen(true)}
+            title={lock.enabled ? "Lock My Stuff now" : "Lock My Stuff behind a PIN"}
+            className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-400 hover:text-slate-100"
+          >
+            🔒 {lock.enabled ? "Lock now" : "Lock"}
+          </button>
+          {lock.enabled && (
+            <button
+              type="button"
+              onClick={() => setLockOpen(true)}
+              aria-label="Lock settings"
+              className="rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-400 transition hover:border-slate-400 hover:text-slate-200"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setLocOpen(true)}
@@ -831,6 +868,18 @@ export function InventoryDashboard() {
         today={today}
         onSelect={openDetail}
         onClose={() => setCalendarOpen(false)}
+      />
+      <AppLockModal
+        open={lockOpen}
+        enabled={lock.enabled}
+        hasBiometric={lock.hasBiometric}
+        biometricAvailable={lock.biometricAvailable}
+        onEnablePin={lock.enablePin}
+        onAddBiometric={lock.addBiometric}
+        onRemoveBiometric={lock.removeBiometric}
+        onDisable={lock.disable}
+        onLockNow={lock.lockNow}
+        onClose={() => setLockOpen(false)}
       />
       <ItemDetailModal
         open={detailItem !== null}

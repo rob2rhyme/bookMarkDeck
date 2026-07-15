@@ -449,6 +449,18 @@ export default function GuidePage() {
               Archive items you no longer actively track.
             </p>
           </Sub>
+          <Sub title="App lock">
+            <p>
+              Want a little more privacy? <strong>🔒 Lock</strong> puts My Stuff
+              behind a <strong>4–8 digit PIN</strong> — and, on supported devices,
+              your <strong>fingerprint or face</strong>. It re-locks when you load
+              or return to the page, and <em>Lock now</em> screens it instantly.
+              It&apos;s a <strong>quick privacy screen, not encryption</strong>:
+              your sign-in is still what keeps your data yours, and the PIN stays
+              on this device (never synced). Forgot it? A reset turns the lock
+              off and reveals your inventory — nothing is ever deleted.
+            </p>
+          </Sub>
         </Section>
 
         <Section id="sync" title="Sync & privacy">
