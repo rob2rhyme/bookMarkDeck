@@ -86,12 +86,12 @@ A folder view gets a "Start a focus session" action that deep-links to `/focus?c
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Survey + write `CLAUDE.md` + this doc | ✅ done (docs only, no code) |
-| 0b | Security headers + `audit` script + `.env.example` (optional, parallel) | ⏳ not started |
+| 0b | Security headers + `audit` script + `.env.example` (optional, parallel) | ✅ mostly done (headers in `next.config.ts`; `.env.example` complete; only the `audit` script remains — tracked in `FUTURE-PLANS.md`) |
 | 1 | `feature/focus` branch + isolated auth-gated `/focus` shell + 1 nav entry | ✅ done (placeholder route + Focus nav pill in AppShell) |
 | 2 | Timer + tasks UI (in-memory, design-harmonized) | ✅ done (Pomodoro timer + session tasks, in-memory) |
 | 3 | Persist focus data via Firestore (+ console rules) | ✅ done (focusTasks + focusSessions subcollections; opt-in sync; rules in src/features/focus/FIRESTORE_RULES.md) |
 | 4 | ⭐ Focus-on-a-collection (bookmarks↔focus link) | ✅ done (collection picker + Resources panel; "Start a focus session" on folder page; linkedFolderId on sessions) |
-| 5 | Review, smoke test, merge the core slice | ✅ verification done; awaiting your merge decision |
+| 5 | Review, smoke test, merge the core slice | ✅ merged and live |
 | B1–B9 | Gated backlog (stats, settings, chimes, PWA, hydration, push, calendar, journal, suggestions) | gated |
 
 **After Phase 5: stop and watch.** Real usage of the focus loop + collection link gates Part 2.

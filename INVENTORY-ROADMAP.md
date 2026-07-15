@@ -5,13 +5,17 @@ Planning doc for adding a home-inventory feature to Bookmark Deck. Companion to
 near-term, on-brand build; Phases 2–4 + the commercialization track are a
 deliberate, separately-funded decision (see §6).
 
-Status: **Phase 1 core scaffold shipped** (PR #159 — items, nested locations,
-lending, value dashboard, attention panel, grid/list, search, CSV/JSON
-export/import, URL photos). **Block-A near-complete** (PRs #160–#167 + this
-cycle): retrieval, lending ledger, warranty/maintenance reminders + nav badge,
-Focus-project links, declutter→habits, barcode capture, and value/depreciation
-curves are all shipped — only **kits/collections** and **insurance PDF export**
-remain in A. Photo storage + product enrichment (B) tracked below.
+Status: **Phase 1 + Block A complete, Block B shipped** (PRs #159–#200).
+Everything in A landed — retrieval, lending ledger, warranty/maintenance
+reminders + nav badge, Focus-project links, declutter→habits, barcode capture,
+value/depreciation curves, kits/collections, and the insurance PDF. Block B
+landed too: camera photos with on-device compression + optional R2 storage,
+barcode product lookup (free trial + Open Facts fallbacks; paid tier via
+`UPC_LOOKUP_*`), label/receipt OCR. Beyond the original plan, 2026-07 also
+shipped: price comparison (live offers over saved compare links), purchase tax,
+"in original box?", a ledger-style list view, per-item lending/activity history
+with statuses, a Trending panel, item sharing, and undo-on-delete. Phases 2–4 +
+commercialization remain deliberately deferred (see §6 and `FUTURE-PLANS.md`).
 
 ---
 

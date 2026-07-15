@@ -94,8 +94,9 @@ Client (`NEXT_PUBLIC_*`, read in `src/lib/firebase.ts`):
 `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`,
 `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`.
 Server (next-auth): `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
-Secrets live only in the gitignored `.env.local`. (`.env.example` currently lists only the
-next-auth set — the Firebase keys are omitted; see Phase 0b in `FOCUS-INTEGRATION.md`.)
+Secrets live only in the gitignored `.env.local`. `.env.example` is the annotated
+full list (next-auth, Firebase, and the optional push/QStash/UPC-lookup/R2 sets).
+Owner-deferred config decisions live in `FUTURE-PLANS.md`.
 
 ## Commands & CI
 
