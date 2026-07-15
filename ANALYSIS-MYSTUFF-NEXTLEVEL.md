@@ -101,9 +101,12 @@ matrix suggests. The genuine gaps split cleanly into *on-brand wins* and
    filtered to that spot (deep link handled once). `lib/qr.ts` (lazy `qrcode`),
    `lib/locationLabels.ts` (pure HTML builder, tested), shared `printHtml`.
    *v1 = in-app deep link; v2 (no-app public page) still a future lift.*
-4. **Wishlist** — a light "want to buy" list that ties into the duplicate guard
-   ("do I already own this?") and **links a bookmark** (the product page).
-   Connection-over-breadth, not marketplace creep.
+4. ✅ **Wishlist** — a light "want to buy" list (its own `inventoryWishlist`
+   subcollection, local-first + live sync) that ties into the duplicate guard
+   ("you may already own this…" nudge as you type a name) and **links a
+   bookmark** (the product page). "Got it" converts a wish into a real item in
+   one tap. `lib/wishlist.ts` (pure, tested), `hooks/useWishlist.ts`,
+   `WishlistModal`. Connection-over-breadth, not marketplace creep.
 5. **Maintenance calendar view** — a calm timeline of upcoming warranty +
    maintenance dates (data already exists).
 6. **Onboarding auto-rooms** — offer to seed common locations on first visit so
@@ -129,7 +132,8 @@ privacy) · AI-written resale listings + micro-sites (marketplace pivot) ·
 public API/webhooks (pro audience, not the personal hub).
 
 ## Recommended sequence
-**A1 (smart questions) → A2 (rediscover) → A3 (QR labels)** are the highest
-value-per-effort and reinforce the calm/connected identity. A4–A6 follow.
+**A1 (smart questions) → A2 (rediscover) → A3 (QR labels) → A4 (wishlist)** are
+shipped — the highest value-per-effort and they reinforce the calm/connected
+identity. A5 (maintenance calendar) → A6 (onboarding auto-rooms) follow.
 Everything in B waits on an explicit go/no-go (cost, Blaze, or a privacy
 decision); C stays out to protect the brand.

@@ -403,6 +403,16 @@ export default function GuidePage() {
               bring something else tomorrow.
             </p>
           </Sub>
+          <Sub title="Wishlist">
+            <p>
+              The <strong>♡ Wishlist</strong> button keeps a light list of things
+              you want to buy — separate from what you own. As you type a name it
+              gently flags anything you <em>may already have</em>, so you don&apos;t
+              re-buy by accident, and you can <strong>link the product-page
+              bookmark</strong> so where-to-buy stays one tap away. Bought it? Tap{" "}
+              <strong>Got it</strong> and it becomes a real item in My Stuff.
+            </p>
+          </Sub>
           <Sub title="Barcode, photos & your data">
             <p>
               <strong>Scan</strong> reads an item&apos;s barcode from the
