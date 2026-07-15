@@ -95,8 +95,12 @@ view mode — items grouped by location breadcrumb with per-spot count/value).
 8. ✅ **Declutter companion** — keep/donate/sell tagging wired into habits. (PR
    #166 — `disposition`/`releasedDate`, `DeclutterModal`, `releaseItem`, and a
    `declutter` habits `TrackableSource` that counts items released today.)
-9. ✅ **Barcode quick-add** — client `BarcodeDetector`, manual fallback (capture
-   only). (PR #167 — `BarcodeScanner`, `useBarcodeSupported`, Barcode field.
+9. ✅ **Barcode quick-add** — camera scan on **all** browsers: native
+   `BarcodeDetector` on Chromium, a lazily-loaded ZXing-WASM ponyfill
+   (`barcode-detector`) on iOS Safari / Firefox (`lib/barcodeEngine.ts`); manual
+   entry always available. *(WASM currently CDN-loaded like the OCR engine;
+   self-hosting it under `/public` is a future privacy/offline hardening.)*
+   (PR #167 — `BarcodeScanner`, `useBarcodeSupported`, Barcode field.
    *Product lookup shipped separately as a B item — see below.*)
 10. ✅ **Kits / collections** (single `collection` label + `collectionGroups`
     grouping, "Kits" modal with per-kit count/value, form datalist + card

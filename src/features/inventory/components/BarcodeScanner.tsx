@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { X } from "@/components/icons";
 import { useCallbackRef } from "@/hooks/useCallbackRef";
+import {
+  createBarcodeDetector,
+  type BarcodeDetectorLike,
+} from "@/features/inventory/lib/barcodeEngine";
 
 type BarcodeScannerProps = {
   /** Called once with the first code read; the parent then hides the scanner. */
@@ -11,34 +15,20 @@ type BarcodeScannerProps = {
   onCancel: () => void;
 };
 
-// Common retail + generic symbologies. Chromium's BarcodeDetector supports all
-// of these; unsupported browsers never render this component (feature-gated).
-const FORMATS = [
-  "ean_13",
-  "ean_8",
-  "upc_a",
-  "upc_e",
-  "code_128",
-  "code_39",
-  "itf",
-  "qr_code",
-] as const;
-
-type DetectorLike = {
-  detect: (source: CanvasImageSource) => Promise<{ rawValue?: string }[]>;
-};
-
 /**
- * Full-screen camera overlay that reads a barcode via the `BarcodeDetector`
- * API and reports the first hit. Deliberately NOT a shared Modal — it manages
- * its own overlay so it can stack above the item form without a competing focus
- * trap. The camera stream is always stopped on unmount (or on detect/cancel, via
- * the parent hiding it), so the camera never stays live.
+ * Full-screen camera overlay that reads a barcode on-device and reports the
+ * first hit. Uses the native `BarcodeDetector` on Chromium and a lazily-loaded
+ * ZXing-WASM ponyfill elsewhere (iOS Safari / Firefox), so it works across
+ * browsers. Deliberately NOT a shared Modal — it manages its own overlay so it
+ * can stack above the item form without a competing focus trap. The camera
+ * stream is always stopped on unmount (or on detect/cancel), so it never stays
+ * live.
  */
 export function BarcodeScanner({ onDetect, onCancel }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const onDetectRef = useCallbackRef(onDetect);
   const [error, setError] = useState<"unsupported" | "camera" | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -52,14 +42,16 @@ export function BarcodeScanner({ onDetect, onCancel }: BarcodeScannerProps) {
     };
 
     (async () => {
-      const Ctor = (window as unknown as { BarcodeDetector?: new (o: { formats: readonly string[] }) => DetectorLike }).BarcodeDetector;
-      if (!Ctor) {
+      let detector: BarcodeDetectorLike;
+      try {
+        // May download the WASM ponyfill on first use (iOS/Firefox).
+        detector = await createBarcodeDetector();
+      } catch {
         setError("unsupported");
         return;
       }
-      let detector: DetectorLike;
+      if (stopped) return;
       try {
-        detector = new Ctor({ formats: FORMATS });
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" },
         });
@@ -79,6 +71,7 @@ export function BarcodeScanner({ onDetect, onCancel }: BarcodeScannerProps) {
       } catch {
         /* autoplay can reject silently; the frame loop still works */
       }
+      if (!stopped) setReady(true);
       const tick = async () => {
         if (stopped) return;
         try {
@@ -146,7 +139,7 @@ export function BarcodeScanner({ onDetect, onCancel }: BarcodeScannerProps) {
               <div className="h-40 w-64 rounded-xl border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
             </div>
             <p className="absolute bottom-6 left-0 right-0 text-center text-xs text-slate-300">
-              Point the camera at a barcode.
+              {ready ? "Point the camera at a barcode." : "Preparing scanner…"}
             </p>
           </>
         )}
