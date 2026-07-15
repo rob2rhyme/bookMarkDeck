@@ -14,6 +14,7 @@ import {
   type ItemDisposition,
   type ItemDoc,
   type ItemDocKind,
+  type ItemActivity,
   type ItemLink,
   type ItemPhoto,
   type PriceLink,
@@ -604,6 +605,36 @@ export function ItemFormModal({
       disposition: draft.disposition || undefined,
       notes: trimmedOrUndef(draft.notes),
     };
+
+    // Life-history: append events for the transitions this save represents, so
+    // the item's timeline + Trending stay accurate without a separate action.
+    const locName = (id: string | null) =>
+      id ? flattenTree(tree).find((n) => n.id === id)?.name : undefined;
+    const wasLent = Boolean(item.lentTo?.trim());
+    const nowLent = Boolean(next.lentTo?.trim());
+    const events: ItemActivity[] = [];
+    const now = new Date().toISOString();
+    const push = (e: Omit<ItemActivity, "id" | "at">) =>
+      events.push({ ...e, id: crypto.randomUUID(), at: now });
+    if (isNew) push({ type: "acquired" });
+    if (!isNew && item.locationId !== next.locationId) {
+      push({
+        type: "relocated",
+        fromLoc: locName(item.locationId),
+        toLoc: locName(next.locationId),
+      });
+    }
+    if (!wasLent && nowLent) {
+      push({ type: "lent", to: next.lentTo ?? undefined, condition: next.condition });
+    }
+    if (wasLent && !nowLent) push({ type: "returned", condition: next.condition });
+    if (events.length) {
+      next.activity = [...(item.activity ?? []), ...events].slice(-300);
+    }
+    // Lending transitions drive status; leave lost/misplaced/have as-is otherwise.
+    if (!wasLent && nowLent) next.status = "lent";
+    else if (wasLent && !nowLent) next.status = "have";
+
     // Orphan control: R2 objects the save no longer references — the item's
     // previous photo when replaced/cleared, and any session uploads that were
     // superseded before saving — get swept. The kept path is exempted.

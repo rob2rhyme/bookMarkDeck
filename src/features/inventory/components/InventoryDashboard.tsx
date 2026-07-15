@@ -61,6 +61,7 @@ import { AppLockModal } from "@/features/inventory/components/AppLockModal";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
+import { TrendingPanel } from "@/features/inventory/components/TrendingPanel";
 import { WhereIsModal } from "@/features/inventory/components/WhereIsModal";
 import { LendingLedgerModal } from "@/features/inventory/components/LendingLedgerModal";
 import { DeclutterModal } from "@/features/inventory/components/DeclutterModal";
@@ -243,11 +244,16 @@ export function InventoryDashboard() {
     wishlist.remove(w.id);
   };
 
-  // Read-only detail view; its Edit button hands off to the form.
-  const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
-  const openDetail = (item: InventoryItem) => setDetailItem(item);
+  // Read-only detail view; its Edit button hands off to the form. Tracked by id
+  // so quick-actions (used / lost / returned…) re-render the modal live from the
+  // updated item rather than a stale snapshot.
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailItem = detailId
+    ? inv.items.find((i) => i.id === detailId) ?? null
+    : null;
+  const openDetail = (item: InventoryItem) => setDetailId(item.id);
   const editFromDetail = (item: InventoryItem) => {
-    setDetailItem(null);
+    setDetailId(null);
     openEdit(item);
   };
 
@@ -636,6 +642,8 @@ export function InventoryDashboard() {
         </div>
       )}
 
+      <TrendingPanel items={inv.active} onOpen={openDetail} />
+
       {/* Toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -930,7 +938,10 @@ export function InventoryDashboard() {
         canAttach={connected && Boolean(email)}
         onFetchDocs={fetchDocs}
         onEdit={editFromDetail}
-        onClose={() => setDetailItem(null)}
+        onMarkUsed={inv.markUsed}
+        onSetStatus={inv.setStatus}
+        onReturn={inv.markReturned}
+        onClose={() => setDetailId(null)}
       />
       <LendingLedgerModal
         open={lendOpen}

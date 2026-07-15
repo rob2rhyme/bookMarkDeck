@@ -6,12 +6,16 @@ import { toCsv } from "@/utils/download";
 import {
   CONDITIONS,
   DEFAULT_INVENTORY_SETTINGS,
+  ITEM_STATUSES,
   normalizeSettings,
   type InventoryBackup,
   type InventoryItem,
   type InventoryLocation,
+  type ItemActivity,
+  type ItemActivityType,
   type ItemCondition,
   type ItemDisposition,
+  type ItemStatus,
 } from "@/features/inventory/lib/types";
 
 const ITEM_COLUMNS = [
@@ -28,6 +32,7 @@ const ITEM_COLUMNS = [
   "maintenance_date",
   "condition",
   "in_box",
+  "status",
   "manufacturer",
   "model",
   "serial",
@@ -68,6 +73,7 @@ export function itemsToCsv(
       maintenance_date: i.maintenanceDate ?? "",
       condition: i.condition ?? "",
       in_box: i.inBox === true ? "yes" : i.inBox === false ? "no" : "",
+      status: i.status ?? "",
       manufacturer: i.manufacturer ?? "",
       model: i.model ?? "",
       serial: i.serial ?? "",
@@ -122,6 +128,45 @@ const asDisposition = (v: unknown): ItemDisposition | undefined =>
   typeof v === "string" && DISPOSITION_SET.has(v as ItemDisposition)
     ? (v as ItemDisposition)
     : undefined;
+
+const STATUS_SET = new Set<ItemStatus>(ITEM_STATUSES.map((s) => s.id));
+const asStatus = (v: unknown): ItemStatus | undefined =>
+  typeof v === "string" && STATUS_SET.has(v as ItemStatus)
+    ? (v as ItemStatus)
+    : undefined;
+
+const ACTIVITY_TYPES = new Set<ItemActivityType>([
+  "acquired",
+  "used",
+  "lent",
+  "returned",
+  "relocated",
+  "misplaced",
+  "lost",
+  "found",
+  "note",
+]);
+
+function coerceActivity(raw: unknown): ItemActivity[] | undefined {
+  const events = (Array.isArray(raw) ? raw : [])
+    .map((e): ItemActivity | null => {
+      const r = rec(e);
+      if (!ACTIVITY_TYPES.has(r.type as ItemActivityType)) return null;
+      if (typeof r.at !== "string") return null;
+      return pruneUndefined({
+        id: typeof r.id === "string" ? r.id : r.at,
+        type: r.type as ItemActivityType,
+        at: r.at,
+        to: str(r.to).trim() || undefined,
+        fromLoc: str(r.fromLoc).trim() || undefined,
+        toLoc: str(r.toLoc).trim() || undefined,
+        condition: asCondition(r.condition),
+        note: str(r.note).trim() || undefined,
+      }) as ItemActivity;
+    })
+    .filter((e): e is ItemActivity => e !== null);
+  return events.length ? events : undefined;
+}
 
 function pruneUndefined<T extends Record<string, unknown>>(o: T): T {
   for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k];
@@ -201,6 +246,8 @@ function coerceItem(raw: unknown): InventoryItem | null {
     maintenanceDate: isDay(r.maintenanceDate) ? r.maintenanceDate : undefined,
     condition: asCondition(r.condition),
     inBox: typeof r.inBox === "boolean" ? r.inBox : undefined,
+    status: asStatus(r.status),
+    activity: coerceActivity(r.activity),
     value: numOrUndef(r.value),
     notes: str(r.notes).trim() || undefined,
     lentTo: str(r.lentTo).trim() || null,

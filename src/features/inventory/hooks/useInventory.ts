@@ -9,7 +9,29 @@ import {
   subscribeItems,
   todayKey,
 } from "@/features/inventory/data/inventoryData";
-import type { InventoryItem } from "@/features/inventory/lib/types";
+import type {
+  InventoryItem,
+  ItemActivity,
+  ItemStatus,
+} from "@/features/inventory/lib/types";
+
+const MAX_ACTIVITY = 300;
+
+/** Append a life-history event (stamped with id + time) to an item, capped. */
+function appendActivity(
+  item: InventoryItem,
+  ev: Omit<ItemActivity, "id" | "at"> & { at?: string }
+): InventoryItem {
+  const entry: ItemActivity = {
+    ...ev,
+    id: crypto.randomUUID(),
+    at: ev.at ?? new Date().toISOString(),
+  };
+  return {
+    ...item,
+    activity: [...(item.activity ?? []), entry].slice(-MAX_ACTIVITY),
+  };
+}
 
 const BASE_KEY = "bookmarkdeck:inventory:items:v1";
 
@@ -169,20 +191,12 @@ export function useInventory(email?: string | null, connected = false) {
     [canSync, email]
   );
 
-  /** Clear the lending fields — the item is back home. */
-  const markReturned = useCallback(
-    (id: string) => {
+  /** Apply a pure transform to one item, stamp updatedAt, and sync it. */
+  const patch = useCallback(
+    (id: string, fn: (i: InventoryItem) => InventoryItem) => {
       setItems((prev) => {
         const next = prev.map((i) =>
-          i.id === id
-            ? {
-                ...i,
-                lentTo: null,
-                lentDate: null,
-                dueDate: null,
-                updatedAt: new Date().toISOString(),
-              }
-            : i
+          i.id === id ? { ...fn(i), updatedAt: new Date().toISOString() } : i
         );
         const updated = next.find((i) => i.id === id);
         if (canSync && email && updated) saveItem(email, updated).catch(onSaveError);
@@ -190,6 +204,53 @@ export function useInventory(email?: string | null, connected = false) {
       });
     },
     [canSync, email]
+  );
+
+  /** Append a one-off history event (e.g. a note) to an item. */
+  const logActivity = useCallback(
+    (id: string, ev: Omit<ItemActivity, "id" | "at">) =>
+      patch(id, (i) => appendActivity(i, ev)),
+    [patch]
+  );
+
+  /** Log that you used the item today — powers "how long used" + Trending. */
+  const markUsed = useCallback(
+    (id: string) => patch(id, (i) => appendActivity(i, { type: "used" })),
+    [patch]
+  );
+
+  /**
+   * Set where the item is (have / misplaced / lost). Logs the matching event —
+   * and a "found" event when something lost/misplaced comes back.
+   */
+  const setStatus = useCallback(
+    (id: string, status: ItemStatus) =>
+      patch(id, (i) => {
+        const base = { ...i, status };
+        if (status === "lost") return appendActivity(base, { type: "lost" });
+        if (status === "misplaced")
+          return appendActivity(base, { type: "misplaced" });
+        if (
+          status === "have" &&
+          (i.status === "lost" || i.status === "misplaced")
+        )
+          return appendActivity(base, { type: "found" });
+        return base;
+      }),
+    [patch]
+  );
+
+  /** Clear the lending fields — the item is back home — logging the return
+   *  (with the condition it came back in). */
+  const markReturned = useCallback(
+    (id: string, condition?: InventoryItem["condition"]) =>
+      patch(id, (i) =>
+        appendActivity(
+          { ...i, lentTo: null, lentDate: null, dueDate: null, status: "have" },
+          { type: "returned", condition: condition ?? i.condition }
+        )
+      ),
+    [patch]
   );
 
   /** Let an item go: stamp the release date (declutter signal) and archive it
@@ -226,6 +287,9 @@ export function useInventory(email?: string | null, connected = false) {
     removeItem,
     setArchived,
     markReturned,
+    markUsed,
+    setStatus,
+    logActivity,
     releaseItem,
     pushToCloud,
     pullFromCloud,

@@ -11,8 +11,19 @@ import type {
   InventoryLocation,
   ItemDoc,
 } from "@/features/inventory/lib/types";
-import { CONDITIONS, DISPOSITIONS } from "@/features/inventory/lib/types";
+import {
+  CONDITIONS,
+  DISPOSITIONS,
+  ITEM_STATUSES,
+  type ItemActivityType,
+  type ItemStatus,
+} from "@/features/inventory/lib/types";
 import { buildItemShareText } from "@/features/inventory/lib/share";
+import {
+  activitySummary,
+  lendingHistory,
+  sortedActivity,
+} from "@/features/inventory/lib/activity";
 import {
   resolvePriceComparison,
   savingsVsPaid,
@@ -38,8 +49,38 @@ type ItemDetailModalProps = {
   canAttach: boolean;
   onFetchDocs: (itemId: string) => Promise<ItemDoc[]>;
   onEdit: (item: InventoryItem) => void;
+  onMarkUsed: (id: string) => void;
+  onSetStatus: (id: string, status: ItemStatus) => void;
+  onReturn: (id: string, condition?: InventoryItem["condition"]) => void;
   onClose: () => void;
 };
+
+const ACTIVITY_META: Record<ItemActivityType, { icon: string; label: string }> = {
+  acquired: { icon: "🆕", label: "Acquired" },
+  used: { icon: "✨", label: "Used" },
+  lent: { icon: "🤝", label: "Lent out" },
+  returned: { icon: "↩️", label: "Returned" },
+  relocated: { icon: "📦", label: "Moved" },
+  misplaced: { icon: "🫥", label: "Misplaced" },
+  lost: { icon: "🚫", label: "Lost" },
+  found: { icon: "🔎", label: "Found" },
+  note: { icon: "📝", label: "Note" },
+};
+
+const conditionLabel = (c?: string) =>
+  c ? CONDITIONS.find((x) => x.id === c)?.label ?? c : undefined;
+
+/** Compact "how long ago" from an ISO timestamp relative to nowMs. */
+function relTime(iso: string, nowMs: number): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  const d = Math.round((nowMs - t) / 86_400_000);
+  if (d <= 0) return "today";
+  if (d === 1) return "yesterday";
+  if (d < 30) return `${d}d ago`;
+  if (d < 365) return `${Math.round(d / 30)}mo ago`;
+  return `${Math.round(d / 365)}y ago`;
+}
 
 type LightboxImage = { url: string; caption: string };
 
@@ -201,6 +242,9 @@ export function ItemDetailModal({
   canAttach,
   onFetchDocs,
   onEdit,
+  onMarkUsed,
+  onSetStatus,
+  onReturn,
   onClose,
 }: ItemDetailModalProps) {
   const [photoIdx, setPhotoIdx] = useState(0);
@@ -264,6 +308,12 @@ export function ItemDetailModal({
   const currency = item.currency ?? fallbackCurrency;
   const value = itemValue(item);
   const tax = taxAmount(item);
+  const nowMs = Date.now();
+  const status: ItemStatus =
+    item.status ?? (item.lentTo?.trim() ? "lent" : "have");
+  const summary = activitySummary(item, nowMs);
+  const loans = lendingHistory(item, nowMs);
+  const timeline = sortedActivity(item).slice(-12).reverse();
   const compare = resolvePriceComparison(
     priceOffers.offers,
     item.compareLinks ?? [],
@@ -397,6 +447,74 @@ export function ItemDetailModal({
         {item.archived && <Chip>archived</Chip>}
       </div>
 
+      {/* Status + quick actions + at-a-glance history */}
+      <div className="mt-3 rounded-xl border border-slate-800/70 bg-slate-950/40 p-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Status
+          </span>
+          {status === "lent" ? (
+            <>
+              <span className="rounded-full bg-violet-500/25 px-2.5 py-1 text-xs font-medium text-violet-100">
+                🤝 Lent to {item.lentTo}
+                {item.dueDate ? ` · due ${item.dueDate}` : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => onReturn(item.id, item.condition)}
+                className="rounded-full border border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+              >
+                ↩️ Mark returned
+              </button>
+            </>
+          ) : (
+            (["have", "misplaced", "lost"] as ItemStatus[]).map((id) => {
+              const s = ITEM_STATUSES.find((x) => x.id === id)!;
+              const on = status === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onSetStatus(item.id, id)}
+                  aria-pressed={on}
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                    on
+                      ? "bg-blue-600 text-white"
+                      : "border border-slate-700 text-slate-300 hover:border-blue-400 hover:text-blue-200"
+                  }`}
+                >
+                  {s.icon} {s.label}
+                </button>
+              );
+            })
+          )}
+          <button
+            type="button"
+            onClick={() => onMarkUsed(item.id)}
+            className="ml-auto rounded-full border border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-200"
+          >
+            ✨ Used today
+          </button>
+        </div>
+        {(summary.possessionDays != null ||
+          summary.uses > 0 ||
+          summary.lends > 0 ||
+          summary.relocations > 0) && (
+          <p className="mt-2 text-[11px] text-slate-500">
+            {summary.possessionDays != null &&
+              `In your care ${summary.possessionDays}d`}
+            {summary.uses > 0 &&
+              ` · used ${summary.uses}×${
+                summary.lastUsed
+                  ? ` (last ${relTime(summary.lastUsed, nowMs)})`
+                  : ""
+              }`}
+            {summary.lends > 0 && ` · lent ${summary.lends}×`}
+            {summary.relocations > 0 && ` · moved ${summary.relocations}×`}
+          </p>
+        )}
+      </div>
+
       <div className="mt-3">
         <FactRow
           label="Warranty"
@@ -525,6 +643,81 @@ export function ItemDetailModal({
               </ul>
             </>
           )}
+        </div>
+      )}
+
+      {loans.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Lending history
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {loans.map((l, i) => (
+              <li
+                key={`${l.lentAt}-${i}`}
+                className="rounded-lg border border-slate-800 bg-slate-950/40 px-2.5 py-1.5"
+              >
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 truncate text-slate-200">
+                    🤝 {l.to || "Someone"}
+                  </span>
+                  <span className="shrink-0 text-slate-500">
+                    {l.days != null
+                      ? l.returnedAt
+                        ? `${l.days}d`
+                        : `out ${l.days}d`
+                      : ""}
+                  </span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-slate-500">
+                  {l.lentAt.slice(0, 10)} →{" "}
+                  {l.returnedAt ? l.returnedAt.slice(0, 10) : "not returned"}
+                  {(l.conditionOut || l.conditionIn) &&
+                    ` · ${conditionLabel(l.conditionOut) ?? "—"} → ${
+                      conditionLabel(l.conditionIn) ?? "—"
+                    }`}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {timeline.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Activity
+          </p>
+          <ul className="flex flex-col gap-1">
+            {timeline.map((a) => {
+              const meta = ACTIVITY_META[a.type];
+              const detail =
+                a.type === "lent"
+                  ? a.to
+                    ? `to ${a.to}`
+                    : ""
+                  : a.type === "relocated"
+                    ? [a.fromLoc, a.toLoc].filter(Boolean).join(" → ")
+                    : a.note ?? "";
+              return (
+                <li key={a.id} className="flex items-center gap-2 text-xs">
+                  <span aria-hidden>{meta.icon}</span>
+                  <span className="shrink-0 text-slate-300">{meta.label}</span>
+                  {detail && (
+                    <span className="min-w-0 truncate text-slate-500">{detail}</span>
+                  )}
+                  {a.condition && (
+                    <span className="shrink-0 text-slate-600">
+                      ({conditionLabel(a.condition)})
+                    </span>
+                  )}
+                  <span className="ml-auto shrink-0 text-slate-600">
+                    {relTime(a.at, nowMs)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 

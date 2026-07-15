@@ -15,6 +15,40 @@ export const CONDITIONS: { id: ItemCondition; label: string }[] = [
 
 /** Declutter intent — where an item is headed when you're letting it go.
  *  Undefined = keeping it (the default). */
+/** Where an item is right now. undefined = "have" (the default). */
+export type ItemStatus = "have" | "lent" | "misplaced" | "lost";
+
+export const ITEM_STATUSES: { id: ItemStatus; label: string; icon: string }[] = [
+  { id: "have", label: "Have it", icon: "✅" },
+  { id: "lent", label: "Lent out", icon: "🤝" },
+  { id: "misplaced", label: "Misplaced", icon: "🫥" },
+  { id: "lost", label: "Lost", icon: "🚫" },
+];
+
+/** A single event in an item's life — the raw record the history + trending
+ *  analyses are computed from. Appended to `activity[]` on the item. */
+export type ItemActivityType =
+  | "acquired"
+  | "used"
+  | "lent"
+  | "returned"
+  | "relocated"
+  | "misplaced"
+  | "lost"
+  | "found"
+  | "note";
+
+export type ItemActivity = {
+  id: string;
+  type: ItemActivityType;
+  at: string; // ISO timestamp
+  to?: string; // person an item was lent to
+  fromLoc?: string; // location name (snapshot) an item moved from
+  toLoc?: string; // location name (snapshot) an item moved to
+  condition?: ItemCondition; // condition captured at lend / return
+  note?: string;
+};
+
 export type ItemDisposition = "donate" | "sell" | "giveaway" | "trash";
 
 export const DISPOSITIONS: { id: ItemDisposition; label: string }[] = [
@@ -93,6 +127,8 @@ export type InventoryItem = {
   inBox?: boolean;
   value?: number; // manual current-value estimate (per unit)
   notes?: string;
+  status?: ItemStatus; // where it is now (undefined = have)
+  activity?: ItemActivity[]; // life history — drives history + trending
   lentTo?: string | null;
   lentDate?: string | null; // YYYY-MM-DD
   dueDate?: string | null; // YYYY-MM-DD (return-by for a lent item)
