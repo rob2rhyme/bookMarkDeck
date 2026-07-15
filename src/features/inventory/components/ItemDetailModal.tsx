@@ -3,19 +3,40 @@
 import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
-import { Pencil, X } from "@/components/icons";
+import { ExternalLink, Pencil, Share2, X } from "@/components/icons";
+import { useToast } from "@/components/toast/ToastProvider";
 import { docKindLabel } from "@/features/inventory/lib/documents";
 import type {
   InventoryItem,
   InventoryLocation,
   ItemDoc,
 } from "@/features/inventory/lib/types";
-import { DISPOSITIONS } from "@/features/inventory/lib/types";
+import {
+  CONDITIONS,
+  DISPOSITIONS,
+  ITEM_STATUSES,
+  type ItemActivityType,
+  type ItemStatus,
+} from "@/features/inventory/lib/types";
+import { buildItemShareText } from "@/features/inventory/lib/share";
+import {
+  activitySummary,
+  lendingHistory,
+  sortedActivity,
+} from "@/features/inventory/lib/activity";
+import {
+  resolvePriceComparison,
+  savingsVsPaid,
+  type PriceOffer,
+} from "@/features/inventory/lib/priceCompare";
+import { useItemPriceOffers } from "@/features/inventory/hooks/useItemPriceOffers";
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
 import {
   daysUntil,
   formatMoney,
   itemValue,
+  paidWithTax,
+  taxAmount,
   warrantyState,
 } from "@/features/inventory/lib/value";
 
@@ -28,8 +49,38 @@ type ItemDetailModalProps = {
   canAttach: boolean;
   onFetchDocs: (itemId: string) => Promise<ItemDoc[]>;
   onEdit: (item: InventoryItem) => void;
+  onMarkUsed: (id: string) => void;
+  onSetStatus: (id: string, status: ItemStatus) => void;
+  onReturn: (id: string, condition?: InventoryItem["condition"]) => void;
   onClose: () => void;
 };
+
+const ACTIVITY_META: Record<ItemActivityType, { icon: string; label: string }> = {
+  acquired: { icon: "🆕", label: "Acquired" },
+  used: { icon: "✨", label: "Used" },
+  lent: { icon: "🤝", label: "Lent out" },
+  returned: { icon: "↩️", label: "Returned" },
+  relocated: { icon: "📦", label: "Moved" },
+  misplaced: { icon: "🫥", label: "Misplaced" },
+  lost: { icon: "🚫", label: "Lost" },
+  found: { icon: "🔎", label: "Found" },
+  note: { icon: "📝", label: "Note" },
+};
+
+const conditionLabel = (c?: string) =>
+  c ? CONDITIONS.find((x) => x.id === c)?.label ?? c : undefined;
+
+/** Compact "how long ago" from an ISO timestamp relative to nowMs. */
+function relTime(iso: string, nowMs: number): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  const d = Math.round((nowMs - t) / 86_400_000);
+  if (d <= 0) return "today";
+  if (d === 1) return "yesterday";
+  if (d < 30) return `${d}d ago`;
+  if (d < 365) return `${Math.round(d / 30)}mo ago`;
+  return `${Math.round(d / 365)}y ago`;
+}
 
 type LightboxImage = { url: string; caption: string };
 
@@ -114,6 +165,62 @@ function Chip({ children, cls }: { children: React.ReactNode; cls?: string }) {
   );
 }
 
+function OfferRow({
+  offer,
+  fallbackCurrency,
+  best,
+}: {
+  offer: PriceOffer;
+  fallbackCurrency: string;
+  best: boolean;
+}) {
+  const price =
+    offer.price != null
+      ? formatMoney(offer.price, offer.currency ?? fallbackCurrency)
+      : null;
+  const inner = (
+    <>
+      <span className="flex min-w-0 items-center gap-1.5 truncate">
+        {best && <span aria-label="cheapest">⭐</span>}
+        <span className="truncate">{offer.store || "Store"}</span>
+        {offer.condition && (
+          <span className="shrink-0 text-[10px] text-slate-500">
+            {offer.condition}
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 items-center gap-1 tabular-nums">
+        {price ? (
+          <span className={best ? "text-emerald-300" : "text-slate-200"}>
+            {price}
+          </span>
+        ) : (
+          <span className="text-blue-300">View</span>
+        )}
+        {offer.url && <ExternalLink className="h-3.5 w-3.5 text-slate-500" />}
+      </span>
+    </>
+  );
+  const cls = `flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-sm ${
+    best
+      ? "border-emerald-600/40 bg-emerald-500/5"
+      : "border-slate-800 bg-slate-950/40"
+  }`;
+  return offer.url ? (
+    <a
+      href={offer.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={offer.url}
+      className={`${cls} transition hover:border-blue-400/60`}
+    >
+      {inner}
+    </a>
+  ) : (
+    <div className={cls}>{inner}</div>
+  );
+}
+
 function FactRow({ label, value }: { label: string; value?: React.ReactNode }) {
   if (value === undefined || value === null || value === "") return null;
   return (
@@ -135,6 +242,9 @@ export function ItemDetailModal({
   canAttach,
   onFetchDocs,
   onEdit,
+  onMarkUsed,
+  onSetStatus,
+  onReturn,
   onClose,
 }: ItemDetailModalProps) {
   const [photoIdx, setPhotoIdx] = useState(0);
@@ -143,12 +253,45 @@ export function ItemDetailModal({
     index: number;
   } | null>(null);
   const [docs, setDocs] = useState<ItemDoc[]>([]);
+  const [showAllActivity, setShowAllActivity] = useState(false);
+  const { toast } = useToast();
+  // Live competitor prices (by barcode); manual compare-links are the fallback.
+  const priceOffers = useItemPriceOffers(item?.barcode, open);
+
+  const shareItem = async (target: InventoryItem) => {
+    const appUrl =
+      typeof window !== "undefined" ? window.location.origin : undefined;
+    const text = buildItemShareText(target, appUrl);
+    const data: ShareData = {
+      title: target.name,
+      text,
+      ...(target.storeUrl ? { url: target.storeUrl } : {}),
+    };
+    // Native share sheet (Messages, WhatsApp, socials…) on supported devices.
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share(data);
+        return;
+      } catch {
+        // User dismissed the sheet, or it's unavailable — fall through to copy.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Copied — paste into Messages, WhatsApp, or a post.", {
+        variant: "success",
+      });
+    } catch {
+      toast("Couldn't share on this device.", { variant: "error" });
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
     setPhotoIdx(0);
     setLightbox(null);
     setDocs([]);
+    setShowAllActivity(false);
     if (item && canAttach && item.updatedAt) {
       let cancelled = false;
       onFetchDocs(item.id)
@@ -166,6 +309,19 @@ export function ItemDetailModal({
 
   const currency = item.currency ?? fallbackCurrency;
   const value = itemValue(item);
+  const tax = taxAmount(item);
+  const nowMs = Date.now();
+  const status: ItemStatus =
+    item.status ?? (item.lentTo?.trim() ? "lent" : "have");
+  const summary = activitySummary(item, nowMs);
+  const loans = lendingHistory(item, nowMs);
+  const timeline = sortedActivity(item).slice(-12).reverse();
+  const compare = resolvePriceComparison(
+    priceOffers.offers,
+    item.compareLinks ?? [],
+    currency
+  );
+  const priceSavings = savingsVsPaid(compare.best, item.price);
   const photos = item.photos ?? [];
   const photo = photos[Math.min(photoIdx, Math.max(0, photos.length - 1))];
   const path = item.locationId
@@ -185,11 +341,19 @@ export function ItemDetailModal({
       label={item.name}
       panelClassName="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="sticky -top-6 z-20 -mx-6 -mt-6 mb-1 flex items-start justify-between gap-3 rounded-t-2xl border-b border-slate-800/70 bg-slate-900/95 px-6 pb-3 pt-6 backdrop-blur">
         <h2 className="min-w-0 flex-1 text-lg font-semibold text-slate-50">
           {item.name}
         </h2>
         <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => shareItem(item)}
+            aria-label={`Share ${item.name}`}
+            className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+          >
+            <Share2 className="h-3.5 w-3.5" /> Share
+          </button>
           <button
             type="button"
             onClick={() => onEdit(item)}
@@ -220,7 +384,9 @@ export function ItemDetailModal({
             <img
               src={photo.url}
               alt={item.name}
-              className="aspect-[4/3] w-full object-cover transition hover:opacity-90"
+              // object-contain so the whole item shows; the dark panel behind
+              // letterboxes tall/wide photos instead of cropping them.
+              className="aspect-[4/3] w-full bg-slate-950/60 object-contain transition hover:opacity-90"
             />
           </button>
           {photos.length > 1 && (
@@ -255,7 +421,14 @@ export function ItemDetailModal({
         <Chip>📍 {path.length > 0 ? path.join(" → ") : "Unassigned"}</Chip>
         {item.category && <Chip cls="bg-blue-500/15 text-blue-200">{item.category}</Chip>}
         {item.quantity > 1 && <Chip>×{item.quantity}</Chip>}
-        {item.condition && <Chip>{item.condition}</Chip>}
+        {item.condition && (
+          <Chip>
+            {CONDITIONS.find((c) => c.id === item.condition)?.label ??
+              item.condition}
+          </Chip>
+        )}
+        {item.inBox === true && <Chip>📦 In box</Chip>}
+        {item.inBox === false && <Chip>📭 Unboxed</Chip>}
         {item.collection && (
           <Chip cls="bg-teal-500/15 text-teal-200">🧰 {item.collection}</Chip>
         )}
@@ -274,6 +447,74 @@ export function ItemDetailModal({
           </Chip>
         )}
         {item.archived && <Chip>archived</Chip>}
+      </div>
+
+      {/* Status + quick actions + at-a-glance history */}
+      <div className="mt-3 rounded-xl border border-slate-800/70 bg-slate-950/40 p-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Status
+          </span>
+          {status === "lent" ? (
+            <>
+              <span className="rounded-full bg-violet-500/25 px-2.5 py-1 text-xs font-medium text-violet-100">
+                🤝 Lent to {item.lentTo}
+                {item.dueDate ? ` · due ${item.dueDate}` : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => onReturn(item.id, item.condition)}
+                className="rounded-full border border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+              >
+                ↩️ Mark returned
+              </button>
+            </>
+          ) : (
+            (["have", "misplaced", "lost"] as ItemStatus[]).map((id) => {
+              const s = ITEM_STATUSES.find((x) => x.id === id)!;
+              const on = status === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onSetStatus(item.id, id)}
+                  aria-pressed={on}
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                    on
+                      ? "bg-blue-600 text-white"
+                      : "border border-slate-700 text-slate-300 hover:border-blue-400 hover:text-blue-200"
+                  }`}
+                >
+                  {s.icon} {s.label}
+                </button>
+              );
+            })
+          )}
+          <button
+            type="button"
+            onClick={() => onMarkUsed(item.id)}
+            className="ml-auto rounded-full border border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-200"
+          >
+            ✨ Used today
+          </button>
+        </div>
+        {(summary.possessionDays != null ||
+          summary.uses > 0 ||
+          summary.lends > 0 ||
+          summary.relocations > 0) && (
+          <p className="mt-2 text-[11px] text-slate-500">
+            {summary.possessionDays != null &&
+              `In your care ${summary.possessionDays}d`}
+            {summary.uses > 0 &&
+              ` · used ${summary.uses}×${
+                summary.lastUsed
+                  ? ` (last ${relTime(summary.lastUsed, nowMs)})`
+                  : ""
+              }`}
+            {summary.lends > 0 && ` · lent ${summary.lends}×`}
+            {summary.relocations > 0 && ` · moved ${summary.relocations}×`}
+          </p>
+        )}
       </div>
 
       <div className="mt-3">
@@ -301,9 +542,33 @@ export function ItemDetailModal({
         <FactRow label="Purchased" value={item.purchaseDate} />
         <FactRow
           label="Paid"
-          value={item.price != null ? formatMoney(item.price, currency) : undefined}
+          value={
+            item.price != null
+              ? tax > 0
+                ? `${formatMoney(item.price, currency)} + ${formatMoney(
+                    tax,
+                    currency
+                  )} tax = ${formatMoney(paidWithTax(item), currency)}`
+                : formatMoney(item.price, currency)
+              : undefined
+          }
         />
         <FactRow label="Retailer" value={item.retailer} />
+        {item.storeUrl && (
+          <div className="flex items-baseline justify-between gap-3 border-b border-slate-800/50 py-1.5 text-sm">
+            <span className="shrink-0 text-slate-500">Store</span>
+            <a
+              href={item.storeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={item.storeUrl}
+              className="inline-flex min-w-0 items-center gap-1 truncate text-right font-medium text-blue-300 transition hover:text-blue-200"
+            >
+              <span className="truncate">View in store</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
+          </div>
+        )}
         <FactRow label="Maker" value={item.manufacturer} />
         <FactRow label="Model" value={item.model} />
         <FactRow label="Serial" value={item.serial} />
@@ -334,6 +599,138 @@ export function ItemDetailModal({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {(compare.source !== "none" || priceOffers.loading) && (
+        <div className="mt-3">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              Price comparison
+            </p>
+            {compare.source === "api" ? (
+              <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-200">
+                Live prices
+              </span>
+            ) : compare.source === "manual" ? (
+              <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                Saved links
+              </span>
+            ) : null}
+          </div>
+          {compare.source === "none" && priceOffers.loading ? (
+            <p className="text-xs text-slate-500">Checking live prices…</p>
+          ) : (
+            <>
+              {priceSavings != null && compare.best?.price != null && (
+                <p className="mb-1.5 text-xs text-emerald-300">
+                  Cheapest{" "}
+                  {formatMoney(
+                    compare.best.price,
+                    compare.best.currency ?? currency
+                  )}{" "}
+                  — save {formatMoney(priceSavings, currency)} vs. what you paid.
+                </p>
+              )}
+              <ul className="flex flex-col gap-1.5">
+                {compare.offers.map((o, i) => (
+                  <li key={`${o.store}-${o.url ?? i}`}>
+                    <OfferRow
+                      offer={o}
+                      fallbackCurrency={currency}
+                      best={o === compare.best}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
+      {loans.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Lending history
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {loans.map((l, i) => (
+              <li
+                key={`${l.lentAt}-${i}`}
+                className="rounded-lg border border-slate-800 bg-slate-950/40 px-2.5 py-1.5"
+              >
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 truncate text-slate-200">
+                    🤝 {l.to || "Someone"}
+                  </span>
+                  <span className="shrink-0 text-slate-500">
+                    {l.days != null
+                      ? l.returnedAt
+                        ? `${l.days}d`
+                        : `out ${l.days}d`
+                      : ""}
+                  </span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-slate-500">
+                  {l.lentAt.slice(0, 10)} →{" "}
+                  {l.returnedAt ? l.returnedAt.slice(0, 10) : "not returned"}
+                  {(l.conditionOut || l.conditionIn) &&
+                    ` · ${conditionLabel(l.conditionOut) ?? "—"} → ${
+                      conditionLabel(l.conditionIn) ?? "—"
+                    }`}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {timeline.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Activity
+          </p>
+          <ul className="flex flex-col gap-1">
+            {(showAllActivity ? timeline : timeline.slice(0, 4)).map((a) => {
+              const meta = ACTIVITY_META[a.type];
+              const detail =
+                a.type === "lent"
+                  ? a.to
+                    ? `to ${a.to}`
+                    : ""
+                  : a.type === "relocated"
+                    ? [a.fromLoc, a.toLoc].filter(Boolean).join(" → ")
+                    : a.note ?? "";
+              return (
+                <li key={a.id} className="flex items-center gap-2 text-xs">
+                  <span aria-hidden>{meta.icon}</span>
+                  <span className="shrink-0 text-slate-300">{meta.label}</span>
+                  {detail && (
+                    <span className="min-w-0 truncate text-slate-500">{detail}</span>
+                  )}
+                  {a.condition && (
+                    <span className="shrink-0 text-slate-600">
+                      ({conditionLabel(a.condition)})
+                    </span>
+                  )}
+                  <span className="ml-auto shrink-0 text-slate-600">
+                    {relTime(a.at, nowMs)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {timeline.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setShowAllActivity((v) => !v)}
+              className="mt-1.5 text-[11px] font-medium text-slate-500 transition hover:text-slate-300"
+            >
+              {showAllActivity
+                ? "Show less"
+                : `Show all activity (${timeline.length})`}
+            </button>
+          )}
         </div>
       )}
 

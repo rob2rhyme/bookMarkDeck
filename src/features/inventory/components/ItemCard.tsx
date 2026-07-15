@@ -1,7 +1,7 @@
 "use client";
 
 import { Archive, Package, Pencil, Trash2 } from "@/components/icons";
-import { DISPOSITIONS, type InventoryItem } from "@/features/inventory/lib/types";
+import { CONDITIONS, DISPOSITIONS, type InventoryItem } from "@/features/inventory/lib/types";
 import { formatMoney, itemValue, warrantyState } from "@/features/inventory/lib/value";
 
 type ItemCardProps = {
@@ -37,7 +37,7 @@ export function ItemCard({
   const badge = WARRANTY_BADGE[w];
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-900/60 shadow-sm transition hover:border-slate-700">
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-900/60 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-lg hover:shadow-slate-950/40 motion-reduce:hover:translate-y-0">
       <button
         type="button"
         onClick={() => onOpen(item)}
@@ -50,7 +50,9 @@ export function ItemCard({
           <img
             src={photo}
             alt={item.name}
-            className="h-full w-full object-cover"
+            // object-contain so the whole item is visible (no cropping); the
+            // dark panel behind letterboxes odd aspect ratios cleanly.
+            className="h-full w-full object-contain"
             loading="lazy"
           />
         ) : (
@@ -135,8 +137,9 @@ export function ItemCard({
             </span>
           )}
           {item.condition && (
-            <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium capitalize text-slate-400">
-              {item.condition}
+            <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+              {CONDITIONS.find((c) => c.id === item.condition)?.label ??
+                item.condition}
             </span>
           )}
         </div>

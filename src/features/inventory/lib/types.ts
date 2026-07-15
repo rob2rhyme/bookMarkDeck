@@ -3,10 +3,11 @@
 // the focus feature's lib/types.ts. Kept fully under src/features/inventory/ so
 // the pillar stays removable and never touches bookmark data.
 
-export type ItemCondition = "new" | "good" | "fair" | "poor";
+export type ItemCondition = "new" | "open-box" | "good" | "fair" | "poor";
 
 export const CONDITIONS: { id: ItemCondition; label: string }[] = [
   { id: "new", label: "New" },
+  { id: "open-box", label: "Open box" },
   { id: "good", label: "Good" },
   { id: "fair", label: "Fair" },
   { id: "poor", label: "Poor" },
@@ -14,6 +15,40 @@ export const CONDITIONS: { id: ItemCondition; label: string }[] = [
 
 /** Declutter intent — where an item is headed when you're letting it go.
  *  Undefined = keeping it (the default). */
+/** Where an item is right now. undefined = "have" (the default). */
+export type ItemStatus = "have" | "lent" | "misplaced" | "lost";
+
+export const ITEM_STATUSES: { id: ItemStatus; label: string; icon: string }[] = [
+  { id: "have", label: "Have it", icon: "✅" },
+  { id: "lent", label: "Lent out", icon: "🤝" },
+  { id: "misplaced", label: "Misplaced", icon: "🫥" },
+  { id: "lost", label: "Lost", icon: "🚫" },
+];
+
+/** A single event in an item's life — the raw record the history + trending
+ *  analyses are computed from. Appended to `activity[]` on the item. */
+export type ItemActivityType =
+  | "acquired"
+  | "used"
+  | "lent"
+  | "returned"
+  | "relocated"
+  | "misplaced"
+  | "lost"
+  | "found"
+  | "note";
+
+export type ItemActivity = {
+  id: string;
+  type: ItemActivityType;
+  at: string; // ISO timestamp
+  to?: string; // person an item was lent to
+  fromLoc?: string; // location name (snapshot) an item moved from
+  toLoc?: string; // location name (snapshot) an item moved to
+  condition?: ItemCondition; // condition captured at lend / return
+  note?: string;
+};
+
 export type ItemDisposition = "donate" | "sell" | "giveaway" | "trash";
 
 export const DISPOSITIONS: { id: ItemDisposition; label: string }[] = [
@@ -49,6 +84,21 @@ export type ItemLink = {
   url: string;
 };
 
+/**
+ * A competitor store link the user saved to price-check an item — the *manual*
+ * side of price comparison. When a live price API (UPCitemdb paid tier, matched
+ * by barcode) returns offers, those take precedence and these are bypassed;
+ * otherwise these saved links are what the comparison shows. `price` is the
+ * last-known price the user typed (optional — a bare link still compares).
+ */
+export type PriceLink = {
+  id: string;
+  store: string;
+  url: string;
+  price?: number;
+  currency?: string;
+};
+
 export type InventoryItem = {
   id: string;
   name: string;
@@ -59,8 +109,11 @@ export type InventoryItem = {
   quantity: number;
   purchaseDate?: string; // YYYY-MM-DD
   price?: number;
+  taxRate?: number; // sales-tax % applied to price (e.g. 6 → 6%)
   currency?: string;
   retailer?: string;
+  storeUrl?: string; // where to (re)buy it — the item's product/store page
+  compareLinks?: PriceLink[]; // competitor store links for price comparison
   manufacturer?: string;
   model?: string;
   serial?: string;
@@ -68,8 +121,14 @@ export type InventoryItem = {
   warrantyExpiry?: string; // YYYY-MM-DD → surfaces in the Attention panel
   maintenanceDate?: string; // YYYY-MM-DD → next service/upkeep; surfaces in Attention
   condition?: ItemCondition;
+  // Whether the item is in its original box/packaging. undefined = unspecified;
+  // the item's `locationId` records where it lives either way (the box, if
+  // boxed; the loose item, if not).
+  inBox?: boolean;
   value?: number; // manual current-value estimate (per unit)
   notes?: string;
+  status?: ItemStatus; // where it is now (undefined = have)
+  activity?: ItemActivity[]; // life history — drives history + trending
   lentTo?: string | null;
   lentDate?: string | null; // YYYY-MM-DD
   dueDate?: string | null; // YYYY-MM-DD (return-by for a lent item)

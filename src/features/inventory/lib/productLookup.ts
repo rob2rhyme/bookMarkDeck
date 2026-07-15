@@ -2,6 +2,8 @@
 // call lives in the API route (src/app/api/inventory/product-lookup); everything
 // here is pure + unit-tested (see productLookup.test.ts).
 
+import type { RawOffer } from "./priceCompare";
+
 /** Normalized product facts we can prefill an item from. All optional. */
 export type ProductInfo = {
   name?: string;
@@ -93,6 +95,30 @@ export function parseUpcItemDb(json: unknown): ProductInfo | null {
   // Nothing worth prefilling → treat as a miss.
   if (!info.name && !info.brand && !info.model && !info.category) return null;
   return info;
+}
+
+/**
+ * Extract the merchant offers (store / price / link) from an UPCitemdb lookup
+ * response — the live-price source for the price-comparison panel. Defensive
+ * against any shape; returns [] when there are no usable offers.
+ */
+export function parseUpcItemDbOffers(json: unknown): RawOffer[] {
+  const root = (json ?? {}) as Record<string, unknown>;
+  const items = Array.isArray(root.items) ? root.items : [];
+  const first = items[0] as Record<string, unknown> | undefined;
+  const offers = first && Array.isArray(first.offers) ? first.offers : [];
+  return offers
+    .map((raw): RawOffer => {
+      const o = (raw ?? {}) as Record<string, unknown>;
+      return {
+        store: str(o.merchant) ?? str(o.domain) ?? "",
+        url: str(o.link),
+        price: num(o.price) ?? num(o.list_price),
+        currency: str(o.currency),
+        condition: str(o.condition),
+      };
+    })
+    .filter((o) => o.store !== "" || o.url !== undefined);
 }
 
 /** UPCitemdb often returns a deep taxonomy path; keep the leaf as the category. */

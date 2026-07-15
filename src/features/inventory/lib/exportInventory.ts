@@ -4,13 +4,18 @@
 
 import { toCsv } from "@/utils/download";
 import {
+  CONDITIONS,
   DEFAULT_INVENTORY_SETTINGS,
+  ITEM_STATUSES,
   normalizeSettings,
   type InventoryBackup,
   type InventoryItem,
   type InventoryLocation,
+  type ItemActivity,
+  type ItemActivityType,
   type ItemCondition,
   type ItemDisposition,
+  type ItemStatus,
 } from "@/features/inventory/lib/types";
 
 const ITEM_COLUMNS = [
@@ -20,16 +25,20 @@ const ITEM_COLUMNS = [
   "quantity",
   "value",
   "price",
+  "tax_rate",
   "currency",
   "purchase_date",
   "warranty_expiry",
   "maintenance_date",
   "condition",
+  "in_box",
+  "status",
   "manufacturer",
   "model",
   "serial",
   "barcode",
   "retailer",
+  "store_url",
   "lent_to",
   "due_date",
   "project",
@@ -57,16 +66,20 @@ export function itemsToCsv(
       quantity: i.quantity,
       value: i.value ?? "",
       price: i.price ?? "",
+      tax_rate: i.taxRate ?? "",
       currency: i.currency ?? "",
       purchase_date: i.purchaseDate ?? "",
       warranty_expiry: i.warrantyExpiry ?? "",
       maintenance_date: i.maintenanceDate ?? "",
       condition: i.condition ?? "",
+      in_box: i.inBox === true ? "yes" : i.inBox === false ? "no" : "",
+      status: i.status ?? "",
       manufacturer: i.manufacturer ?? "",
       model: i.model ?? "",
       serial: i.serial ?? "",
       barcode: i.barcode ?? "",
       retailer: i.retailer ?? "",
+      store_url: i.storeUrl ?? "",
       lent_to: i.lentTo ?? "",
       due_date: i.dueDate ?? "",
       project: i.projectName ?? "",
@@ -99,7 +112,7 @@ const numOrUndef = (v: unknown): number | undefined =>
 const rec = (raw: unknown): Record<string, unknown> =>
   (raw ?? {}) as Record<string, unknown>;
 
-const CONDITION_SET = new Set<ItemCondition>(["new", "good", "fair", "poor"]);
+const CONDITION_SET = new Set<ItemCondition>(CONDITIONS.map((c) => c.id));
 const asCondition = (v: unknown): ItemCondition | undefined =>
   typeof v === "string" && CONDITION_SET.has(v as ItemCondition)
     ? (v as ItemCondition)
@@ -115,6 +128,45 @@ const asDisposition = (v: unknown): ItemDisposition | undefined =>
   typeof v === "string" && DISPOSITION_SET.has(v as ItemDisposition)
     ? (v as ItemDisposition)
     : undefined;
+
+const STATUS_SET = new Set<ItemStatus>(ITEM_STATUSES.map((s) => s.id));
+const asStatus = (v: unknown): ItemStatus | undefined =>
+  typeof v === "string" && STATUS_SET.has(v as ItemStatus)
+    ? (v as ItemStatus)
+    : undefined;
+
+const ACTIVITY_TYPES = new Set<ItemActivityType>([
+  "acquired",
+  "used",
+  "lent",
+  "returned",
+  "relocated",
+  "misplaced",
+  "lost",
+  "found",
+  "note",
+]);
+
+function coerceActivity(raw: unknown): ItemActivity[] | undefined {
+  const events = (Array.isArray(raw) ? raw : [])
+    .map((e): ItemActivity | null => {
+      const r = rec(e);
+      if (!ACTIVITY_TYPES.has(r.type as ItemActivityType)) return null;
+      if (typeof r.at !== "string") return null;
+      return pruneUndefined({
+        id: typeof r.id === "string" ? r.id : r.at,
+        type: r.type as ItemActivityType,
+        at: r.at,
+        to: str(r.to).trim() || undefined,
+        fromLoc: str(r.fromLoc).trim() || undefined,
+        toLoc: str(r.toLoc).trim() || undefined,
+        condition: asCondition(r.condition),
+        note: str(r.note).trim() || undefined,
+      }) as ItemActivity;
+    })
+    .filter((e): e is ItemActivity => e !== null);
+  return events.length ? events : undefined;
+}
 
 function pruneUndefined<T extends Record<string, unknown>>(o: T): T {
   for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k];
@@ -133,6 +185,23 @@ function coerceLinks(raw: unknown): InventoryItem["links"] {
       };
     })
     .filter((l): l is NonNullable<typeof l> => l !== null);
+}
+
+function coercePriceLinks(raw: unknown): InventoryItem["compareLinks"] {
+  const links = (Array.isArray(raw) ? raw : [])
+    .map((l) => {
+      const r = rec(l);
+      if (typeof r.url !== "string" || !r.url.trim()) return null;
+      return {
+        id: typeof r.id === "string" ? r.id : r.url,
+        store: str(r.store).trim(),
+        url: r.url.trim(),
+        price: numOrUndef(r.price),
+        currency: str(r.currency).trim() || undefined,
+      };
+    })
+    .filter((l): l is NonNullable<typeof l> => l !== null);
+  return links.length ? links : undefined;
 }
 
 function coercePhotos(raw: unknown): InventoryItem["photos"] {
@@ -164,8 +233,11 @@ function coerceItem(raw: unknown): InventoryItem | null {
     quantity: Math.max(1, Math.round(numOrUndef(r.quantity) ?? 1)),
     purchaseDate: isDay(r.purchaseDate) ? r.purchaseDate : undefined,
     price: numOrUndef(r.price),
+    taxRate: numOrUndef(r.taxRate),
     currency: str(r.currency).trim() || undefined,
     retailer: str(r.retailer).trim() || undefined,
+    storeUrl: str(r.storeUrl).trim() || undefined,
+    compareLinks: coercePriceLinks(r.compareLinks),
     manufacturer: str(r.manufacturer).trim() || undefined,
     model: str(r.model).trim() || undefined,
     serial: str(r.serial).trim() || undefined,
@@ -173,6 +245,9 @@ function coerceItem(raw: unknown): InventoryItem | null {
     warrantyExpiry: isDay(r.warrantyExpiry) ? r.warrantyExpiry : undefined,
     maintenanceDate: isDay(r.maintenanceDate) ? r.maintenanceDate : undefined,
     condition: asCondition(r.condition),
+    inBox: typeof r.inBox === "boolean" ? r.inBox : undefined,
+    status: asStatus(r.status),
+    activity: coerceActivity(r.activity),
     value: numOrUndef(r.value),
     notes: str(r.notes).trim() || undefined,
     lentTo: str(r.lentTo).trim() || null,

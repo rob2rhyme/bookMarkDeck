@@ -29,6 +29,30 @@ export function itemValue(item: InventoryItem): number {
   return unitValue(item) * Math.max(1, item.quantity || 1);
 }
 
+/** Default sales-tax rate (%) prefilled for a new item. */
+export const DEFAULT_TAX_RATE = 6;
+
+/** Sales tax on the purchase price for an item line (price × qty × rate%).
+ *  0 when there's no positive price or tax rate. Kept separate from "value"
+ *  (current worth) — this is a purchase-cost concept. */
+export function taxAmount(item: InventoryItem): number {
+  const price =
+    typeof item.price === "number" && Number.isFinite(item.price) ? item.price : 0;
+  const rate =
+    typeof item.taxRate === "number" && Number.isFinite(item.taxRate)
+      ? item.taxRate
+      : 0;
+  if (price <= 0 || rate <= 0) return 0;
+  return price * Math.max(1, item.quantity || 1) * (rate / 100);
+}
+
+/** Total paid for an item line including tax (price × qty + tax). */
+export function paidWithTax(item: InventoryItem): number {
+  const price =
+    typeof item.price === "number" && Number.isFinite(item.price) ? item.price : 0;
+  return price * Math.max(1, item.quantity || 1) + taxAmount(item);
+}
+
 const live = (items: InventoryItem[]) => items.filter((i) => !i.archived);
 
 export function totalValue(items: InventoryItem[]): number {

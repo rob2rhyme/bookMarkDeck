@@ -26,6 +26,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 type RefreshableToken = {
   accessToken?: string;
   refreshToken?: string;
+  idToken?: string; // Google OIDC id_token — bridged into Firebase Auth client-side
   expiresAt?: number; // epoch ms
   error?: string;
   picture?: string;
@@ -53,6 +54,9 @@ async function refreshAccessToken(
     return {
       ...token,
       accessToken: data.access_token,
+      // Google returns a fresh id_token on refresh (openid scope) — keep it so
+      // the Firebase bridge stays usable beyond the first hour after login.
+      idToken: data.id_token ?? token.idToken,
       expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
       refreshToken: data.refresh_token ?? token.refreshToken,
       error: undefined,
@@ -86,6 +90,7 @@ export const authConfig: NextAuthOptions = {
       if (account) {
         t.accessToken = account.access_token;
         t.refreshToken = account.refresh_token ?? t.refreshToken;
+        t.idToken = account.id_token ?? t.idToken;
         t.expiresAt = account.expires_at
           ? account.expires_at * 1000
           : Date.now() + 3600 * 1000;

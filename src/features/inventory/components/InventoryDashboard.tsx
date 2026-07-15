@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { HandHelping, Layers, MapPin, Package, Plus, Search, Settings, Sparkles, Tag, X } from "@/components/icons";
+import { useToast } from "@/components/toast/ToastProvider";
 import { downloadText } from "@/utils/download";
 import {
   deleteItemDoc,
@@ -44,6 +45,7 @@ import { formatMoney, totalValue } from "@/features/inventory/lib/value";
 import { useRediscover } from "@/features/inventory/hooks/useRediscover";
 import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
+import { ItemListCard } from "@/features/inventory/components/ItemListCard";
 import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal";
 import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
 import { WishlistModal } from "@/features/inventory/components/WishlistModal";
@@ -59,6 +61,7 @@ import { AppLockModal } from "@/features/inventory/components/AppLockModal";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
+import { TrendingPanel } from "@/features/inventory/components/TrendingPanel";
 import { WhereIsModal } from "@/features/inventory/components/WhereIsModal";
 import { LendingLedgerModal } from "@/features/inventory/components/LendingLedgerModal";
 import { DeclutterModal } from "@/features/inventory/components/DeclutterModal";
@@ -70,6 +73,10 @@ import {
   buildInsuranceReport,
   insuranceReportHtml,
 } from "@/features/inventory/lib/insuranceReport";
+
+/** How long a deleted item can be restored before its photos/attachments are
+ *  actually purged. Matches the undo toast's on-screen lifetime. */
+const UNDO_DELETE_MS = 6000;
 
 /** Merge-by-id where EXISTING records win — imports only add what's missing,
  *  keeping the "nothing is overwritten" promise (a stale backup can't clobber
@@ -109,6 +116,7 @@ export function InventoryDashboard() {
   const { settings, update } = useInventorySettings(email, connected);
   const inv = useInventory(email, connected);
   const loc = useInventoryLocations(email, connected);
+  const { toast } = useToast();
   const bookmarkLibrary = useBookmarkLibrary(email);
   const wishlist = useWishlist(email, connected);
   const focusProjects = useFocusProjects(email);
@@ -236,11 +244,16 @@ export function InventoryDashboard() {
     wishlist.remove(w.id);
   };
 
-  // Read-only detail view; its Edit button hands off to the form.
-  const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
-  const openDetail = (item: InventoryItem) => setDetailItem(item);
+  // Read-only detail view; its Edit button hands off to the form. Tracked by id
+  // so quick-actions (used / lost / returned…) re-render the modal live from the
+  // updated item rather than a stale snapshot.
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailItem = detailId
+    ? inv.items.find((i) => i.id === detailId) ?? null
+    : null;
+  const openDetail = (item: InventoryItem) => setDetailId(item.id);
   const editFromDetail = (item: InventoryItem) => {
-    setDetailItem(null);
+    setDetailId(null);
     openEdit(item);
   };
 
@@ -308,20 +321,42 @@ export function InventoryDashboard() {
   const removeDoc = (id: string): Promise<void> =>
     connected && email ? deleteItemDoc(email, id) : Promise.resolve();
   const removeItemAndDocs = (item: InventoryItem) => {
-    // Sweep the item's R2 objects (photo + attachments) before their pointer
-    // records disappear — best-effort orphan control, then delete the records.
-    const photoPaths = (item.photos ?? []).map((p) => p.path);
-    if (connected && email) {
-      fetchItemDocs(email, item.id)
-        .then((ds) =>
-          deleteInventoryObjects([...photoPaths, ...ds.map((d) => d.path)])
-        )
-        .catch(() => deleteInventoryObjects(photoPaths))
-        .finally(() => deleteItemDocs(email, item.id).catch(() => {}));
-    } else {
-      deleteInventoryObjects(photoPaths);
-    }
+    // Remove from the list immediately, but hold the *irreversible* purge (R2
+    // objects + attachment records) until the undo window closes — so an
+    // accidental delete can be fully restored (item + photos + attachments).
     inv.removeItem(item.id);
+
+    let undone = false;
+    const purge = () => {
+      if (undone) return;
+      // Sweep the item's R2 objects (photo + attachments) before their pointer
+      // records disappear — best-effort orphan control, then delete the records.
+      const photoPaths = (item.photos ?? []).map((p) => p.path);
+      if (connected && email) {
+        fetchItemDocs(email, item.id)
+          .then((ds) =>
+            deleteInventoryObjects([...photoPaths, ...ds.map((d) => d.path)])
+          )
+          .catch(() => deleteInventoryObjects(photoPaths))
+          .finally(() => deleteItemDocs(email, item.id).catch(() => {}));
+      } else {
+        deleteInventoryObjects(photoPaths);
+      }
+    };
+
+    const timer = setTimeout(purge, UNDO_DELETE_MS);
+    toast(`Deleted “${item.name}”.`, {
+      duration: UNDO_DELETE_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true;
+          clearTimeout(timer);
+          // Photos/attachments were never purged, so the item comes back whole.
+          inv.upsertItem(item);
+        },
+      },
+    });
   };
 
   const exportCsv = () =>
@@ -607,6 +642,8 @@ export function InventoryDashboard() {
         </div>
       )}
 
+      <TrendingPanel items={inv.active} onOpen={openDetail} />
+
       {/* Toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -730,14 +767,25 @@ export function InventoryDashboard() {
               </section>
             ))}
         </div>
+      ) : settings.defaultView === "list" ? (
+        /* List view — landscape "all-details" cards, one per row. */
+        <div className="flex flex-col gap-3">
+          {visible.map((item) => (
+            <ItemListCard
+              key={item.id}
+              item={item}
+              locationName={item.locationId ? loc.nameById[item.locationId] : undefined}
+              fallbackCurrency={settings.defaultCurrency}
+              today={today}
+              onOpen={openDetail}
+              onEdit={openEdit}
+              onArchive={(it) => inv.setArchived(it.id, !it.archived)}
+              onRemove={removeItemAndDocs}
+            />
+          ))}
+        </div>
       ) : (
-        <div
-          className={
-            settings.defaultView === "grid"
-              ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-              : "grid grid-cols-1 gap-3 sm:grid-cols-2"
-          }
-        >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {visible.map((item) => (
             <ItemCard
               key={item.id}
@@ -890,7 +938,10 @@ export function InventoryDashboard() {
         canAttach={connected && Boolean(email)}
         onFetchDocs={fetchDocs}
         onEdit={editFromDetail}
-        onClose={() => setDetailItem(null)}
+        onMarkUsed={inv.markUsed}
+        onSetStatus={inv.setStatus}
+        onReturn={inv.markReturned}
+        onClose={() => setDetailId(null)}
       />
       <LendingLedgerModal
         open={lendOpen}

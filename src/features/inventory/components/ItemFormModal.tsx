@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { DateInput } from "@/components/DateTimeField";
 import { ExternalLink, X } from "@/components/icons";
 import {
   CONDITIONS,
@@ -13,9 +14,12 @@ import {
   type ItemDisposition,
   type ItemDoc,
   type ItemDocKind,
+  type ItemActivity,
   type ItemLink,
   type ItemPhoto,
+  type PriceLink,
 } from "@/features/inventory/lib/types";
+import { DEFAULT_TAX_RATE } from "@/features/inventory/lib/value";
 import { docKindLabel, suggestDocName } from "@/features/inventory/lib/documents";
 import {
   filterBookmarks,
@@ -53,6 +57,10 @@ type ItemFormModalProps = {
   onClose: () => void;
 };
 
+// A compare-link row while editing — price is a string so partial input
+// ("12.") doesn't get clobbered; converted to a number on save.
+type DraftPriceLink = { id: string; store: string; url: string; price: string };
+
 type Draft = {
   name: string;
   category: string;
@@ -60,16 +68,20 @@ type Draft = {
   quantity: string;
   value: string;
   price: string;
+  taxRate: string;
   currency: string;
   purchaseDate: string;
   warrantyExpiry: string;
   maintenanceDate: string;
   condition: "" | ItemCondition;
+  inBox: "" | "yes" | "no";
   manufacturer: string;
   model: string;
   serial: string;
   barcode: string;
   retailer: string;
+  storeUrl: string;
+  compareLinks: DraftPriceLink[];
   tags: string;
   photos: ItemPhoto[]; // full list — first photo is the card cover
   lentTo: string;
@@ -82,6 +94,9 @@ type Draft = {
 };
 
 function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
+  // A brand-new item (from blankItem) gets the default tax rate prefilled;
+  // existing items created before the field keep "no tax" rather than gaining it.
+  const isNew = !item.updatedAt && item.name === "";
   return {
     name: item.name,
     category: item.category ?? "",
@@ -89,16 +104,30 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     quantity: String(item.quantity || 1),
     value: item.value != null ? String(item.value) : "",
     price: item.price != null ? String(item.price) : "",
+    taxRate:
+      item.taxRate != null
+        ? String(item.taxRate)
+        : isNew
+          ? String(DEFAULT_TAX_RATE)
+          : "",
     currency: item.currency ?? fallbackCurrency,
     purchaseDate: item.purchaseDate ?? "",
     warrantyExpiry: item.warrantyExpiry ?? "",
     maintenanceDate: item.maintenanceDate ?? "",
     condition: item.condition ?? "",
+    inBox: item.inBox === true ? "yes" : item.inBox === false ? "no" : "",
     manufacturer: item.manufacturer ?? "",
     model: item.model ?? "",
     serial: item.serial ?? "",
     barcode: item.barcode ?? "",
     retailer: item.retailer ?? "",
+    storeUrl: item.storeUrl ?? "",
+    compareLinks: (item.compareLinks ?? []).map((l) => ({
+      id: l.id,
+      store: l.store,
+      url: l.url,
+      price: l.price != null ? String(l.price) : "",
+    })),
     tags: item.tags.join(", "),
     photos: item.photos ?? [],
     lentTo: item.lentTo ?? "",
@@ -116,6 +145,19 @@ const numOrUndef = (v: string): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 const trimmedOrUndef = (v: string): string | undefined => (v.trim() ? v.trim() : undefined);
+
+/** Draft compare-link rows → saved PriceLink[]; drops rows with no URL. */
+function buildCompareLinks(rows: DraftPriceLink[]): PriceLink[] | undefined {
+  const cleaned: PriceLink[] = rows
+    .map((l) => ({
+      id: l.id,
+      store: l.store.trim(),
+      url: l.url.trim(),
+      price: numOrUndef(l.price),
+    }))
+    .filter((l) => l.url !== "");
+  return cleaned.length ? cleaned : undefined;
+}
 
 const fieldClass =
   "w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none";
@@ -505,6 +547,22 @@ export function ItemFormModal({
       draft.links.filter((l) => l.id !== id)
     );
 
+  const addCompareLink = () =>
+    set("compareLinks", [
+      ...draft.compareLinks,
+      { id: crypto.randomUUID(), store: "", url: "", price: "" },
+    ]);
+  const updateCompareLink = (id: string, patch: Partial<DraftPriceLink>) =>
+    set(
+      "compareLinks",
+      draft.compareLinks.map((l) => (l.id === id ? { ...l, ...patch } : l))
+    );
+  const removeCompareLink = (id: string) =>
+    set(
+      "compareLinks",
+      draft.compareLinks.filter((l) => l.id !== id)
+    );
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
@@ -518,16 +576,20 @@ export function ItemFormModal({
       quantity: Math.max(1, Math.round(numOrUndef(draft.quantity) ?? 1)),
       value: numOrUndef(draft.value),
       price: numOrUndef(draft.price),
+      taxRate: numOrUndef(draft.taxRate),
       currency: trimmedOrUndef(draft.currency) ?? defaultCurrency,
       purchaseDate: trimmedOrUndef(draft.purchaseDate),
       warrantyExpiry: trimmedOrUndef(draft.warrantyExpiry),
       maintenanceDate: trimmedOrUndef(draft.maintenanceDate),
       condition: draft.condition || undefined,
+      inBox: draft.inBox === "yes" ? true : draft.inBox === "no" ? false : undefined,
       manufacturer: trimmedOrUndef(draft.manufacturer),
       model: trimmedOrUndef(draft.model),
       serial: trimmedOrUndef(draft.serial),
       barcode: trimmedOrUndef(draft.barcode),
       retailer: trimmedOrUndef(draft.retailer),
+      storeUrl: trimmedOrUndef(draft.storeUrl),
+      compareLinks: buildCompareLinks(draft.compareLinks),
       tags: draft.tags
         .split(",")
         .map((t) => t.trim())
@@ -543,6 +605,36 @@ export function ItemFormModal({
       disposition: draft.disposition || undefined,
       notes: trimmedOrUndef(draft.notes),
     };
+
+    // Life-history: append events for the transitions this save represents, so
+    // the item's timeline + Trending stay accurate without a separate action.
+    const locName = (id: string | null) =>
+      id ? flattenTree(tree).find((n) => n.id === id)?.name : undefined;
+    const wasLent = Boolean(item.lentTo?.trim());
+    const nowLent = Boolean(next.lentTo?.trim());
+    const events: ItemActivity[] = [];
+    const now = new Date().toISOString();
+    const push = (e: Omit<ItemActivity, "id" | "at">) =>
+      events.push({ ...e, id: crypto.randomUUID(), at: now });
+    if (isNew) push({ type: "acquired" });
+    if (!isNew && item.locationId !== next.locationId) {
+      push({
+        type: "relocated",
+        fromLoc: locName(item.locationId),
+        toLoc: locName(next.locationId),
+      });
+    }
+    if (!wasLent && nowLent) {
+      push({ type: "lent", to: next.lentTo ?? undefined, condition: next.condition });
+    }
+    if (wasLent && !nowLent) push({ type: "returned", condition: next.condition });
+    if (events.length) {
+      next.activity = [...(item.activity ?? []), ...events].slice(-300);
+    }
+    // Lending transitions drive status; leave lost/misplaced/have as-is otherwise.
+    if (!wasLent && nowLent) next.status = "lent";
+    else if (wasLent && !nowLent) next.status = "have";
+
     // Orphan control: R2 objects the save no longer references — the item's
     // previous photo when replaced/cleared, and any session uploads that were
     // superseded before saving — get swept. The kept path is exempted.
@@ -895,7 +987,7 @@ export function ItemFormModal({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Field label="Paid (price)">
                 <input
                   type="number"
@@ -903,6 +995,17 @@ export function ItemFormModal({
                   step="0.01"
                   value={draft.price}
                   onChange={(e) => set("price", e.target.value)}
+                  placeholder="0"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Tax %">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draft.taxRate}
+                  onChange={(e) => set("taxRate", e.target.value)}
                   placeholder="0"
                   className={fieldClass}
                 />
@@ -923,26 +1026,35 @@ export function ItemFormModal({
               </Field>
             </div>
 
+            <Field label="In its original box?">
+              <select
+                value={draft.inBox}
+                onChange={(e) => set("inBox", e.target.value as Draft["inBox"])}
+                className={fieldClass}
+              >
+                <option value="">— Not specified</option>
+                <option value="yes">Yes — boxed (location = where the box is)</option>
+                <option value="no">No — unboxed (location = where the item is)</option>
+              </select>
+            </Field>
+
             <div className="grid grid-cols-3 gap-2">
               <Field label="Purchase date">
-                <input
-                  type="date"
+                <DateInput
                   value={draft.purchaseDate}
                   onChange={(e) => set("purchaseDate", e.target.value)}
                   className={fieldClass}
                 />
               </Field>
               <Field label="Warranty expires">
-                <input
-                  type="date"
+                <DateInput
                   value={draft.warrantyExpiry}
                   onChange={(e) => set("warrantyExpiry", e.target.value)}
                   className={fieldClass}
                 />
               </Field>
               <Field label="Maintenance due">
-                <input
-                  type="date"
+                <DateInput
                   value={draft.maintenanceDate}
                   onChange={(e) => set("maintenanceDate", e.target.value)}
                   className={fieldClass}
@@ -979,15 +1091,94 @@ export function ItemFormModal({
 
             {/* Barcode is captured up top (Scan a product). */}
 
-            <Field label="Retailer">
-              <input
-                type="text"
-                value={draft.retailer}
-                onChange={(e) => set("retailer", e.target.value)}
-                placeholder="Where you bought it"
-                className={fieldClass}
-              />
-            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Retailer">
+                <input
+                  type="text"
+                  value={draft.retailer}
+                  onChange={(e) => set("retailer", e.target.value)}
+                  placeholder="Where you bought it"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Store URL">
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={draft.storeUrl}
+                  onChange={(e) => set("storeUrl", e.target.value)}
+                  placeholder="https://…  (to re-buy / compare)"
+                  className={fieldClass}
+                />
+              </Field>
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className={labelClass}>Compare prices at other stores</span>
+                <button
+                  type="button"
+                  onClick={addCompareLink}
+                  className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] font-medium text-slate-300 transition hover:border-blue-400 hover:text-blue-300"
+                >
+                  + Store
+                </button>
+              </div>
+              {draft.compareLinks.length === 0 ? (
+                <p className="text-[11px] text-slate-500">
+                  Add competitor links to compare. If a barcode lookup finds live
+                  prices, those are shown instead.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1.5">
+                  {draft.compareLinks.map((l) => (
+                    <li key={l.id} className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={l.store}
+                        onChange={(e) =>
+                          updateCompareLink(l.id, { store: e.target.value })
+                        }
+                        placeholder="Store"
+                        aria-label="Store name"
+                        className={`${fieldClass} w-24 shrink-0`}
+                      />
+                      <input
+                        type="url"
+                        inputMode="url"
+                        value={l.url}
+                        onChange={(e) =>
+                          updateCompareLink(l.id, { url: e.target.value })
+                        }
+                        placeholder="https://…"
+                        aria-label="Store URL"
+                        className={`${fieldClass} min-w-0 flex-1`}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={l.price}
+                        onChange={(e) =>
+                          updateCompareLink(l.id, { price: e.target.value })
+                        }
+                        placeholder="Price"
+                        aria-label="Price at this store"
+                        className={`${fieldClass} w-20 shrink-0`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCompareLink(l.id)}
+                        aria-label="Remove store"
+                        className="shrink-0 rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-red-300"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             <Field label="Tags (comma-separated)">
               <input
