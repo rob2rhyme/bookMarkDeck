@@ -114,8 +114,13 @@ matrix suggests. The genuine gaps split cleanly into *on-brand wins* and
    urgent ≤30-day window; this is the wider "what's coming" view. Pure
    `lib/maintenanceCalendar.ts` (unit-tested) + `MaintenanceCalendarModal`.
    Zero new data — reads existing `warrantyExpiry` / `maintenanceDate`.
-6. **Onboarding auto-rooms** — offer to seed common locations on first visit so
-   the page is never blank (HomeZada's best onboarding idea, minus the overwhelm).
+6. ✅ **Onboarding auto-rooms** — a calm, dismissible first-visit card (shows
+   only when there are no locations yet) offers to seed a handful of common
+   rooms in one tap; the Locations manager's empty state has the same "Add
+   common rooms" shortcut. Rename/nest/remove freely afterwards; the re-seed is
+   duplicate-safe (case-insensitive). Pure `lib/starterRooms.ts` (unit-tested),
+   `useStarterRooms` (hydration-safe dismiss flag), `StarterRoomsCard`.
+   HomeZada's best onboarding idea, minus the overwhelm.
 
 ### B — Worth it · needs a decision / infra
 - **AI photo→item (single item)** — suggest name/category from a photo. True
@@ -137,8 +142,8 @@ privacy) · AI-written resale listings + micro-sites (marketplace pivot) ·
 public API/webhooks (pro audience, not the personal hub).
 
 ## Recommended sequence
-**A1 (smart questions) → A2 (rediscover) → A3 (QR labels) → A4 (wishlist) → A5
-(maintenance calendar)** are shipped — the highest value-per-effort and they
-reinforce the calm/connected identity. A6 (onboarding auto-rooms) follows.
-Everything in B waits on an explicit go/no-go (cost, Blaze, or a privacy
-decision); C stays out to protect the brand.
+**Tier A is complete** — A1 (smart questions) → A2 (rediscover) → A3 (QR
+labels) → A4 (wishlist) → A5 (maintenance calendar) → A6 (onboarding
+auto-rooms) all shipped, the highest value-per-effort and all reinforcing the
+calm/connected identity. Everything in B waits on an explicit go/no-go (cost,
+Blaze, or a privacy decision); C stays out to protect the brand.

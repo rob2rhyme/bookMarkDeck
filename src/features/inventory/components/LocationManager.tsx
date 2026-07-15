@@ -17,6 +17,7 @@ type LocationManagerProps = {
   onRename: (id: string, name: string) => void;
   onRemove: (id: string) => void;
   onPrintLabels: () => Promise<void>;
+  onSeedCommon?: () => void; // seed a handful of common rooms (empty-state only)
   onClose: () => void;
 };
 
@@ -31,6 +32,7 @@ export function LocationManager({
   onRename,
   onRemove,
   onPrintLabels,
+  onSeedCommon,
   onClose,
 }: LocationManagerProps) {
   const flat = useMemo(() => flattenTree(tree), [tree]);
@@ -117,8 +119,17 @@ export function LocationManager({
 
       <ul className="mt-4 flex flex-col gap-1">
         {flat.length === 0 && (
-          <li className="rounded-lg border border-dashed border-slate-700/70 px-3 py-6 text-center text-sm text-slate-500">
-            No locations yet.
+          <li className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-slate-700/70 px-3 py-6 text-center text-sm text-slate-500">
+            <span>No locations yet.</span>
+            {onSeedCommon && (
+              <button
+                type="button"
+                onClick={onSeedCommon}
+                className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-300"
+              >
+                Add common rooms
+              </button>
+            )}
           </li>
         )}
         {flat.map((l) => (

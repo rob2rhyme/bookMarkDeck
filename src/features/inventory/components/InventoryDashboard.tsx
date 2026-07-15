@@ -50,6 +50,9 @@ import { WishlistModal } from "@/features/inventory/components/WishlistModal";
 import { wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
 import { MaintenanceCalendarModal } from "@/features/inventory/components/MaintenanceCalendarModal";
 import { upkeepCount } from "@/features/inventory/lib/maintenanceCalendar";
+import { StarterRoomsCard } from "@/features/inventory/components/StarterRoomsCard";
+import { useStarterRooms } from "@/features/inventory/hooks/useStarterRooms";
+import { missingStarterRooms } from "@/features/inventory/lib/starterRooms";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
@@ -154,6 +157,15 @@ export function InventoryDashboard() {
   const collections = useMemo(() => collectionNames(inv.active), [inv.active]);
   const collectionCount = useMemo(() => collectionGroups(inv.active).length, [inv.active]);
   const upkeepDates = useMemo(() => upkeepCount(inv.active, today), [inv.active, today]);
+  const missingRooms = useMemo(
+    () => missingStarterRooms(loc.locations.map((l) => l.name)),
+    [loc.locations]
+  );
+  const starterRooms = useStarterRooms(email, loc.locations.length > 0);
+  const seedStarterRooms = () => {
+    for (const name of missingRooms) loc.addLocation(name);
+    starterRooms.dismiss();
+  };
 
   const visible = useMemo(() => {
     const base = showArchived ? inv.items : inv.active;
@@ -529,6 +541,14 @@ export function InventoryDashboard() {
         </div>
       )}
 
+      {starterRooms.show && (
+        <StarterRoomsCard
+          rooms={missingRooms}
+          onSeed={seedStarterRooms}
+          onDismiss={starterRooms.dismiss}
+        />
+      )}
+
       {rediscover.item && (
         <RediscoverCard
           item={rediscover.item}
@@ -782,6 +802,7 @@ export function InventoryDashboard() {
         onRename={loc.renameLocation}
         onRemove={removeLocationAndUnassign}
         onPrintLabels={printLocationLabels}
+        onSeedCommon={missingRooms.length > 0 ? seedStarterRooms : undefined}
         onClose={() => setLocOpen(false)}
       />
       <WhereIsModal
