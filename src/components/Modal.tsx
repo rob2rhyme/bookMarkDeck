@@ -6,6 +6,7 @@
 
 import { useCallbackRef } from "@/hooks/useCallbackRef";
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 type ModalProps = {
   open: boolean;
@@ -86,9 +87,12 @@ export function Modal({
     };
   }, [open, onCloseRef]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  // Portal to <body> so the overlay's z-[70] isn't trapped inside AppShell's
+  // stacking context (its content wrapper is `relative z-10`, and the fixed
+  // bottom nav is z-40) — otherwise the nav would paint over the modal footer.
+  return createPortal(
     <div
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -111,7 +115,8 @@ export function Modal({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

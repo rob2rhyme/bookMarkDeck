@@ -655,15 +655,15 @@ export function ItemFormModal({
       onClose={closeAndSweep}
       label={isNew ? "Add item" : "Edit item"}
       overlayClassName="inset-0 flex items-stretch justify-center sm:items-center sm:px-4 sm:py-[5vh]"
-      panelClassName="flex w-full flex-col max-h-screen sm:max-w-lg sm:max-h-[90vh] overflow-y-auto border-slate-800 bg-slate-900 p-4 sm:p-6 shadow-2xl outline-none sm:rounded-2xl sm:border"
+      panelClassName="flex w-full flex-col max-h-[100dvh] sm:max-w-lg sm:max-h-[90vh] overflow-y-auto border-slate-800 bg-slate-900 p-4 sm:p-6 shadow-2xl outline-none sm:rounded-2xl sm:border"
     >
       <form onSubmit={submit} className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="sticky -top-4 z-10 -mx-4 -mt-4 mb-1 flex items-center justify-between gap-2 border-b border-slate-800/70 bg-slate-900/95 px-4 pb-2.5 pt-4 backdrop-blur sm:-top-6 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
           <h2 className="text-lg font-semibold text-slate-50">
             {isNew ? "Add item" : "Edit item"}
           </h2>
           {isNew && (
-            <span className="text-[11px] text-slate-500">
+            <span className="hidden text-[11px] text-slate-500 sm:inline">
               A name is enough — fill the rest in later.
             </span>
           )}
@@ -1465,18 +1465,18 @@ export function ItemFormModal({
           </>
         )}
 
-        <div className="mt-2 flex gap-2">
+        <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-1 flex gap-2 border-t border-slate-800/70 bg-slate-900/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6">
           <button
             type="button"
             onClick={closeAndSweep}
-            className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+            className="flex-1 rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!canSave}
-            className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+            className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
             {isNew ? "Add item" : "Save"}
           </button>
