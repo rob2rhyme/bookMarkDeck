@@ -83,7 +83,7 @@ export function ItemListCard({
   if (item.barcode) facts.push(`#${item.barcode}`);
 
   return (
-    <div className="group flex gap-3 overflow-hidden rounded-2xl border border-slate-800/70 bg-gradient-to-br from-slate-900/80 to-slate-900/40 p-3 shadow-sm transition hover:border-slate-700 sm:gap-4 sm:p-4">
+    <div className="group flex gap-3 overflow-hidden rounded-2xl border border-slate-800/70 bg-gradient-to-br from-slate-900/80 to-slate-900/40 p-3 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-lg hover:shadow-slate-950/40 motion-reduce:hover:translate-y-0 sm:gap-4 sm:p-4">
       <button
         type="button"
         onClick={() => onOpen(item)}

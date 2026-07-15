@@ -37,7 +37,7 @@ export function ItemCard({
   const badge = WARRANTY_BADGE[w];
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-900/60 shadow-sm transition hover:border-slate-700">
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-900/60 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-lg hover:shadow-slate-950/40 motion-reduce:hover:translate-y-0">
       <button
         type="button"
         onClick={() => onOpen(item)}

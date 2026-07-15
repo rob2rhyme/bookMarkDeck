@@ -253,6 +253,7 @@ export function ItemDetailModal({
     index: number;
   } | null>(null);
   const [docs, setDocs] = useState<ItemDoc[]>([]);
+  const [showAllActivity, setShowAllActivity] = useState(false);
   const { toast } = useToast();
   // Live competitor prices (by barcode); manual compare-links are the fallback.
   const priceOffers = useItemPriceOffers(item?.barcode, open);
@@ -290,6 +291,7 @@ export function ItemDetailModal({
     setPhotoIdx(0);
     setLightbox(null);
     setDocs([]);
+    setShowAllActivity(false);
     if (item && canAttach && item.updatedAt) {
       let cancelled = false;
       onFetchDocs(item.id)
@@ -339,7 +341,7 @@ export function ItemDetailModal({
       label={item.name}
       panelClassName="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="sticky -top-6 z-20 -mx-6 -mt-6 mb-1 flex items-start justify-between gap-3 rounded-t-2xl border-b border-slate-800/70 bg-slate-900/95 px-6 pb-3 pt-6 backdrop-blur">
         <h2 className="min-w-0 flex-1 text-lg font-semibold text-slate-50">
           {item.name}
         </h2>
@@ -689,7 +691,7 @@ export function ItemDetailModal({
             Activity
           </p>
           <ul className="flex flex-col gap-1">
-            {timeline.map((a) => {
+            {(showAllActivity ? timeline : timeline.slice(0, 4)).map((a) => {
               const meta = ACTIVITY_META[a.type];
               const detail =
                 a.type === "lent"
@@ -718,6 +720,17 @@ export function ItemDetailModal({
               );
             })}
           </ul>
+          {timeline.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setShowAllActivity((v) => !v)}
+              className="mt-1.5 text-[11px] font-medium text-slate-500 transition hover:text-slate-300"
+            >
+              {showAllActivity
+                ? "Show less"
+                : `Show all activity (${timeline.length})`}
+            </button>
+          )}
         </div>
       )}
 
