@@ -386,6 +386,15 @@ export default function GuidePage() {
               automatically each time you release something.
             </p>
           </Sub>
+          <Sub title="QR labels for boxes">
+            <p>
+              In <strong>Locations</strong>, tap <strong>Print QR labels</strong>{" "}
+              for a sheet of cut-out labels — one per room, shelf, or box. Stick
+              one on a sealed box and later just <strong>scan it with your
+              phone camera</strong> to open My Stuff filtered to that spot — see
+              what&apos;s inside without unpacking.
+            </p>
+          </Sub>
           <Sub title="Rediscover">
             <p>
               Once a day, a calm <strong>Rediscover</strong> card surfaces one

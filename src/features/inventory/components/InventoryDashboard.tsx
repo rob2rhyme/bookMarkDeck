@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { HandHelping, Layers, MapPin, Package, Plus, Search, Sparkles, Tag, X } from "@/components/icons";
@@ -220,6 +220,43 @@ export function InventoryDashboard() {
       .forEach((i) => inv.upsertItem({ ...i, locationId: null }));
     loc.removeLocation(id);
   };
+
+  // Print a QR label per location — scanning one opens /inventory?location=<id>
+  // (handled below), i.e. this device filtered to that spot. QR + print libs
+  // load on demand.
+  const printLocationLabels = async () => {
+    const { qrSvg } = await import("@/features/inventory/lib/qr");
+    const { labelUrl, locationLabelsHtml } = await import(
+      "@/features/inventory/lib/locationLabels"
+    );
+    const { printHtml } = await import("@/utils/download");
+    const paths = locationPathsById(loc.locations);
+    const origin = window.location.origin;
+    const labels = await Promise.all(
+      flattenTree(loc.tree).map(async (l) => ({
+        id: l.id,
+        name: l.name,
+        path: paths[l.id] ?? [l.name],
+        count: countByLocation[l.id] ?? 0,
+        qrSvg: await qrSvg(labelUrl(origin, l.id)),
+      }))
+    );
+    if (labels.length > 0) printHtml(locationLabelsHtml(labels));
+  };
+
+  // Deep link: a scanned label lands on /inventory?location=<id>; once that
+  // location is known, filter to it — exactly once, so it never overrides a
+  // filter the user later changes.
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current) return;
+    const id = new URLSearchParams(window.location.search).get("location");
+    if (id && loc.nameById[id]) {
+      setLocationFilter(id);
+      deepLinkApplied.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loc.nameById]);
 
   // Attachments live in their own subcollection; the form drives them via
   // these. fetchDocs is memoized because the detail modal's load effect
@@ -701,6 +738,7 @@ export function InventoryDashboard() {
         onAdd={loc.addLocation}
         onRename={loc.renameLocation}
         onRemove={removeLocationAndUnassign}
+        onPrintLabels={printLocationLabels}
         onClose={() => setLocOpen(false)}
       />
       <WhereIsModal

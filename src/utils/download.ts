@@ -20,6 +20,30 @@ export function downloadText(
   URL.revokeObjectURL(url);
 }
 
+/** Write a self-contained HTML document into a hidden iframe and open the print
+ *  dialog (Save as PDF). Nothing leaves the device; the iframe is cleaned up. */
+export function printHtml(html: string): void {
+  if (typeof window === "undefined") return;
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+  document.body.appendChild(iframe);
+  const win = iframe.contentWindow;
+  const cdoc = win?.document;
+  if (!win || !cdoc) {
+    iframe.remove();
+    return;
+  }
+  cdoc.open();
+  cdoc.write(html);
+  cdoc.close();
+  win.onafterprint = () => iframe.remove();
+  setTimeout(() => {
+    win.focus();
+    win.print();
+  }, 150);
+}
+
 function csvCell(value: unknown): string {
   const s =
     value === null || value === undefined

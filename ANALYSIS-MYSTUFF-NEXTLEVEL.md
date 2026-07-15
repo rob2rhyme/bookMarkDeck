@@ -95,10 +95,12 @@ matrix suggests. The genuine gaps split cleanly into *on-brand wins* and
    resurfacing a forgotten (least-recently-touched) item; open it or dismiss
    for the day. Deterministic per day (`lib/rediscover.ts`, unit-tested), tiny
    per-user localStorage dismiss — no cloud write.
-3. **QR labels for locations/containers** — print a QR per location that opens
-   its "what's in here" view; scan to check a sealed box without unpacking. The
-   most-loved *physical* feature across NestEgg/Sortly/Scanlily; no AI, reuses
-   locations. (v1: in-app deep link; v2: no-app public page — bigger lift.)
+3. ✅ **QR labels for locations/containers** — "Print QR labels" in the Locations
+   manager renders a cut-out label sheet (QR + name + breadcrumb + count); the
+   QR encodes `/inventory?location=<id>`, which a phone-camera scan opens
+   filtered to that spot (deep link handled once). `lib/qr.ts` (lazy `qrcode`),
+   `lib/locationLabels.ts` (pure HTML builder, tested), shared `printHtml`.
+   *v1 = in-app deep link; v2 (no-app public page) still a future lift.*
 4. **Wishlist** — a light "want to buy" list that ties into the duplicate guard
    ("do I already own this?") and **links a bookmark** (the product page).
    Connection-over-breadth, not marketplace creep.
