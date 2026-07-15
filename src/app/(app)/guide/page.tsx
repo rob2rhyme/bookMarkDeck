@@ -413,6 +413,16 @@ export default function GuidePage() {
               <strong>Got it</strong> and it becomes a real item in My Stuff.
             </p>
           </Sub>
+          <Sub title="Upkeep calendar">
+            <p>
+              When any item has a warranty or maintenance date, a{" "}
+              <strong>📅 Upkeep</strong> button appears — a calm timeline of
+              what&apos;s coming, grouped <em>Overdue → This month → Next month</em>{" "}
+              and on. It&apos;s the wider view; the <strong>Attention</strong>{" "}
+              panel still flags anything due within 30 days. Tap any date to open
+              the item.
+            </p>
+          </Sub>
           <Sub title="Barcode, photos & your data">
             <p>
               <strong>Scan</strong> reads an item&apos;s barcode from the

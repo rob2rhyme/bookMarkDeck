@@ -107,8 +107,13 @@ matrix suggests. The genuine gaps split cleanly into *on-brand wins* and
    bookmark** (the product page). "Got it" converts a wish into a real item in
    one tap. `lib/wishlist.ts` (pure, tested), `hooks/useWishlist.ts`,
    `WishlistModal`. Connection-over-breadth, not marketplace creep.
-5. **Maintenance calendar view** — a calm timeline of upcoming warranty +
-   maintenance dates (data already exists).
+5. ✅ **Maintenance calendar view** — a calm **📅 Upkeep** timeline (header
+   button, appears when any item carries a date) grouping upcoming warranty
+   expirations + maintenance dates by month (Overdue → This month → Next month →
+   later), each row tapping through to the item. The Attention panel owns the
+   urgent ≤30-day window; this is the wider "what's coming" view. Pure
+   `lib/maintenanceCalendar.ts` (unit-tested) + `MaintenanceCalendarModal`.
+   Zero new data — reads existing `warrantyExpiry` / `maintenanceDate`.
 6. **Onboarding auto-rooms** — offer to seed common locations on first visit so
    the page is never blank (HomeZada's best onboarding idea, minus the overwhelm).
 
@@ -132,8 +137,8 @@ privacy) · AI-written resale listings + micro-sites (marketplace pivot) ·
 public API/webhooks (pro audience, not the personal hub).
 
 ## Recommended sequence
-**A1 (smart questions) → A2 (rediscover) → A3 (QR labels) → A4 (wishlist)** are
-shipped — the highest value-per-effort and they reinforce the calm/connected
-identity. A5 (maintenance calendar) → A6 (onboarding auto-rooms) follow.
+**A1 (smart questions) → A2 (rediscover) → A3 (QR labels) → A4 (wishlist) → A5
+(maintenance calendar)** are shipped — the highest value-per-effort and they
+reinforce the calm/connected identity. A6 (onboarding auto-rooms) follows.
 Everything in B waits on an explicit go/no-go (cost, Blaze, or a privacy
 decision); C stays out to protect the brand.

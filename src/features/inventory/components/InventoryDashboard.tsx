@@ -48,6 +48,8 @@ import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal
 import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
 import { WishlistModal } from "@/features/inventory/components/WishlistModal";
 import { wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
+import { MaintenanceCalendarModal } from "@/features/inventory/components/MaintenanceCalendarModal";
+import { upkeepCount } from "@/features/inventory/lib/maintenanceCalendar";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
@@ -128,6 +130,7 @@ export function InventoryDashboard() {
   const [declutterOpen, setDeclutterOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -150,6 +153,7 @@ export function InventoryDashboard() {
   const declutter = useMemo(() => declutterSummary(inv.active), [inv.active]);
   const collections = useMemo(() => collectionNames(inv.active), [inv.active]);
   const collectionCount = useMemo(() => collectionGroups(inv.active).length, [inv.active]);
+  const upkeepDates = useMemo(() => upkeepCount(inv.active, today), [inv.active, today]);
 
   const visible = useMemo(() => {
     const base = showArchived ? inv.items : inv.active;
@@ -440,6 +444,18 @@ export function InventoryDashboard() {
               <Layers className="h-4 w-4" /> Kits
               <span className="rounded-full bg-teal-500/20 px-1.5 text-[11px] tabular-nums text-teal-100">
                 {collectionCount}
+              </span>
+            </button>
+          )}
+          {upkeepDates > 0 && (
+            <button
+              type="button"
+              onClick={() => setCalendarOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-300"
+            >
+              📅 Upkeep
+              <span className="rounded-full bg-sky-500/20 px-1.5 text-[11px] tabular-nums text-sky-100">
+                {upkeepDates}
               </span>
             </button>
           )}
@@ -787,6 +803,13 @@ export function InventoryDashboard() {
         onRemove={wishlist.remove}
         onGotIt={gotItFromWishlist}
         onClose={() => setWishlistOpen(false)}
+      />
+      <MaintenanceCalendarModal
+        open={calendarOpen}
+        items={inv.active}
+        today={today}
+        onSelect={openDetail}
+        onClose={() => setCalendarOpen(false)}
       />
       <ItemDetailModal
         open={detailItem !== null}
