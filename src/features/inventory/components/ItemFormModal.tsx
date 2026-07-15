@@ -562,9 +562,9 @@ export function ItemFormModal({
       open={open}
       onClose={closeAndSweep}
       label={isNew ? "Add item" : "Edit item"}
-      panelClassName="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
+      panelClassName="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6 shadow-2xl outline-none"
     >
-      <form onSubmit={submit} className="flex flex-col gap-3">
+      <form onSubmit={submit} className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-50">
             {isNew ? "Add item" : "Edit item"}
@@ -576,38 +576,79 @@ export function ItemFormModal({
           )}
         </div>
 
-        <Field label="Name">
-          <input
-            type="text"
-            value={draft.name}
-            onChange={(e) => set("name", e.target.value)}
-            placeholder="e.g. Sony A7 IV"
-            autoFocus
-            className={fieldClass}
-          />
-        </Field>
-
-        {/* Fast path, always here (not buried under "Add details"): scan the
-            barcode → look it up → prefill. Works on any phone; if the camera
-            isn't reachable the scanner says so and you just type instead. */}
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => setScanning(true)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/40 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
-          >
-            📷 Scan barcode to autofill
-          </button>
-          {/* No barcode? Read the text off the item or its box to name it —
-              same on-device OCR as the receipt scan, nothing leaves the device. */}
+        {/* Fastest path, pinned to the top: scan or type a barcode → look it
+            up, with the result right here. Works on any phone camera, a desktop
+            webcam, AND USB/Bluetooth barcode scanners (they type the code —
+            Enter looks it up). No barcode? Read the label instead, or just type
+            the name below. */}
+        <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+          <span className={labelClass}>Scan a product — the fast way to add</span>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={draft.barcode}
+              onChange={(e) => {
+                set("barcode", e.target.value);
+                if (lookupStatus !== "idle") setLookupStatus("idle");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  runLookup(draft.barcode);
+                }
+              }}
+              placeholder="Barcode — scan or type…"
+              aria-label="Barcode"
+              className={fieldClass}
+            />
+            {draft.barcode.trim() && (
+              <button
+                type="button"
+                onClick={() => runLookup(draft.barcode)}
+                disabled={lookupStatus === "loading"}
+                className="shrink-0 rounded-lg border border-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+              >
+                {lookupStatus === "loading" ? "…" : "Look up"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setScanning(true)}
+              className="shrink-0 rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+            >
+              📷 Scan
+            </button>
+          </div>
+          {lookupStatus !== "idle" && (
+            <p
+              className={`mt-1.5 text-[11px] ${
+                lookupStatus === "found"
+                  ? "text-emerald-300"
+                  : lookupStatus === "none"
+                    ? "text-amber-300/90"
+                    : "text-slate-400"
+              }`}
+            >
+              {lookupStatus === "loading"
+                ? "Looking up product…"
+                : lookupStatus === "found"
+                  ? "Filled in what we found — check and tweak."
+                  : "No match found — the barcode's saved. Read the label, or just type the name below."}
+            </p>
+          )}
+          {/* Same on-device OCR as the receipt scan — nothing leaves the device. */}
           <label
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/40 px-4 py-2 text-sm font-medium transition ${
+            className={`mt-2 flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 px-3 py-2 text-sm font-medium transition ${
               labelStatus === "scanning"
                 ? "text-slate-400"
-                : "cursor-pointer text-slate-200 hover:border-blue-400 hover:text-blue-300"
+                : "cursor-pointer text-slate-300 hover:border-blue-400 hover:text-blue-300"
             }`}
           >
-            🔤 {labelStatus === "scanning" ? "Reading label…" : "Read label to name it"}
+            🔤{" "}
+            {labelStatus === "scanning"
+              ? "Reading label…"
+              : "No barcode? Read the label to name it"}
             <input
               type="file"
               accept="image/*"
@@ -621,22 +662,32 @@ export function ItemFormModal({
               }}
             />
           </label>
+          {labelStatus === "done" && (
+            <p className="mt-1 text-[11px] text-emerald-300">
+              Named it from the label — tweak anything that&apos;s off.
+            </p>
+          )}
+          {labelStatus === "none" && (
+            <p className="mt-1 text-[11px] text-amber-300/90">
+              Couldn&apos;t read a name — try a clearer shot, or type it.
+            </p>
+          )}
+          {labelStatus === "error" && (
+            <p className="mt-1 text-[11px] text-amber-300/90">
+              Label scan didn&apos;t work — you can still type the name.
+            </p>
+          )}
         </div>
-        {labelStatus === "done" && (
-          <p className="-mt-1 text-[11px] text-emerald-300">
-            Named it from the label — tweak anything that&apos;s off.
-          </p>
-        )}
-        {labelStatus === "none" && (
-          <p className="-mt-1 text-[11px] text-amber-300/90">
-            Couldn&apos;t read a name — try a clearer shot of the label, or type it.
-          </p>
-        )}
-        {labelStatus === "error" && (
-          <p className="-mt-1 text-[11px] text-amber-300/90">
-            Label scan didn&apos;t work — you can still type the name.
-          </p>
-        )}
+
+        <Field label="Name">
+          <input
+            type="text"
+            value={draft.name}
+            onChange={(e) => set("name", e.target.value)}
+            placeholder="e.g. Sony A7 IV"
+            className={fieldClass}
+          />
+        </Field>
 
         {lookalikes.length > 0 && (
           <p className="rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
@@ -651,7 +702,7 @@ export function ItemFormModal({
           </p>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <Field label="Category">
             <input
               type="text"
@@ -811,7 +862,7 @@ export function ItemFormModal({
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <Field label="Quantity">
                 <input
                   type="number"
@@ -843,7 +894,7 @@ export function ItemFormModal({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <Field label="Paid (price)">
                 <input
                   type="number"
@@ -871,7 +922,7 @@ export function ItemFormModal({
               </Field>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <Field label="Purchase date">
                 <input
                   type="date"
@@ -898,7 +949,7 @@ export function ItemFormModal({
               </Field>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <Field label="Maker">
                 <input
                   type="text"
@@ -925,55 +976,7 @@ export function ItemFormModal({
               </Field>
             </div>
 
-            <Field label="Barcode (UPC / EAN)">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={draft.barcode}
-                  onChange={(e) => {
-                    set("barcode", e.target.value);
-                    if (lookupStatus !== "idle") setLookupStatus("idle");
-                  }}
-                  placeholder="Scan or type…"
-                  className={fieldClass}
-                />
-                {draft.barcode.trim() && (
-                  <button
-                    type="button"
-                    onClick={() => runLookup(draft.barcode)}
-                    disabled={lookupStatus === "loading"}
-                    className="shrink-0 rounded-lg border border-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 disabled:opacity-50"
-                  >
-                    {lookupStatus === "loading" ? "…" : "Look up"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setScanning(true)}
-                  className="shrink-0 rounded-lg border border-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
-                >
-                  Scan
-                </button>
-              </div>
-              {lookupStatus !== "idle" && (
-                <p
-                  className={`mt-1 text-[11px] ${
-                    lookupStatus === "found"
-                      ? "text-emerald-300"
-                      : lookupStatus === "none"
-                        ? "text-amber-300/90"
-                        : "text-slate-400"
-                  }`}
-                >
-                  {lookupStatus === "loading"
-                    ? "Looking up product…"
-                    : lookupStatus === "found"
-                      ? "Filled in what we found — check and tweak."
-                      : "No product match — fill in the details yourself."}
-                </p>
-              )}
-            </Field>
+            {/* Barcode is captured up top (Scan a product). */}
 
             <Field label="Retailer">
               <input
@@ -995,7 +998,7 @@ export function ItemFormModal({
               />
             </Field>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <Field label="Focus project">
                 <input
                   type="text"
@@ -1238,7 +1241,7 @@ export function ItemFormModal({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <Field label="Lent to">
                 <input
                   type="text"

@@ -428,15 +428,21 @@ export default function GuidePage() {
           </Sub>
           <Sub title="Barcode, photos & your data">
             <p>
-              <strong>Scan</strong> reads an item&apos;s barcode from the
-              camera (works on any phone — including iPhone) — or type it and
-              press <strong>Look up</strong>. Either way, a match auto-fills the
-              empty fields (name, make, model, category, price, photo); your own
-              entries are never overwritten. No barcode? <strong>🔤 Read label
-              to name it</strong> snaps the item or its box and reads the printed
-              text on your device to suggest a name (and brand) — handy for
-              things that have words but no code. It&apos;s a suggestion into
-              empty fields; nothing is uploaded. Detection runs on your device — the
+              At the top of the add form, <strong>Scan a product</strong> is
+              the fast way in. <strong>📷 Scan</strong> reads the barcode from
+              the camera — any phone (including iPhone), a desktop webcam, or a
+              USB/Bluetooth barcode scanner (those type the code, and Enter looks
+              it up). Or type/paste the code and press <strong>Look up</strong>.
+              A match auto-fills the empty fields (name, make, model, category,
+              price, photo); your own entries are never overwritten, and the code
+              is saved either way. The lookup checks several <strong>free product
+              databases</strong>, so many everyday items (including non-US
+              barcodes) now resolve; when none has it, just read the label or
+              type. No barcode? <strong>🔤 Read label to name it</strong> snaps
+              the item or its box and reads the printed text on your device to
+              suggest a name (and brand) — handy for things that have words but
+              no code. It&apos;s a suggestion into empty fields; nothing is
+              uploaded. Detection runs on your device — the
               camera image never leaves the browser. You can also{" "}
               <strong>Scan a receipt</strong> (beta, entirely on your device) to
               fill in the retailer, purchase date, and price — the photo is read

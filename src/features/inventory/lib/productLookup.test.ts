@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   looksScannable,
   normalizeBarcode,
+  openFactsCategory,
+  parseOpenFacts,
   parseUpcItemDb,
   shortCategory,
 } from "@/features/inventory/lib/productLookup";
@@ -69,5 +71,52 @@ describe("shortCategory", () => {
     expect(shortCategory("Electronics > Audio > Headphones")).toBe("Headphones");
     expect(shortCategory("Toys")).toBe("Toys");
     expect(shortCategory(undefined)).toBeUndefined();
+  });
+});
+
+describe("openFactsCategory", () => {
+  it("keeps the readable leaf, stripping a language prefix and dashes", () => {
+    expect(openFactsCategory("en:beverages, en:carbonated-drinks")).toBe(
+      "carbonated drinks"
+    );
+    expect(openFactsCategory("Snacks")).toBe("Snacks");
+    expect(openFactsCategory(undefined)).toBeUndefined();
+  });
+});
+
+describe("parseOpenFacts", () => {
+  it("maps an Open Facts hit (name, first brand, leaf category, front image)", () => {
+    const info = parseOpenFacts({
+      status: 1,
+      product: {
+        product_name: "Pocari Sweat",
+        brands: "Otsuka, Pocari",
+        categories: "en:beverages, en:sports-drinks",
+        image_front_url: "https://img.off/front.jpg",
+        image_url: "https://img.off/any.jpg",
+      },
+    });
+    expect(info).toEqual({
+      name: "Pocari Sweat",
+      brand: "Otsuka",
+      category: "sports drinks",
+      imageUrl: "https://img.off/front.jpg",
+    });
+  });
+
+  it("treats status 0 / missing product as a miss", () => {
+    expect(parseOpenFacts({ status: 0, status_verbose: "product not found" })).toBeNull();
+    expect(parseOpenFacts({ status: 1 })).toBeNull();
+    expect(parseOpenFacts({ status: 1, product: { quantity: "500ml" } })).toBeNull();
+    expect(parseOpenFacts("nope")).toBeNull();
+  });
+
+  it("falls back through name fields and tolerates a string status", () => {
+    const info = parseOpenFacts({
+      status: "1",
+      product: { generic_name: "Kettle", brands: "Acme" },
+    });
+    expect(info?.name).toBe("Kettle");
+    expect(info?.brand).toBe("Acme");
   });
 });
