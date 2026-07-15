@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { DateInput } from "@/components/DateTimeField";
 import { ExternalLink, X } from "@/components/icons";
 import {
   CONDITIONS,
@@ -70,6 +71,7 @@ type Draft = {
   serial: string;
   barcode: string;
   retailer: string;
+  storeUrl: string;
   tags: string;
   photos: ItemPhoto[]; // full list — first photo is the card cover
   lentTo: string;
@@ -99,6 +101,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     serial: item.serial ?? "",
     barcode: item.barcode ?? "",
     retailer: item.retailer ?? "",
+    storeUrl: item.storeUrl ?? "",
     tags: item.tags.join(", "),
     photos: item.photos ?? [],
     lentTo: item.lentTo ?? "",
@@ -528,6 +531,7 @@ export function ItemFormModal({
       serial: trimmedOrUndef(draft.serial),
       barcode: trimmedOrUndef(draft.barcode),
       retailer: trimmedOrUndef(draft.retailer),
+      storeUrl: trimmedOrUndef(draft.storeUrl),
       tags: draft.tags
         .split(",")
         .map((t) => t.trim())
@@ -925,24 +929,21 @@ export function ItemFormModal({
 
             <div className="grid grid-cols-3 gap-2">
               <Field label="Purchase date">
-                <input
-                  type="date"
+                <DateInput
                   value={draft.purchaseDate}
                   onChange={(e) => set("purchaseDate", e.target.value)}
                   className={fieldClass}
                 />
               </Field>
               <Field label="Warranty expires">
-                <input
-                  type="date"
+                <DateInput
                   value={draft.warrantyExpiry}
                   onChange={(e) => set("warrantyExpiry", e.target.value)}
                   className={fieldClass}
                 />
               </Field>
               <Field label="Maintenance due">
-                <input
-                  type="date"
+                <DateInput
                   value={draft.maintenanceDate}
                   onChange={(e) => set("maintenanceDate", e.target.value)}
                   className={fieldClass}
@@ -979,15 +980,27 @@ export function ItemFormModal({
 
             {/* Barcode is captured up top (Scan a product). */}
 
-            <Field label="Retailer">
-              <input
-                type="text"
-                value={draft.retailer}
-                onChange={(e) => set("retailer", e.target.value)}
-                placeholder="Where you bought it"
-                className={fieldClass}
-              />
-            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Retailer">
+                <input
+                  type="text"
+                  value={draft.retailer}
+                  onChange={(e) => set("retailer", e.target.value)}
+                  placeholder="Where you bought it"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Store URL">
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={draft.storeUrl}
+                  onChange={(e) => set("storeUrl", e.target.value)}
+                  placeholder="https://…  (to re-buy / compare)"
+                  className={fieldClass}
+                />
+              </Field>
+            </div>
 
             <Field label="Tags (comma-separated)">
               <input

@@ -3,10 +3,11 @@
 // the focus feature's lib/types.ts. Kept fully under src/features/inventory/ so
 // the pillar stays removable and never touches bookmark data.
 
-export type ItemCondition = "new" | "good" | "fair" | "poor";
+export type ItemCondition = "new" | "open-box" | "good" | "fair" | "poor";
 
 export const CONDITIONS: { id: ItemCondition; label: string }[] = [
   { id: "new", label: "New" },
+  { id: "open-box", label: "Open box" },
   { id: "good", label: "Good" },
   { id: "fair", label: "Fair" },
   { id: "poor", label: "Poor" },
@@ -61,6 +62,7 @@ export type InventoryItem = {
   price?: number;
   currency?: string;
   retailer?: string;
+  storeUrl?: string; // where to (re)buy it — the item's product/store page
   manufacturer?: string;
   model?: string;
   serial?: string;

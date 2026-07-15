@@ -4,6 +4,7 @@
 
 import { toCsv } from "@/utils/download";
 import {
+  CONDITIONS,
   DEFAULT_INVENTORY_SETTINGS,
   normalizeSettings,
   type InventoryBackup,
@@ -30,6 +31,7 @@ const ITEM_COLUMNS = [
   "serial",
   "barcode",
   "retailer",
+  "store_url",
   "lent_to",
   "due_date",
   "project",
@@ -67,6 +69,7 @@ export function itemsToCsv(
       serial: i.serial ?? "",
       barcode: i.barcode ?? "",
       retailer: i.retailer ?? "",
+      store_url: i.storeUrl ?? "",
       lent_to: i.lentTo ?? "",
       due_date: i.dueDate ?? "",
       project: i.projectName ?? "",
@@ -99,7 +102,7 @@ const numOrUndef = (v: unknown): number | undefined =>
 const rec = (raw: unknown): Record<string, unknown> =>
   (raw ?? {}) as Record<string, unknown>;
 
-const CONDITION_SET = new Set<ItemCondition>(["new", "good", "fair", "poor"]);
+const CONDITION_SET = new Set<ItemCondition>(CONDITIONS.map((c) => c.id));
 const asCondition = (v: unknown): ItemCondition | undefined =>
   typeof v === "string" && CONDITION_SET.has(v as ItemCondition)
     ? (v as ItemCondition)
@@ -166,6 +169,7 @@ function coerceItem(raw: unknown): InventoryItem | null {
     price: numOrUndef(r.price),
     currency: str(r.currency).trim() || undefined,
     retailer: str(r.retailer).trim() || undefined,
+    storeUrl: str(r.storeUrl).trim() || undefined,
     manufacturer: str(r.manufacturer).trim() || undefined,
     model: str(r.model).trim() || undefined,
     serial: str(r.serial).trim() || undefined,

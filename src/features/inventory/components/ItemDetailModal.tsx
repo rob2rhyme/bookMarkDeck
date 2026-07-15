@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/Modal";
-import { Pencil, X } from "@/components/icons";
+import { ExternalLink, Pencil, Share2, X } from "@/components/icons";
+import { useToast } from "@/components/toast/ToastProvider";
 import { docKindLabel } from "@/features/inventory/lib/documents";
 import type {
   InventoryItem,
   InventoryLocation,
   ItemDoc,
 } from "@/features/inventory/lib/types";
-import { DISPOSITIONS } from "@/features/inventory/lib/types";
+import { CONDITIONS, DISPOSITIONS } from "@/features/inventory/lib/types";
+import { buildItemShareText } from "@/features/inventory/lib/share";
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
 import {
   daysUntil,
@@ -143,6 +145,35 @@ export function ItemDetailModal({
     index: number;
   } | null>(null);
   const [docs, setDocs] = useState<ItemDoc[]>([]);
+  const { toast } = useToast();
+
+  const shareItem = async (target: InventoryItem) => {
+    const appUrl =
+      typeof window !== "undefined" ? window.location.origin : undefined;
+    const text = buildItemShareText(target, appUrl);
+    const data: ShareData = {
+      title: target.name,
+      text,
+      ...(target.storeUrl ? { url: target.storeUrl } : {}),
+    };
+    // Native share sheet (Messages, WhatsApp, socials…) on supported devices.
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share(data);
+        return;
+      } catch {
+        // User dismissed the sheet, or it's unavailable — fall through to copy.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Copied — paste into Messages, WhatsApp, or a post.", {
+        variant: "success",
+      });
+    } catch {
+      toast("Couldn't share on this device.", { variant: "error" });
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -192,6 +223,14 @@ export function ItemDetailModal({
         <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
+            onClick={() => shareItem(item)}
+            aria-label={`Share ${item.name}`}
+            className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+          >
+            <Share2 className="h-3.5 w-3.5" /> Share
+          </button>
+          <button
+            type="button"
             onClick={() => onEdit(item)}
             className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
           >
@@ -220,7 +259,9 @@ export function ItemDetailModal({
             <img
               src={photo.url}
               alt={item.name}
-              className="aspect-[4/3] w-full object-cover transition hover:opacity-90"
+              // object-contain so the whole item shows; the dark panel behind
+              // letterboxes tall/wide photos instead of cropping them.
+              className="aspect-[4/3] w-full bg-slate-950/60 object-contain transition hover:opacity-90"
             />
           </button>
           {photos.length > 1 && (
@@ -255,7 +296,12 @@ export function ItemDetailModal({
         <Chip>📍 {path.length > 0 ? path.join(" → ") : "Unassigned"}</Chip>
         {item.category && <Chip cls="bg-blue-500/15 text-blue-200">{item.category}</Chip>}
         {item.quantity > 1 && <Chip>×{item.quantity}</Chip>}
-        {item.condition && <Chip>{item.condition}</Chip>}
+        {item.condition && (
+          <Chip>
+            {CONDITIONS.find((c) => c.id === item.condition)?.label ??
+              item.condition}
+          </Chip>
+        )}
         {item.collection && (
           <Chip cls="bg-teal-500/15 text-teal-200">🧰 {item.collection}</Chip>
         )}
@@ -304,6 +350,21 @@ export function ItemDetailModal({
           value={item.price != null ? formatMoney(item.price, currency) : undefined}
         />
         <FactRow label="Retailer" value={item.retailer} />
+        {item.storeUrl && (
+          <div className="flex items-baseline justify-between gap-3 border-b border-slate-800/50 py-1.5 text-sm">
+            <span className="shrink-0 text-slate-500">Store</span>
+            <a
+              href={item.storeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={item.storeUrl}
+              className="inline-flex min-w-0 items-center gap-1 truncate text-right font-medium text-blue-300 transition hover:text-blue-200"
+            >
+              <span className="truncate">View in store</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
+          </div>
+        )}
         <FactRow label="Maker" value={item.manufacturer} />
         <FactRow label="Model" value={item.model} />
         <FactRow label="Serial" value={item.serial} />

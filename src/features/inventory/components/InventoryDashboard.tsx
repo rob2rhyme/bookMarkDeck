@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { HandHelping, Layers, MapPin, Package, Plus, Search, Settings, Sparkles, Tag, X } from "@/components/icons";
+import { useToast } from "@/components/toast/ToastProvider";
 import { downloadText } from "@/utils/download";
 import {
   deleteItemDoc,
@@ -71,6 +72,10 @@ import {
   insuranceReportHtml,
 } from "@/features/inventory/lib/insuranceReport";
 
+/** How long a deleted item can be restored before its photos/attachments are
+ *  actually purged. Matches the undo toast's on-screen lifetime. */
+const UNDO_DELETE_MS = 6000;
+
 /** Merge-by-id where EXISTING records win — imports only add what's missing,
  *  keeping the "nothing is overwritten" promise (a stale backup can't clobber
  *  recent edits). */
@@ -109,6 +114,7 @@ export function InventoryDashboard() {
   const { settings, update } = useInventorySettings(email, connected);
   const inv = useInventory(email, connected);
   const loc = useInventoryLocations(email, connected);
+  const { toast } = useToast();
   const bookmarkLibrary = useBookmarkLibrary(email);
   const wishlist = useWishlist(email, connected);
   const focusProjects = useFocusProjects(email);
@@ -308,20 +314,42 @@ export function InventoryDashboard() {
   const removeDoc = (id: string): Promise<void> =>
     connected && email ? deleteItemDoc(email, id) : Promise.resolve();
   const removeItemAndDocs = (item: InventoryItem) => {
-    // Sweep the item's R2 objects (photo + attachments) before their pointer
-    // records disappear — best-effort orphan control, then delete the records.
-    const photoPaths = (item.photos ?? []).map((p) => p.path);
-    if (connected && email) {
-      fetchItemDocs(email, item.id)
-        .then((ds) =>
-          deleteInventoryObjects([...photoPaths, ...ds.map((d) => d.path)])
-        )
-        .catch(() => deleteInventoryObjects(photoPaths))
-        .finally(() => deleteItemDocs(email, item.id).catch(() => {}));
-    } else {
-      deleteInventoryObjects(photoPaths);
-    }
+    // Remove from the list immediately, but hold the *irreversible* purge (R2
+    // objects + attachment records) until the undo window closes — so an
+    // accidental delete can be fully restored (item + photos + attachments).
     inv.removeItem(item.id);
+
+    let undone = false;
+    const purge = () => {
+      if (undone) return;
+      // Sweep the item's R2 objects (photo + attachments) before their pointer
+      // records disappear — best-effort orphan control, then delete the records.
+      const photoPaths = (item.photos ?? []).map((p) => p.path);
+      if (connected && email) {
+        fetchItemDocs(email, item.id)
+          .then((ds) =>
+            deleteInventoryObjects([...photoPaths, ...ds.map((d) => d.path)])
+          )
+          .catch(() => deleteInventoryObjects(photoPaths))
+          .finally(() => deleteItemDocs(email, item.id).catch(() => {}));
+      } else {
+        deleteInventoryObjects(photoPaths);
+      }
+    };
+
+    const timer = setTimeout(purge, UNDO_DELETE_MS);
+    toast(`Deleted “${item.name}”.`, {
+      duration: UNDO_DELETE_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true;
+          clearTimeout(timer);
+          // Photos/attachments were never purged, so the item comes back whole.
+          inv.upsertItem(item);
+        },
+      },
+    });
   };
 
   const exportCsv = () =>
