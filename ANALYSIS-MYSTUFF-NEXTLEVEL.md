@@ -86,10 +86,11 @@ matrix suggests. The genuine gaps split cleanly into *on-brand wins* and
 ## Next-level plan (brand-filtered)
 
 ### A — Ship soon · on-brand · no paid infra
-1. **Smart questions** — a small set of computed answers over *local* data:
-   "warranties expiring soon", "what's lent out", "not photographed yet", "most
-   valuable", "haven't touched in a while". Gives Itemtopia's *ask-your-inventory*
-   feel with **zero AI/cost** — pure queries. Extends the "Where is it?" box.
+1. ✅ **Smart questions** — computed answers over *local* data (lent out /
+   warranty ending / warranty ended / upkeep due / overdue returns / no location
+   / not photographed / most valuable), zero AI/cost. Shipped folded into the
+   renamed **Find & ask** modal: empty box → tappable question chips (with
+   counts) → the matching items. `lib/smartQuestions.ts` (pure, unit-tested).
 2. **"Rediscover what you own"** — a calm dashboard card resurfacing a
    forgotten item (Spullio's delight loop): use it, or send it to declutter.
    Tiny effort, deeply on-brand for a *calm* hub.

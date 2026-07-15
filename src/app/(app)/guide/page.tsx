@@ -314,15 +314,23 @@ export default function GuidePage() {
               button when something needs changing.
             </p>
           </Sub>
-          <Sub title="Find it — and find where it is">
+          <Sub title="Find it, and ask about it">
             <p>
               Search spans name, category, maker, model, serial, barcode,
               project, notes, tags, and links; a location filter narrows to one
               room or the unassigned pile. When you just need to know{" "}
-              <em>where</em> something is, <strong>Where is it?</strong> is a
+              <em>where</em> something is, <strong>Find &amp; ask</strong> is a
               forgiving quick-find — type &ldquo;where&apos;s my passport&rdquo;
               and it answers with the full location path (Bedroom › Desk
               drawer), or <em>With Alex</em> if it&apos;s lent out.
+            </p>
+            <p>
+              Leave the box empty and it turns into{" "}
+              <strong>quick questions about your stuff</strong> — what&apos;s
+              lent out, whose warranty is ending, what needs upkeep, what
+              isn&apos;t photographed yet, your most valuable things. Each is
+              answered instantly from your own data on your device — no AI, no
+              guessing, nothing sent anywhere.
             </p>
           </Sub>
           <Sub title="Links & projects — connective tissue">
