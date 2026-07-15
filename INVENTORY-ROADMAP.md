@@ -126,8 +126,10 @@ extracts merchant/date/total and prefills empty retailer/date/price; image
 read locally, never uploaded; needs `wasm-unsafe-eval` in the prod CSP);
 ✅ **UPC/product
 enrichment** (shipped — session-gated `/api/inventory/product-lookup` proxy;
-UPCitemdb trial by default, paid provider via `UPC_LOOKUP_URL`/`UPC_LOOKUP_KEY`;
-scan/type → auto-fills empty name/make/model/category/price/photo); ✅ **free
+UPCitemdb trial first, then **free keyless Open Facts fallbacks** — Open Food /
+Products / Beauty Facts — so most EAN/JAN scans resolve without a paid key;
+paid provider still swappable via `UPC_LOOKUP_URL`/`UPC_LOOKUP_KEY`; scan/type →
+auto-fills empty name/make/model/category/price/photo); ✅ **free
 on-device label read** ("Read label to name it" — reuses the tesseract.js OCR to
 read a product/box and suggest name+brand into empty fields; `lib/labelScan.ts`,
 pure + tested; nothing leaves the device). *Visual* AI photo auto-fill (objects

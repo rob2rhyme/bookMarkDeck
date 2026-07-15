@@ -68,3 +68,36 @@ export function shortCategory(category?: string): string | undefined {
   const leaf = category.split(">").pop()?.trim();
   return leaf && leaf.length ? leaf : category;
 }
+
+/** Open Facts categories are a comma-separated taxonomy, often "en:"-prefixed;
+ *  keep the readable leaf. */
+export function openFactsCategory(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const last = raw.split(",").pop()?.trim();
+  if (!last) return undefined;
+  const clean = last.replace(/^[a-z]{2}:/, "").replace(/-/g, " ").trim();
+  return clean.length ? clean : undefined;
+}
+
+/**
+ * Normalize an Open Facts (Open Food/Products/Beauty Facts) `/api/v2/product`
+ * response into ProductInfo. These are free + keyless + global (strong on
+ * EAN/JAN), so they backstop UPCitemdb's US-centric, rate-limited trial. No
+ * price in this source. Returns null on a miss (`status !== 1`) or empty item.
+ */
+export function parseOpenFacts(json: unknown): ProductInfo | null {
+  const root = (json ?? {}) as Record<string, unknown>;
+  if (root.status !== 1 && root.status !== "1") return null;
+  const p = (root.product ?? {}) as Record<string, unknown>;
+  if (!p || typeof p !== "object") return null;
+
+  const info: ProductInfo = {
+    name: str(p.product_name) ?? str(p.product_name_en) ?? str(p.generic_name),
+    brand: str(p.brands)?.split(",")[0]?.trim(),
+    category: openFactsCategory(str(p.categories)),
+    imageUrl: str(p.image_front_url) ?? str(p.image_url),
+  };
+
+  if (!info.name && !info.brand && !info.category) return null;
+  return info;
+}
