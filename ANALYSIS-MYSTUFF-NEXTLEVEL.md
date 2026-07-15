@@ -123,14 +123,26 @@ matrix suggests. The genuine gaps split cleanly into *on-brand wins* and
    HomeZada's best onboarding idea, minus the overwhelm.
 
 ### B — Worth it · needs a decision / infra
+*(App-lock — the one B item with no cost or privacy trade-off — is shipped.
+The rest still wait on an explicit go/no-go.)*
 - **AI photo→item (single item)** — suggest name/category from a photo. True
   multi-item/video capture needs **cloud vision + per-call cost + a privacy
   story**; ship only as an **opt-in, quota-gated** extra, never the default.
 - **Push-when-closed reminders** (warranty/maintenance/return due) — needs a
   scheduled **Cloud Function** (Blaze); the in-app badge already covers the
   open-app case (roadmap §2.7).
-- **App-lock (PIN / biometric via WebAuthn)** — on-brand privacy; the thing
-  Sortly removed and users missed.
+- ✅ **App-lock (PIN / biometric via WebAuthn)** — on-brand privacy; the thing
+  Sortly removed and users missed. A **🔒 Lock** on My Stuff: a 4–8 digit PIN
+  (salted SHA-256, never the raw PIN) with optional biometric unlock via the
+  platform authenticator (WebAuthn user-verification as a local presence gate —
+  no server, since the real boundary stays your Google sign-in). Re-locks on
+  load / when you return to the pillar, plus "Lock now"; an honest "Forgot PIN?"
+  reset reveals (data is never deleted). **Device-local only** — the PIN hash is
+  per-user localStorage, deliberately never synced to Firestore. Framed
+  everywhere as a *privacy screen, not encryption*. Pure `lib/appLock.ts`
+  (unit-tested), `useAppLock`, `AppLockGate` + `AppLockModal`. *(WebAuthn can't
+  be exercised headlessly; the PIN path is fully tested and biometric degrades
+  gracefully.)*
 - **Photo-to-find** — visual similarity search; needs embeddings/cloud → gated.
 
 ### C — Skip · off-brand for this product
@@ -145,5 +157,9 @@ public API/webhooks (pro audience, not the personal hub).
 **Tier A is complete** — A1 (smart questions) → A2 (rediscover) → A3 (QR
 labels) → A4 (wishlist) → A5 (maintenance calendar) → A6 (onboarding
 auto-rooms) all shipped, the highest value-per-effort and all reinforcing the
-calm/connected identity. Everything in B waits on an explicit go/no-go (cost,
-Blaze, or a privacy decision); C stays out to protect the brand.
+calm/connected identity. Into **Tier B**, **App-lock** is now shipped too — the
+one B item that needed no paid infra or privacy trade-off. The remaining B items
+each wait on an explicit go/no-go: **AI photo→item** and **Photo-to-find** (cloud
+vision / embeddings + per-call cost + a privacy story) and **push-when-closed
+reminders** (Firebase Blaze + a scheduled Cloud Function). C stays out to protect
+the brand.
