@@ -303,8 +303,11 @@ export default function GuidePage() {
               <strong>nestable locations</strong> — rooms, shelves, boxes —
               and browse in grid, list, or <strong>shelf</strong> view, which
               groups everything by where it lives with a per-spot count and
-              value. While naming a new item, a gentle &ldquo;you may already
-              own this&rdquo; hint helps before you buy a duplicate.
+              value. Starting fresh? A one-tap offer can{" "}
+              <strong>seed a handful of common rooms</strong> so the page is
+              never blank — rename or nest them however you like. While naming a
+              new item, a gentle &ldquo;you may already own this&rdquo; hint
+              helps before you buy a duplicate.
             </p>
             <p>
               Tap any item&apos;s photo or name to open its{" "}
