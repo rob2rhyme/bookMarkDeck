@@ -25,7 +25,6 @@ import {
   flattenTree,
   type LocationNode,
 } from "@/features/inventory/hooks/useInventoryLocations";
-import { useBarcodeSupported } from "@/features/inventory/hooks/useBarcodeSupported";
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 import type { ProductInfo } from "@/features/inventory/lib/productLookup";
 import { compressImageFile, dataUrlToBlob } from "@/features/inventory/lib/image";
@@ -176,7 +175,6 @@ export function ItemFormModal({
   const [ocrStatus, setOcrStatus] = useState<
     "idle" | "scanning" | "done" | "none" | "error"
   >("idle");
-  const barcodeSupported = useBarcodeSupported();
 
   // Seed the form when it opens (or when the target item changes). New items
   // start with details folded away — a name is enough to save (quick add);
@@ -557,6 +555,17 @@ export function ItemFormModal({
           />
         </Field>
 
+        {/* Fast path, always here (not buried under "Add details"): scan the
+            barcode → look it up → prefill. Works on any phone; if the camera
+            isn't reachable the scanner says so and you just type instead. */}
+        <button
+          type="button"
+          onClick={() => setScanning(true)}
+          className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/40 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+        >
+          📷 Scan barcode to autofill
+        </button>
+
         {lookalikes.length > 0 && (
           <p className="rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
             Looks like you may already own this:{" "}
@@ -854,7 +863,7 @@ export function ItemFormModal({
                     set("barcode", e.target.value);
                     if (lookupStatus !== "idle") setLookupStatus("idle");
                   }}
-                  placeholder={barcodeSupported ? "Scan or type…" : "Type the code…"}
+                  placeholder="Scan or type…"
                   className={fieldClass}
                 />
                 {draft.barcode.trim() && (
@@ -867,15 +876,13 @@ export function ItemFormModal({
                     {lookupStatus === "loading" ? "…" : "Look up"}
                   </button>
                 )}
-                {barcodeSupported && (
-                  <button
-                    type="button"
-                    onClick={() => setScanning(true)}
-                    className="shrink-0 rounded-lg border border-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
-                  >
-                    Scan
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setScanning(true)}
+                  className="shrink-0 rounded-lg border border-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+                >
+                  Scan
+                </button>
               </div>
               {lookupStatus !== "idle" && (
                 <p
