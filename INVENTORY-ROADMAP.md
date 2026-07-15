@@ -127,8 +127,11 @@ read locally, never uploaded; needs `wasm-unsafe-eval` in the prod CSP);
 ✅ **UPC/product
 enrichment** (shipped — session-gated `/api/inventory/product-lookup` proxy;
 UPCitemdb trial by default, paid provider via `UPC_LOOKUP_URL`/`UPC_LOOKUP_KEY`;
-scan/type → auto-fills empty name/make/model/category/price/photo); AI photo
-auto-fill only ever as billing-gated premium.
+scan/type → auto-fills empty name/make/model/category/price/photo); ✅ **free
+on-device label read** ("Read label to name it" — reuses the tesseract.js OCR to
+read a product/box and suggest name+brand into empty fields; `lib/labelScan.ts`,
+pure + tested; nothing leaves the device). *Visual* AI photo auto-fill (objects
+without text) only ever as billing-gated / bundled-model premium.
 
 **C — skip (off-brand):** social/public shelves, home-finance dashboards,
 insurance RCV/ACV mode, household multi-user (deliberate "not now"), full

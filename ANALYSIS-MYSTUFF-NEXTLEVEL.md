@@ -125,9 +125,14 @@ matrix suggests. The genuine gaps split cleanly into *on-brand wins* and
 ### B — Worth it · needs a decision / infra
 *(App-lock — the one B item with no cost or privacy trade-off — is shipped.
 The rest still wait on an explicit go/no-go.)*
-- **AI photo→item (single item)** — suggest name/category from a photo. True
-  multi-item/video capture needs **cloud vision + per-call cost + a privacy
-  story**; ship only as an **opt-in, quota-gated** extra, never the default.
+- ◑ **AI photo→item (single item)** — suggest name/category from a photo.
+  **Free on-device version shipped:** *"🔤 Read label to name it"* on the add
+  form runs the OCR already in the app (tesseract.js) over a photo of the item /
+  its box and prefills an empty **name** (+ brand → manufacturer) — zero new
+  deps, nothing leaves the device, `lib/labelScan.ts` pure + unit-tested. The
+  *visual* version (recognizing objects without text) still needs **cloud vision
+  or a bundled ML model + per-call cost/weight + a privacy story**; ship that
+  only as an **opt-in, quota-gated** extra, never the default.
 - **Push-when-closed reminders** (warranty/maintenance/return due) — needs a
   scheduled **Cloud Function** (Blaze); the in-app badge already covers the
   open-app case (roadmap §2.7).
@@ -157,9 +162,11 @@ public API/webhooks (pro audience, not the personal hub).
 **Tier A is complete** — A1 (smart questions) → A2 (rediscover) → A3 (QR
 labels) → A4 (wishlist) → A5 (maintenance calendar) → A6 (onboarding
 auto-rooms) all shipped, the highest value-per-effort and all reinforcing the
-calm/connected identity. Into **Tier B**, **App-lock** is now shipped too — the
-one B item that needed no paid infra or privacy trade-off. The remaining B items
-each wait on an explicit go/no-go: **AI photo→item** and **Photo-to-find** (cloud
-vision / embeddings + per-call cost + a privacy story) and **push-when-closed
-reminders** (Firebase Blaze + a scheduled Cloud Function). C stays out to protect
-the brand.
+calm/connected identity. Into **Tier B**, the **free** wins are shipped —
+**App-lock** (no infra/trade-off) and the **on-device label-read** free half of
+AI photo→item (reuses the existing OCR, no new deps). What's left in B each waits
+on an explicit go/no-go because it costs money or adds weight: the **visual**
+half of AI photo→item and **Photo-to-find** (cloud vision / embeddings or a
+bundled ML model + per-call cost/weight + a privacy story) and
+**push-when-closed reminders** (Firebase Blaze + a scheduled Cloud Function). C
+stays out to protect the brand.
