@@ -386,6 +386,14 @@ export default function GuidePage() {
               automatically each time you release something.
             </p>
           </Sub>
+          <Sub title="Rediscover">
+            <p>
+              Once a day, a calm <strong>Rediscover</strong> card surfaces one
+              thing you may have forgotten — a nudge to use it or let it go, not
+              a notification. Tap it to have a look, or dismiss it and it&apos;ll
+              bring something else tomorrow.
+            </p>
+          </Sub>
           <Sub title="Barcode, photos & your data">
             <p>
               <strong>Scan</strong> reads an item&apos;s barcode from the
