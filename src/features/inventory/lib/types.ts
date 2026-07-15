@@ -50,6 +50,21 @@ export type ItemLink = {
   url: string;
 };
 
+/**
+ * A competitor store link the user saved to price-check an item — the *manual*
+ * side of price comparison. When a live price API (UPCitemdb paid tier, matched
+ * by barcode) returns offers, those take precedence and these are bypassed;
+ * otherwise these saved links are what the comparison shows. `price` is the
+ * last-known price the user typed (optional — a bare link still compares).
+ */
+export type PriceLink = {
+  id: string;
+  store: string;
+  url: string;
+  price?: number;
+  currency?: string;
+};
+
 export type InventoryItem = {
   id: string;
   name: string;
@@ -63,6 +78,7 @@ export type InventoryItem = {
   currency?: string;
   retailer?: string;
   storeUrl?: string; // where to (re)buy it — the item's product/store page
+  compareLinks?: PriceLink[]; // competitor store links for price comparison
   manufacturer?: string;
   model?: string;
   serial?: string;

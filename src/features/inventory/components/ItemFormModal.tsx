@@ -16,6 +16,7 @@ import {
   type ItemDocKind,
   type ItemLink,
   type ItemPhoto,
+  type PriceLink,
 } from "@/features/inventory/lib/types";
 import { docKindLabel, suggestDocName } from "@/features/inventory/lib/documents";
 import {
@@ -54,6 +55,10 @@ type ItemFormModalProps = {
   onClose: () => void;
 };
 
+// A compare-link row while editing — price is a string so partial input
+// ("12.") doesn't get clobbered; converted to a number on save.
+type DraftPriceLink = { id: string; store: string; url: string; price: string };
+
 type Draft = {
   name: string;
   category: string;
@@ -72,6 +77,7 @@ type Draft = {
   barcode: string;
   retailer: string;
   storeUrl: string;
+  compareLinks: DraftPriceLink[];
   tags: string;
   photos: ItemPhoto[]; // full list — first photo is the card cover
   lentTo: string;
@@ -102,6 +108,12 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     barcode: item.barcode ?? "",
     retailer: item.retailer ?? "",
     storeUrl: item.storeUrl ?? "",
+    compareLinks: (item.compareLinks ?? []).map((l) => ({
+      id: l.id,
+      store: l.store,
+      url: l.url,
+      price: l.price != null ? String(l.price) : "",
+    })),
     tags: item.tags.join(", "),
     photos: item.photos ?? [],
     lentTo: item.lentTo ?? "",
@@ -119,6 +131,19 @@ const numOrUndef = (v: string): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 const trimmedOrUndef = (v: string): string | undefined => (v.trim() ? v.trim() : undefined);
+
+/** Draft compare-link rows → saved PriceLink[]; drops rows with no URL. */
+function buildCompareLinks(rows: DraftPriceLink[]): PriceLink[] | undefined {
+  const cleaned: PriceLink[] = rows
+    .map((l) => ({
+      id: l.id,
+      store: l.store.trim(),
+      url: l.url.trim(),
+      price: numOrUndef(l.price),
+    }))
+    .filter((l) => l.url !== "");
+  return cleaned.length ? cleaned : undefined;
+}
 
 const fieldClass =
   "w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none";
@@ -508,6 +533,22 @@ export function ItemFormModal({
       draft.links.filter((l) => l.id !== id)
     );
 
+  const addCompareLink = () =>
+    set("compareLinks", [
+      ...draft.compareLinks,
+      { id: crypto.randomUUID(), store: "", url: "", price: "" },
+    ]);
+  const updateCompareLink = (id: string, patch: Partial<DraftPriceLink>) =>
+    set(
+      "compareLinks",
+      draft.compareLinks.map((l) => (l.id === id ? { ...l, ...patch } : l))
+    );
+  const removeCompareLink = (id: string) =>
+    set(
+      "compareLinks",
+      draft.compareLinks.filter((l) => l.id !== id)
+    );
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
@@ -532,6 +573,7 @@ export function ItemFormModal({
       barcode: trimmedOrUndef(draft.barcode),
       retailer: trimmedOrUndef(draft.retailer),
       storeUrl: trimmedOrUndef(draft.storeUrl),
+      compareLinks: buildCompareLinks(draft.compareLinks),
       tags: draft.tags
         .split(",")
         .map((t) => t.trim())
@@ -1000,6 +1042,73 @@ export function ItemFormModal({
                   className={fieldClass}
                 />
               </Field>
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className={labelClass}>Compare prices at other stores</span>
+                <button
+                  type="button"
+                  onClick={addCompareLink}
+                  className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] font-medium text-slate-300 transition hover:border-blue-400 hover:text-blue-300"
+                >
+                  + Store
+                </button>
+              </div>
+              {draft.compareLinks.length === 0 ? (
+                <p className="text-[11px] text-slate-500">
+                  Add competitor links to compare. If a barcode lookup finds live
+                  prices, those are shown instead.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1.5">
+                  {draft.compareLinks.map((l) => (
+                    <li key={l.id} className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={l.store}
+                        onChange={(e) =>
+                          updateCompareLink(l.id, { store: e.target.value })
+                        }
+                        placeholder="Store"
+                        aria-label="Store name"
+                        className={`${fieldClass} w-24 shrink-0`}
+                      />
+                      <input
+                        type="url"
+                        inputMode="url"
+                        value={l.url}
+                        onChange={(e) =>
+                          updateCompareLink(l.id, { url: e.target.value })
+                        }
+                        placeholder="https://…"
+                        aria-label="Store URL"
+                        className={`${fieldClass} min-w-0 flex-1`}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={l.price}
+                        onChange={(e) =>
+                          updateCompareLink(l.id, { price: e.target.value })
+                        }
+                        placeholder="Price"
+                        aria-label="Price at this store"
+                        className={`${fieldClass} w-20 shrink-0`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCompareLink(l.id)}
+                        aria-label="Remove store"
+                        className="shrink-0 rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-red-300"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <Field label="Tags (comma-separated)">

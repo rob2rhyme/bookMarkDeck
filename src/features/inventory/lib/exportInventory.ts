@@ -138,6 +138,23 @@ function coerceLinks(raw: unknown): InventoryItem["links"] {
     .filter((l): l is NonNullable<typeof l> => l !== null);
 }
 
+function coercePriceLinks(raw: unknown): InventoryItem["compareLinks"] {
+  const links = (Array.isArray(raw) ? raw : [])
+    .map((l) => {
+      const r = rec(l);
+      if (typeof r.url !== "string" || !r.url.trim()) return null;
+      return {
+        id: typeof r.id === "string" ? r.id : r.url,
+        store: str(r.store).trim(),
+        url: r.url.trim(),
+        price: numOrUndef(r.price),
+        currency: str(r.currency).trim() || undefined,
+      };
+    })
+    .filter((l): l is NonNullable<typeof l> => l !== null);
+  return links.length ? links : undefined;
+}
+
 function coercePhotos(raw: unknown): InventoryItem["photos"] {
   return (Array.isArray(raw) ? raw : [])
     .map((p) => {
@@ -170,6 +187,7 @@ function coerceItem(raw: unknown): InventoryItem | null {
     currency: str(r.currency).trim() || undefined,
     retailer: str(r.retailer).trim() || undefined,
     storeUrl: str(r.storeUrl).trim() || undefined,
+    compareLinks: coercePriceLinks(r.compareLinks),
     manufacturer: str(r.manufacturer).trim() || undefined,
     model: str(r.model).trim() || undefined,
     serial: str(r.serial).trim() || undefined,
