@@ -374,9 +374,9 @@ export function InventoryDashboard() {
             A calm catalog of what you own — where it is, what it&apos;s worth, what needs a look.
           </p>
         </div>
-        {/* One row on mobile (swipe if they overflow), wrap on desktop —
-            keeps Where is it? / Locations / Add item on the same line. */}
-        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:shrink-0 [&>button]:whitespace-nowrap sm:mx-0 sm:shrink-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+        {/* Wrap onto multiple rows rather than a single scrolling strip — at
+            large font sizes a fixed row overflowed the mobile viewport. */}
+        <div className="flex shrink-0 flex-wrap gap-2">
           {total > 0 && (
             <button
               type="button"
