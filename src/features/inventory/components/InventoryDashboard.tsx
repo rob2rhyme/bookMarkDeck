@@ -13,6 +13,7 @@ import {
   saveItemDoc,
 } from "@/features/inventory/data/inventoryData";
 import { useBookmarkLibrary } from "@/features/inventory/hooks/useBookmarkLibrary";
+import { useWishlist } from "@/features/inventory/hooks/useWishlist";
 import { useFocusProjects } from "@/features/inventory/hooks/useFocusProjects";
 import { useInventory, blankItem } from "@/features/inventory/hooks/useInventory";
 import {
@@ -33,7 +34,11 @@ import {
   type ActivityType,
 } from "@/features/focus/data/focusData";
 import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
-import type { InventoryItem, ItemDoc } from "@/features/inventory/lib/types";
+import type {
+  InventoryItem,
+  ItemDoc,
+  WishlistItem,
+} from "@/features/inventory/lib/types";
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
 import { formatMoney, totalValue } from "@/features/inventory/lib/value";
 import { useRediscover } from "@/features/inventory/hooks/useRediscover";
@@ -41,6 +46,8 @@ import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
 import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal";
 import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
+import { WishlistModal } from "@/features/inventory/components/WishlistModal";
+import { wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
@@ -95,6 +102,7 @@ export function InventoryDashboard() {
   const inv = useInventory(email, connected);
   const loc = useInventoryLocations(email, connected);
   const bookmarkLibrary = useBookmarkLibrary(email);
+  const wishlist = useWishlist(email, connected);
   const focusProjects = useFocusProjects(email);
 
   // Compute "today" after mount so warranty math is hydration-safe.
@@ -119,6 +127,7 @@ export function InventoryDashboard() {
   const [lendOpen, setLendOpen] = useState(false);
   const [declutterOpen, setDeclutterOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
+  const [wishlistOpen, setWishlistOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -198,6 +207,12 @@ export function InventoryDashboard() {
     const it = inv.items.find((i) => i.id === id);
     inv.releaseItem(id, today || todayKey());
     if (it) logEvent("item_released", `Let go of: ${it.name}`);
+  };
+
+  // Wishlist → My Stuff: bought it, so make it a real item and clear the wish.
+  const gotItFromWishlist = (w: WishlistItem) => {
+    saveItem(wishlistToInventoryItem(w, settings.defaultCurrency));
+    wishlist.remove(w.id);
   };
 
   // Read-only detail view; its Edit button hands off to the form.
@@ -428,6 +443,18 @@ export function InventoryDashboard() {
               </span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setWishlistOpen(true)}
+            className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-pink-400 hover:text-pink-300"
+          >
+            ♡ Wishlist
+            {wishlist.items.length > 0 && (
+              <span className="rounded-full bg-pink-500/20 px-1.5 text-[11px] tabular-nums text-pink-100">
+                {wishlist.items.length}
+              </span>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setLocOpen(true)}
@@ -748,6 +775,18 @@ export function InventoryDashboard() {
         today={today}
         onPick={openDetail}
         onClose={() => setWhereOpen(false)}
+      />
+      <WishlistModal
+        open={wishlistOpen}
+        items={wishlist.items}
+        ownedItems={inv.items}
+        bookmarks={bookmarkLibrary}
+        categorySuggestions={categorySuggestions}
+        defaultCurrency={settings.defaultCurrency}
+        onUpsert={wishlist.upsert}
+        onRemove={wishlist.remove}
+        onGotIt={gotItFromWishlist}
+        onClose={() => setWishlistOpen(false)}
       />
       <ItemDetailModal
         open={detailItem !== null}

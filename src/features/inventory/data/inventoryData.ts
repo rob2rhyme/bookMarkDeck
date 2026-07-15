@@ -35,12 +35,15 @@ import {
   type ItemDisposition,
   type ItemDoc,
   type ItemDocKind,
+  type WishlistItem,
 } from "@/features/inventory/lib/types";
 
 const itemsCol = (uid: string) => collection(db, "users", uid, "inventoryItems");
 const locationsCol = (uid: string) =>
   collection(db, "users", uid, "inventoryLocations");
 const docsCol = (uid: string) => collection(db, "users", uid, "inventoryDocs");
+const wishlistCol = (uid: string) =>
+  collection(db, "users", uid, "inventoryWishlist");
 const settingsDoc = (uid: string) =>
   doc(db, "users", uid, "inventorySettings", "settings");
 
@@ -426,6 +429,83 @@ export function subscribeLocations(
       (snap) =>
         cb(snap.docs.map(mapLocation).filter((l) => l.name.trim().length > 0)),
       onListenError("locations")
+    )
+  );
+}
+
+/* -------------------------------------------------------------- wishlist --- */
+
+function mapWishlist(d: {
+  id: string;
+  data: () => Record<string, unknown>;
+}): WishlistItem {
+  const data = d.data();
+  const link = (data.link ?? {}) as Record<string, unknown>;
+  return prune({
+    id: d.id,
+    name: typeof data.name === "string" ? data.name : "",
+    note: strOrUndef(data.note),
+    estPrice: numOrUndef(data.estPrice),
+    currency: strOrUndef(data.currency),
+    category: strOrUndef(data.category),
+    link:
+      typeof link.url === "string" && link.url.trim()
+        ? {
+            id: typeof link.id === "string" ? link.id : link.url,
+            title:
+              typeof link.title === "string" && link.title.trim()
+                ? link.title
+                : (link.url as string),
+            url: link.url as string,
+          }
+        : undefined,
+    createdAt: timestampToIso(data.createdAt),
+  }) as WishlistItem;
+}
+
+export async function fetchWishlist(emailHint: string): Promise<WishlistItem[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(wishlistCol(uid));
+  return snap.docs.map(mapWishlist).filter((w) => w.name.trim().length > 0);
+}
+
+export async function saveWishlist(
+  emailHint: string,
+  w: WishlistItem
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(wishlistCol(uid), w.id),
+    prune({
+      name: w.name,
+      note: strOrUndef(w.note),
+      estPrice: numOrUndef(w.estPrice),
+      currency: strOrUndef(w.currency),
+      category: strOrUndef(w.category),
+      link: w.link ? { id: w.link.id, title: w.link.title, url: w.link.url } : undefined,
+      createdAt: w.createdAt ?? serverTimestamp(),
+    })
+  );
+}
+
+export async function deleteWishlist(
+  emailHint: string,
+  id: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(wishlistCol(uid), id));
+}
+
+export function subscribeWishlist(
+  emailHint: string,
+  cb: (items: WishlistItem[]) => void
+): Unsub {
+  return listen(emailHint, (uid) =>
+    onSnapshot(
+      wishlistCol(uid),
+      (snap) =>
+        cb(snap.docs.map(mapWishlist).filter((w) => w.name.trim().length > 0)),
+      onListenError("wishlist")
     )
   );
 }

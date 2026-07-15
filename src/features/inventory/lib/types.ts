@@ -128,6 +128,23 @@ export type InventoryLocation = {
   updatedAt: string | null;
 };
 
+/**
+ * A "want to buy" entry — its own list, kept separate from owned items. Ties the
+ * two on-brand connections: an optional `link` (the product-page bookmark) and,
+ * via the duplicate guard, a nudge when you may already own something like it.
+ * Stored in `users/{uid}/inventoryWishlist/{id}`.
+ */
+export type WishlistItem = {
+  id: string;
+  name: string;
+  note?: string;
+  estPrice?: number;
+  currency?: string;
+  category?: string;
+  link?: ItemLink; // product page / where to buy
+  createdAt: string | null;
+};
+
 export type InventoryView = "grid" | "list" | "shelf";
 
 export type InventorySettings = {

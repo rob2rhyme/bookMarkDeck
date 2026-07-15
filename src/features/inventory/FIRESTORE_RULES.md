@@ -8,6 +8,7 @@ users/{uid}/inventoryItems/{itemId}
 users/{uid}/inventoryLocations/{locationId}
 users/{uid}/inventorySettings/settings
 users/{uid}/inventoryDocs/{docId}          # receipt/manual attachments (per item)
+users/{uid}/inventoryWishlist/{wishId}     # "want to buy" list (separate from owned items)
 ```
 
 ## Firestore — no change required ✅
@@ -38,6 +39,9 @@ match /users/{uid}/inventoryLocations/{locationId} {
   allow read, write: if request.auth != null && request.auth.uid == uid;
 }
 match /users/{uid}/inventorySettings/{doc} {
+  allow read, write: if request.auth != null && request.auth.uid == uid;
+}
+match /users/{uid}/inventoryWishlist/{wishId} {
   allow read, write: if request.auth != null && request.auth.uid == uid;
 }
 ```
