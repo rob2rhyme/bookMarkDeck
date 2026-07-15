@@ -8,6 +8,8 @@ import {
   formatMoney,
   itemResale,
   itemValue,
+  paidWithTax,
+  taxAmount,
   maintenanceState,
   reminderCount,
   resaleCurve,
@@ -64,6 +66,21 @@ describe("itemValue / totalValue", () => {
       item({ value: 999, archived: true }),
     ];
     expect(totalValue(items)).toBe(100);
+  });
+});
+
+describe("taxAmount / paidWithTax", () => {
+  it("applies the rate to price × quantity", () => {
+    const i = item({ price: 100, taxRate: 6, quantity: 2 });
+    expect(taxAmount(i)).toBeCloseTo(12);
+    expect(paidWithTax(i)).toBeCloseTo(212);
+  });
+
+  it("is zero without a price or a positive rate", () => {
+    expect(taxAmount(item({ taxRate: 6 }))).toBe(0);
+    expect(taxAmount(item({ price: 50 }))).toBe(0);
+    expect(taxAmount(item({ price: 50, taxRate: 0 }))).toBe(0);
+    expect(paidWithTax(item({ price: 50 }))).toBe(50);
   });
 });
 

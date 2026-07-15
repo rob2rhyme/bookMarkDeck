@@ -24,6 +24,8 @@ import {
   daysUntil,
   formatMoney,
   itemValue,
+  paidWithTax,
+  taxAmount,
   warrantyState,
 } from "@/features/inventory/lib/value";
 
@@ -261,6 +263,7 @@ export function ItemDetailModal({
 
   const currency = item.currency ?? fallbackCurrency;
   const value = itemValue(item);
+  const tax = taxAmount(item);
   const compare = resolvePriceComparison(
     priceOffers.offers,
     item.compareLinks ?? [],
@@ -372,6 +375,8 @@ export function ItemDetailModal({
               item.condition}
           </Chip>
         )}
+        {item.inBox === true && <Chip>📦 In box</Chip>}
+        {item.inBox === false && <Chip>📭 Unboxed</Chip>}
         {item.collection && (
           <Chip cls="bg-teal-500/15 text-teal-200">🧰 {item.collection}</Chip>
         )}
@@ -417,7 +422,16 @@ export function ItemDetailModal({
         <FactRow label="Purchased" value={item.purchaseDate} />
         <FactRow
           label="Paid"
-          value={item.price != null ? formatMoney(item.price, currency) : undefined}
+          value={
+            item.price != null
+              ? tax > 0
+                ? `${formatMoney(item.price, currency)} + ${formatMoney(
+                    tax,
+                    currency
+                  )} tax = ${formatMoney(paidWithTax(item), currency)}`
+                : formatMoney(item.price, currency)
+              : undefined
+          }
         />
         <FactRow label="Retailer" value={item.retailer} />
         {item.storeUrl && (

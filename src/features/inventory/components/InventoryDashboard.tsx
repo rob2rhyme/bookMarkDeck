@@ -45,6 +45,7 @@ import { formatMoney, totalValue } from "@/features/inventory/lib/value";
 import { useRediscover } from "@/features/inventory/hooks/useRediscover";
 import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
+import { ItemListCard } from "@/features/inventory/components/ItemListCard";
 import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal";
 import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
 import { WishlistModal } from "@/features/inventory/components/WishlistModal";
@@ -758,14 +759,25 @@ export function InventoryDashboard() {
               </section>
             ))}
         </div>
+      ) : settings.defaultView === "list" ? (
+        /* List view — landscape "all-details" cards, one per row. */
+        <div className="flex flex-col gap-3">
+          {visible.map((item) => (
+            <ItemListCard
+              key={item.id}
+              item={item}
+              locationName={item.locationId ? loc.nameById[item.locationId] : undefined}
+              fallbackCurrency={settings.defaultCurrency}
+              today={today}
+              onOpen={openDetail}
+              onEdit={openEdit}
+              onArchive={(it) => inv.setArchived(it.id, !it.archived)}
+              onRemove={removeItemAndDocs}
+            />
+          ))}
+        </div>
       ) : (
-        <div
-          className={
-            settings.defaultView === "grid"
-              ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-              : "grid grid-cols-1 gap-3 sm:grid-cols-2"
-          }
-        >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {visible.map((item) => (
             <ItemCard
               key={item.id}

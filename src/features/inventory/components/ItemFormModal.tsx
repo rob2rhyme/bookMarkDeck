@@ -18,6 +18,7 @@ import {
   type ItemPhoto,
   type PriceLink,
 } from "@/features/inventory/lib/types";
+import { DEFAULT_TAX_RATE } from "@/features/inventory/lib/value";
 import { docKindLabel, suggestDocName } from "@/features/inventory/lib/documents";
 import {
   filterBookmarks,
@@ -66,11 +67,13 @@ type Draft = {
   quantity: string;
   value: string;
   price: string;
+  taxRate: string;
   currency: string;
   purchaseDate: string;
   warrantyExpiry: string;
   maintenanceDate: string;
   condition: "" | ItemCondition;
+  inBox: "" | "yes" | "no";
   manufacturer: string;
   model: string;
   serial: string;
@@ -90,6 +93,9 @@ type Draft = {
 };
 
 function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
+  // A brand-new item (from blankItem) gets the default tax rate prefilled;
+  // existing items created before the field keep "no tax" rather than gaining it.
+  const isNew = !item.updatedAt && item.name === "";
   return {
     name: item.name,
     category: item.category ?? "",
@@ -97,11 +103,18 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     quantity: String(item.quantity || 1),
     value: item.value != null ? String(item.value) : "",
     price: item.price != null ? String(item.price) : "",
+    taxRate:
+      item.taxRate != null
+        ? String(item.taxRate)
+        : isNew
+          ? String(DEFAULT_TAX_RATE)
+          : "",
     currency: item.currency ?? fallbackCurrency,
     purchaseDate: item.purchaseDate ?? "",
     warrantyExpiry: item.warrantyExpiry ?? "",
     maintenanceDate: item.maintenanceDate ?? "",
     condition: item.condition ?? "",
+    inBox: item.inBox === true ? "yes" : item.inBox === false ? "no" : "",
     manufacturer: item.manufacturer ?? "",
     model: item.model ?? "",
     serial: item.serial ?? "",
@@ -562,11 +575,13 @@ export function ItemFormModal({
       quantity: Math.max(1, Math.round(numOrUndef(draft.quantity) ?? 1)),
       value: numOrUndef(draft.value),
       price: numOrUndef(draft.price),
+      taxRate: numOrUndef(draft.taxRate),
       currency: trimmedOrUndef(draft.currency) ?? defaultCurrency,
       purchaseDate: trimmedOrUndef(draft.purchaseDate),
       warrantyExpiry: trimmedOrUndef(draft.warrantyExpiry),
       maintenanceDate: trimmedOrUndef(draft.maintenanceDate),
       condition: draft.condition || undefined,
+      inBox: draft.inBox === "yes" ? true : draft.inBox === "no" ? false : undefined,
       manufacturer: trimmedOrUndef(draft.manufacturer),
       model: trimmedOrUndef(draft.model),
       serial: trimmedOrUndef(draft.serial),
@@ -941,7 +956,7 @@ export function ItemFormModal({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Field label="Paid (price)">
                 <input
                   type="number"
@@ -949,6 +964,17 @@ export function ItemFormModal({
                   step="0.01"
                   value={draft.price}
                   onChange={(e) => set("price", e.target.value)}
+                  placeholder="0"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Tax %">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draft.taxRate}
+                  onChange={(e) => set("taxRate", e.target.value)}
                   placeholder="0"
                   className={fieldClass}
                 />
@@ -968,6 +994,18 @@ export function ItemFormModal({
                 </select>
               </Field>
             </div>
+
+            <Field label="In its original box?">
+              <select
+                value={draft.inBox}
+                onChange={(e) => set("inBox", e.target.value as Draft["inBox"])}
+                className={fieldClass}
+              >
+                <option value="">— Not specified</option>
+                <option value="yes">Yes — boxed (location = where the box is)</option>
+                <option value="no">No — unboxed (location = where the item is)</option>
+              </select>
+            </Field>
 
             <div className="grid grid-cols-3 gap-2">
               <Field label="Purchase date">

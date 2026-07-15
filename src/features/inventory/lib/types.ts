@@ -75,6 +75,7 @@ export type InventoryItem = {
   quantity: number;
   purchaseDate?: string; // YYYY-MM-DD
   price?: number;
+  taxRate?: number; // sales-tax % applied to price (e.g. 6 → 6%)
   currency?: string;
   retailer?: string;
   storeUrl?: string; // where to (re)buy it — the item's product/store page
@@ -86,6 +87,10 @@ export type InventoryItem = {
   warrantyExpiry?: string; // YYYY-MM-DD → surfaces in the Attention panel
   maintenanceDate?: string; // YYYY-MM-DD → next service/upkeep; surfaces in Attention
   condition?: ItemCondition;
+  // Whether the item is in its original box/packaging. undefined = unspecified;
+  // the item's `locationId` records where it lives either way (the box, if
+  // boxed; the loose item, if not).
+  inBox?: boolean;
   value?: number; // manual current-value estimate (per unit)
   notes?: string;
   lentTo?: string | null;
