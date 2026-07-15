@@ -380,11 +380,12 @@ export default function GuidePage() {
           </Sub>
           <Sub title="Barcode, photos & your data">
             <p>
-              On a supporting browser (Chromium), <strong>Scan</strong> reads an
-              item&apos;s barcode from the camera — or type it and press{" "}
-              <strong>Look up</strong>. Either way, a match auto-fills the empty
-              fields (name, make, model, category, price, photo); your own
-              entries are never overwritten. You can also{" "}
+              <strong>Scan</strong> reads an item&apos;s barcode from the
+              camera (works on any phone — including iPhone) — or type it and
+              press <strong>Look up</strong>. Either way, a match auto-fills the
+              empty fields (name, make, model, category, price, photo); your own
+              entries are never overwritten. Detection runs on your device — the
+              camera image never leaves the browser. You can also{" "}
               <strong>Scan a receipt</strong> (beta, entirely on your device) to
               fill in the retailer, purchase date, and price — the photo is read
               locally and never uploaded. You can always add a photo by URL too.
