@@ -562,9 +562,10 @@ export function ItemFormModal({
       open={open}
       onClose={closeAndSweep}
       label={isNew ? "Add item" : "Edit item"}
-      panelClassName="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6 shadow-2xl outline-none"
+      overlayClassName="inset-0 flex items-stretch justify-center sm:items-center sm:px-4 sm:py-[5vh]"
+      panelClassName="flex w-full flex-col max-h-screen sm:max-w-lg sm:max-h-[90vh] overflow-y-auto border-slate-800 bg-slate-900 p-4 sm:p-6 shadow-2xl outline-none sm:rounded-2xl sm:border"
     >
-      <form onSubmit={submit} className="flex flex-col gap-2.5">
+      <form onSubmit={submit} className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-50">
             {isNew ? "Add item" : "Edit item"}

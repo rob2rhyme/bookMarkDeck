@@ -6,7 +6,10 @@ import {
   openFactsCategory,
   parseOpenFacts,
   parseUpcItemDb,
+  resolveUpcEndpoint,
   shortCategory,
+  UPC_TRIAL_URL,
+  usableLookupKey,
 } from "@/features/inventory/lib/productLookup";
 
 describe("normalizeBarcode / looksScannable", () => {
@@ -71,6 +74,52 @@ describe("shortCategory", () => {
     expect(shortCategory("Electronics > Audio > Headphones")).toBe("Headphones");
     expect(shortCategory("Toys")).toBe("Toys");
     expect(shortCategory(undefined)).toBeUndefined();
+  });
+});
+
+describe("usableLookupKey", () => {
+  it("accepts a real-looking key", () => {
+    expect(usableLookupKey("a1b2c3d4e5f6g7h8")).toBe("a1b2c3d4e5f6g7h8");
+    expect(usableLookupKey("  padded_but_long_enough_key  ")).toBe(
+      "padded_but_long_enough_key"
+    );
+  });
+  it("rejects blanks, short strings, and pasted placeholders", () => {
+    expect(usableLookupKey(undefined)).toBeUndefined();
+    expect(usableLookupKey("")).toBeUndefined();
+    expect(usableLookupKey("short")).toBeUndefined();
+    expect(usableLookupKey("<your user_key from the dashboard>")).toBeUndefined();
+    expect(usableLookupKey("your_user_key_here")).toBeUndefined();
+    expect(usableLookupKey("PLACEHOLDER_VALUE_X")).toBeUndefined();
+  });
+});
+
+describe("resolveUpcEndpoint", () => {
+  it("defaults to the keyless trial endpoint", () => {
+    expect(resolveUpcEndpoint(undefined, undefined)).toEqual({ url: UPC_TRIAL_URL });
+  });
+  it("falls back to trial when the paid endpoint has a placeholder key (the trap)", () => {
+    expect(
+      resolveUpcEndpoint(
+        "https://api.upcitemdb.com/prod/v1/lookup",
+        "<your user_key from the dashboard>"
+      )
+    ).toEqual({ url: UPC_TRIAL_URL });
+  });
+  it("uses the paid endpoint when a real key backs it", () => {
+    const out = resolveUpcEndpoint(
+      "https://api.upcitemdb.com/prod/v1/lookup",
+      "realkey_abcdef123456"
+    );
+    expect(out).toEqual({
+      url: "https://api.upcitemdb.com/prod/v1/lookup",
+      key: "realkey_abcdef123456",
+    });
+  });
+  it("passes a custom (non-upcitemdb) provider through as configured", () => {
+    expect(resolveUpcEndpoint("https://api.example.com/lookup", undefined)).toEqual({
+      url: "https://api.example.com/lookup",
+    });
   });
 });
 
