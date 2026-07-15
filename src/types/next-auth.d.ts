@@ -14,6 +14,10 @@ declare module "next-auth/jwt" {
   interface JWT {
     accessToken?: string;
     refreshToken?: string;
+    // Google OIDC id_token — bridged client-side into Firebase Auth so a single
+    // Google login also signs the user into Firebase (see /api/firebase-token
+    // + FirebaseSyncBridge). Read server-side only via getToken().
+    idToken?: string;
     expiresAt?: number;
     error?: string;
     picture?: string;

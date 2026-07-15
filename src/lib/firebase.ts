@@ -1,7 +1,7 @@
 // src/lib/firebase.ts
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from "firebase/auth";
+import { getAuth, getRedirectResult, GoogleAuthProvider, signInWithCredential, signInWithPopup, signInWithRedirect, signOut, type User } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -128,4 +128,28 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
       });
   }
   return authPromise;
+}
+
+/**
+ * Bridge a single Google login into Firebase Auth: exchange the next-auth
+ * Google id_token for a Firebase session with no popup/redirect, so every
+ * pillar (Bookmarks, Focus, Habits, My Stuff) is synced after one login.
+ *
+ * Best-effort by design — returns null (never throws) if the credential is
+ * rejected (e.g. the OAuth client isn't whitelisted on the Firebase project) or
+ * has expired. Callers fall back to the interactive ensureFirebaseGoogleAuth
+ * flow, so a failed bridge is a no-op, never a regression. Skips work when a
+ * Firebase session already exists (restored from persistence or a prior sign-in).
+ */
+export async function bridgeFirebaseFromIdToken(
+  idToken: string
+): Promise<User | null> {
+  if (auth.currentUser) return auth.currentUser;
+  try {
+    const credential = GoogleAuthProvider.credential(idToken);
+    const result = await signInWithCredential(auth, credential);
+    return result.user ?? null;
+  } catch {
+    return null;
+  }
 }
