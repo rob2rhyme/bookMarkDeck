@@ -36,9 +36,11 @@ import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
 import type { InventoryItem, ItemDoc } from "@/features/inventory/lib/types";
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
 import { formatMoney, totalValue } from "@/features/inventory/lib/value";
+import { useRediscover } from "@/features/inventory/hooks/useRediscover";
 import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
 import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal";
+import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";
@@ -205,6 +207,9 @@ export function InventoryDashboard() {
     setDetailItem(null);
     openEdit(item);
   };
+
+  // Calm daily "rediscover a forgotten item" nudge.
+  const rediscover = useRediscover(email, inv.active, today);
 
   // Keep LocationManager's promise: items in a deleted location become
   // Unassigned for real (their docs update too, when connected) instead of
@@ -442,6 +447,20 @@ export function InventoryDashboard() {
             </button>
           </div>
         </div>
+      )}
+
+      {rediscover.item && (
+        <RediscoverCard
+          item={rediscover.item}
+          locationPath={
+            rediscover.item.locationId
+              ? locationPathsById(loc.locations)[rediscover.item.locationId] ?? []
+              : []
+          }
+          currency={settings.defaultCurrency}
+          onOpen={openDetail}
+          onDismiss={rediscover.dismiss}
+        />
       )}
 
       {total > 0 && (

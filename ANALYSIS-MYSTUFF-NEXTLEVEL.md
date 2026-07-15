@@ -91,9 +91,10 @@ matrix suggests. The genuine gaps split cleanly into *on-brand wins* and
    / not photographed / most valuable), zero AI/cost. Shipped folded into the
    renamed **Find & ask** modal: empty box → tappable question chips (with
    counts) → the matching items. `lib/smartQuestions.ts` (pure, unit-tested).
-2. **"Rediscover what you own"** — a calm dashboard card resurfacing a
-   forgotten item (Spullio's delight loop): use it, or send it to declutter.
-   Tiny effort, deeply on-brand for a *calm* hub.
+2. ✅ **"Rediscover what you own"** — a calm once-a-day dashboard card
+   resurfacing a forgotten (least-recently-touched) item; open it or dismiss
+   for the day. Deterministic per day (`lib/rediscover.ts`, unit-tested), tiny
+   per-user localStorage dismiss — no cloud write.
 3. **QR labels for locations/containers** — print a QR per location that opens
    its "what's in here" view; scan to check a sealed box without unpacking. The
    most-loved *physical* feature across NestEgg/Sortly/Scanlily; no AI, reuses
