@@ -432,7 +432,11 @@ export default function GuidePage() {
               camera (works on any phone — including iPhone) — or type it and
               press <strong>Look up</strong>. Either way, a match auto-fills the
               empty fields (name, make, model, category, price, photo); your own
-              entries are never overwritten. Detection runs on your device — the
+              entries are never overwritten. No barcode? <strong>🔤 Read label
+              to name it</strong> snaps the item or its box and reads the printed
+              text on your device to suggest a name (and brand) — handy for
+              things that have words but no code. It&apos;s a suggestion into
+              empty fields; nothing is uploaded. Detection runs on your device — the
               camera image never leaves the browser. You can also{" "}
               <strong>Scan a receipt</strong> (beta, entirely on your device) to
               fill in the retailer, purchase date, and price — the photo is read

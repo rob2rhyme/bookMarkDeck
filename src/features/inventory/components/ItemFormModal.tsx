@@ -32,7 +32,7 @@ import {
   deleteInventoryObjects,
   uploadInventoryPhoto,
 } from "@/features/inventory/lib/uploadPhoto";
-import { runReceiptOcr } from "@/features/inventory/lib/ocrEngine";
+import { runLabelOcr, runReceiptOcr } from "@/features/inventory/lib/ocrEngine";
 
 type ItemFormModalProps = {
   open: boolean;
@@ -175,6 +175,9 @@ export function ItemFormModal({
   const [ocrStatus, setOcrStatus] = useState<
     "idle" | "scanning" | "done" | "none" | "error"
   >("idle");
+  const [labelStatus, setLabelStatus] = useState<
+    "idle" | "scanning" | "done" | "none" | "error"
+  >("idle");
 
   // Seed the form when it opens (or when the target item changes). New items
   // start with details folded away — a name is enough to save (quick add);
@@ -193,6 +196,7 @@ export function ItemFormModal({
       setAddingDoc(false);
       setDocKind("receipt");
       setOcrStatus("idle");
+      setLabelStatus("idle");
       setPhotoUrlInput("");
       sessionUploadsRef.current.clear();
     }
@@ -392,6 +396,34 @@ export function ItemFormModal({
     }
   };
 
+  // On-device label OCR: read the text off a product / its box and suggest the
+  // name (and brand → manufacturer) into empty fields. Nothing is uploaded.
+  const scanLabel = async (file: File | undefined) => {
+    if (!file) return;
+    const sid = sessionIdRef.current;
+    setLabelStatus("scanning");
+    try {
+      const { dataUrl } = await compressImageFile(file, { maxEdge: 1600, quality: 0.7 });
+      const f = await runLabelOcr(dataUrl);
+      if (sid !== sessionIdRef.current) return; // modal moved on
+      const got = Boolean(f.name || f.brand);
+      setDraft((d) =>
+        d
+          ? {
+              ...d,
+              name: d.name.trim() ? d.name : f.name ?? d.name,
+              manufacturer: d.manufacturer.trim()
+                ? d.manufacturer
+                : f.brand ?? d.manufacturer,
+            }
+          : d
+      );
+      setLabelStatus(got ? "done" : "none");
+    } catch {
+      setLabelStatus("error");
+    }
+  };
+
   const addDoc = async (file: File | undefined) => {
     if (!file || !item) return;
     const sid = sessionIdRef.current;
@@ -558,13 +590,53 @@ export function ItemFormModal({
         {/* Fast path, always here (not buried under "Add details"): scan the
             barcode → look it up → prefill. Works on any phone; if the camera
             isn't reachable the scanner says so and you just type instead. */}
-        <button
-          type="button"
-          onClick={() => setScanning(true)}
-          className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/40 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
-        >
-          📷 Scan barcode to autofill
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => setScanning(true)}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/40 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+          >
+            📷 Scan barcode to autofill
+          </button>
+          {/* No barcode? Read the text off the item or its box to name it —
+              same on-device OCR as the receipt scan, nothing leaves the device. */}
+          <label
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/40 px-4 py-2 text-sm font-medium transition ${
+              labelStatus === "scanning"
+                ? "text-slate-400"
+                : "cursor-pointer text-slate-200 hover:border-blue-400 hover:text-blue-300"
+            }`}
+          >
+            🔤 {labelStatus === "scanning" ? "Reading label…" : "Read label to name it"}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              disabled={labelStatus === "scanning"}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                scanLabel(f);
+              }}
+            />
+          </label>
+        </div>
+        {labelStatus === "done" && (
+          <p className="-mt-1 text-[11px] text-emerald-300">
+            Named it from the label — tweak anything that&apos;s off.
+          </p>
+        )}
+        {labelStatus === "none" && (
+          <p className="-mt-1 text-[11px] text-amber-300/90">
+            Couldn&apos;t read a name — try a clearer shot of the label, or type it.
+          </p>
+        )}
+        {labelStatus === "error" && (
+          <p className="-mt-1 text-[11px] text-amber-300/90">
+            Label scan didn&apos;t work — you can still type the name.
+          </p>
+        )}
 
         {lookalikes.length > 0 && (
           <p className="rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
