@@ -341,7 +341,7 @@ export function InventoryDashboard() {
               onClick={() => setWhereOpen(true)}
               className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
             >
-              <MapPin className="h-4 w-4" /> Where is it?
+              <MapPin className="h-4 w-4" /> Find &amp; ask
             </button>
           )}
           {lending.length > 0 && (
@@ -688,6 +688,7 @@ export function InventoryDashboard() {
         open={whereOpen}
         items={inv.active}
         locations={loc.locations}
+        today={today}
         onPick={openDetail}
         onClose={() => setWhereOpen(false)}
       />
