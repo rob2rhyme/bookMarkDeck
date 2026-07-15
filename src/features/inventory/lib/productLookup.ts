@@ -23,6 +23,39 @@ export function looksScannable(code: string): boolean {
   return /^\d{8,14}$/.test(c);
 }
 
+/** The keyless UPCitemdb trial endpoint — the safe default when there's no key. */
+export const UPC_TRIAL_URL = "https://api.upcitemdb.com/prod/trial/lookup";
+
+/** A user_key that's actually usable — not blank, not a pasted placeholder like
+ *  "<your user_key from the dashboard>". Guards the #1 misconfiguration. */
+export function usableLookupKey(key?: string): string | undefined {
+  const k = key?.trim();
+  if (!k || k.length < 12) return undefined;
+  if (/[<>]|\byour\b|user[_ ]?key|placeholder|example|xxxx|dashboard/i.test(k)) {
+    return undefined;
+  }
+  return k;
+}
+
+/**
+ * Pick the UPCitemdb endpoint + key to use. The paid endpoint (`/prod/v1/`)
+ * hard-requires a real key, so if it's configured without one we fall back to
+ * the free trial rather than 401 on every scan — the exact trap of pointing
+ * UPC_LOOKUP_URL at the paid endpoint with a placeholder key. Other custom
+ * providers are used as configured.
+ */
+export function resolveUpcEndpoint(
+  url?: string,
+  key?: string
+): { url: string; key?: string } {
+  const validKey = usableLookupKey(key);
+  const configured = url?.trim();
+  if (!configured) return { url: UPC_TRIAL_URL, key: validKey };
+  const isPaidUpcItemDb = /upcitemdb\.com\/prod\/v1\//i.test(configured);
+  if (isPaidUpcItemDb && !validKey) return { url: UPC_TRIAL_URL };
+  return { url: configured, key: validKey };
+}
+
 const str = (v: unknown): string | undefined => {
   if (typeof v !== "string") return undefined;
   const t = v.trim();

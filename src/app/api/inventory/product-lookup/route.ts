@@ -6,6 +6,7 @@ import {
   normalizeBarcode,
   parseOpenFacts,
   parseUpcItemDb,
+  resolveUpcEndpoint,
   shortCategory,
   type ProductInfo,
 } from "@/features/inventory/lib/productLookup";
@@ -14,10 +15,13 @@ export const runtime = "nodejs";
 
 // Barcode → product lookup. Defaults to the UPCitemdb *trial* endpoint (no key,
 // rate-limited); point UPC_LOOKUP_URL at a paid endpoint and set UPC_LOOKUP_KEY
-// to upgrade without code changes. Session-gated so it isn't an open proxy.
-const LOOKUP_BASE =
-  process.env.UPC_LOOKUP_URL ?? "https://api.upcitemdb.com/prod/trial/lookup";
-const LOOKUP_KEY = process.env.UPC_LOOKUP_KEY;
+// to upgrade without code changes. resolveUpcEndpoint also *recovers* from the
+// common misconfig — paid URL set but the key blank/placeholder — by using the
+// free trial instead of 401-ing every scan. Session-gated (not an open proxy).
+const { url: LOOKUP_BASE, key: LOOKUP_KEY } = resolveUpcEndpoint(
+  process.env.UPC_LOOKUP_URL,
+  process.env.UPC_LOOKUP_KEY
+);
 
 // Free, keyless, global fallbacks (great for EAN/JAN — where the US-centric,
 // rate-limited UPCitemdb trial misses most). Same API shape across all three.
