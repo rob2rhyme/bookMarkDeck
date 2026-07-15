@@ -33,6 +33,15 @@ Two independent auth systems, by design:
    - `ensureFirebaseGoogleAuth(emailHint)` in `src/lib/firebase.ts` signs the user into Firebase
      (using the next-auth email as `login_hint`) and returns the Firebase `User`.
    - Firestore reads/writes happen **client-side** and are scoped by `user.uid`.
+   - **One login → all pillars synced:** `FirebaseSyncBridge` (mounted in `src/app/(app)/layout.tsx`)
+     exchanges the next-auth Google **id_token** — captured on the JWT in `auth.config.ts`, served by
+     the session-gated `src/app/api/firebase-token/route.ts` — for a Firebase session via
+     `bridgeFirebaseFromIdToken` (`signInWithCredential`, silent, no popup) on the first authenticated
+     load when no session is restored. So a single Google sign-in covers every pillar's Firestore sync
+     instead of each prompting "Sign in to sync." **Best-effort:** on failure the interactive
+     `ensureFirebaseGoogleAuth` path remains the fallback (no regression). Fully zero-click requires the
+     next-auth Google OAuth client ID whitelisted on the Firebase project's Google provider; otherwise
+     it degrades to one tap that lights up all pillars.
 
 **Reuse both — never add a second auth system or a second database.**
 
