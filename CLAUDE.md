@@ -95,7 +95,8 @@ Client (`NEXT_PUBLIC_*`, read in `src/lib/firebase.ts`):
 `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`.
 Server (next-auth): `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
 Secrets live only in the gitignored `.env.local`. `.env.example` is the annotated
-full list (next-auth, Firebase, and the optional push/QStash/UPC-lookup/R2 sets).
+full list (next-auth, Firebase, and the optional push/QStash/UPC-lookup/AI-capture/R2
+sets — AI capture = `ANTHROPIC_API_KEY` + optional `AI_CAPTURE_MODEL`).
 Owner-deferred config decisions live in `FUTURE-PLANS.md`.
 
 ## Commands & CI

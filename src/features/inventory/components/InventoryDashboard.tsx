@@ -38,16 +38,19 @@ import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
 import type {
   InventoryItem,
   ItemDoc,
+  ItemPhoto,
   WishlistItem,
 } from "@/features/inventory/lib/types";
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
-import { formatMoney, totalValue } from "@/features/inventory/lib/value";
+import { DEFAULT_TAX_RATE, formatMoney, totalValue } from "@/features/inventory/lib/value";
 import { useRediscover } from "@/features/inventory/hooks/useRediscover";
 import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
 import { ItemListCard } from "@/features/inventory/components/ItemListCard";
 import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal";
 import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
+import { AiCaptureModal } from "@/features/inventory/components/AiCaptureModal";
+import type { AiProduct } from "@/features/inventory/lib/aiCapture";
 import { WishlistModal } from "@/features/inventory/components/WishlistModal";
 import { wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
 import { MaintenanceCalendarModal } from "@/features/inventory/components/MaintenanceCalendarModal";
@@ -145,6 +148,7 @@ export function InventoryDashboard() {
   const [declutterOpen, setDeclutterOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [lockOpen, setLockOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -242,6 +246,37 @@ export function InventoryDashboard() {
   const gotItFromWishlist = (w: WishlistItem) => {
     saveItem(wishlistToInventoryItem(w, settings.defaultCurrency));
     wishlist.remove(w.id);
+  };
+
+  // AI capture → its two destinations. "Already bought" hands a prefilled item
+  // (with the photo as the cover) to the normal add form for review; "Wishlist"
+  // saves the wish directly and opens the list so it's visible right away.
+  const aiAlreadyBought = (p: AiProduct, photo: ItemPhoto | null) => {
+    setAiOpen(false);
+    setEditing({
+      ...blankItem(settings.defaultCurrency),
+      name: p.name,
+      category: p.category,
+      manufacturer: p.brand,
+      price: p.estPrice,
+      taxRate: DEFAULT_TAX_RATE,
+      notes: p.description,
+      photos: photo ? [photo] : [],
+    });
+    setFormOpen(true);
+  };
+  const aiToWishlist = (p: AiProduct) => {
+    setAiOpen(false);
+    wishlist.upsert({
+      id: crypto.randomUUID(),
+      name: p.name,
+      category: p.category,
+      estPrice: p.estPrice,
+      note: p.description,
+      currency: settings.defaultCurrency,
+      createdAt: new Date().toISOString(),
+    });
+    setWishlistOpen(true);
   };
 
   // Read-only detail view; its Edit button hands off to the form. Tracked by id
@@ -561,6 +596,14 @@ export function InventoryDashboard() {
             className="rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
           >
             Locations
+          </button>
+          <button
+            type="button"
+            onClick={() => setAiOpen(true)}
+            title="Snap a photo — AI names it, then wishlist it or add it"
+            className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400 hover:text-violet-300"
+          >
+            ✨ AI add
           </button>
           <button
             type="button"
@@ -908,6 +951,13 @@ export function InventoryDashboard() {
         onRemove={wishlist.remove}
         onGotIt={gotItFromWishlist}
         onClose={() => setWishlistOpen(false)}
+      />
+      <AiCaptureModal
+        open={aiOpen}
+        defaultCurrency={settings.defaultCurrency}
+        onAlreadyBought={aiAlreadyBought}
+        onAddToWishlist={aiToWishlist}
+        onClose={() => setAiOpen(false)}
       />
       <MaintenanceCalendarModal
         open={calendarOpen}
