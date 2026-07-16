@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Modal } from "@/components/Modal";
-import { Plus, Trash2, X } from "@/components/icons";
+import { Pencil, Plus, Trash2, X } from "@/components/icons";
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 import { PriceComparisonPanel } from "@/features/inventory/components/PriceComparisonPanel";
 import { useItemPriceOffers } from "@/features/inventory/hooks/useItemPriceOffers";
@@ -81,6 +81,10 @@ export function WishlistModal({
   const [compareLinks, setCompareLinks] = useState<DraftPriceLink[]>([]);
   // Which wish's price comparison is expanded (one at a time).
   const [compareOpenId, setCompareOpenId] = useState<string | null>(null);
+  // The wish being edited via ✎ — the form doubles as its editor; fields it
+  // doesn't show (note, link, currency, createdAt) are preserved on save.
+  const [editingWish, setEditingWish] = useState<WishlistItem | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const reset = () => {
     setName("");
@@ -90,6 +94,29 @@ export function WishlistModal({
     setImageUrl("");
     setLookupStatus("idle");
     setCompareLinks([]);
+    setEditingWish(null);
+  };
+
+  const startEdit = (w: WishlistItem) => {
+    setEditingWish(w);
+    setName(w.name);
+    setPrice(w.estPrice != null ? String(w.estPrice) : "");
+    setCategory(w.category ?? "");
+    setBarcode(w.barcode ?? "");
+    setImageUrl(w.imageUrl ?? "");
+    setCompareLinks(
+      (w.compareLinks ?? []).map((l) => ({
+        id: l.id,
+        store: l.store,
+        url: l.url,
+        price: l.price != null ? String(l.price) : "",
+      }))
+    );
+    setLookupStatus("idle");
+    // The form sits at the top of the sheet — bring it into view.
+    formRef.current
+      ?.closest('[role="dialog"]')
+      ?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Same fast path as the add-item form: barcode → product lookup → prefill
@@ -142,15 +169,19 @@ export function WishlistModal({
       })
       .filter((l) => l.url !== "");
     onUpsert({
-      id: crypto.randomUUID(),
+      // Editing keeps the wish's id + fields the form doesn't show; a fresh
+      // add starts a new entry.
+      ...(editingWish ?? {
+        id: crypto.randomUUID(),
+        currency: defaultCurrency,
+        createdAt: new Date().toISOString(),
+      }),
       name: name.trim(),
       estPrice: Number.isFinite(est) ? est : undefined,
-      currency: defaultCurrency,
       category: category.trim() || undefined,
       barcode: barcode.trim() || undefined,
       imageUrl: imageUrl || undefined,
       compareLinks: cleanedCompare.length ? cleanedCompare : undefined,
-      createdAt: new Date().toISOString(),
     });
     reset();
   };
@@ -181,7 +212,7 @@ export function WishlistModal({
         own something like it. Got it? Move it into My Stuff in one tap.
       </p>
 
-      <form onSubmit={add} className="mt-4 flex flex-col gap-2">
+      <form ref={formRef} onSubmit={add} className="mt-4 flex flex-col gap-2">
         {/* Scan-to-prefill — the add-item form's fast path, for wishes: a
             barcode look-up fills name / price / category you haven't typed. */}
         <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
@@ -400,13 +431,32 @@ export function WishlistModal({
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={!name.trim()}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" /> Add to wishlist
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={!name.trim()}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+          >
+            {editingWish ? (
+              <>
+                <Pencil className="h-4 w-4" /> Save wish
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Add to wishlist
+              </>
+            )}
+          </button>
+          {editingWish && (
+            <button
+              type="button"
+              onClick={reset}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
 
       <ul className="mt-5 flex flex-col gap-1.5">
@@ -418,7 +468,11 @@ export function WishlistModal({
           items.map((w) => (
             <li
               key={w.id}
-              className="group rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
+              className={`group rounded-lg border bg-slate-950/40 px-3 py-2 ${
+                editingWish?.id === w.id
+                  ? "border-blue-500/50"
+                  : "border-slate-800/70"
+              }`}
             >
               <div className="flex items-center gap-2">
                 {w.imageUrl && (
@@ -475,6 +529,15 @@ export function WishlistModal({
                   className="shrink-0 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Got it
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startEdit(w)}
+                  aria-label={`Edit ${w.name}`}
+                  title="Edit this wish"
+                  className="shrink-0 text-slate-600 transition hover:text-blue-300"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
