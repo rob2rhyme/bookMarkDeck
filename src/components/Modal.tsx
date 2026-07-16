@@ -43,9 +43,26 @@ export function Modal({
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
-    // Lock body scroll.
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // Lock body scroll. iOS Safari ignores overflow:hidden on <body> and
+    // keeps routing touch pans to the page behind the overlay — making the
+    // sheet's own scroller feel dead — so pin the body with position:fixed
+    // (the reliable cross-browser lock) and restore the scroll spot on close.
+    const scrollY = window.scrollY;
+    const body = document.body.style;
+    const prevBody = {
+      overflow: body.overflow,
+      position: body.position,
+      top: body.top,
+      left: body.left,
+      right: body.right,
+      width: body.width,
+    };
+    body.overflow = "hidden";
+    body.position = "fixed";
+    body.top = `-${scrollY}px`;
+    body.left = "0";
+    body.right = "0";
+    body.width = "100%";
 
     // Focus the first focusable element (or the panel itself).
     const panel = panelRef.current;
@@ -82,8 +99,11 @@ export function Modal({
     document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
-      document.body.style.overflow = prevOverflow;
-      previouslyFocused?.focus?.();
+      Object.assign(document.body.style, prevBody);
+      window.scrollTo(0, scrollY);
+      // preventScroll: refocusing the opener must not yank the page back to
+      // it — we just restored the user's scroll spot.
+      previouslyFocused?.focus?.({ preventScroll: true });
     };
   }, [open, onCloseRef]);
 
@@ -108,10 +128,12 @@ export function Modal({
         aria-labelledby={labelledBy}
         aria-label={labelledBy ? undefined : label}
         tabIndex={-1}
+        // overscroll-contain: when a scrollable panel hits its edge, don't
+        // hand the gesture to the page behind (part of the iOS scroll fix).
         className={`${
           panelClassName ??
           "w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
-        } animate-bd-scale-in`}
+        } animate-bd-scale-in overscroll-contain`}
       >
         {children}
       </div>

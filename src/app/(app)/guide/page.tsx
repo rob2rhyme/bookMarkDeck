@@ -473,7 +473,10 @@ export default function GuidePage() {
               straight to its store, so where-to-buy is always one tap away).
               As you type a name it
               gently flags anything you <em>may already have</em>, so you don&apos;t
-              re-buy by accident. Bought it? Tap{" "}
+              re-buy by accident. Change your mind on details? The{" "}
+              <strong>✎ edit</strong> button on any wish reopens it in the form
+              — tweak the name, price, category, photo, or store links and
+              save. Bought it? Tap{" "}
               <strong>Got it</strong> and it becomes a real item in My Stuff —
               carrying its photo, barcode, and compare links along.
             </p>
