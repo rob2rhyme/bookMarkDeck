@@ -92,6 +92,18 @@ export function resolvePriceComparison(
   return { source: "none", offers: [] };
 }
 
+/** The comparison's offers in the chosen price direction. Unpriced offers stay
+ *  at the end either way — flipping to descending shouldn't float link-only
+ *  rows above real prices. */
+export function sortedOffers(
+  c: PriceComparison,
+  dir: "asc" | "desc"
+): PriceOffer[] {
+  const priced = c.offers.filter((o) => o.price != null);
+  if (dir === "desc") priced.reverse(); // offers arrive cheapest-first
+  return [...priced, ...c.offers.filter((o) => o.price == null)];
+}
+
 /** Positive savings of the best offer vs. what the user paid, else undefined. */
 export function savingsVsPaid(
   best: PriceOffer | undefined,

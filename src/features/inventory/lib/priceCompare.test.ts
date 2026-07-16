@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolvePriceComparison,
   savingsVsPaid,
+  sortedOffers,
   type RawOffer,
 } from "./priceCompare";
 import { parseUpcItemDbOffers } from "./productLookup";
@@ -58,6 +59,22 @@ describe("resolvePriceComparison", () => {
       "EUR"
     );
     expect(r.offers[0].currency).toBe("EUR");
+  });
+});
+
+describe("sortedOffers", () => {
+  it("asc keeps cheapest-first; desc reverses priced offers only", () => {
+    const c = resolvePriceComparison([], manual, "USD");
+    expect(sortedOffers(c, "asc").map((o) => o.store)).toEqual([
+      "Newegg",
+      "Best Buy",
+      "No price",
+    ]);
+    expect(sortedOffers(c, "desc").map((o) => o.store)).toEqual([
+      "Best Buy",
+      "Newegg",
+      "No price", // unpriced stays last in both directions
+    ]);
   });
 });
 
