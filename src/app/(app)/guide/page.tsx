@@ -336,10 +336,13 @@ export default function GuidePage() {
               Save <strong>compare links</strong> on an item — store, URL, and
               the price you saw — and the detail view lines them up
               cheapest-first, starring the best offer and showing how much
-              you&apos;d save versus what you paid. If the item has a barcode
+              you&apos;d save versus what you paid. A <strong>Price ↑/↓</strong>{" "}
+              toggle flips the list between lowest-first and highest-first
+              (link-only rows stay at the bottom). If the item has a barcode
               and a <strong>live price lookup</strong> finds current offers,
               those take over automatically (badged <em>Live prices</em>) and
-              your saved links wait as the fallback.
+              your saved links wait as the fallback. Wishlist entries get the
+              exact same comparison — see below.
             </p>
           </Sub>
           <Sub title="Find it, and ask about it">
@@ -459,11 +462,17 @@ export default function GuidePage() {
               The <strong>♡ Wishlist</strong> button keeps a light list of things
               you want to buy — separate from what you own. <strong>Scan a
               barcode</strong> (or type one) to prefill the name, price, and
-              category in one go. As you type a name it
+              category in one go. Wishes get the same{" "}
+              <strong>price comparison</strong> as items: add store links (or
+              let a scanned barcode pull <em>live prices</em>), then tap{" "}
+              <strong>⚖ Compare</strong> on any wish to see offers
+              cheapest-first with the savings versus your estimate — checked{" "}
+              <em>before</em> you buy, when it matters most. As you type a name it
               gently flags anything you <em>may already have</em>, so you don&apos;t
               re-buy by accident, and you can <strong>link the product-page
               bookmark</strong> so where-to-buy stays one tap away. Bought it? Tap{" "}
-              <strong>Got it</strong> and it becomes a real item in My Stuff.
+              <strong>Got it</strong> and it becomes a real item in My Stuff —
+              carrying its barcode and compare links along.
             </p>
           </Sub>
           <Sub title="Upkeep calendar">

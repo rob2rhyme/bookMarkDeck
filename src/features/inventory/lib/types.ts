@@ -201,6 +201,8 @@ export type WishlistItem = {
   currency?: string;
   category?: string;
   link?: ItemLink; // product page / where to buy
+  barcode?: string; // captured at scan time — powers live price comparison
+  compareLinks?: PriceLink[]; // competitor store links, same as items
   createdAt: string | null;
 };
 

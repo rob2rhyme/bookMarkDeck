@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Modal } from "@/components/Modal";
 import { Plus, Trash2, X } from "@/components/icons";
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
+import { PriceComparisonPanel } from "@/features/inventory/components/PriceComparisonPanel";
+import { useItemPriceOffers } from "@/features/inventory/hooks/useItemPriceOffers";
 import {
   filterBookmarks,
   similarItems,
@@ -14,6 +16,7 @@ import { formatMoney } from "@/features/inventory/lib/value";
 import type {
   InventoryItem,
   ItemLink,
+  PriceLink,
   WishlistItem,
 } from "@/features/inventory/lib/types";
 
@@ -33,6 +36,32 @@ type WishlistModalProps = {
 const fieldClass =
   "w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-base sm:text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none";
 const labelClass = "mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500";
+
+// A compare-link row while editing — price stays a string until save.
+type DraftPriceLink = { id: string; store: string; url: string; price: string };
+
+/** The same price comparison an item gets, for a wish: live offers by barcode
+ *  (fetched only while expanded) over the wish's saved compare-links, measured
+ *  against your estimate. */
+function WishCompare({
+  wish,
+  fallbackCurrency,
+}: {
+  wish: WishlistItem;
+  fallbackCurrency: string;
+}) {
+  const live = useItemPriceOffers(wish.barcode, true);
+  return (
+    <PriceComparisonPanel
+      liveOffers={live.offers}
+      loading={live.loading}
+      manualLinks={wish.compareLinks ?? []}
+      currency={wish.currency ?? fallbackCurrency}
+      referencePrice={wish.estPrice}
+      referenceLabel="your estimate"
+    />
+  );
+}
 
 export function WishlistModal({
   open,
@@ -56,6 +85,9 @@ export function WishlistModal({
   const [lookupStatus, setLookupStatus] = useState<
     "idle" | "loading" | "found" | "none"
   >("idle");
+  const [compareLinks, setCompareLinks] = useState<DraftPriceLink[]>([]);
+  // Which wish's price comparison is expanded (one at a time).
+  const [compareOpenId, setCompareOpenId] = useState<string | null>(null);
 
   const reset = () => {
     setName("");
@@ -65,6 +97,7 @@ export function WishlistModal({
     setLinkQuery("");
     setBarcode("");
     setLookupStatus("idle");
+    setCompareLinks([]);
   };
 
   // Same fast path as the add-item form: barcode → product lookup → prefill
@@ -106,6 +139,17 @@ export function WishlistModal({
     e.preventDefault();
     if (!name.trim()) return;
     const est = parseFloat(price);
+    const cleanedCompare: PriceLink[] = compareLinks
+      .map((l) => {
+        const p = parseFloat(l.price);
+        return {
+          id: l.id,
+          store: l.store.trim(),
+          url: l.url.trim(),
+          price: Number.isFinite(p) ? p : undefined,
+        };
+      })
+      .filter((l) => l.url !== "");
     onUpsert({
       id: crypto.randomUUID(),
       name: name.trim(),
@@ -113,6 +157,8 @@ export function WishlistModal({
       currency: defaultCurrency,
       category: category.trim() || undefined,
       link: link ?? undefined,
+      barcode: barcode.trim() || undefined,
+      compareLinks: cleanedCompare.length ? cleanedCompare : undefined,
       createdAt: new Date().toISOString(),
     });
     reset();
@@ -305,6 +351,95 @@ export function WishlistModal({
           )}
         </div>
 
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className={labelClass}>Compare prices at other stores</span>
+            <button
+              type="button"
+              onClick={() =>
+                setCompareLinks((prev) => [
+                  ...prev,
+                  { id: crypto.randomUUID(), store: "", url: "", price: "" },
+                ])
+              }
+              className="shrink-0 whitespace-nowrap rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:border-blue-400 hover:text-blue-300"
+            >
+              + Store
+            </button>
+          </div>
+          {compareLinks.length === 0 ? (
+            <p className="text-[11px] text-slate-500">
+              Optional — add store links to compare before you buy. A scanned
+              barcode also pulls live prices when available.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {compareLinks.map((l) => (
+                <li
+                  key={l.id}
+                  className="grid grid-cols-[minmax(0,1fr)_5.5rem_auto] items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950/40 p-2"
+                >
+                  <input
+                    type="text"
+                    value={l.store}
+                    onChange={(e) =>
+                      setCompareLinks((prev) =>
+                        prev.map((x) =>
+                          x.id === l.id ? { ...x, store: e.target.value } : x
+                        )
+                      )
+                    }
+                    placeholder="Store"
+                    aria-label="Store name"
+                    className={fieldClass}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={l.price}
+                    onChange={(e) =>
+                      setCompareLinks((prev) =>
+                        prev.map((x) =>
+                          x.id === l.id ? { ...x, price: e.target.value } : x
+                        )
+                      )
+                    }
+                    placeholder="Price"
+                    aria-label="Price at this store"
+                    className={fieldClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCompareLinks((prev) => prev.filter((x) => x.id !== l.id))
+                    }
+                    aria-label="Remove store"
+                    className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-red-300"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={l.url}
+                    onChange={(e) =>
+                      setCompareLinks((prev) =>
+                        prev.map((x) =>
+                          x.id === l.id ? { ...x, url: e.target.value } : x
+                        )
+                      )
+                    }
+                    placeholder="https://…"
+                    aria-label="Store URL"
+                    className={`${fieldClass} col-span-3`}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <button
           type="submit"
           disabled={!name.trim()}
@@ -323,45 +458,67 @@ export function WishlistModal({
           items.map((w) => (
             <li
               key={w.id}
-              className="group flex items-center gap-2 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
+              className="group rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
             >
-              <div className="min-w-0 flex-1">
-                <span className="block truncate text-sm text-slate-100">{w.name}</span>
-                <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-                  {typeof w.estPrice === "number" && (
-                    <span className="tabular-nums text-emerald-300/90">
-                      {formatMoney(w.estPrice, w.currency ?? defaultCurrency)}
-                    </span>
-                  )}
-                  {w.category && <span>{w.category}</span>}
-                  {w.link && (
-                    <a
-                      href={w.link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="truncate text-blue-300 transition hover:text-blue-200"
-                    >
-                      🔗 {w.link.title}
-                    </a>
-                  )}
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-slate-100">{w.name}</span>
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                    {typeof w.estPrice === "number" && (
+                      <span className="tabular-nums text-emerald-300/90">
+                        {formatMoney(w.estPrice, w.currency ?? defaultCurrency)}
+                      </span>
+                    )}
+                    {w.category && <span>{w.category}</span>}
+                    {w.link && (
+                      <a
+                        href={w.link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate text-blue-300 transition hover:text-blue-200"
+                      >
+                        🔗 {w.link.title}
+                      </a>
+                    )}
+                  </span>
+                </div>
+                {(w.barcode || (w.compareLinks?.length ?? 0) > 0) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCompareOpenId((id) => (id === w.id ? null : w.id))
+                    }
+                    aria-expanded={compareOpenId === w.id}
+                    title="Compare prices"
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                      compareOpenId === w.id
+                        ? "border-blue-400 text-blue-300"
+                        : "border-slate-700 text-slate-300 hover:border-blue-400 hover:text-blue-300"
+                    }`}
+                  >
+                    ⚖ Compare
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onGotIt(w)}
+                  title="Got it — move into My Stuff"
+                  className="shrink-0 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Got it
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(w.id)}
+                  aria-label={`Remove ${w.name}`}
+                  className="shrink-0 text-slate-600 transition hover:text-red-300"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => onGotIt(w)}
-                title="Got it — move into My Stuff"
-                className="shrink-0 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Got it
-              </button>
-              <button
-                type="button"
-                onClick={() => onRemove(w.id)}
-                aria-label={`Remove ${w.name}`}
-                className="shrink-0 text-slate-600 transition hover:text-red-300"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              {compareOpenId === w.id && (
+                <WishCompare wish={w} fallbackCurrency={defaultCurrency} />
+              )}
             </li>
           ))
         )}

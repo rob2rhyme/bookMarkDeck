@@ -435,6 +435,23 @@ export function subscribeLocations(
 
 /* -------------------------------------------------------------- wishlist --- */
 
+function mapWishlistCompareLinks(raw: unknown): WishlistItem["compareLinks"] {
+  const links = (Array.isArray(raw) ? raw : [])
+    .map((l) => {
+      const r = (l ?? {}) as Record<string, unknown>;
+      if (typeof r.url !== "string" || !r.url.trim()) return null;
+      return {
+        id: typeof r.id === "string" ? r.id : r.url,
+        store: typeof r.store === "string" ? r.store : "",
+        url: r.url,
+        price: numOrUndef(r.price),
+        currency: strOrUndef(r.currency),
+      };
+    })
+    .filter((l): l is NonNullable<typeof l> => l !== null);
+  return links.length ? links : undefined;
+}
+
 function mapWishlist(d: {
   id: string;
   data: () => Record<string, unknown>;
@@ -448,6 +465,8 @@ function mapWishlist(d: {
     estPrice: numOrUndef(data.estPrice),
     currency: strOrUndef(data.currency),
     category: strOrUndef(data.category),
+    barcode: strOrUndef(data.barcode),
+    compareLinks: mapWishlistCompareLinks(data.compareLinks),
     link:
       typeof link.url === "string" && link.url.trim()
         ? {
@@ -482,6 +501,18 @@ export async function saveWishlist(
       estPrice: numOrUndef(w.estPrice),
       currency: strOrUndef(w.currency),
       category: strOrUndef(w.category),
+      barcode: strOrUndef(w.barcode),
+      compareLinks: w.compareLinks?.length
+        ? w.compareLinks.map((l) =>
+            prune({
+              id: l.id,
+              store: l.store,
+              url: l.url,
+              price: numOrUndef(l.price),
+              currency: strOrUndef(l.currency),
+            })
+          )
+        : undefined,
       link: w.link ? { id: w.link.id, title: w.link.title, url: w.link.url } : undefined,
       createdAt: w.createdAt ?? serverTimestamp(),
     })
