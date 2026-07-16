@@ -461,8 +461,10 @@ export default function GuidePage() {
             <p>
               The <strong>♡ Wishlist</strong> button keeps a light list of things
               you want to buy — separate from what you own. <strong>Scan a
-              barcode</strong> (or type one) to prefill the name, price, and
-              category in one go. Wishes get the same{" "}
+              barcode</strong> (or type one) to prefill the name, price,
+              category — <em>and the product photo</em> — in one go; the photo
+              becomes the wish&apos;s thumbnail, just like items get (an ✕ next
+              to the preview removes a wrong match). Wishes get the same{" "}
               <strong>price comparison</strong> as items: add store links (or
               let a scanned barcode pull <em>live prices</em>), then tap{" "}
               <strong>⚖ Compare</strong> on any wish to see offers
@@ -473,7 +475,7 @@ export default function GuidePage() {
               gently flags anything you <em>may already have</em>, so you don&apos;t
               re-buy by accident. Bought it? Tap{" "}
               <strong>Got it</strong> and it becomes a real item in My Stuff —
-              carrying its barcode and compare links along.
+              carrying its photo, barcode, and compare links along.
             </p>
           </Sub>
           <Sub title="✨ AI capture (coming soon)">

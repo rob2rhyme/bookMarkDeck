@@ -203,6 +203,10 @@ export type WishlistItem = {
   link?: ItemLink; // product page / where to buy
   barcode?: string; // captured at scan time — powers live price comparison
   compareLinks?: PriceLink[]; // competitor store links, same as items
+  // Product photo, auto-filled by a barcode lookup match (remote URL) or AI
+  // capture (compressed data: URL) — shown as the wish's thumbnail and carried
+  // into the item's photos on "Got it".
+  imageUrl?: string;
   createdAt: string | null;
 };
 

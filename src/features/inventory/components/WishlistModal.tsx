@@ -73,6 +73,7 @@ export function WishlistModal({
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [scanning, setScanning] = useState(false);
   const [lookupStatus, setLookupStatus] = useState<
     "idle" | "loading" | "found" | "none"
@@ -86,18 +87,21 @@ export function WishlistModal({
     setPrice("");
     setCategory("");
     setBarcode("");
+    setImageUrl("");
     setLookupStatus("idle");
     setCompareLinks([]);
   };
 
   // Same fast path as the add-item form: barcode → product lookup → prefill
-  // whatever's still empty (your own typing is never overwritten).
+  // whatever's still empty (your own typing is never overwritten) — including
+  // the product photo, which becomes the wish's thumbnail.
   const fillEmptyFrom = (info: ProductInfo) => {
     const suggested =
       info.name ?? [info.brand, info.model].filter(Boolean).join(" ");
     if (!name.trim() && suggested) setName(suggested);
     if (!price.trim() && info.price != null) setPrice(String(info.price));
     if (!category.trim() && info.category) setCategory(info.category);
+    if (!imageUrl && info.imageUrl) setImageUrl(info.imageUrl);
   };
 
   const runLookup = async (raw: string) => {
@@ -144,6 +148,7 @@ export function WishlistModal({
       currency: defaultCurrency,
       category: category.trim() || undefined,
       barcode: barcode.trim() || undefined,
+      imageUrl: imageUrl || undefined,
       compareLinks: cleanedCompare.length ? cleanedCompare : undefined,
       createdAt: new Date().toISOString(),
     });
@@ -228,6 +233,29 @@ export function WishlistModal({
                 ? "Filled in what we found — check and tweak."
                 : "No match found — just type the name below."}
             </p>
+          )}
+          {imageUrl && (
+            <div className="mt-2 flex items-center gap-2">
+              {/* Arbitrary product-CDN URLs aren't in next/image's allowlist. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl}
+                alt="Product photo from the lookup"
+                loading="lazy"
+                className="h-12 w-12 shrink-0 rounded-lg border border-slate-800 bg-slate-900 object-contain"
+              />
+              <span className="min-w-0 flex-1 text-[11px] text-slate-500">
+                Product photo — saved with the wish.
+              </span>
+              <button
+                type="button"
+                onClick={() => setImageUrl("")}
+                aria-label="Remove product photo"
+                className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-red-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
 
@@ -393,6 +421,15 @@ export function WishlistModal({
               className="group rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
             >
               <div className="flex items-center gap-2">
+                {w.imageUrl && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={w.imageUrl}
+                    alt={w.name}
+                    loading="lazy"
+                    className="h-10 w-10 shrink-0 rounded-lg border border-slate-800 bg-slate-900 object-contain"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-slate-100">{w.name}</span>
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">

@@ -467,6 +467,7 @@ function mapWishlist(d: {
     category: strOrUndef(data.category),
     barcode: strOrUndef(data.barcode),
     compareLinks: mapWishlistCompareLinks(data.compareLinks),
+    imageUrl: strOrUndef(data.imageUrl),
     link:
       typeof link.url === "string" && link.url.trim()
         ? {
@@ -502,6 +503,7 @@ export async function saveWishlist(
       currency: strOrUndef(w.currency),
       category: strOrUndef(w.category),
       barcode: strOrUndef(w.barcode),
+      imageUrl: strOrUndef(w.imageUrl),
       compareLinks: w.compareLinks?.length
         ? w.compareLinks.map((l) =>
             prune({
