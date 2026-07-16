@@ -467,10 +467,11 @@ export default function GuidePage() {
               let a scanned barcode pull <em>live prices</em>), then tap{" "}
               <strong>⚖ Compare</strong> on any wish to see offers
               cheapest-first with the savings versus your estimate — checked{" "}
-              <em>before</em> you buy, when it matters most. As you type a name it
+              <em>before</em> you buy, when it matters most (each offer links
+              straight to its store, so where-to-buy is always one tap away).
+              As you type a name it
               gently flags anything you <em>may already have</em>, so you don&apos;t
-              re-buy by accident, and you can <strong>link the product-page
-              bookmark</strong> so where-to-buy stays one tap away. Bought it? Tap{" "}
+              re-buy by accident. Bought it? Tap{" "}
               <strong>Got it</strong> and it becomes a real item in My Stuff —
               carrying its barcode and compare links along.
             </p>

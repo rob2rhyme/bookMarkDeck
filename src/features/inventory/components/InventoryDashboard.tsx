@@ -902,7 +902,6 @@ export function InventoryDashboard() {
         open={wishlistOpen}
         items={wishlist.items}
         ownedItems={inv.items}
-        bookmarks={bookmarkLibrary}
         categorySuggestions={categorySuggestions}
         defaultCurrency={settings.defaultCurrency}
         onUpsert={wishlist.upsert}
