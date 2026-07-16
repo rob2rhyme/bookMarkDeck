@@ -7,15 +7,11 @@ import { Plus, Trash2, X } from "@/components/icons";
 import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 import { PriceComparisonPanel } from "@/features/inventory/components/PriceComparisonPanel";
 import { useItemPriceOffers } from "@/features/inventory/hooks/useItemPriceOffers";
-import {
-  filterBookmarks,
-  similarItems,
-} from "@/features/inventory/lib/inventorySearch";
+import { similarItems } from "@/features/inventory/lib/inventorySearch";
 import type { ProductInfo } from "@/features/inventory/lib/productLookup";
 import { formatMoney } from "@/features/inventory/lib/value";
 import type {
   InventoryItem,
-  ItemLink,
   PriceLink,
   WishlistItem,
 } from "@/features/inventory/lib/types";
@@ -24,7 +20,6 @@ type WishlistModalProps = {
   open: boolean;
   items: WishlistItem[];
   ownedItems: InventoryItem[]; // for the "already own this?" nudge
-  bookmarks: ItemLink[]; // library for the product-page link picker
   categorySuggestions: string[];
   defaultCurrency: string;
   onUpsert: (w: WishlistItem) => void;
@@ -67,7 +62,6 @@ export function WishlistModal({
   open,
   items,
   ownedItems,
-  bookmarks,
   categorySuggestions,
   defaultCurrency,
   onUpsert,
@@ -78,8 +72,6 @@ export function WishlistModal({
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
-  const [link, setLink] = useState<ItemLink | null>(null);
-  const [linkQuery, setLinkQuery] = useState("");
   const [barcode, setBarcode] = useState("");
   const [scanning, setScanning] = useState(false);
   const [lookupStatus, setLookupStatus] = useState<
@@ -93,8 +85,6 @@ export function WishlistModal({
     setName("");
     setPrice("");
     setCategory("");
-    setLink(null);
-    setLinkQuery("");
     setBarcode("");
     setLookupStatus("idle");
     setCompareLinks([]);
@@ -131,9 +121,6 @@ export function WishlistModal({
   };
 
   const lookalikes = similarItems(ownedItems, name);
-  const linkResults = filterBookmarks(bookmarks, linkQuery).filter(
-    (b) => b.id !== link?.id
-  );
 
   const add = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +143,6 @@ export function WishlistModal({
       estPrice: Number.isFinite(est) ? est : undefined,
       currency: defaultCurrency,
       category: category.trim() || undefined,
-      link: link ?? undefined,
       barcode: barcode.trim() || undefined,
       compareLinks: cleanedCompare.length ? cleanedCompare : undefined,
       createdAt: new Date().toISOString(),
@@ -295,60 +281,6 @@ export function WishlistModal({
               ))}
             </datalist>
           </label>
-        </div>
-
-        <div>
-          <span className={labelClass}>Where to buy — link a bookmark</span>
-          {link ? (
-            <span className="mb-1 flex max-w-full items-center gap-1 rounded-full border border-blue-400/40 bg-blue-500/10 py-0.5 pl-2.5 pr-1 text-xs text-blue-200">
-              <span className="truncate" title={link.url}>
-                🔗 {link.title}
-              </span>
-              <button
-                type="button"
-                onClick={() => setLink(null)}
-                aria-label="Remove link"
-                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-blue-300/70 transition hover:text-blue-100"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ) : bookmarks.length === 0 ? (
-            <p className="text-xs text-slate-500">
-              No bookmarks yet — save the product page on Bookmarks to link it.
-            </p>
-          ) : (
-            <>
-              <input
-                type="text"
-                value={linkQuery}
-                onChange={(e) => setLinkQuery(e.target.value)}
-                placeholder="Search your bookmarks…"
-                aria-label="Search bookmarks"
-                className={fieldClass}
-              />
-              {linkQuery.trim() && linkResults.length > 0 && (
-                <ul className="mt-1 overflow-hidden rounded-lg border border-slate-800 bg-slate-950/60">
-                  {linkResults.map((b) => (
-                    <li key={b.id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLink(b);
-                          setLinkQuery("");
-                        }}
-                        className="flex w-full items-baseline gap-2 px-3 py-1.5 text-left transition hover:bg-slate-800/60"
-                      >
-                        <span className="min-w-0 truncate text-sm text-slate-200">
-                          {b.title}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
         </div>
 
         <div>
