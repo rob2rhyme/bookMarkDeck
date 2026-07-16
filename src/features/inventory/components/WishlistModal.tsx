@@ -4,10 +4,12 @@ import { useState } from "react";
 
 import { Modal } from "@/components/Modal";
 import { Plus, Trash2, X } from "@/components/icons";
+import { BarcodeScanner } from "@/features/inventory/components/BarcodeScanner";
 import {
   filterBookmarks,
   similarItems,
 } from "@/features/inventory/lib/inventorySearch";
+import type { ProductInfo } from "@/features/inventory/lib/productLookup";
 import { formatMoney } from "@/features/inventory/lib/value";
 import type {
   InventoryItem,
@@ -29,7 +31,7 @@ type WishlistModalProps = {
 };
 
 const fieldClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none";
+  "w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-base sm:text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none";
 const labelClass = "mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500";
 
 export function WishlistModal({
@@ -49,6 +51,11 @@ export function WishlistModal({
   const [category, setCategory] = useState("");
   const [link, setLink] = useState<ItemLink | null>(null);
   const [linkQuery, setLinkQuery] = useState("");
+  const [barcode, setBarcode] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState<
+    "idle" | "loading" | "found" | "none"
+  >("idle");
 
   const reset = () => {
     setName("");
@@ -56,6 +63,38 @@ export function WishlistModal({
     setCategory("");
     setLink(null);
     setLinkQuery("");
+    setBarcode("");
+    setLookupStatus("idle");
+  };
+
+  // Same fast path as the add-item form: barcode → product lookup → prefill
+  // whatever's still empty (your own typing is never overwritten).
+  const fillEmptyFrom = (info: ProductInfo) => {
+    const suggested =
+      info.name ?? [info.brand, info.model].filter(Boolean).join(" ");
+    if (!name.trim() && suggested) setName(suggested);
+    if (!price.trim() && info.price != null) setPrice(String(info.price));
+    if (!category.trim() && info.category) setCategory(info.category);
+  };
+
+  const runLookup = async (raw: string) => {
+    const code = raw.trim();
+    if (!code) return;
+    setLookupStatus("loading");
+    try {
+      const res = await fetch(
+        `/api/inventory/product-lookup?code=${encodeURIComponent(code)}`
+      );
+      const data = (await res.json()) as { found?: boolean; product?: ProductInfo };
+      if (data?.found && data.product) {
+        fillEmptyFrom(data.product);
+        setLookupStatus("found");
+      } else {
+        setLookupStatus("none");
+      }
+    } catch {
+      setLookupStatus("none");
+    }
   };
 
   const lookalikes = similarItems(ownedItems, name);
@@ -84,9 +123,12 @@ export function WishlistModal({
       open={open}
       onClose={onClose}
       label="Wishlist"
-      panelClassName="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
+      // Mobile: a tight full-screen sheet (same pattern as the add-item form);
+      // sm+ keeps the exact centered card it always had.
+      overlayClassName="inset-0 flex items-stretch justify-center sm:items-center sm:px-4 sm:py-[5vh]"
+      panelClassName="flex w-full flex-col max-h-[100dvh] overflow-y-auto overflow-x-hidden bg-slate-900 p-4 shadow-2xl outline-none sm:block sm:max-w-md sm:max-h-[88vh] sm:rounded-2xl sm:border sm:border-slate-800 sm:p-6"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-sm:sticky max-sm:-top-4 max-sm:z-10 max-sm:-mx-4 max-sm:-mt-4 max-sm:border-b max-sm:border-slate-800/70 max-sm:bg-slate-900/95 max-sm:px-4 max-sm:pb-2.5 max-sm:pt-4 max-sm:backdrop-blur">
         <h2 className="text-lg font-semibold text-slate-50">Wishlist</h2>
         <button
           type="button"
@@ -103,6 +145,60 @@ export function WishlistModal({
       </p>
 
       <form onSubmit={add} className="mt-4 flex flex-col gap-2">
+        {/* Scan-to-prefill — the add-item form's fast path, for wishes: a
+            barcode look-up fills name / price / category you haven't typed. */}
+        <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+          <span className={labelClass}>Scan a product — the fast way to wish</span>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={barcode}
+              onChange={(e) => {
+                setBarcode(e.target.value);
+                if (lookupStatus !== "idle") setLookupStatus("idle");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  runLookup(barcode);
+                }
+              }}
+              placeholder="Barcode — scan or type…"
+              aria-label="Barcode"
+              className={fieldClass}
+            />
+            {barcode.trim() && (
+              <button
+                type="button"
+                onClick={() => runLookup(barcode)}
+                disabled={lookupStatus === "loading"}
+                className="shrink-0 rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50"
+              >
+                {lookupStatus === "loading" ? "…" : "Look up"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setScanning(true)}
+              className="shrink-0 rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+            >
+              📷 Scan
+            </button>
+          </div>
+          {lookupStatus !== "idle" && lookupStatus !== "loading" && (
+            <p
+              className={`mt-1.5 text-xs ${
+                lookupStatus === "found" ? "text-emerald-300" : "text-slate-500"
+              }`}
+            >
+              {lookupStatus === "found"
+                ? "Filled in what we found — check and tweak."
+                : "No match found — just type the name below."}
+            </p>
+          )}
+        </div>
+
         <input
           type="text"
           value={name}
@@ -270,6 +366,17 @@ export function WishlistModal({
           ))
         )}
       </ul>
+
+      {scanning && (
+        <BarcodeScanner
+          onDetect={(code) => {
+            setBarcode(code);
+            setScanning(false);
+            runLookup(code);
+          }}
+          onCancel={() => setScanning(false)}
+        />
+      )}
     </Modal>
   );
 }
