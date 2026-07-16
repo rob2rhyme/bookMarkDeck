@@ -457,7 +457,9 @@ export default function GuidePage() {
           <Sub title="Wishlist">
             <p>
               The <strong>♡ Wishlist</strong> button keeps a light list of things
-              you want to buy — separate from what you own. As you type a name it
+              you want to buy — separate from what you own. <strong>Scan a
+              barcode</strong> (or type one) to prefill the name, price, and
+              category in one go. As you type a name it
               gently flags anything you <em>may already have</em>, so you don&apos;t
               re-buy by accident, and you can <strong>link the product-page
               bookmark</strong> so where-to-buy stays one tap away. Bought it? Tap{" "}
