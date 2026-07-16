@@ -33,7 +33,9 @@ export function TrendingPanel({ items, onOpen }: TrendingPanelProps) {
         🔥 Trending{" "}
         <span className="font-normal text-slate-500">· last 90 days</span>
       </h3>
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* grid-cols-1 (minmax(0,1fr)) clamps the mobile track so long nowrap
+          item names truncate instead of pushing the column past the card. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {columns.map((c) => (
           <div key={c.key}>
             <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">

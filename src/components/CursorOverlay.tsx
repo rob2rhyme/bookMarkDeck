@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { DragonCursor } from "@/components/DragonCursor";
 import { FishCursor } from "@/components/FishCursor";
 import { JellyfishCursor } from "@/components/JellyfishCursor";
@@ -11,7 +13,19 @@ import { useCursorSettings } from "@/lib/cursorSettings";
 // Renders the chosen decorative cursor overlay with the user's full settings.
 export function CursorOverlay() {
   const { settings } = useCursorSettings();
-  if (settings.style === "off") return null;
+  // Only render where there's a pointer to follow. On touch-only devices no
+  // mousemove ever fires, so the creature would sit frozen over the content —
+  // a sticker, not a companion. Effect-gated so SSR/hydration stay stable.
+  const [finePointer, setFinePointer] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => setFinePointer(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  if (settings.style === "off" || !finePointer) return null;
 
   const props = {
     size: settings.size,
