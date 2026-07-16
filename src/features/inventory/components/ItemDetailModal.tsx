@@ -27,6 +27,7 @@ import {
 import {
   resolvePriceComparison,
   savingsVsPaid,
+  sortedOffers,
   type PriceOffer,
 } from "@/features/inventory/lib/priceCompare";
 import { useItemPriceOffers } from "@/features/inventory/hooks/useItemPriceOffers";
@@ -254,6 +255,7 @@ export function ItemDetailModal({
   } | null>(null);
   const [docs, setDocs] = useState<ItemDoc[]>([]);
   const [showAllActivity, setShowAllActivity] = useState(false);
+  const [priceSort, setPriceSort] = useState<"asc" | "desc">("asc");
   const { toast } = useToast();
   // Live competitor prices (by barcode); manual compare-links are the fallback.
   const priceOffers = useItemPriceOffers(item?.barcode, open);
@@ -292,6 +294,7 @@ export function ItemDetailModal({
     setLightbox(null);
     setDocs([]);
     setShowAllActivity(false);
+    setPriceSort("asc");
     if (item && canAttach && item.updatedAt) {
       let cancelled = false;
       onFetchDocs(item.id)
@@ -339,12 +342,15 @@ export function ItemDetailModal({
       open={open}
       onClose={onClose}
       label={item.name}
-      panelClassName="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
+      // Mobile: a full-screen sheet (same family as the add-item form and
+      // Wishlist); sm+ keeps the exact centered max-w-lg card it always had.
+      overlayClassName="inset-0 flex items-stretch justify-center sm:items-center sm:px-4 sm:py-[5vh]"
+      panelClassName="flex w-full flex-col max-h-[100dvh] overflow-y-auto overflow-x-hidden bg-slate-900 p-4 shadow-2xl outline-none sm:block sm:max-w-lg sm:max-h-[90vh] sm:rounded-2xl sm:border sm:border-slate-800 sm:p-6"
     >
       {/* Mobile stacks the header (actions row, then the title full-width and
           clamped to two lines) — side-by-side, the buttons squeezed a long
           name into a one-word-per-line column. sm+ keeps the single row. */}
-      <div className="sticky -top-6 z-20 -mx-6 -mt-6 mb-1 flex flex-col-reverse gap-2 rounded-t-2xl border-b border-slate-800/70 bg-slate-900/95 px-6 pb-3 pt-6 backdrop-blur sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+      <div className="sticky -top-4 z-20 -mx-4 -mt-4 mb-1 flex flex-col-reverse gap-2 border-b border-slate-800/70 bg-slate-900/95 px-4 pb-2.5 pt-4 backdrop-blur sm:-top-6 sm:-mx-6 sm:-mt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:rounded-t-2xl sm:px-6 sm:pb-3 sm:pt-6">
         <h2
           title={item.name}
           className="min-w-0 text-base font-semibold text-slate-50 max-sm:line-clamp-2 sm:flex-1 sm:text-lg"
@@ -614,15 +620,31 @@ export function ItemDetailModal({
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
               Price comparison
             </p>
-            {compare.source === "api" ? (
-              <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-200">
-                Live prices
-              </span>
-            ) : compare.source === "manual" ? (
-              <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-400">
-                Saved links
-              </span>
-            ) : null}
+            <span className="flex items-center gap-1.5">
+              {compare.offers.some((o) => o.price != null) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPriceSort((d) => (d === "asc" ? "desc" : "asc"))
+                  }
+                  aria-label={`Sort by price, currently ${
+                    priceSort === "asc" ? "lowest first" : "highest first"
+                  }`}
+                  className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-300 transition hover:border-blue-400 hover:text-blue-200"
+                >
+                  Price {priceSort === "asc" ? "↑ low first" : "↓ high first"}
+                </button>
+              )}
+              {compare.source === "api" ? (
+                <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-200">
+                  Live prices
+                </span>
+              ) : compare.source === "manual" ? (
+                <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                  Saved links
+                </span>
+              ) : null}
+            </span>
           </div>
           {compare.source === "none" && priceOffers.loading ? (
             <p className="text-xs text-slate-500">Checking live prices…</p>
@@ -639,7 +661,7 @@ export function ItemDetailModal({
                 </p>
               )}
               <ul className="flex flex-col gap-1.5">
-                {compare.offers.map((o, i) => (
+                {sortedOffers(compare, priceSort).map((o, i) => (
                   <li key={`${o.store}-${o.url ?? i}`}>
                     <OfferRow
                       offer={o}
