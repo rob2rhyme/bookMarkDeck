@@ -230,7 +230,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               )}
             </div>
-            <p className="mt-1 max-w-xl text-sm text-slate-400">
+            {/* The tagline is home-page copy; on phones it costs two lines on
+                every pillar before the content starts, so it's sm+ only. */}
+            <p className="mt-1 hidden max-w-xl text-sm text-slate-400 sm:block">
               All your frequently used sites in one place — fast, simple, and
               private.
             </p>

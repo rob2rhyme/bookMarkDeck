@@ -354,7 +354,7 @@ export function FocusDashboard() {
   ];
 
   return (
-    <section className="flex flex-1 flex-col">
+    <section className="flex flex-1 flex-col px-3 sm:px-0">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 text-blue-400">

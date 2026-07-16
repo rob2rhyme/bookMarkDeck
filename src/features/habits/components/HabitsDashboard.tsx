@@ -238,7 +238,7 @@ export function HabitsDashboard() {
   const empty = h.hydrated && h.allHabits.length === 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 px-3 sm:px-0">
       {/* Heading */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
