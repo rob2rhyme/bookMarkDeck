@@ -21,6 +21,7 @@ type ItemListCardProps = {
   today: string;
   onOpen: (item: InventoryItem) => void;
   onEdit: (item: InventoryItem) => void;
+  onWish: (item: InventoryItem) => void; // "want another" → prefilled wish
   onArchive: (item: InventoryItem) => void;
   onRemove: (item: InventoryItem) => void;
 };
@@ -54,6 +55,7 @@ export function ItemListCard({
   today,
   onOpen,
   onEdit,
+  onWish,
   onArchive,
   onRemove,
 }: ItemListCardProps) {
@@ -208,6 +210,15 @@ export function ItemListCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={() => onWish(item)}
+              aria-label={`Add ${item.name} to Wishlist`}
+              title="Add to Wishlist — want another"
+              className="rounded-md p-1.5 text-sm leading-none text-slate-500 transition hover:bg-slate-800 hover:text-pink-300"
+            >
+              ♡
+            </button>
             <button
               type="button"
               onClick={() => onEdit(item)}

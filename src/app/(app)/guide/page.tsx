@@ -473,12 +473,16 @@ export default function GuidePage() {
               straight to its store, so where-to-buy is always one tap away).
               As you type a name it
               gently flags anything you <em>may already have</em>, so you don&apos;t
-              re-buy by accident. Change your mind on details? The{" "}
-              <strong>✎ edit</strong> button on any wish reopens it in the form
-              — tweak the name, price, category, photo, or store links and
-              save. Bought it? Tap{" "}
-              <strong>Got it</strong> and it becomes a real item in My Stuff —
-              carrying its photo, barcode, and compare links along.
+              re-buy by accident. Change your mind on details? <strong>Tap a
+              wish (or its ✎)</strong> and it reopens in the form — tweak the
+              name, price, category, photo, or store links and save. Bought it?
+              Tap <strong>Got it</strong> and it becomes a real item in My
+              Stuff — carrying its photo, barcode, and compare links along.
+              Slip of the finger? Deleting a wish and <em>Got it</em> both show
+              an <strong>Undo</strong> for a few seconds. And when something
+              you own wears out, the <strong>♡ on any item card</strong> wishes
+              it again — a re-buy entry prefilled with the item&apos;s photo,
+              price, and store links.
             </p>
           </Sub>
           <Sub title="✨ AI capture (coming soon)">
