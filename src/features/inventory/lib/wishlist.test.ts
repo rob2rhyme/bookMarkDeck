@@ -24,10 +24,11 @@ describe("wishlistToInventoryItem", () => {
     currency: "USD",
     note: "wait for a sale",
     link: { id: "b1", title: "Product page", url: "https://sony.com/a7iv" },
+    imageUrl: "https://cdn.example.com/a7iv.jpg",
     createdAt: null,
   };
 
-  it("carries name (trimmed), category, price, note, and the link", () => {
+  it("carries name (trimmed), category, price, note, link, and photo", () => {
     const item = wishlistToInventoryItem(base, "GBP");
     expect(item.name).toBe("Sony A7 IV");
     expect(item.category).toBe("Cameras");
@@ -36,14 +37,16 @@ describe("wishlistToInventoryItem", () => {
     expect(item.notes).toBe("wait for a sale");
     expect(item.links).toEqual([base.link]);
     expect(item.id).not.toBe("w1"); // a new item id
-    expect(item.photos).toEqual([]);
+    expect(item.photos).toHaveLength(1);
+    expect(item.photos[0].url).toBe("https://cdn.example.com/a7iv.jpg");
     expect(item.quantity).toBe(1);
   });
 
-  it("falls back to the default currency and empty links", () => {
+  it("falls back to the default currency, empty links, and no photos", () => {
     const item = wishlistToInventoryItem({ id: "w2", name: "Kettle", createdAt: null }, "GBP");
     expect(item.currency).toBe("GBP");
     expect(item.links).toEqual([]);
     expect(item.price).toBeUndefined();
+    expect(item.photos).toEqual([]);
   });
 });

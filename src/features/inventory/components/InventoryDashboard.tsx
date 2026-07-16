@@ -265,7 +265,7 @@ export function InventoryDashboard() {
     });
     setFormOpen(true);
   };
-  const aiToWishlist = (p: AiProduct) => {
+  const aiToWishlist = (p: AiProduct, photo: ItemPhoto | null) => {
     setAiOpen(false);
     wishlist.upsert({
       id: crypto.randomUUID(),
@@ -274,6 +274,7 @@ export function InventoryDashboard() {
       estPrice: p.estPrice,
       note: p.description,
       currency: settings.defaultCurrency,
+      imageUrl: photo?.url,
       createdAt: new Date().toISOString(),
     });
     setWishlistOpen(true);

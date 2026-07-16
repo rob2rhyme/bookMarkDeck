@@ -19,8 +19,9 @@ export function blankWishlistItem(currency: string): WishlistItem {
 /**
  * Convert a wishlist entry into a real inventory item — used when you buy it
  * ("Got it → My Stuff"). Carries name, category, the estimate as the price,
- * the product-page link, and the price-comparison inputs (barcode + saved
- * compare-links); leaves everything else to be filled in later.
+ * the product-page link, the product photo (as the item's first photo), and
+ * the price-comparison inputs (barcode + saved compare-links); leaves
+ * everything else to be filled in later.
  */
 export function wishlistToInventoryItem(
   w: WishlistItem,
@@ -40,7 +41,9 @@ export function wishlistToInventoryItem(
     barcode: w.barcode?.trim() || undefined,
     compareLinks: w.compareLinks?.length ? w.compareLinks : undefined,
     links,
-    photos: [],
+    photos: w.imageUrl
+      ? [{ id: crypto.randomUUID(), url: w.imageUrl }]
+      : [],
     lentTo: null,
     lentDate: null,
     dueDate: null,

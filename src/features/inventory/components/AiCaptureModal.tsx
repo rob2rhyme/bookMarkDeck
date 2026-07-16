@@ -17,8 +17,8 @@ type AiCaptureModalProps = {
   defaultCurrency: string;
   /** "Already bought" — hand the guess (+ the photo) to the add-item form. */
   onAlreadyBought: (p: AiProduct, photo: ItemPhoto | null) => void;
-  /** "Want it" — save it straight onto the wishlist. */
-  onAddToWishlist: (p: AiProduct) => void;
+  /** "Want it" — save it straight onto the wishlist (photo = its thumbnail). */
+  onAddToWishlist: (p: AiProduct, photo: ItemPhoto | null) => void;
   onClose: () => void;
 };
 
@@ -239,7 +239,7 @@ export function AiCaptureModal({
             </button>
             <button
               type="button"
-              onClick={() => onAddToWishlist(product)}
+              onClick={() => onAddToWishlist(product, photo)}
               className="flex-1 rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-pink-400 hover:text-pink-300"
             >
               ♡ Add to Wishlist
