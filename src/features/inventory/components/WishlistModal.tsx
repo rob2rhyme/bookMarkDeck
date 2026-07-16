@@ -475,35 +475,45 @@ export function WishlistModal({
               }`}
             >
               <div className="flex items-center gap-2">
-                {w.imageUrl && (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={w.imageUrl}
-                    alt={w.name}
-                    loading="lazy"
-                    className="h-10 w-10 shrink-0 rounded-lg border border-slate-800 bg-slate-900 object-contain"
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-slate-100">{w.name}</span>
-                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-                    {typeof w.estPrice === "number" && (
-                      <span className="tabular-nums text-emerald-300/90">
-                        {formatMoney(w.estPrice, w.currency ?? defaultCurrency)}
-                      </span>
-                    )}
-                    {w.category && <span>{w.category}</span>}
-                    {w.link && (
-                      <a
-                        href={w.link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate text-blue-300 transition hover:text-blue-200"
-                      >
-                        🔗 {w.link.title}
-                      </a>
-                    )}
-                  </span>
+                {/* The whole body is a tap target for editing (the ✎ button
+                    stays as the keyboard-accessible path); the store link
+                    inside stops propagation so it still just opens. */}
+                <div
+                  onClick={() => startEdit(w)}
+                  title="Edit this wish"
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+                >
+                  {w.imageUrl && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={w.imageUrl}
+                      alt={w.name}
+                      loading="lazy"
+                      className="h-10 w-10 shrink-0 rounded-lg border border-slate-800 bg-slate-900 object-contain"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-slate-100">{w.name}</span>
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                      {typeof w.estPrice === "number" && (
+                        <span className="tabular-nums text-emerald-300/90">
+                          {formatMoney(w.estPrice, w.currency ?? defaultCurrency)}
+                        </span>
+                      )}
+                      {w.category && <span>{w.category}</span>}
+                      {w.link && (
+                        <a
+                          href={w.link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="truncate text-blue-300 transition hover:text-blue-200"
+                        >
+                          🔗 {w.link.title}
+                        </a>
+                      )}
+                    </span>
+                  </div>
                 </div>
                 {(w.barcode || (w.compareLinks?.length ?? 0) > 0) && (
                   <button

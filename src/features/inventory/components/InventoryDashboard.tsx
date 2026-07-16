@@ -243,9 +243,62 @@ export function InventoryDashboard() {
   };
 
   // Wishlist → My Stuff: bought it, so make it a real item and clear the wish.
+  // Undoable — an accidental tap restores the wish and removes the new item.
   const gotItFromWishlist = (w: WishlistItem) => {
-    saveItem(wishlistToInventoryItem(w, settings.defaultCurrency));
+    const item = wishlistToInventoryItem(w, settings.defaultCurrency);
+    saveItem(item);
     wishlist.remove(w.id);
+    toast(`Moved “${w.name}” into My Stuff.`, {
+      duration: UNDO_DELETE_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          inv.removeItem(item.id);
+          wishlist.upsert(w);
+        },
+      },
+    });
+  };
+
+  // Wish deletion gets the same undo window as item deletion; wishes have no
+  // attachments, so they restore whole from the captured snapshot.
+  const removeWishWithUndo = (id: string) => {
+    const w = wishlist.items.find((x) => x.id === id);
+    wishlist.remove(id);
+    if (!w) return;
+    toast(`Removed “${w.name}” from the wishlist.`, {
+      duration: UNDO_DELETE_MS,
+      action: { label: "Undo", onClick: () => wishlist.upsert(w) },
+    });
+  };
+
+  // ♡ on an item card — "want another one": a wish prefilled from the item
+  // (photo, price as the estimate, barcode + compare links for price checks).
+  const wishFromItem = (item: InventoryItem) => {
+    const dup = wishlist.items.find(
+      (x) => x.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+    );
+    if (dup) {
+      toast(`“${item.name}” is already on your wishlist.`);
+      return;
+    }
+    wishlist.upsert({
+      id: crypto.randomUUID(),
+      name: item.name,
+      estPrice: item.price ?? item.value,
+      currency: item.currency || settings.defaultCurrency,
+      category: item.category,
+      barcode: item.barcode,
+      imageUrl: item.photos[0]?.url,
+      compareLinks: item.compareLinks?.length ? item.compareLinks : undefined,
+      link: item.storeUrl
+        ? { id: item.id, title: item.name, url: item.storeUrl }
+        : undefined,
+      createdAt: new Date().toISOString(),
+    });
+    toast(`Added “${item.name}” to the wishlist.`, {
+      action: { label: "View list", onClick: () => setWishlistOpen(true) },
+    });
   };
 
   // AI capture → its two destinations. "Already bought" hands a prefilled item
@@ -808,6 +861,7 @@ export function InventoryDashboard() {
                       today={today}
                       onOpen={openDetail}
                       onEdit={openEdit}
+                      onWish={wishFromItem}
                       onArchive={(it) => inv.setArchived(it.id, !it.archived)}
                       onRemove={removeItemAndDocs}
                     />
@@ -828,6 +882,7 @@ export function InventoryDashboard() {
               today={today}
               onOpen={openDetail}
               onEdit={openEdit}
+              onWish={wishFromItem}
               onArchive={(it) => inv.setArchived(it.id, !it.archived)}
               onRemove={removeItemAndDocs}
             />
@@ -844,6 +899,7 @@ export function InventoryDashboard() {
               today={today}
               onOpen={openDetail}
               onEdit={openEdit}
+              onWish={wishFromItem}
               onArchive={(it) => inv.setArchived(it.id, !it.archived)}
               onRemove={removeItemAndDocs}
             />
@@ -954,7 +1010,7 @@ export function InventoryDashboard() {
         categorySuggestions={categorySuggestions}
         defaultCurrency={settings.defaultCurrency}
         onUpsert={wishlist.upsert}
-        onRemove={wishlist.remove}
+        onRemove={removeWishWithUndo}
         onGotIt={gotItFromWishlist}
         onClose={() => setWishlistOpen(false)}
       />
