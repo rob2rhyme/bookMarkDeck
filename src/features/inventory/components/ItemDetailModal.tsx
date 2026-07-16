@@ -341,11 +341,17 @@ export function ItemDetailModal({
       label={item.name}
       panelClassName="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
-      <div className="sticky -top-6 z-20 -mx-6 -mt-6 mb-1 flex items-start justify-between gap-3 rounded-t-2xl border-b border-slate-800/70 bg-slate-900/95 px-6 pb-3 pt-6 backdrop-blur">
-        <h2 className="min-w-0 flex-1 text-lg font-semibold text-slate-50">
+      {/* Mobile stacks the header (actions row, then the title full-width and
+          clamped to two lines) — side-by-side, the buttons squeezed a long
+          name into a one-word-per-line column. sm+ keeps the single row. */}
+      <div className="sticky -top-6 z-20 -mx-6 -mt-6 mb-1 flex flex-col-reverse gap-2 rounded-t-2xl border-b border-slate-800/70 bg-slate-900/95 px-6 pb-3 pt-6 backdrop-blur sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <h2
+          title={item.name}
+          className="min-w-0 text-base font-semibold text-slate-50 max-sm:line-clamp-2 sm:flex-1 sm:text-lg"
+        >
           {item.name}
         </h2>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center justify-end gap-1.5">
           <button
             type="button"
             onClick={() => shareItem(item)}
