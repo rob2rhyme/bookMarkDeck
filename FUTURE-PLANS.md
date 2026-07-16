@@ -6,9 +6,17 @@ feature roadmaps stay where they are — `INVENTORY-ROADMAP.md` (My Stuff Phases
 2–4 + commercialization) and `FOCUS-INTEGRATION.md` (gated backlog B1–B9);
 this file is for owner-level decisions and small cleanups, not feature planning.
 
-_Last reviewed: 2026-07-15._
+_Last reviewed: 2026-07-16._
 
 ## Owner console/config actions (no code change needed)
+
+0. **Turn on AI capture.** The feature shipped off-by-default: add
+   `ANTHROPIC_API_KEY` (console.anthropic.com) in Vercel env and redeploy.
+   Default model is `claude-haiku-4-5` (cheapest vision tier, ~$0.002–0.01 per
+   scan); set `AI_CAPTURE_MODEL=claude-opus-4-8` for max accuracy. Later, when
+   opening it to paying users: add a per-user quota + billing gate (Track C in
+   `ANALYSIS-MOBILE-APP-STRATEGY.md` §3 — billing lands *with* the metered
+   feature).
 
 1. **Firebase OAuth safelist — fully zero-click login.** Deferred by owner
    decision (2026-07-15): leaving the setting as is for now. Today one Google
@@ -22,6 +30,19 @@ _Last reviewed: 2026-07-15._
    subscribe at upcitemdb.com, then set `UPC_LOOKUP_URL`
    (`https://api.upcitemdb.com/prod/v1/lookup`) + `UPC_LOOKUP_KEY` in Vercel
    and redeploy — no code change. Misconfig auto-falls back to the trial.
+
+## Feature work parked by owner decision
+
+2a. **Affiliate-tagged live offers (parked 2026-07-16 — "AI capture instead
+    for now").** The plan when picked up: (i) a pure `withAffiliateTag(url)`
+    rewriter applied to fetched offers (FTC disclosure line + never silently
+    rewrite user-typed links); (ii) free retailer offer feeds via the eBay
+    Browse API (EPN campaign id in the `X-EBAY-C-ENDUSERCTX` header) and the
+    Best Buy API (also gives "in stock nearby" via its Stores API); (iii)
+    Amazon last — its Creators API (successor to PA-API, retired 2026-05)
+    requires an Associates account with **10+ qualifying sales in the trailing
+    30 days**, so start with plain tagged Amazon search links until volume
+    exists. Owner currently has an Amazon Associates account only.
 
 ## Code cleanups (kept intentionally for now)
 

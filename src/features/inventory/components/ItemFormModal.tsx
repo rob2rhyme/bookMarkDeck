@@ -94,9 +94,10 @@ type Draft = {
 };
 
 function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
-  // A brand-new item (from blankItem) gets the default tax rate prefilled;
-  // existing items created before the field keep "no tax" rather than gaining it.
-  const isNew = !item.updatedAt && item.name === "";
+  // Never-saved = new (upsertItem stamps updatedAt on every save). Covers both
+  // a blank add and a prefilled one (AI capture), while existing items created
+  // before the tax field keep "no tax" rather than gaining it.
+  const isNew = !item.updatedAt;
   return {
     name: item.name,
     category: item.category ?? "",
@@ -528,7 +529,8 @@ export function ItemFormModal({
   };
 
   if (!open || !item || !draft) return null;
-  const isNew = !item.updatedAt && item.name === "";
+  const isNew = !item.updatedAt; // never saved — see toDraft
+
   const canSave = draft.name.trim().length > 0;
   // `today` is set post-mount; guard the lend-date stamp in the unlikely early case.
   const stamp = today || new Date().toISOString().slice(0, 10);
