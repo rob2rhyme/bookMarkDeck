@@ -476,20 +476,20 @@ export default function GuidePage() {
               carrying its barcode and compare links along.
             </p>
           </Sub>
-          <Sub title="✨ AI capture (optional)">
+          <Sub title="✨ AI capture (coming soon)">
             <p>
-              The <strong>✨ AI add</strong> button is the no-barcode fast way
-              in: <strong>snap or choose a photo</strong> and the AI names the
-              product, guesses a category and a rough price, then asks one
-              question — <em>want it or have it?</em>{" "}
+              Built and waiting in the wings: an <strong>✨ AI add</strong>{" "}
+              button where you <strong>snap or choose a photo</strong> and the
+              AI names the product, guesses a category and a rough price, then
+              asks one question — <em>want it or have it?</em>{" "}
               <strong>Add to Wishlist</strong> saves it as a wish;{" "}
               <strong>Already bought</strong> opens the add-item form prefilled
               (photo included) so you review and save. Everything stays
               editable — it&apos;s a head start, not a decision. Great for
               things barcodes can&apos;t cover: furniture, tools, gifts,
-              hand-me-downs. This one needs the site owner to add an AI key
-              (see <code>.env.example</code>); until then the button simply
-              explains it isn&apos;t set up.
+              hand-me-downs. The button is tucked away until the site owner
+              turns on the AI key (see <code>.env.example</code>) — it&apos;ll
+              appear here when it goes live.
             </p>
           </Sub>
           <Sub title="Upkeep calendar">

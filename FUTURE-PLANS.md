@@ -10,11 +10,16 @@ _Last reviewed: 2026-07-16._
 
 ## Owner console/config actions (no code change needed)
 
-0. **Turn on AI capture.** The feature shipped off-by-default: add
-   `ANTHROPIC_API_KEY` (console.anthropic.com) in Vercel env and redeploy.
-   Default model is `claude-haiku-4-5` (cheapest vision tier, ~$0.002–0.01 per
-   scan); set `AI_CAPTURE_MODEL=claude-opus-4-8` for max accuracy. Later, when
-   opening it to paying users: add a per-user quota + billing gate (Track C in
+0. **Turn on AI capture.** Shipped fully wired but dormant, and the **✨ AI add
+   button is hidden** (owner decision 2026-07-16). To go live, two steps:
+   (a) add `ANTHROPIC_API_KEY` (console.anthropic.com) in Vercel env;
+   (b) in `InventoryDashboard.tsx`, swap the AI-add button's `hidden` class
+   back to `flex` (the comment above it marks the spot), then redeploy. The
+   `/guide` section is written as "coming soon" — flip its title/last sentence
+   to live wording at the same time. Default model is `claude-haiku-4-5`
+   (cheapest vision tier, ~$0.002–0.01 per scan); set
+   `AI_CAPTURE_MODEL=claude-opus-4-8` for max accuracy. Later, when opening it
+   to paying users: add a per-user quota + billing gate (Track C in
    `ANALYSIS-MOBILE-APP-STRATEGY.md` §3 — billing lands *with* the metered
    feature).
 

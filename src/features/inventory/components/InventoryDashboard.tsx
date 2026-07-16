@@ -484,8 +484,10 @@ export function InventoryDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 px-3 sm:flex-row sm:items-center sm:justify-between sm:px-0">
+      {/* Header. Title and actions sit side by side only at xl — below that
+          the action pills row is wide enough to crush the title into a sliver
+          (it can't shrink past one pill per line), so the header stacks. */}
+      <div className="flex flex-col gap-3 px-3 sm:px-0 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h2 className="flex items-center gap-2 text-2xl font-semibold text-slate-50">
             <Package className="h-6 w-6 text-blue-300" /> My Stuff
@@ -597,11 +599,14 @@ export function InventoryDashboard() {
           >
             Locations
           </button>
+          {/* Hidden for now (owner decision 2026-07-16, FUTURE-PLANS #0) —
+              swap `hidden` back to `flex` once ANTHROPIC_API_KEY is live in
+              Vercel; the capture modal + route below stay fully wired. */}
           <button
             type="button"
             onClick={() => setAiOpen(true)}
             title="Snap a photo — AI names it, then wishlist it or add it"
-            className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400 hover:text-violet-300"
+            className="hidden items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400 hover:text-violet-300"
           >
             ✨ AI add
           </button>
