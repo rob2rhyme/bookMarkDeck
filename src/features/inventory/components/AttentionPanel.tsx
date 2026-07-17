@@ -5,6 +5,7 @@ import {
   attention,
   attentionCount,
   daysUntil,
+  effectiveUseBy,
 } from "@/features/inventory/lib/value";
 
 type AttentionPanelProps = {
@@ -86,6 +87,52 @@ export function AttentionPanel({ items, today, onSelect }: AttentionPanelProps) 
             <ul className="flex flex-col gap-0.5">
               {a.warrantySoon.map((i) => {
                 const d = i.warrantyExpiry ? daysUntil(i.warrantyExpiry, today) : null;
+                return (
+                  <Row
+                    key={i.id}
+                    item={i}
+                    detail={d != null ? `${d}d left` : "soon"}
+                    tone="text-amber-300"
+                    onSelect={onSelect}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {a.useByExpired.length > 0 && (
+          <section>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-red-300/80">
+              Past use-by
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {a.useByExpired.map((i) => {
+                const ub = effectiveUseBy(i);
+                const d = ub ? daysUntil(ub, today) : null;
+                return (
+                  <Row
+                    key={i.id}
+                    item={i}
+                    detail={d != null ? `${Math.abs(d)}d past` : "past"}
+                    tone="text-red-300"
+                    onSelect={onSelect}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {a.useBySoon.length > 0 && (
+          <section>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-amber-300/80">
+              Use by soon
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {a.useBySoon.map((i) => {
+                const ub = effectiveUseBy(i);
+                const d = ub ? daysUntil(ub, today) : null;
                 return (
                   <Row
                     key={i.id}

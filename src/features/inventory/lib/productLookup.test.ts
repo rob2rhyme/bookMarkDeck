@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  parseOpenLibrary,
+  isIsbnEan,
   looksScannable,
   normalizeBarcode,
   openFactsCategory,
@@ -167,5 +169,40 @@ describe("parseOpenFacts", () => {
     });
     expect(info?.name).toBe("Kettle");
     expect(info?.brand).toBe("Acme");
+  });
+});
+
+describe("isIsbnEan / parseOpenLibrary", () => {
+  it("recognizes bookland EAN-13 codes", () => {
+    expect(isIsbnEan("9780140328721")).toBe(true);
+    expect(isIsbnEan("9791234567890")).toBe(true);
+    expect(isIsbnEan("0123456789012")).toBe(false);
+    expect(isIsbnEan("978014032872")).toBe(false); // 12 digits
+  });
+
+  it("parses an Open Library data response into a book prefill", () => {
+    const key = "ISBN:9780140328721";
+    const info = parseOpenLibrary(
+      {
+        [key]: {
+          title: "Fantastic Mr Fox",
+          authors: [{ name: "Roald Dahl" }],
+          cover: { medium: "https://covers.openlibrary.org/b/id/x-M.jpg" },
+        },
+      },
+      key
+    );
+    expect(info).toEqual({
+      name: "Fantastic Mr Fox",
+      author: "Roald Dahl",
+      category: "Books",
+      imageUrl: "https://covers.openlibrary.org/b/id/x-M.jpg",
+      kindHint: "book",
+    });
+  });
+
+  it("returns null on a miss or a title-less entry", () => {
+    expect(parseOpenLibrary({}, "ISBN:1")).toBeNull();
+    expect(parseOpenLibrary({ "ISBN:1": { authors: [] } }, "ISBN:1")).toBeNull();
   });
 });

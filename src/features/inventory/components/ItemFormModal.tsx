@@ -9,6 +9,10 @@ import {
   CONDITIONS,
   DISPOSITIONS,
   DOC_KINDS,
+  ITEM_KINDS,
+  READ_STATUSES,
+  type ItemKind,
+  type ReadStatus,
   type InventoryItem,
   type ItemCondition,
   type ItemDisposition,
@@ -80,6 +84,13 @@ type Draft = {
   origin: "" | "borrowed" | "rented";
   borrowedFrom: string;
   borrowReturnBy: string;
+  kind: "" | ItemKind;
+  author: string;
+  readStatus: "" | ReadStatus;
+  useBy: string;
+  openedDate: string;
+  paoMonths: string;
+  size: string;
   manufacturer: string;
   model: string;
   serial: string;
@@ -127,6 +138,13 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     origin: item.origin ?? "",
     borrowedFrom: item.borrowedFrom ?? "",
     borrowReturnBy: item.borrowReturnBy ?? "",
+    kind: item.kind ?? "",
+    author: item.author ?? "",
+    readStatus: item.readStatus ?? "",
+    useBy: item.useBy ?? "",
+    openedDate: item.openedDate ?? "",
+    paoMonths: item.paoMonths != null ? String(item.paoMonths) : "",
+    size: item.size ?? "",
     manufacturer: item.manufacturer ?? "",
     model: item.model ?? "",
     serial: item.serial ?? "",
@@ -314,6 +332,10 @@ export function ItemFormModal({
         ...d,
         name: keep(d.name, info.name),
         category: keep(d.category, info.category),
+        // The matched source knows what KIND of thing this is (Open Food
+        // Facts → pantry, ISBN → book…) — route to the right form.
+        kind: d.kind || (info.kindHint ?? ""),
+        author: keep(d.author, info.author),
         manufacturer: keep(d.manufacturer, info.brand),
         model: keep(d.model, info.model),
         price: d.price.trim() ? d.price : info.price != null ? String(info.price) : d.price,
@@ -560,6 +582,17 @@ export function ItemFormModal({
   if (!open || !item || !draft) return null;
   const isNew = !item.updatedAt; // never saved — see toDraft
 
+  // Which field groups this kind of thing actually has — a pantry can carries
+  // no warranty or serial; a book has an author instead of a model number.
+  const isBook = draft.kind === "book";
+  const isConsumable = draft.kind === "food" || draft.kind === "selfcare";
+  const isClothing = draft.kind === "clothing";
+  const hasWarranty = !isBook && !isConsumable && !isClothing;
+  const hasMakerRow = !isBook && !isConsumable;
+  const hasCondition = !isConsumable;
+  const hasBox = !isBook && !isConsumable && !isClothing;
+  const hasLending = !isConsumable;
+
   const canSave = draft.name.trim().length > 0;
   // `today` is set post-mount; guard the lend-date stamp in the unlikely early case.
   const stamp = today || new Date().toISOString().slice(0, 10);
@@ -622,6 +655,13 @@ export function ItemFormModal({
       origin: draft.origin || undefined,
       borrowedFrom: draft.origin ? trimmedOrUndef(draft.borrowedFrom) : undefined,
       borrowReturnBy: draft.origin ? trimmedOrUndef(draft.borrowReturnBy) : undefined,
+      kind: draft.kind || undefined,
+      author: trimmedOrUndef(draft.author),
+      readStatus: draft.readStatus || undefined,
+      useBy: trimmedOrUndef(draft.useBy),
+      openedDate: trimmedOrUndef(draft.openedDate),
+      paoMonths: numOrUndef(draft.paoMonths),
+      size: trimmedOrUndef(draft.size),
       manufacturer: trimmedOrUndef(draft.manufacturer),
       model: trimmedOrUndef(draft.model),
       serial: trimmedOrUndef(draft.serial),
@@ -821,6 +861,29 @@ export function ItemFormModal({
           />
         </Field>
 
+        {/* Item type — reshapes the form to fit the thing. A scan sets this
+            automatically when the source knows (ISBN → Book, food DB → Pantry). */}
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Item type">
+          {ITEM_KINDS.map((k) => {
+            const on = draft.kind === k.id;
+            return (
+              <button
+                key={k.id || "general"}
+                type="button"
+                onClick={() => set("kind", k.id)}
+                aria-pressed={on}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                  on
+                    ? "bg-blue-600 text-white"
+                    : "border border-slate-700 text-slate-300 hover:border-blue-400 hover:text-blue-200"
+                }`}
+              >
+                {k.icon} {k.label}
+              </button>
+            );
+          })}
+        </div>
+
         {lookalikes.length > 0 && (
           <p className="rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
             Looks like you may already own this:{" "}
@@ -865,6 +928,85 @@ export function ItemFormModal({
             </select>
           </Field>
         </div>
+
+        {isBook && (
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Author">
+              <input
+                type="text"
+                value={draft.author}
+                onChange={(e) => set("author", e.target.value)}
+                placeholder="e.g. Ursula K. Le Guin"
+                className={fieldClass}
+              />
+            </Field>
+            <Field label="Read status">
+              <select
+                value={draft.readStatus}
+                onChange={(e) =>
+                  set("readStatus", e.target.value as Draft["readStatus"])
+                }
+                className={fieldClass}
+              >
+                <option value="">—</option>
+                {READ_STATUSES.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.icon} {r.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        )}
+
+        {isConsumable && (
+          <div
+            className={`grid gap-2 ${
+              draft.kind === "selfcare" ? "grid-cols-3" : "grid-cols-1"
+            }`}
+          >
+            <Field label="Use by">
+              <DateInput
+                value={draft.useBy}
+                onChange={(e) => set("useBy", e.target.value)}
+                className={fieldClass}
+              />
+            </Field>
+            {draft.kind === "selfcare" && (
+              <>
+                <Field label="Opened on">
+                  <DateInput
+                    value={draft.openedDate}
+                    onChange={(e) => set("openedDate", e.target.value)}
+                    className={fieldClass}
+                  />
+                </Field>
+                <Field label="PAO (months)">
+                  <input
+                    type="number"
+                    min={0}
+                    value={draft.paoMonths}
+                    onChange={(e) => set("paoMonths", e.target.value)}
+                    placeholder="12"
+                    className={fieldClass}
+                  />
+                </Field>
+              </>
+            )}
+          </div>
+        )}
+
+        {isClothing && (
+          <Field label="Size">
+            <input
+              type="text"
+              value={draft.size}
+              onChange={(e) => set("size", e.target.value)}
+              placeholder="M / 32×30 / EU 42"
+              className={fieldClass}
+            />
+          </Field>
+        )}
 
         {/* Links — the item's online life, picked from the bookmark library. */}
         <div>
@@ -1049,33 +1191,37 @@ export function ItemFormModal({
                   className={fieldClass}
                 />
               </Field>
-              <Field label="Condition">
-                <select
-                  value={draft.condition}
-                  onChange={(e) => set("condition", e.target.value as Draft["condition"])}
-                  className={fieldClass}
-                >
-                  <option value="">—</option>
-                  {CONDITIONS.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              {hasCondition && (
+                <Field label="Condition">
+                  <select
+                    value={draft.condition}
+                    onChange={(e) => set("condition", e.target.value as Draft["condition"])}
+                    className={fieldClass}
+                  >
+                    <option value="">—</option>
+                    {CONDITIONS.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
             </div>
 
-            <Field label="In its original box?">
-              <select
-                value={draft.inBox}
-                onChange={(e) => set("inBox", e.target.value as Draft["inBox"])}
-                className={fieldClass}
-              >
-                <option value="">— Not specified</option>
-                <option value="yes">Yes — boxed (location = where the box is)</option>
-                <option value="no">No — unboxed (location = where the item is)</option>
-              </select>
-            </Field>
+            {hasBox && (
+              <Field label="In its original box?">
+                <select
+                  value={draft.inBox}
+                  onChange={(e) => set("inBox", e.target.value as Draft["inBox"])}
+                  className={fieldClass}
+                >
+                  <option value="">— Not specified</option>
+                  <option value="yes">Yes — boxed (location = where the box is)</option>
+                  <option value="no">No — unboxed (location = where the item is)</option>
+                </select>
+              </Field>
+            )}
 
             <div className="grid grid-cols-3 gap-2">
               <Field label="Ownership">
@@ -1119,7 +1265,7 @@ export function ItemFormModal({
               </p>
             )}
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${hasWarranty ? "grid-cols-3" : "grid-cols-1"}`}>
               <Field label="Purchase date">
                 <DateInput
                   value={draft.purchaseDate}
@@ -1127,22 +1273,28 @@ export function ItemFormModal({
                   className={fieldClass}
                 />
               </Field>
-              <Field label="Warranty expires">
-                <DateInput
-                  value={draft.warrantyExpiry}
-                  onChange={(e) => set("warrantyExpiry", e.target.value)}
-                  className={fieldClass}
-                />
-              </Field>
-              <Field label="Maintenance due">
-                <DateInput
-                  value={draft.maintenanceDate}
-                  onChange={(e) => set("maintenanceDate", e.target.value)}
-                  className={fieldClass}
-                />
-              </Field>
+              {hasWarranty && (
+                <>
+                  <Field label="Warranty expires">
+                    <DateInput
+                      value={draft.warrantyExpiry}
+                      onChange={(e) => set("warrantyExpiry", e.target.value)}
+                      className={fieldClass}
+                    />
+                  </Field>
+                  <Field label="Maintenance due">
+                    <DateInput
+                      value={draft.maintenanceDate}
+                      onChange={(e) => set("maintenanceDate", e.target.value)}
+                      className={fieldClass}
+                    />
+                  </Field>
+                </>
+              )}
             </div>
 
+            {hasWarranty && (
+            <>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Warranty plan cost">
                 <input
@@ -1172,7 +1324,10 @@ export function ItemFormModal({
               total, and entering years fills the expiry date from the purchase
               date automatically.
             </p>
+            </>
+            )}
 
+            {hasMakerRow && (
             <div className="grid grid-cols-3 gap-2">
               <Field label="Maker">
                 <input
@@ -1199,6 +1354,7 @@ export function ItemFormModal({
                 />
               </Field>
             </div>
+            )}
 
             {/* Barcode is captured up top (Scan a product). */}
 
@@ -1550,26 +1706,28 @@ export function ItemFormModal({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Lent to">
-                <input
-                  type="text"
-                  value={draft.lentTo}
-                  onChange={(e) => set("lentTo", e.target.value)}
-                  placeholder="Nobody"
-                  className={fieldClass}
-                />
-              </Field>
-              <Field label="Return by">
-                <input
-                  type="date"
-                  value={draft.dueDate}
-                  onChange={(e) => set("dueDate", e.target.value)}
-                  disabled={!draft.lentTo.trim()}
-                  className={`${fieldClass} disabled:opacity-40`}
-                />
-              </Field>
-            </div>
+            {hasLending && (
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Lent to">
+                  <input
+                    type="text"
+                    value={draft.lentTo}
+                    onChange={(e) => set("lentTo", e.target.value)}
+                    placeholder="Nobody"
+                    className={fieldClass}
+                  />
+                </Field>
+                <Field label="Return by">
+                  <input
+                    type="date"
+                    value={draft.dueDate}
+                    onChange={(e) => set("dueDate", e.target.value)}
+                    disabled={!draft.lentTo.trim()}
+                    className={`${fieldClass} disabled:opacity-40`}
+                  />
+                </Field>
+              </div>
+            )}
 
             <Field label="Notes">
               <textarea

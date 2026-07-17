@@ -1105,6 +1105,10 @@ export function InventoryDashboard() {
         onMarkUsed={inv.markUsed}
         onSetStatus={inv.setStatus}
         onReturn={inv.markReturned}
+        onSetRead={(id, readStatus) => {
+          const it = inv.items.find((x) => x.id === id);
+          if (it) inv.upsertItem({ ...it, readStatus });
+        }}
         onClose={() => setDetailId(null)}
       />
       <LendingLedgerModal

@@ -7,6 +7,7 @@ import {
   type InventoryItem,
 } from "@/features/inventory/lib/types";
 import {
+  effectiveUseBy,
   formatMoney,
   itemValue,
   paidWithTax,
@@ -91,6 +92,12 @@ export function ItemListCard({
         : `Paid ${formatMoney(item.price ?? 0, currency)}`
     );
   }
+  if (item.kind === "book" && item.author) facts.push(`by ${item.author}`);
+  {
+    const ub = effectiveUseBy(item);
+    if (ub) facts.push(`Use by ${ub}`);
+  }
+  if (item.kind === "clothing" && item.size) facts.push(`Size ${item.size}`);
   if (item.purchaseDate) facts.push(`Bought ${item.purchaseDate}`);
   if (item.warrantyExpiry || item.warrantyYears) {
     facts.push(

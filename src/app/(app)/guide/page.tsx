@@ -497,6 +497,29 @@ export default function GuidePage() {
               price, and store links.
             </p>
           </Sub>
+          <Sub title="Item types — forms that fit the thing">
+            <p>
+              A pantry can has no warranty; a book has an author. Pick an{" "}
+              <strong>item type</strong> under the name — General · 📚 Book ·
+              🥫 Food &amp; pantry · 🧴 Self-care · 👕 Clothing · 🛠 Tool —
+              and the form slims down to just what applies.{" "}
+              <strong>Scans pick the type for you</strong>: a book&apos;s
+              barcode fills title, author, and cover (via Open Library) and
+              flips to the Book form; a food or cosmetics barcode opens the
+              pantry or self-care form. <strong>Books</strong> get a read
+              status (📕 not read · 📖 reading · ✅ read) you can flip with
+              one tap in the detail view — and your{" "}
+              <strong>want-to-read list is just the Wishlist</strong> (scan a
+              book there, price-compare it, then <em>Got it</em>).{" "}
+              <strong>Food &amp; self-care</strong> get a{" "}
+              <strong>use-by date</strong> (self-care also{" "}
+              <em>opened-on + months-after-opening</em>, whichever ends
+              first), and anything past or within 14 days shows up in the{" "}
+              <strong>Attention</strong> panel. <strong>Clothing</strong> gets
+              a size. Every type keeps every power: photos, locations,
+              price with tax, editable cards, undo.
+            </p>
+          </Sub>
           <Sub title="🤲 Borrowed & rented">
             <p>
               Not everything in your care is yours. Set{" "}
