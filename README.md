@@ -1,30 +1,62 @@
 # Everhold
 
-**A calm, private home for everything you own.** Everhold is the standalone,
-native successor to Bookmark Deck's "My Stuff" pillar — one app for iOS,
-Android, and the web (Expo), where the barcode scanner knows a book from a
-can, use-by dates and subscription renewals remind you quietly, and your
-data stays yours (local-first, with backups to the destination you choose).
+**Hold everything.** A calm, private home inventory for all of it — tools,
+books, pantry, self-care, clothing, digital subscriptions — with warranties,
+tax-true totals, lending, and insights. Native on iOS + Android + web from one
+Expo codebase.
 
-> Name note: screened 2026-07 against app stores and the home-inventory
-> field ("My Stuff" variants, Holdall, Trove, Kept, Belongings, Shelf all
-> conflicted or drowned in search). Run a final USPTO/App Store check before
-> store submission.
+Everhold is the standalone spin-out of Bookmark Deck's *My Stuff* pillar. The
+roadmap and platform decisions live in that repo's `MYSTUFF-NATIVE-PLAN.md`.
 
-## Status — Phase 0 ✅
+> **Name screening (2026-07):** "Everhold" surfaced zero app-store, company,
+> or brand conflicts at research time. Run a final USPTO / App Store / Play
+> Store availability check right before store submission.
 
-The framework-free **logic core**, ported verbatim (tests included) from
-[bookMarkDeck](https://github.com/rob2rhyme/bookMarkDeck)
-`src/features/inventory/lib/`: value & tax math, item types, insights,
-lending/borrowed/subscription ledgers, product-lookup parsers
-(UPCitemdb · Open Facts · Open Library), price comparison, AI-capture
-parsing, exports, search, and more. `npm test` runs the full ported suite.
+## Status
 
-Roadmap: `MYSTUFF-NATIVE-PLAN.md` in the bookMarkDeck repo (Phases 1–6:
-Expo Router shell → scanner & photos → ledgers/insights → sync & backups →
-notifications/widgets + new kinds → stores).
+- ✅ **Phase 0 — logic core.** All 58 pure library modules ported verbatim
+  from Bookmark Deck (`src/lib/`): value & tax math, insights, borrowed +
+  subscription ledgers, product lookup parsers, AI-capture parsing,
+  CSV/JSON export, barcode/OCR/QR engines. 200+ unit tests, green.
+- ✅ **Phase 1 — Expo shell.** Expo Router tabs (Items · Insights · Wishlist
+  · More), local-first storage (SQLite on device, localStorage on web),
+  items list/add/detail with **type-aware forms** (📚 book · 🥫 food ·
+  🧴 self-care · 👕 clothing · 🛠 tool · 💾 digital), tax-true costs,
+  warranty plans, borrowed/rented origin, delete-with-undo, starter rooms,
+  and a **dark + light theme** (system default, manual override persisted).
+- ⏭ Phase 2 — native barcode scanning, photos, locations + QR labels.
+- ⏭ Phase 3 — price comparison, ledgers, full insights charts, EAS Update.
+- ⏭ Phase 4 — Google sign-in + Firestore sync (same project as Bookmark
+  Deck, so existing users keep their data), backup destinations
+  (device / iCloud / Drive / Dropbox), app lock.
+- ⏭ Phase 5 — push reminders, widgets, share-target; Vehicle/Medicine/Media.
+- ⏭ Phase 6 — store assets, Play → App Store, web target → Vercel.
 
-## Commands
+## Try it on your phone (no build needed)
 
-- `npm run typecheck` — strict TS, no emit
-- `npm test` — vitest (node environment; the core has no DOM/React)
+```bash
+npm install
+npx expo start
+```
+
+Scan the QR with **Expo Go** (App Store / Play Store) — the app runs
+immediately. `w` opens the web version in a browser.
+
+## Scripts
+
+- `npm run typecheck` — TypeScript, strict
+- `npm run test` — Vitest unit suite (the ported logic core + store helpers)
+- `npx expo export --platform web` — static web build (CI runs this as a
+  bundling smoke test)
+
+## Layout
+
+```
+src/app/        Expo Router routes: (tabs)/ · item/[id] · item/form
+src/lib/        ported logic core (React-free, unit-tested)
+src/data/       storage adapters (SQLite / localStorage) + inventory store
+src/ui/         theme tokens (slate/blue, dark+light) + themed primitives
+```
+
+Local-first, private by default: everything stays on the device until sync
+ships (and stays opt-in after).
