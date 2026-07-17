@@ -12,6 +12,7 @@ import {
   effectiveUseBy,
   formatMoney,
   itemValue,
+  nextRenewal,
   paidWithTax,
   warrantyState,
 } from "@/features/inventory/lib/value";
@@ -167,6 +168,29 @@ export function ItemCard({
               📏 {item.size}
             </span>
           )}
+          {item.kind === "digital" &&
+            (item.billingCycle === "monthly" || item.billingCycle === "yearly") && (
+              <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-medium text-cyan-200">
+                🔁 {formatMoney(paidWithTax(item), currency)}/
+                {item.billingCycle === "monthly" ? "mo" : "yr"}
+              </span>
+            )}
+          {(() => {
+            const r = nextRenewal(item, today);
+            if (!r) return null;
+            const d = daysUntil(r, today);
+            return (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  d !== null && d <= 7
+                    ? "bg-amber-500/15 text-amber-200"
+                    : "bg-slate-800/80 text-slate-300"
+                }`}
+              >
+                Renews {r}
+              </span>
+            );
+          })()}
           {item.projectName && (
             <span
               className="max-w-full truncate rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-medium text-indigo-200"

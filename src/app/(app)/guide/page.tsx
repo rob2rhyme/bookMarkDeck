@@ -516,8 +516,18 @@ export default function GuidePage() {
               <em>opened-on + months-after-opening</em>, whichever ends
               first), and anything past or within 14 days shows up in the{" "}
               <strong>Attention</strong> panel. <strong>Clothing</strong> gets
-              a size. Every type keeps every power: photos, locations,
-              price with tax, editable cards, undo.
+              a size. <strong>💾 Digital</strong> covers subscriptions and
+              one-time purchases: pick a billing cycle (one-time · monthly ·
+              yearly), and subs get a <strong>renewal date that rolls forward
+              by itself</strong> — with a heads-up in Attention during the
+              7-day cancel window — while one-time buys get a{" "}
+              <strong>license key</strong> field and a platform/account. The{" "}
+              <strong>💳 Subs</strong> button totals it all up —{" "}
+              <em>&ldquo;you&apos;re paying ≈ $X/mo ($Y/yr)&rdquo;</em>, tax
+              included, soonest renewal first, with a manage/cancel link per
+              row. Subscriptions are running costs, not possessions — they
+              stay out of your Total value. Every type keeps every power:
+              photos, locations, price with tax, editable cards, undo.
             </p>
           </Sub>
           <Sub title="🤲 Borrowed & rented">

@@ -15,6 +15,7 @@ import {
   type ItemActivityType,
   type ItemCondition,
   type ItemDisposition,
+  type BillingCycle,
   type ItemKind,
   type ItemOrigin,
   type ItemStatus,
@@ -48,6 +49,8 @@ const ITEM_COLUMNS = [
   "opened_date",
   "pao_months",
   "size",
+  "billing_cycle",
+  "renews_on",
   "manufacturer",
   "model",
   "serial",
@@ -101,6 +104,8 @@ export function itemsToCsv(
       opened_date: i.openedDate ?? "",
       pao_months: i.paoMonths ?? "",
       size: i.size ?? "",
+      billing_cycle: i.billingCycle ?? "",
+      renews_on: i.renewsOn ?? "",
       manufacturer: i.manufacturer ?? "",
       model: i.model ?? "",
       serial: i.serial ?? "",
@@ -165,6 +170,8 @@ const asKind = (v: unknown): ItemKind | undefined =>
     : undefined;
 const asRead = (v: unknown): ReadStatus | undefined =>
   v === "unread" || v === "reading" || v === "read" ? v : undefined;
+const asCycle = (v: unknown): BillingCycle | undefined =>
+  v === "once" || v === "monthly" || v === "yearly" ? v : undefined;
 const asStatus = (v: unknown): ItemStatus | undefined =>
   typeof v === "string" && STATUS_SET.has(v as ItemStatus)
     ? (v as ItemStatus)
@@ -272,6 +279,8 @@ function coerceItem(raw: unknown): InventoryItem | null {
     openedDate: isDay(r.openedDate) ? r.openedDate : undefined,
     paoMonths: numOrUndef(r.paoMonths),
     size: str(r.size).trim() || undefined,
+    billingCycle: asCycle(r.billingCycle),
+    renewsOn: isDay(r.renewsOn) ? r.renewsOn : undefined,
     tags: Array.isArray(r.tags) ? r.tags.filter((t): t is string => typeof t === "string") : [],
     quantity: Math.max(1, Math.round(numOrUndef(r.quantity) ?? 1)),
     purchaseDate: isDay(r.purchaseDate) ? r.purchaseDate : undefined,

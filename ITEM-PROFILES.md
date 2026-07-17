@@ -19,6 +19,7 @@ Insights) because they all *are* items.
 | 🥫 Food | **use-by date** → Attention panel | warranty, maker row, serial, condition, in-box, lending, est. value |
 | 🧴 Self-care | use-by + **opened-on + PAO months** (expiry = earlier of the two) | same as food |
 | 👕 Clothing | size | warranty, in-box (keeps maker/brand, condition, lending) |
+| 💾 Digital | billing cycle (one-time · monthly · yearly), **auto-rolling renewal date**, license key, platform/account; 💳 Subs ledger with per-month totals (tax incl.); renewals ≤7d hit Attention (cancel window); subs excluded from Total value (running cost, not a possession) | location, warranty, maker row, condition, in-box, lending |
 
 **The smart part — scans route themselves.** The lookup pipeline already
 queries Open **Food** Facts and Open **Beauty** Facts; Phase 1 adds **Open

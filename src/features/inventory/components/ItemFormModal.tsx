@@ -9,8 +9,10 @@ import {
   CONDITIONS,
   DISPOSITIONS,
   DOC_KINDS,
+  BILLING_CYCLES,
   ITEM_KINDS,
   READ_STATUSES,
+  type BillingCycle,
   type ItemKind,
   type ReadStatus,
   type InventoryItem,
@@ -91,6 +93,8 @@ type Draft = {
   openedDate: string;
   paoMonths: string;
   size: string;
+  billingCycle: "" | BillingCycle;
+  renewsOn: string;
   manufacturer: string;
   model: string;
   serial: string;
@@ -145,6 +149,8 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     openedDate: item.openedDate ?? "",
     paoMonths: item.paoMonths != null ? String(item.paoMonths) : "",
     size: item.size ?? "",
+    billingCycle: item.billingCycle ?? "",
+    renewsOn: item.renewsOn ?? "",
     manufacturer: item.manufacturer ?? "",
     model: item.model ?? "",
     serial: item.serial ?? "",
@@ -587,11 +593,12 @@ export function ItemFormModal({
   const isBook = draft.kind === "book";
   const isConsumable = draft.kind === "food" || draft.kind === "selfcare";
   const isClothing = draft.kind === "clothing";
-  const hasWarranty = !isBook && !isConsumable && !isClothing;
-  const hasMakerRow = !isBook && !isConsumable;
-  const hasCondition = !isConsumable;
-  const hasBox = !isBook && !isConsumable && !isClothing;
-  const hasLending = !isConsumable;
+  const isDigital = draft.kind === "digital";
+  const hasWarranty = !isBook && !isConsumable && !isClothing && !isDigital;
+  const hasMakerRow = !isBook && !isConsumable && !isDigital;
+  const hasCondition = !isConsumable && !isDigital;
+  const hasBox = !isBook && !isConsumable && !isClothing && !isDigital;
+  const hasLending = !isConsumable && !isDigital;
 
   const canSave = draft.name.trim().length > 0;
   // `today` is set post-mount; guard the lend-date stamp in the unlikely early case.
@@ -662,6 +669,8 @@ export function ItemFormModal({
       openedDate: trimmedOrUndef(draft.openedDate),
       paoMonths: numOrUndef(draft.paoMonths),
       size: trimmedOrUndef(draft.size),
+      billingCycle: draft.billingCycle || undefined,
+      renewsOn: trimmedOrUndef(draft.renewsOn),
       manufacturer: trimmedOrUndef(draft.manufacturer),
       model: trimmedOrUndef(draft.model),
       serial: trimmedOrUndef(draft.serial),
@@ -1006,6 +1015,54 @@ export function ItemFormModal({
               className={fieldClass}
             />
           </Field>
+        )}
+
+        {isDigital && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Billing">
+                <select
+                  value={draft.billingCycle}
+                  onChange={(e) =>
+                    set("billingCycle", e.target.value as Draft["billingCycle"])
+                  }
+                  className={fieldClass}
+                >
+                  <option value="">—</option>
+                  {BILLING_CYCLES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {draft.billingCycle === "monthly" || draft.billingCycle === "yearly" ? (
+                <Field label="Renews on">
+                  <DateInput
+                    value={draft.renewsOn}
+                    onChange={(e) => set("renewsOn", e.target.value)}
+                    className={fieldClass}
+                  />
+                </Field>
+              ) : (
+                <Field label="License key">
+                  <input
+                    type="text"
+                    value={draft.serial}
+                    onChange={(e) => set("serial", e.target.value)}
+                    placeholder="XXXX-XXXX-…"
+                    className={fieldClass}
+                  />
+                </Field>
+              )}
+            </div>
+            <p className="-mt-1 text-[11px] text-slate-500">
+              For subscriptions the price below is the per-cycle cost — it rolls
+              into your monthly total in 💳 Subscriptions, and a renewal date
+              that passes rolls forward automatically (with a heads-up 7 days
+              before).
+            </p>
+          </>
         )}
 
         {/* Links — the item's online life, picked from the bookmark library. */}
@@ -1359,12 +1416,12 @@ export function ItemFormModal({
             {/* Barcode is captured up top (Scan a product). */}
 
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Retailer">
+              <Field label={isDigital ? "Platform / account" : "Retailer"}>
                 <input
                   type="text"
                   value={draft.retailer}
                   onChange={(e) => set("retailer", e.target.value)}
-                  placeholder="Where you bought it"
+                  placeholder={isDigital ? "App Store / user@…" : "Where you bought it"}
                   className={fieldClass}
                 />
               </Field>

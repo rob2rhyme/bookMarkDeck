@@ -12,6 +12,7 @@ import type {
   ItemDoc,
 } from "@/features/inventory/lib/types";
 import {
+  BILLING_CYCLES,
   CONDITIONS,
   DISPOSITIONS,
   ITEM_STATUSES,
@@ -32,6 +33,7 @@ import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
 import {
   daysUntil,
   effectiveUseBy,
+  nextRenewal,
   formatMoney,
   itemValue,
   paidWithTax,
@@ -258,6 +260,8 @@ export function ItemDetailModal({
   const tax = taxAmount(item);
   const useBy = effectiveUseBy(item);
   const useByDays = useBy ? daysUntil(useBy, today) : null;
+  const renews = nextRenewal(item, today);
+  const renewDays = renews ? daysUntil(renews, today) : null;
   const nowMs = Date.now();
   const status: ItemStatus =
     item.status ?? (item.lentTo?.trim() ? "lent" : "have");
@@ -553,6 +557,31 @@ export function ItemDetailModal({
           />
         )}
         {item.kind === "clothing" && <FactRow label="Size" value={item.size} />}
+        {item.kind === "digital" && (
+          <FactRow
+            label="Billing"
+            value={
+              item.billingCycle
+                ? BILLING_CYCLES.find((c) => c.id === item.billingCycle)?.label
+                : undefined
+            }
+          />
+        )}
+        {renews && (
+          <FactRow
+            label="Renews"
+            value={
+              <span
+                className={
+                  renewDays !== null && renewDays <= 7 ? "text-amber-300" : undefined
+                }
+              >
+                {renews}
+                {renewDays !== null && ` (${renewDays}d)`}
+              </span>
+            }
+          />
+        )}
         {item.origin && (
           <FactRow
             label={item.origin === "rented" ? "Rented from" : "Borrowed from"}
