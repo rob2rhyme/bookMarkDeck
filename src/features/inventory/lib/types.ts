@@ -15,14 +15,17 @@ export const CONDITIONS: { id: ItemCondition; label: string }[] = [
 
 /** Declutter intent — where an item is headed when you're letting it go.
  *  Undefined = keeping it (the default). */
-/** Where an item is right now. undefined = "have" (the default). */
-export type ItemStatus = "have" | "lent" | "misplaced" | "lost";
+/** Where an item is right now. undefined = "have" (the default).
+ *  "returned" = sent back to the store/maker (faulty under warranty, refund) —
+ *  it drops out of every value/paid total but keeps its record. */
+export type ItemStatus = "have" | "lent" | "misplaced" | "lost" | "returned";
 
 export const ITEM_STATUSES: { id: ItemStatus; label: string; icon: string }[] = [
   { id: "have", label: "Have it", icon: "✅" },
   { id: "lent", label: "Lent out", icon: "🤝" },
   { id: "misplaced", label: "Misplaced", icon: "🫥" },
   { id: "lost", label: "Lost", icon: "🚫" },
+  { id: "returned", label: "Returned", icon: "🔙" },
 ];
 
 /** A single event in an item's life — the raw record the history + trending
@@ -31,7 +34,8 @@ export type ItemActivityType =
   | "acquired"
   | "used"
   | "lent"
-  | "returned"
+  | "returned" // a lent item came back home
+  | "refunded" // sent back to the store/maker (warranty return)
   | "relocated"
   | "misplaced"
   | "lost"

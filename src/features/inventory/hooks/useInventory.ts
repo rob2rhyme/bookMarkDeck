@@ -220,8 +220,9 @@ export function useInventory(email?: string | null, connected = false) {
   );
 
   /**
-   * Set where the item is (have / misplaced / lost). Logs the matching event —
-   * and a "found" event when something lost/misplaced comes back.
+   * Set where the item is (have / misplaced / lost / returned). Logs the
+   * matching event — "refunded" for a store return, and a "found" event when
+   * something lost/misplaced/returned comes back.
    */
   const setStatus = useCallback(
     (id: string, status: ItemStatus) =>
@@ -230,9 +231,11 @@ export function useInventory(email?: string | null, connected = false) {
         if (status === "lost") return appendActivity(base, { type: "lost" });
         if (status === "misplaced")
           return appendActivity(base, { type: "misplaced" });
+        if (status === "returned")
+          return appendActivity(base, { type: "refunded" });
         if (
           status === "have" &&
-          (i.status === "lost" || i.status === "misplaced")
+          (i.status === "lost" || i.status === "misplaced" || i.status === "returned")
         )
           return appendActivity(base, { type: "found" });
         return base;

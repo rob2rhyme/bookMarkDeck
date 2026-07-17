@@ -56,6 +56,7 @@ const ACTIVITY_META: Record<ItemActivityType, { icon: string; label: string }> =
   used: { icon: "✨", label: "Used" },
   lent: { icon: "🤝", label: "Lent out" },
   returned: { icon: "↩️", label: "Returned" },
+  refunded: { icon: "🔙", label: "Returned to store" },
   relocated: { icon: "📦", label: "Moved" },
   misplaced: { icon: "🫥", label: "Misplaced" },
   lost: { icon: "🚫", label: "Lost" },
@@ -413,7 +414,7 @@ export function ItemDetailModal({
               </button>
             </>
           ) : (
-            (["have", "misplaced", "lost"] as ItemStatus[]).map((id) => {
+            (["have", "misplaced", "lost", "returned"] as ItemStatus[]).map((id) => {
               const s = ITEM_STATUSES.find((x) => x.id === id)!;
               const on = status === id;
               return (

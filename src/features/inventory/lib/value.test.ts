@@ -223,6 +223,16 @@ describe("depreciation / resale", () => {
     expect(totalResale(items, today)).toBeCloseTo(2050);
   });
 
+  it("excludes store-returned (refunded) items from every total", () => {
+    const items = [
+      item({ price: 100, taxRate: 6 }),
+      item({ price: 500, value: 400, status: "returned" }),
+    ];
+    expect(totalValue(items)).toBe(100);
+    expect(totalPaid(items)).toBeCloseTo(106);
+    expect(totalResale(items, today)).toBe(100);
+  });
+
   it("totalPaid includes sales tax and warranty plans", () => {
     expect(totalPaid([item({ price: 100, taxRate: 6, quantity: 2 })])).toBeCloseTo(212);
     expect(
