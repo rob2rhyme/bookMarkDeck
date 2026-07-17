@@ -464,7 +464,7 @@ export function ItemDetailModal({
         <FactRow
           label="Warranty"
           value={
-            item.warrantyExpiry ? (
+            item.warrantyExpiry || item.warrantyYears || item.warrantyCost ? (
               <span
                 className={
                   wState === "expired"
@@ -475,8 +475,15 @@ export function ItemDetailModal({
                 }
               >
                 {item.warrantyExpiry}
-                {wDays !== null &&
+                {item.warrantyExpiry &&
+                  wDays !== null &&
                   (wDays < 0 ? ` (ended ${Math.abs(wDays)}d ago)` : ` (${wDays}d left)`)}
+                {item.warrantyYears
+                  ? `${item.warrantyExpiry ? " · " : ""}${item.warrantyYears}-yr plan`
+                  : ""}
+                {item.warrantyCost
+                  ? ` (${formatMoney(item.warrantyCost, currency)})`
+                  : ""}
               </span>
             ) : undefined
           }
@@ -486,18 +493,23 @@ export function ItemDetailModal({
         <FactRow
           label="Paid"
           value={
-            item.price != null
-              ? tax > 0
-                ? // Subtotal (price × qty) so the arithmetic reads true for
-                  // multi-quantity lines, not unit price + line tax.
-                  `${formatMoney(
-                    item.price * Math.max(1, item.quantity || 1),
-                    currency
-                  )} + ${formatMoney(tax, currency)} tax = ${formatMoney(
-                    paidWithTax(item),
-                    currency
-                  )}`
-                : formatMoney(item.price, currency)
+            item.price != null || item.warrantyCost != null
+              ? tax > 0 || (item.warrantyCost ?? 0) > 0
+                ? // Subtotal (price × qty), warranty plan, tax — the arithmetic
+                  // reads true for multi-quantity lines.
+                  [
+                    formatMoney(
+                      (item.price ?? 0) * Math.max(1, item.quantity || 1),
+                      currency
+                    ),
+                    item.warrantyCost
+                      ? `${formatMoney(item.warrantyCost, currency)} warranty`
+                      : null,
+                    tax > 0 ? `${formatMoney(tax, currency)} tax` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" + ") + ` = ${formatMoney(paidWithTax(item), currency)}`
+                : formatMoney(item.price ?? 0, currency)
               : undefined
           }
         />

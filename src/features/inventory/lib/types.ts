@@ -119,6 +119,8 @@ export type InventoryItem = {
   serial?: string;
   barcode?: string; // UPC/EAN/other captured code (product id; no lookup in P1)
   warrantyExpiry?: string; // YYYY-MM-DD → surfaces in the Attention panel
+  warrantyCost?: number; // paid for a warranty/protection plan (taxed like price)
+  warrantyYears?: number; // plan length; the form derives warrantyExpiry from it
   maintenanceDate?: string; // YYYY-MM-DD → next service/upkeep; surfaces in Attention
   condition?: ItemCondition;
   // Whether the item is in its original box/packaging. undefined = unspecified;

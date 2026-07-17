@@ -19,7 +19,7 @@ import {
   type ItemPhoto,
   type PriceLink,
 } from "@/features/inventory/lib/types";
-import { DEFAULT_TAX_RATE } from "@/features/inventory/lib/value";
+import { DEFAULT_TAX_RATE, shiftYears } from "@/features/inventory/lib/value";
 import { docKindLabel, suggestDocName } from "@/features/inventory/lib/documents";
 import {
   filterBookmarks,
@@ -72,6 +72,8 @@ type Draft = {
   currency: string;
   purchaseDate: string;
   warrantyExpiry: string;
+  warrantyCost: string;
+  warrantyYears: string;
   maintenanceDate: string;
   condition: "" | ItemCondition;
   inBox: "" | "yes" | "no";
@@ -114,6 +116,8 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     currency: item.currency ?? fallbackCurrency,
     purchaseDate: item.purchaseDate ?? "",
     warrantyExpiry: item.warrantyExpiry ?? "",
+    warrantyCost: item.warrantyCost != null ? String(item.warrantyCost) : "",
+    warrantyYears: item.warrantyYears != null ? String(item.warrantyYears) : "",
     maintenanceDate: item.maintenanceDate ?? "",
     condition: item.condition ?? "",
     inBox: item.inBox === true ? "yes" : item.inBox === false ? "no" : "",
@@ -273,6 +277,25 @@ export function ItemFormModal({
   const flatLocations = useMemo(() => flattenTree(tree), [tree]);
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) =>
     setDraft((d) => (d ? { ...d, [k]: v } : d));
+
+  // A warranty-plan length derives the expiry date (purchase date + years,
+  // falling back to today) — and re-derives it when the purchase date moves.
+  const withDerivedExpiry = (d: Draft, purchaseDate: string, years: string): Draft => {
+    const n = Number(years);
+    const start =
+      purchaseDate || today || new Date().toISOString().slice(0, 10);
+    const expiry =
+      years.trim() && Number.isFinite(n) ? shiftYears(start, n) : null;
+    return expiry ? { ...d, warrantyExpiry: expiry } : d;
+  };
+  const setWarrantyYears = (v: string) =>
+    setDraft((d) =>
+      d ? withDerivedExpiry({ ...d, warrantyYears: v }, d.purchaseDate, v) : d
+    );
+  const setPurchaseDate = (v: string) =>
+    setDraft((d) =>
+      d ? withDerivedExpiry({ ...d, purchaseDate: v }, v, d.warrantyYears) : d
+    );
 
   // Prefill only the fields the user hasn't already filled — a lookup never
   // clobbers your own entries.
@@ -585,6 +608,8 @@ export function ItemFormModal({
       currency: trimmedOrUndef(draft.currency) ?? defaultCurrency,
       purchaseDate: trimmedOrUndef(draft.purchaseDate),
       warrantyExpiry: trimmedOrUndef(draft.warrantyExpiry),
+      warrantyCost: numOrUndef(draft.warrantyCost),
+      warrantyYears: numOrUndef(draft.warrantyYears),
       maintenanceDate: trimmedOrUndef(draft.maintenanceDate),
       condition: draft.condition || undefined,
       inBox: draft.inBox === "yes" ? true : draft.inBox === "no" ? false : undefined,
@@ -1047,7 +1072,7 @@ export function ItemFormModal({
               <Field label="Purchase date">
                 <DateInput
                   value={draft.purchaseDate}
-                  onChange={(e) => set("purchaseDate", e.target.value)}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
                   className={fieldClass}
                 />
               </Field>
@@ -1066,6 +1091,36 @@ export function ItemFormModal({
                 />
               </Field>
             </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Warranty plan cost">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draft.warrantyCost}
+                  onChange={(e) => set("warrantyCost", e.target.value)}
+                  placeholder="0"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Warranty length (yrs)">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.5"
+                  value={draft.warrantyYears}
+                  onChange={(e) => setWarrantyYears(e.target.value)}
+                  placeholder="e.g. 3"
+                  className={fieldClass}
+                />
+              </Field>
+            </div>
+            <p className="-mt-1 text-[11px] text-slate-500">
+              For a purchased protection plan — its cost joins the tax-included
+              total, and entering years fills the expiry date from the purchase
+              date automatically.
+            </p>
 
             <div className="grid grid-cols-3 gap-2">
               <Field label="Maker">

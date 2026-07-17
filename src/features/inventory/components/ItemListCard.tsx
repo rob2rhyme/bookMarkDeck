@@ -74,15 +74,26 @@ export function ItemListCard({
     : null;
 
   const facts: string[] = [];
-  if (item.price != null) {
+  if (item.price != null || item.warrantyCost != null) {
     facts.push(
-      tax > 0
-        ? `Paid ${formatMoney(paidWithTax(item), currency)} (incl. tax)`
-        : `Paid ${formatMoney(item.price, currency)}`
+      tax > 0 || (item.warrantyCost ?? 0) > 0
+        ? `Paid ${formatMoney(paidWithTax(item), currency)} (incl. tax${
+            item.warrantyCost ? " + warranty" : ""
+          })`
+        : `Paid ${formatMoney(item.price ?? 0, currency)}`
     );
   }
   if (item.purchaseDate) facts.push(`Bought ${item.purchaseDate}`);
-  if (item.warrantyExpiry) facts.push(`Warranty ${item.warrantyExpiry}`);
+  if (item.warrantyExpiry || item.warrantyYears) {
+    facts.push(
+      `Warranty ${[
+        item.warrantyYears ? `${item.warrantyYears} yr` : null,
+        item.warrantyExpiry ? `→ ${item.warrantyExpiry}` : null,
+      ]
+        .filter(Boolean)
+        .join(" ")}`
+    );
+  }
   if (item.maintenanceDate) facts.push(`Upkeep ${item.maintenanceDate}`);
   const makerModel = [item.manufacturer, item.model].filter(Boolean).join(" ");
   if (makerModel) facts.push(makerModel);

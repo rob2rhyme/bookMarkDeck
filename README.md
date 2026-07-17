@@ -33,7 +33,7 @@ Everything is **local-first** (saves to your device instantly, works offline, in
 
 ### My Stuff — home inventory
 - Add items fast: **barcode scan** (phone camera, webcam, or USB scanner) with free product-database lookup, **on-device label OCR**, receipt scan — nothing camera-touched ever leaves the device.
-- Full records: photos (compressed locally), price **plus tax rate**, condition (incl. *Open box*), **in-original-box?**, serial, warranty & maintenance dates, store URL, tags, nestable **locations** (rooms → shelves → boxes) with printable **QR labels**.
+- Full records: photos (compressed locally), price **plus tax rate** (cards and totals always show the tax-included cost), a **warranty plan** (cost + length in years — the expiry date fills in automatically and the plan joins the total), condition (incl. *Open box*), **in-original-box?**, serial, warranty & maintenance dates, store URL, tags, nestable **locations** (rooms → shelves → boxes) with printable **QR labels**.
 - Three views: grid, **detail-rich list** (ledger-style wide cards), and shelf (grouped by location).
 - **Price comparison**: save competitor store links per item; live barcode-matched offers take over automatically when available.
 - **Lending & item history**: who has what and when it's due, condition out vs. back, one-tap status (*Have / Misplaced / Lost*), "Used today", and an automatic per-item activity timeline.
