@@ -497,6 +497,24 @@ export default function GuidePage() {
               price, and store links.
             </p>
           </Sub>
+          <Sub title="📈 Insights">
+            <p>
+              The <strong>📈 Insights</strong> button turns your catalog into
+              calm charts: a <strong>pie of what you collect</strong> (category
+              share), bars for <strong>where things live</strong> and{" "}
+              <strong>how you tag</strong>, a{" "}
+              <strong>keeping-vs-returned</strong> split, a color-coded{" "}
+              <strong>warranty outlook</strong> (expired → soon → later), and
+              an <strong>interest-over-time</strong> chart of additions per
+              quarter by category — watch what&apos;s rising and what&apos;s
+              fading. Below the charts, <em>Noticed in your numbers</em> lists
+              grounded facts computed on your device, and an optional{" "}
+              <strong>✨ AI read</strong> asks the AI what your things say
+              about you — it sends only aggregate counts and category/tag
+              labels, never item names or serials (and needs the site
+              owner&apos;s AI key, like AI capture).
+            </p>
+          </Sub>
           <Sub title="✨ AI capture (coming soon)">
             <p>
               Built and waiting in the wings: an <strong>✨ AI add</strong>{" "}
