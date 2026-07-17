@@ -50,6 +50,7 @@ import { ItemListCard } from "@/features/inventory/components/ItemListCard";
 import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal";
 import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
 import { AiCaptureModal } from "@/features/inventory/components/AiCaptureModal";
+import { InsightsModal } from "@/features/inventory/components/InsightsModal";
 import type { AiProduct } from "@/features/inventory/lib/aiCapture";
 import { WishlistModal } from "@/features/inventory/components/WishlistModal";
 import { wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
@@ -149,6 +150,7 @@ export function InventoryDashboard() {
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [lockOpen, setLockOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -616,6 +618,16 @@ export function InventoryDashboard() {
               </span>
             </button>
           )}
+          {total > 0 && (
+            <button
+              type="button"
+              onClick={() => setInsightsOpen(true)}
+              title="Charts + facts about what you collect"
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
+            >
+              📈 Insights
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setWishlistOpen(true)}
@@ -1013,6 +1025,13 @@ export function InventoryDashboard() {
         onRemove={removeWishWithUndo}
         onGotIt={gotItFromWishlist}
         onClose={() => setWishlistOpen(false)}
+      />
+      <InsightsModal
+        open={insightsOpen}
+        items={inv.items}
+        locationNameById={loc.nameById}
+        today={today}
+        onClose={() => setInsightsOpen(false)}
       />
       <AiCaptureModal
         open={aiOpen}
