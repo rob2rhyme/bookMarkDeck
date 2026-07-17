@@ -2,9 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 import {
+  isIsbnEan,
   looksScannable,
   normalizeBarcode,
   parseOpenFacts,
+  parseOpenLibrary,
   parseUpcItemDb,
   resolveUpcEndpoint,
   shortCategory,
@@ -47,10 +49,43 @@ async function lookupOpenFacts(code: string): Promise<ProductInfo | null> {
             cache: "no-store",
           }
         );
-        return res.ok ? parseOpenFacts(await res.json()) : null;
+        const parsed = res.ok ? parseOpenFacts(await res.json()) : null;
+        // The source that matched tells us which form the item belongs in.
+        return parsed
+          ? {
+              ...parsed,
+              kindHint: host.includes("openfoodfacts")
+                ? ("food" as const)
+                : host.includes("openbeautyfacts")
+                  ? ("selfcare" as const)
+                  : undefined,
+            }
+          : null;
       })
     );
     for (const r of results) if (r.status === "fulfilled" && r.value) return r.value;
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Open Library — free + keyless, the right database for a book's ISBN. */
+async function lookupOpenLibrary(code: string): Promise<ProductInfo | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);
+  const key = `ISBN:${code}`;
+  try {
+    const res = await fetch(
+      `https://openlibrary.org/api/books?bibkeys=${encodeURIComponent(key)}&format=json&jscmd=data`,
+      {
+        headers: { "User-Agent": "BookmarkDeck/1.0 (inventory product lookup)" },
+        signal: ctrl.signal,
+        cache: "no-store",
+      }
+    );
+    return res.ok ? parseOpenLibrary(await res.json(), key) : null;
+  } catch {
     return null;
   } finally {
     clearTimeout(timer);
@@ -68,6 +103,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ found: false, error: "bad_code" }, { status: 400 });
   }
 
+  // 0) Bookland EAN (978/979) → Open Library first: it's a book, and this is
+  //    the database that knows title/author/cover. Miss falls through.
+  if (isIsbnEan(code)) {
+    const book = await lookupOpenLibrary(code);
+    if (book) return NextResponse.json({ found: true, product: book });
+  }
+
   // 1) UPCitemdb (richest — has price/model). Its trial is rate-limited and
   //    US-centric, so a non-200 or empty result is a soft miss we fall through.
   const ctrl = new AbortController();
@@ -83,7 +125,12 @@ export async function GET(req: NextRequest) {
       if (parsed) {
         return NextResponse.json({
           found: true,
-          product: { ...parsed, category: shortCategory(parsed.category) },
+          product: {
+            ...parsed,
+            category: shortCategory(parsed.category),
+            // A bookland code is a book even when the generic DB matched it.
+            ...(isIsbnEan(code) ? { kindHint: "book" as const } : {}),
+          },
         });
       }
     }

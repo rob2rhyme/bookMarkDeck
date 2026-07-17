@@ -15,8 +15,10 @@ import {
   type ItemActivityType,
   type ItemCondition,
   type ItemDisposition,
+  type ItemKind,
   type ItemOrigin,
   type ItemStatus,
+  type ReadStatus,
 } from "@/features/inventory/lib/types";
 
 const ITEM_COLUMNS = [
@@ -39,6 +41,13 @@ const ITEM_COLUMNS = [
   "origin",
   "borrowed_from",
   "return_by",
+  "kind",
+  "author",
+  "read_status",
+  "use_by",
+  "opened_date",
+  "pao_months",
+  "size",
   "manufacturer",
   "model",
   "serial",
@@ -85,6 +94,13 @@ export function itemsToCsv(
       origin: i.origin ?? "",
       borrowed_from: i.borrowedFrom ?? "",
       return_by: i.borrowReturnBy ?? "",
+      kind: i.kind ?? "",
+      author: i.author ?? "",
+      read_status: i.readStatus ?? "",
+      use_by: i.useBy ?? "",
+      opened_date: i.openedDate ?? "",
+      pao_months: i.paoMonths ?? "",
+      size: i.size ?? "",
       manufacturer: i.manufacturer ?? "",
       model: i.model ?? "",
       serial: i.serial ?? "",
@@ -143,6 +159,12 @@ const asDisposition = (v: unknown): ItemDisposition | undefined =>
 const STATUS_SET = new Set<ItemStatus>(ITEM_STATUSES.map((s) => s.id));
 const asOrigin = (v: unknown): ItemOrigin | undefined =>
   v === "borrowed" || v === "rented" ? v : undefined;
+const asKind = (v: unknown): ItemKind | undefined =>
+  v === "book" || v === "food" || v === "selfcare" || v === "clothing" || v === "tool"
+    ? v
+    : undefined;
+const asRead = (v: unknown): ReadStatus | undefined =>
+  v === "unread" || v === "reading" || v === "read" ? v : undefined;
 const asStatus = (v: unknown): ItemStatus | undefined =>
   typeof v === "string" && STATUS_SET.has(v as ItemStatus)
     ? (v as ItemStatus)
@@ -243,6 +265,13 @@ function coerceItem(raw: unknown): InventoryItem | null {
     description: str(r.description).trim() || undefined,
     locationId: typeof r.locationId === "string" ? r.locationId : null,
     category: str(r.category).trim() || undefined,
+    kind: asKind(r.kind),
+    author: str(r.author).trim() || undefined,
+    readStatus: asRead(r.readStatus),
+    useBy: isDay(r.useBy) ? r.useBy : undefined,
+    openedDate: isDay(r.openedDate) ? r.openedDate : undefined,
+    paoMonths: numOrUndef(r.paoMonths),
+    size: str(r.size).trim() || undefined,
     tags: Array.isArray(r.tags) ? r.tags.filter((t): t is string => typeof t === "string") : [],
     quantity: Math.max(1, Math.round(numOrUndef(r.quantity) ?? 1)),
     purchaseDate: isDay(r.purchaseDate) ? r.purchaseDate : undefined,

@@ -1,8 +1,20 @@
 "use client";
 
 import { Archive, Package, Pencil, Trash2 } from "@/components/icons";
-import { CONDITIONS, DISPOSITIONS, type InventoryItem } from "@/features/inventory/lib/types";
-import { formatMoney, itemValue, paidWithTax, warrantyState } from "@/features/inventory/lib/value";
+import {
+  CONDITIONS,
+  DISPOSITIONS,
+  READ_STATUSES,
+  type InventoryItem,
+} from "@/features/inventory/lib/types";
+import {
+  daysUntil,
+  effectiveUseBy,
+  formatMoney,
+  itemValue,
+  paidWithTax,
+  warrantyState,
+} from "@/features/inventory/lib/value";
 
 type ItemCardProps = {
   item: InventoryItem;
@@ -126,6 +138,33 @@ export function ItemCard({
           {item.category && (
             <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-200">
               {item.category}
+            </span>
+          )}
+          {item.kind === "book" && item.readStatus && (
+            <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-medium text-indigo-200">
+              {READ_STATUSES.find((r) => r.id === item.readStatus)?.icon}{" "}
+              {READ_STATUSES.find((r) => r.id === item.readStatus)?.label}
+            </span>
+          )}
+          {(() => {
+            const ub = effectiveUseBy(item);
+            if (!ub) return null;
+            const d = daysUntil(ub, today);
+            const cls =
+              d !== null && d < 0
+                ? "bg-red-500/15 text-red-200"
+                : d !== null && d <= 14
+                  ? "bg-amber-500/15 text-amber-200"
+                  : "bg-slate-800/80 text-slate-300";
+            return (
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>
+                Use by {ub}
+              </span>
+            );
+          })()}
+          {item.kind === "clothing" && item.size && (
+            <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
+              📏 {item.size}
             </span>
           )}
           {item.projectName && (

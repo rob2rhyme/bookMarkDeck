@@ -3,6 +3,7 @@
 // here is pure + unit-tested (see productLookup.test.ts).
 
 import type { RawOffer } from "./priceCompare";
+import type { ItemKind } from "./types";
 
 /** Normalized product facts we can prefill an item from. All optional. */
 export type ProductInfo = {
@@ -12,7 +13,16 @@ export type ProductInfo = {
   category?: string;
   price?: number;
   imageUrl?: string;
+  author?: string; // books (Open Library)
+  /** Which item-type form this product belongs in, when the source knows —
+   *  Open Food Facts → food, Open Beauty Facts → selfcare, ISBN → book. */
+  kindHint?: ItemKind;
 };
+
+/** Bookland EAN-13 (978/979 prefix) — the barcode on the back of a book. */
+export function isIsbnEan(code: string): boolean {
+  return /^97[89]\d{10}$/.test(normalizeBarcode(code));
+}
 
 /** Keep only the characters a barcode can carry; empty when nothing usable. */
 export function normalizeBarcode(raw: string): string {
@@ -136,6 +146,28 @@ export function openFactsCategory(raw?: string): string | undefined {
   if (!last) return undefined;
   const clean = last.replace(/^[a-z]{2}:/, "").replace(/-/g, " ").trim();
   return clean.length ? clean : undefined;
+}
+
+/**
+ * Normalize an Open Library `/api/books?jscmd=data` response into ProductInfo.
+ * Free + keyless — the right database for a scanned book ISBN. `key` is the
+ * bibkey used in the request (e.g. "ISBN:9780140328721").
+ */
+export function parseOpenLibrary(json: unknown, key: string): ProductInfo | null {
+  const root = (json ?? {}) as Record<string, unknown>;
+  const entry = root[key] as Record<string, unknown> | undefined;
+  if (!entry || typeof entry !== "object") return null;
+  const authors = Array.isArray(entry.authors) ? entry.authors : [];
+  const author = str((authors[0] as Record<string, unknown> | undefined)?.name);
+  const cover = (entry.cover ?? {}) as Record<string, unknown>;
+  const info: ProductInfo = {
+    name: str(entry.title),
+    author,
+    category: "Books",
+    imageUrl: str(cover.medium) ?? str(cover.large) ?? str(cover.small),
+    kindHint: "book",
+  };
+  return info.name ? info : null;
 }
 
 /**

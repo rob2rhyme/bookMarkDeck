@@ -15,8 +15,10 @@ import {
   CONDITIONS,
   DISPOSITIONS,
   ITEM_STATUSES,
+  READ_STATUSES,
   type ItemActivityType,
   type ItemStatus,
+  type ReadStatus,
 } from "@/features/inventory/lib/types";
 import { buildItemShareText } from "@/features/inventory/lib/share";
 import {
@@ -29,6 +31,7 @@ import { useItemPriceOffers } from "@/features/inventory/hooks/useItemPriceOffer
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
 import {
   daysUntil,
+  effectiveUseBy,
   formatMoney,
   itemValue,
   paidWithTax,
@@ -48,6 +51,7 @@ type ItemDetailModalProps = {
   onMarkUsed: (id: string) => void;
   onSetStatus: (id: string, status: ItemStatus) => void;
   onReturn: (id: string, condition?: InventoryItem["condition"]) => void;
+  onSetRead: (id: string, status: ReadStatus | undefined) => void;
   onClose: () => void;
 };
 
@@ -186,6 +190,7 @@ export function ItemDetailModal({
   onMarkUsed,
   onSetStatus,
   onReturn,
+  onSetRead,
   onClose,
 }: ItemDetailModalProps) {
   const [photoIdx, setPhotoIdx] = useState(0);
@@ -251,6 +256,8 @@ export function ItemDetailModal({
   const currency = item.currency ?? fallbackCurrency;
   const value = itemValue(item);
   const tax = taxAmount(item);
+  const useBy = effectiveUseBy(item);
+  const useByDays = useBy ? daysUntil(useBy, today) : null;
   const nowMs = Date.now();
   const status: ItemStatus =
     item.status ?? (item.lentTo?.trim() ? "lent" : "have");
@@ -489,6 +496,63 @@ export function ItemDetailModal({
             ) : undefined
           }
         />
+        {item.kind === "book" && <FactRow label="Author" value={item.author} />}
+        {item.kind === "book" && (
+          <FactRow
+            label="Read"
+            value={
+              <span className="flex flex-wrap justify-end gap-1">
+                {READ_STATUSES.map((r) => {
+                  const on = item.readStatus === r.id;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => onSetRead(item.id, on ? undefined : r.id)}
+                      aria-pressed={on}
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium transition ${
+                        on
+                          ? "bg-blue-600 text-white"
+                          : "border border-slate-700 text-slate-300 hover:border-blue-400 hover:text-blue-200"
+                      }`}
+                    >
+                      {r.icon} {r.label}
+                    </button>
+                  );
+                })}
+              </span>
+            }
+          />
+        )}
+        {useBy && (
+          <FactRow
+            label="Use by"
+            value={
+              <span
+                className={
+                  useByDays !== null && useByDays < 0
+                    ? "text-red-300"
+                    : useByDays !== null && useByDays <= 14
+                      ? "text-amber-300"
+                      : undefined
+                }
+              >
+                {useBy}
+                {useByDays !== null &&
+                  (useByDays < 0
+                    ? ` (${Math.abs(useByDays)}d past)`
+                    : ` (${useByDays}d left)`)}
+              </span>
+            }
+          />
+        )}
+        {item.kind === "selfcare" && item.openedDate && (
+          <FactRow
+            label="Opened"
+            value={`${item.openedDate}${item.paoMonths ? ` · PAO ${item.paoMonths}mo` : ""}`}
+          />
+        )}
+        {item.kind === "clothing" && <FactRow label="Size" value={item.size} />}
         {item.origin && (
           <FactRow
             label={item.origin === "rented" ? "Rented from" : "Borrowed from"}

@@ -37,8 +37,10 @@ import {
   type ItemDisposition,
   type ItemDoc,
   type ItemDocKind,
+  type ItemKind,
   type ItemStatus,
   type PriceLink,
+  type ReadStatus,
   type WishlistItem,
 } from "@/features/inventory/lib/types";
 
@@ -85,6 +87,8 @@ const DISPOSITION_SET = new Set<ItemDisposition>([
   "giveaway",
   "trash",
 ]);
+const KIND_SET = new Set<ItemKind>(["book", "food", "selfcare", "clothing", "tool"]);
+const READ_SET = new Set<ReadStatus>(["unread", "reading", "read"]);
 const STATUS_SET = new Set<ItemStatus>([
   "have",
   "lent",
@@ -179,6 +183,20 @@ function mapItem(d: {
     description: strOrUndef(data.description),
     locationId: typeof data.locationId === "string" ? data.locationId : null,
     category: strOrUndef(data.category),
+    kind:
+      typeof data.kind === "string" && KIND_SET.has(data.kind as ItemKind)
+        ? (data.kind as ItemKind)
+        : undefined,
+    author: strOrUndef(data.author),
+    readStatus:
+      typeof data.readStatus === "string" &&
+      READ_SET.has(data.readStatus as ReadStatus)
+        ? (data.readStatus as ReadStatus)
+        : undefined,
+    useBy: strOrUndef(data.useBy),
+    openedDate: strOrUndef(data.openedDate),
+    paoMonths: numOrUndef(data.paoMonths),
+    size: strOrUndef(data.size),
     tags: Array.isArray(data.tags)
       ? data.tags.filter((t): t is string => typeof t === "string")
       : [],
@@ -264,6 +282,16 @@ function itemPayload(item: InventoryItem): Record<string, unknown> {
     description: strOrUndef(item.description),
     locationId: item.locationId ?? null,
     category: strOrUndef(item.category),
+    kind: item.kind && KIND_SET.has(item.kind) ? item.kind : undefined,
+    author: strOrUndef(item.author),
+    readStatus:
+      item.readStatus && READ_SET.has(item.readStatus)
+        ? item.readStatus
+        : undefined,
+    useBy: strOrUndef(item.useBy),
+    openedDate: strOrUndef(item.openedDate),
+    paoMonths: numOrUndef(item.paoMonths),
+    size: strOrUndef(item.size),
     tags: item.tags ?? [],
     quantity: Math.max(1, Math.round(item.quantity || 1)),
     purchaseDate: strOrUndef(item.purchaseDate),

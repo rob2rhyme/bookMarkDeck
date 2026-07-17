@@ -70,6 +70,18 @@ export function shiftYears(day: string, years: number): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+/** When a consumable is no longer good: the earlier of its use-by date and
+ *  opened-date + period-after-opening (self-care PAO). Null when untracked. */
+export function effectiveUseBy(item: InventoryItem): string | null {
+  const dates: string[] = [];
+  if (item.useBy) dates.push(item.useBy);
+  if (item.openedDate && item.paoMonths && item.paoMonths > 0) {
+    const d = shiftYears(item.openedDate, item.paoMonths / 12);
+    if (d) dates.push(d);
+  }
+  return dates.length ? dates.sort()[0] : null;
+}
+
 // "Live" for money math: not archived and not returned/given back — a
 // returned item keeps its record but drops out of every total and reminder.
 const live = (items: InventoryItem[]) =>
@@ -148,6 +160,8 @@ export function maintenanceState(item: InventoryItem, today: string): Maintenanc
 export type Attention = {
   warrantyExpired: InventoryItem[];
   warrantySoon: InventoryItem[];
+  useByExpired: InventoryItem[];
+  useBySoon: InventoryItem[];
   maintenanceOverdue: InventoryItem[];
   maintenanceSoon: InventoryItem[];
   lentOut: InventoryItem[];
@@ -163,6 +177,8 @@ export function attention(items: InventoryItem[], today: string): Attention {
   const out: Attention = {
     warrantyExpired: [],
     warrantySoon: [],
+    useByExpired: [],
+    useBySoon: [],
     maintenanceOverdue: [],
     maintenanceSoon: [],
     lentOut: [],
@@ -172,6 +188,14 @@ export function attention(items: InventoryItem[], today: string): Attention {
     const w = warrantyState(i, today);
     if (w === "expired") out.warrantyExpired.push(i);
     else if (w === "soon") out.warrantySoon.push(i);
+    // Consumables: use-by (food) / opened+PAO (self-care) — a 14-day "soon"
+    // horizon (food moves faster than warranties).
+    const ub = effectiveUseBy(i);
+    const ud = ub ? daysUntil(ub, today) : null;
+    if (ud !== null) {
+      if (ud < 0) out.useByExpired.push(i);
+      else if (ud <= 14) out.useBySoon.push(i);
+    }
     const m = maintenanceState(i, today);
     if (m === "overdue") out.maintenanceOverdue.push(i);
     else if (m === "soon") out.maintenanceSoon.push(i);
@@ -189,6 +213,8 @@ export function attentionCount(a: Attention): number {
   return (
     a.warrantyExpired.length +
     a.warrantySoon.length +
+    a.useByExpired.length +
+    a.useBySoon.length +
     a.maintenanceOverdue.length +
     a.maintenanceSoon.length +
     a.lentOut.length
@@ -203,6 +229,8 @@ export function reminderCount(a: Attention): number {
   return (
     a.warrantyExpired.length +
     a.warrantySoon.length +
+    a.useByExpired.length +
+    a.useBySoon.length +
     a.maintenanceOverdue.length +
     a.maintenanceSoon.length +
     a.returnOverdue.length

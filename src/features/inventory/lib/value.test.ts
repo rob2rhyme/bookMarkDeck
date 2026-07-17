@@ -4,6 +4,7 @@ import {
   attention,
   attentionCount,
   daysUntil,
+  effectiveUseBy,
   depreciationFor,
   formatMoney,
   itemResale,
@@ -264,5 +265,34 @@ describe("formatMoney", () => {
   });
   it("does not throw on a bad currency code", () => {
     expect(() => formatMoney(10, "!!")).not.toThrow();
+  });
+});
+
+describe("effectiveUseBy", () => {
+  const today = "2026-07-17";
+  it("returns the earlier of use-by and opened + PAO", () => {
+    expect(effectiveUseBy(item({ useBy: "2026-09-01" }))).toBe("2026-09-01");
+    expect(
+      effectiveUseBy(item({ openedDate: "2026-01-10", paoMonths: 6 }))
+    ).toBe("2026-07-10");
+    expect(
+      effectiveUseBy(
+        item({ useBy: "2026-06-01", openedDate: "2026-01-10", paoMonths: 6 })
+      )
+    ).toBe("2026-06-01");
+    expect(effectiveUseBy(item({}))).toBeNull();
+  });
+
+  it("feeds the attention buckets (past / within 14 days)", () => {
+    const a = attention(
+      [
+        item({ kind: "food", useBy: "2026-07-01" }), // past
+        item({ kind: "food", useBy: "2026-07-25" }), // soon (8d)
+        item({ kind: "food", useBy: "2026-12-01" }), // fine
+      ],
+      today
+    );
+    expect(a.useByExpired).toHaveLength(1);
+    expect(a.useBySoon).toHaveLength(1);
   });
 });

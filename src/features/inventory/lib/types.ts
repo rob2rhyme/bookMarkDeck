@@ -103,6 +103,31 @@ export type PriceLink = {
   currency?: string;
 };
 
+/**
+ * What kind of thing an item is. Drives which form fields show — a pantry can
+ * has no warranty, a book has an author — while everything shares one model,
+ * one card system, one sync path. undefined = general (the classic durable).
+ */
+export type ItemKind = "book" | "food" | "selfcare" | "clothing" | "tool";
+
+export const ITEM_KINDS: { id: ItemKind | ""; label: string; icon: string }[] = [
+  { id: "", label: "General", icon: "📦" },
+  { id: "book", label: "Book", icon: "📚" },
+  { id: "food", label: "Food & pantry", icon: "🥫" },
+  { id: "selfcare", label: "Self-care", icon: "🧴" },
+  { id: "clothing", label: "Clothing", icon: "👕" },
+  { id: "tool", label: "Tool", icon: "🛠️" },
+];
+
+/** Reading state for kind === "book". The wishlist doubles as want-to-read. */
+export type ReadStatus = "unread" | "reading" | "read";
+
+export const READ_STATUSES: { id: ReadStatus; label: string; icon: string }[] = [
+  { id: "unread", label: "Not read", icon: "📕" },
+  { id: "reading", label: "Reading", icon: "📖" },
+  { id: "read", label: "Read", icon: "✅" },
+];
+
 /** How an item came into your hands. undefined = you own it. Borrowed/rented
  *  items get every item power (scan, photos, location, price+tax+warranty for
  *  the fee you paid) but are NOT your assets — they're excluded from the
@@ -116,6 +141,13 @@ export type InventoryItem = {
   description?: string;
   locationId: string | null;
   category?: string;
+  kind?: ItemKind; // reshapes the form + reminders (undefined = general)
+  author?: string; // books
+  readStatus?: ReadStatus; // books
+  useBy?: string; // YYYY-MM-DD — food/self-care use-by → Attention panel
+  openedDate?: string; // YYYY-MM-DD — self-care: when it was opened
+  paoMonths?: number; // self-care: period-after-opening, months
+  size?: string; // clothing
   tags: string[];
   quantity: number;
   purchaseDate?: string; // YYYY-MM-DD
