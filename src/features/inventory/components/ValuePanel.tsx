@@ -139,7 +139,7 @@ export function ValuePanel({ items, locations, currency, today }: ValuePanelProp
                 <span className="tabular-nums text-slate-300">
                   {formatMoney(paid, currency)}
                 </span>{" "}
-                · worth now{" "}
+                <span className="text-slate-500">(incl. tax)</span> · worth now{" "}
                 <span className="font-semibold tabular-nums text-emerald-300">
                   ≈ {formatMoney(resaleNow, currency)}
                 </span>

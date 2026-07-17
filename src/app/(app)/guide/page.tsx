@@ -296,8 +296,10 @@ export default function GuidePage() {
           <Sub title="Add & organize">
             <p>
               A name is enough to add an item — category, tags, quantity,
-              purchase details (price plus a <strong>tax rate</strong>, so the
-              true total is on record), serial, condition (including{" "}
+              purchase details (price plus a <strong>tax rate</strong> — the
+              cost on your cards and totals is always the{" "}
+              <strong>true, tax-included figure</strong>), serial, condition
+              (including{" "}
               <em>Open box</em>), whether it&apos;s still{" "}
               <strong>in its original box</strong>, a <strong>store URL</strong>{" "}
               for re-buying, estimated value, <strong>photos</strong> (snap

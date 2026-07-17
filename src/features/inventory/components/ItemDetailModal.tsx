@@ -488,10 +488,15 @@ export function ItemDetailModal({
           value={
             item.price != null
               ? tax > 0
-                ? `${formatMoney(item.price, currency)} + ${formatMoney(
-                    tax,
+                ? // Subtotal (price × qty) so the arithmetic reads true for
+                  // multi-quantity lines, not unit price + line tax.
+                  `${formatMoney(
+                    item.price * Math.max(1, item.quantity || 1),
                     currency
-                  )} tax = ${formatMoney(paidWithTax(item), currency)}`
+                  )} + ${formatMoney(tax, currency)} tax = ${formatMoney(
+                    paidWithTax(item),
+                    currency
+                  )}`
                 : formatMoney(item.price, currency)
               : undefined
           }

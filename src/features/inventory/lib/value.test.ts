@@ -195,6 +195,10 @@ describe("depreciation / resale", () => {
     expect(totalResale(items, today)).toBeCloseTo(2050);
   });
 
+  it("totalPaid includes sales tax", () => {
+    expect(totalPaid([item({ price: 100, taxRate: 6, quantity: 2 })])).toBeCloseTo(212);
+  });
+
   it("projects a non-increasing portfolio curve; year 0 equals resale now", () => {
     const items = [
       item({ price: 1000, purchaseDate: today }), // declines
