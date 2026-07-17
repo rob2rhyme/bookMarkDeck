@@ -37,6 +37,7 @@ import {
   type ItemDisposition,
   type ItemDoc,
   type ItemDocKind,
+  type BillingCycle,
   type ItemKind,
   type ItemStatus,
   type PriceLink,
@@ -87,7 +88,15 @@ const DISPOSITION_SET = new Set<ItemDisposition>([
   "giveaway",
   "trash",
 ]);
-const KIND_SET = new Set<ItemKind>(["book", "food", "selfcare", "clothing", "tool"]);
+const KIND_SET = new Set<ItemKind>([
+  "book",
+  "food",
+  "selfcare",
+  "clothing",
+  "tool",
+  "digital",
+]);
+const CYCLE_SET = new Set<BillingCycle>(["once", "monthly", "yearly"]);
 const READ_SET = new Set<ReadStatus>(["unread", "reading", "read"]);
 const STATUS_SET = new Set<ItemStatus>([
   "have",
@@ -197,6 +206,12 @@ function mapItem(d: {
     openedDate: strOrUndef(data.openedDate),
     paoMonths: numOrUndef(data.paoMonths),
     size: strOrUndef(data.size),
+    billingCycle:
+      typeof data.billingCycle === "string" &&
+      CYCLE_SET.has(data.billingCycle as BillingCycle)
+        ? (data.billingCycle as BillingCycle)
+        : undefined,
+    renewsOn: strOrUndef(data.renewsOn),
     tags: Array.isArray(data.tags)
       ? data.tags.filter((t): t is string => typeof t === "string")
       : [],
@@ -292,6 +307,11 @@ function itemPayload(item: InventoryItem): Record<string, unknown> {
     openedDate: strOrUndef(item.openedDate),
     paoMonths: numOrUndef(item.paoMonths),
     size: strOrUndef(item.size),
+    billingCycle:
+      item.billingCycle && CYCLE_SET.has(item.billingCycle)
+        ? item.billingCycle
+        : undefined,
+    renewsOn: strOrUndef(item.renewsOn),
     tags: item.tags ?? [],
     quantity: Math.max(1, Math.round(item.quantity || 1)),
     purchaseDate: strOrUndef(item.purchaseDate),

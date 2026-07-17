@@ -52,6 +52,7 @@ import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
 import { AiCaptureModal } from "@/features/inventory/components/AiCaptureModal";
 import { InsightsModal } from "@/features/inventory/components/InsightsModal";
 import { BorrowedLedgerModal } from "@/features/inventory/components/BorrowedLedgerModal";
+import { SubscriptionsModal } from "@/features/inventory/components/SubscriptionsModal";
 import type { AiProduct } from "@/features/inventory/lib/aiCapture";
 import { WishlistModal } from "@/features/inventory/components/WishlistModal";
 import { wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
@@ -153,6 +154,7 @@ export function InventoryDashboard() {
   const [aiOpen, setAiOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [borrowedOpen, setBorrowedOpen] = useState(false);
+  const [subsOpen, setSubsOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [lockOpen, setLockOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -179,6 +181,14 @@ export function InventoryDashboard() {
     () =>
       inv.items.filter((i) => i.origin && !i.archived && i.status !== "returned")
         .length,
+    [inv.items]
+  );
+  // Digital products on record (subs + one-time) — drives the 💳 pill.
+  const digitalCount = useMemo(
+    () =>
+      inv.items.filter(
+        (i) => i.kind === "digital" && !i.archived && i.status !== "returned"
+      ).length,
     [inv.items]
   );
   const declutter = useMemo(() => declutterSummary(inv.active), [inv.active]);
@@ -627,6 +637,19 @@ export function InventoryDashboard() {
               </span>
             </button>
           )}
+          {digitalCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setSubsOpen(true)}
+              title="Subscriptions & digital purchases — recurring totals, renewals, licenses"
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
+            >
+              💳 Subs
+              <span className="rounded-full bg-cyan-500/20 px-1.5 text-[11px] tabular-nums text-cyan-100">
+                {digitalCount}
+              </span>
+            </button>
+          )}
           {borrowedNow > 0 && (
             <button
               type="button"
@@ -1047,6 +1070,17 @@ export function InventoryDashboard() {
         onRemove={removeWishWithUndo}
         onGotIt={gotItFromWishlist}
         onClose={() => setWishlistOpen(false)}
+      />
+      <SubscriptionsModal
+        open={subsOpen}
+        items={inv.items}
+        fallbackCurrency={settings.defaultCurrency}
+        today={today}
+        onPick={(item) => {
+          setSubsOpen(false);
+          openDetail(item);
+        }}
+        onClose={() => setSubsOpen(false)}
       />
       <BorrowedLedgerModal
         open={borrowedOpen}

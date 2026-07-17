@@ -70,6 +70,34 @@ export function shiftYears(day: string, years: number): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * The next renewal on/after `today` for a subscription — a stored date that's
+ * already passed auto-rolls forward by the billing cycle, so the ledger and
+ * reminders never go stale. Null for one-time purchases or missing dates.
+ */
+export function nextRenewal(item: InventoryItem, today: string): string | null {
+  const cycle = item.billingCycle;
+  if (!item.renewsOn || !cycle || cycle === "once") return null;
+  let day: string | null = item.renewsOn;
+  const step = cycle === "monthly" ? 1 / 12 : 1;
+  // Bounded walk (~40 years of monthly renewals) — never loops forever on
+  // garbage input.
+  for (let i = 0; day && i < 500; i++) {
+    const d = daysUntil(day, today);
+    if (d === null) return null;
+    if (d >= 0) return day;
+    day = shiftYears(day, step);
+  }
+  return null;
+}
+
+/** A subscription's cost normalized to per-month, tax included. */
+export function monthlyEquivalent(item: InventoryItem): number {
+  if (item.billingCycle === "monthly") return paidWithTax(item);
+  if (item.billingCycle === "yearly") return paidWithTax(item) / 12;
+  return 0;
+}
+
 /** When a consumable is no longer good: the earlier of its use-by date and
  *  opened-date + period-after-opening (self-care PAO). Null when untracked. */
 export function effectiveUseBy(item: InventoryItem): string | null {
@@ -87,10 +115,18 @@ export function effectiveUseBy(item: InventoryItem): string | null {
 const live = (items: InventoryItem[]) =>
   items.filter((i) => !i.archived && i.status !== "returned");
 
-// Your assets: live AND owned. Borrowed/rented things aren't yours — they
-// stay out of worth/resale numbers; what you PAID for them (rental fees,
-// deposits) still counts as spend via totalPaid's live() base.
-const owned = (items: InventoryItem[]) => live(items).filter((i) => !i.origin);
+// Your assets: live AND owned. Borrowed/rented things aren't yours, and a
+// subscription is a running cost, not a possession — both stay out of the
+// worth/resale numbers; what you PAID (rental fees, sub cycles entered) still
+// counts as spend via totalPaid's live() base. One-time digital purchases
+// (licenses) remain assets.
+const owned = (items: InventoryItem[]) =>
+  live(items).filter(
+    (i) =>
+      !i.origin &&
+      i.billingCycle !== "monthly" &&
+      i.billingCycle !== "yearly"
+  );
 
 export function totalValue(items: InventoryItem[]): number {
   return owned(items).reduce((sum, i) => sum + itemValue(i), 0);
@@ -162,6 +198,7 @@ export type Attention = {
   warrantySoon: InventoryItem[];
   useByExpired: InventoryItem[];
   useBySoon: InventoryItem[];
+  renewsSoon: InventoryItem[];
   maintenanceOverdue: InventoryItem[];
   maintenanceSoon: InventoryItem[];
   lentOut: InventoryItem[];
@@ -179,6 +216,7 @@ export function attention(items: InventoryItem[], today: string): Attention {
     warrantySoon: [],
     useByExpired: [],
     useBySoon: [],
+    renewsSoon: [],
     maintenanceOverdue: [],
     maintenanceSoon: [],
     lentOut: [],
@@ -196,6 +234,10 @@ export function attention(items: InventoryItem[], today: string): Attention {
       if (ud < 0) out.useByExpired.push(i);
       else if (ud <= 14) out.useBySoon.push(i);
     }
+    // Subscriptions about to renew (7-day horizon — the cancel-in-time window).
+    const renews = nextRenewal(i, today);
+    const rd = renews ? daysUntil(renews, today) : null;
+    if (rd !== null && rd <= 7) out.renewsSoon.push(i);
     const m = maintenanceState(i, today);
     if (m === "overdue") out.maintenanceOverdue.push(i);
     else if (m === "soon") out.maintenanceSoon.push(i);
@@ -215,6 +257,7 @@ export function attentionCount(a: Attention): number {
     a.warrantySoon.length +
     a.useByExpired.length +
     a.useBySoon.length +
+    a.renewsSoon.length +
     a.maintenanceOverdue.length +
     a.maintenanceSoon.length +
     a.lentOut.length
@@ -231,6 +274,7 @@ export function reminderCount(a: Attention): number {
     a.warrantySoon.length +
     a.useByExpired.length +
     a.useBySoon.length +
+    a.renewsSoon.length +
     a.maintenanceOverdue.length +
     a.maintenanceSoon.length +
     a.returnOverdue.length

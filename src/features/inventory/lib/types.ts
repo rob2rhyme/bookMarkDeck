@@ -108,7 +108,13 @@ export type PriceLink = {
  * has no warranty, a book has an author — while everything shares one model,
  * one card system, one sync path. undefined = general (the classic durable).
  */
-export type ItemKind = "book" | "food" | "selfcare" | "clothing" | "tool";
+export type ItemKind =
+  | "book"
+  | "food"
+  | "selfcare"
+  | "clothing"
+  | "tool"
+  | "digital";
 
 export const ITEM_KINDS: { id: ItemKind | ""; label: string; icon: string }[] = [
   { id: "", label: "General", icon: "📦" },
@@ -117,6 +123,17 @@ export const ITEM_KINDS: { id: ItemKind | ""; label: string; icon: string }[] = 
   { id: "selfcare", label: "Self-care", icon: "🧴" },
   { id: "clothing", label: "Clothing", icon: "👕" },
   { id: "tool", label: "Tool", icon: "🛠️" },
+  { id: "digital", label: "Digital", icon: "💾" },
+];
+
+/** Digital products: how they bill. "once" = one-time purchase (license);
+ *  monthly/yearly = a subscription with a rolling renewal date. */
+export type BillingCycle = "once" | "monthly" | "yearly";
+
+export const BILLING_CYCLES: { id: BillingCycle; label: string }[] = [
+  { id: "once", label: "One-time purchase" },
+  { id: "monthly", label: "Monthly subscription" },
+  { id: "yearly", label: "Yearly subscription" },
 ];
 
 /** Reading state for kind === "book". The wishlist doubles as want-to-read. */
@@ -148,6 +165,8 @@ export type InventoryItem = {
   openedDate?: string; // YYYY-MM-DD — self-care: when it was opened
   paoMonths?: number; // self-care: period-after-opening, months
   size?: string; // clothing
+  billingCycle?: BillingCycle; // digital: once / monthly / yearly
+  renewsOn?: string; // YYYY-MM-DD — digital subs: next renewal (auto-rolls)
   tags: string[];
   quantity: number;
   purchaseDate?: string; // YYYY-MM-DD

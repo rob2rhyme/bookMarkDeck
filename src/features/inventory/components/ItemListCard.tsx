@@ -98,6 +98,16 @@ export function ItemListCard({
     if (ub) facts.push(`Use by ${ub}`);
   }
   if (item.kind === "clothing" && item.size) facts.push(`Size ${item.size}`);
+  if (
+    item.kind === "digital" &&
+    (item.billingCycle === "monthly" || item.billingCycle === "yearly")
+  ) {
+    facts.push(
+      `🔁 ${formatMoney(paidWithTax(item), currency)}/${
+        item.billingCycle === "monthly" ? "mo" : "yr"
+      }${item.renewsOn ? ` · renews ${item.renewsOn}` : ""}`
+    );
+  }
   if (item.purchaseDate) facts.push(`Bought ${item.purchaseDate}`);
   if (item.warrantyExpiry || item.warrantyYears) {
     facts.push(

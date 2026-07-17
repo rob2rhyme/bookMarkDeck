@@ -6,6 +6,7 @@ import {
   attentionCount,
   daysUntil,
   effectiveUseBy,
+  nextRenewal,
 } from "@/features/inventory/lib/value";
 
 type AttentionPanelProps = {
@@ -139,6 +140,29 @@ export function AttentionPanel({ items, today, onSelect }: AttentionPanelProps) 
                     item={i}
                     detail={d != null ? `${d}d left` : "soon"}
                     tone="text-amber-300"
+                    onSelect={onSelect}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {a.renewsSoon.length > 0 && (
+          <section>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-cyan-300/80">
+              Subscription renews soon
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {a.renewsSoon.map((i) => {
+                const r = nextRenewal(i, today);
+                const d = r ? daysUntil(r, today) : null;
+                return (
+                  <Row
+                    key={i.id}
+                    item={i}
+                    detail={d != null ? `${d}d — cancel window` : "soon"}
+                    tone="text-cyan-300"
                     onSelect={onSelect}
                   />
                 );
