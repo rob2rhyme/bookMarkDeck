@@ -144,6 +144,7 @@ const ACTIVITY_TYPES = new Set<ItemActivityType>([
   "used",
   "lent",
   "returned",
+  "refunded",
   "relocated",
   "misplaced",
   "lost",

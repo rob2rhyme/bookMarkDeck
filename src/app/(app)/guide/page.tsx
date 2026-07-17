@@ -408,8 +408,14 @@ export default function GuidePage() {
             <p>
               Each item keeps a quiet <strong>life log</strong>. Its detail view
               shows a status you can set in one tap —{" "}
-              <em>Have it · Misplaced · Lost</em> — plus{" "}
-              <strong>✨ Used today</strong> to note you actually used it. Lending
+              <em>Have it · Misplaced · Lost · Returned</em> — plus{" "}
+              <strong>✨ Used today</strong> to note you actually used it.{" "}
+              <strong>🔙 Returned</strong> is for the faulty one you sent back
+              under warranty for a refund: the item keeps its record and
+              history, but its cost <strong>drops out of every total</strong>{" "}
+              (value, paid, resale) and its reminders go quiet — the card wears
+              a &ldquo;Returned — not in totals&rdquo; badge so you always know
+              why. Tap <em>Have it</em> if it ever comes back. Lending
               is tracked end to end: who you lent it to, when, how many days it
               was out, and its <strong>condition going out versus coming
               back</strong>. Below that, an at-a-glance line (&ldquo;in your care

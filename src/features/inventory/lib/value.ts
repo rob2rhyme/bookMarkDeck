@@ -70,7 +70,10 @@ export function shiftYears(day: string, years: number): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-const live = (items: InventoryItem[]) => items.filter((i) => !i.archived);
+// "Live" for money math: not archived and not returned to the store — a
+// refunded item keeps its record but drops out of every total and reminder.
+const live = (items: InventoryItem[]) =>
+  items.filter((i) => !i.archived && i.status !== "returned");
 
 export function totalValue(items: InventoryItem[]): number {
   return live(items).reduce((sum, i) => sum + itemValue(i), 0);

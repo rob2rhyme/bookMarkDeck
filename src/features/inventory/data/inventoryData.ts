@@ -85,12 +85,19 @@ const DISPOSITION_SET = new Set<ItemDisposition>([
   "giveaway",
   "trash",
 ]);
-const STATUS_SET = new Set<ItemStatus>(["have", "lent", "misplaced", "lost"]);
+const STATUS_SET = new Set<ItemStatus>([
+  "have",
+  "lent",
+  "misplaced",
+  "lost",
+  "returned",
+]);
 const ACTIVITY_TYPES = new Set<ItemActivityType>([
   "acquired",
   "used",
   "lent",
   "returned",
+  "refunded",
   "relocated",
   "misplaced",
   "lost",

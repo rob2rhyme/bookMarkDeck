@@ -84,6 +84,11 @@ export function ItemCard({
             Lent · {item.lentTo}
           </span>
         )}
+        {item.status === "returned" && (
+          <span className="absolute left-2 top-2 rounded-full bg-amber-500/25 px-2 py-0.5 text-[10px] font-medium text-amber-100 backdrop-blur">
+            🔙 Returned — not in totals
+          </span>
+        )}
       </button>
 
       <div className="flex flex-1 flex-col gap-2 p-3">

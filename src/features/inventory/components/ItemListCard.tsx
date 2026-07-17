@@ -74,6 +74,7 @@ export function ItemListCard({
     : null;
 
   const facts: string[] = [];
+  if (item.status === "returned") facts.push("🔙 Returned — not in totals");
   if (item.price != null || item.warrantyCost != null) {
     facts.push(
       tax > 0 || (item.warrantyCost ?? 0) > 0

@@ -36,7 +36,7 @@ Everything is **local-first** (saves to your device instantly, works offline, in
 - Full records: photos (compressed locally), price **plus tax rate** (cards and totals always show the tax-included cost), a **warranty plan** (cost + length in years — the expiry date fills in automatically and the plan joins the total), condition (incl. *Open box*), **in-original-box?**, serial, warranty & maintenance dates, store URL, tags, nestable **locations** (rooms → shelves → boxes) with printable **QR labels**.
 - Three views: grid, **detail-rich list** (ledger-style wide cards), and shelf (grouped by location).
 - **Price comparison**: save competitor store links per item; live barcode-matched offers take over automatically when available.
-- **Lending & item history**: who has what and when it's due, condition out vs. back, one-tap status (*Have / Misplaced / Lost*), "Used today", and an automatic per-item activity timeline.
+- **Lending & item history**: who has what and when it's due, condition out vs. back, one-tap status (*Have / Misplaced / Lost / Returned* — a faulty item **returned under warranty** keeps its record but drops out of every total), "Used today", and an automatic per-item activity timeline.
 - **🔥 Trending** (most used / lent / moved, 90 days), value panel with a category-aware **resale estimate** and depreciation curve, attention panel + nav badge for warranties/upkeep, wishlist with already-own detection and scan-filled product thumbnails, kits/collections, declutter pile, daily **Rediscover** nudge, "where's my…" quick-find, insurance report (PDF), CSV/JSON export & merge-safe import, and an optional PIN/biometric **app lock**.
 - Deletes offer **Undo** — items come back whole, photos and receipts included.
 
