@@ -209,6 +209,12 @@ function mapItem(d: {
       typeof data.status === "string" && STATUS_SET.has(data.status as ItemStatus)
         ? (data.status as ItemStatus)
         : undefined,
+    origin:
+      data.origin === "borrowed" || data.origin === "rented"
+        ? data.origin
+        : undefined,
+    borrowedFrom: strOrUndef(data.borrowedFrom),
+    borrowReturnBy: strOrUndef(data.borrowReturnBy),
     activity: mapActivity(data.activity),
     lentTo: typeof data.lentTo === "string" ? data.lentTo : null,
     lentDate: typeof data.lentDate === "string" ? data.lentDate : null,
@@ -290,6 +296,9 @@ function itemPayload(item: InventoryItem): Record<string, unknown> {
     value: numOrUndef(item.value),
     notes: strOrUndef(item.notes),
     status: item.status && STATUS_SET.has(item.status) ? item.status : undefined,
+    origin: item.origin,
+    borrowedFrom: strOrUndef(item.borrowedFrom),
+    borrowReturnBy: strOrUndef(item.borrowReturnBy),
     activity: item.activity?.length
       ? item.activity.map((a) =>
           prune({

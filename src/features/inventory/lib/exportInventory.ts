@@ -15,6 +15,7 @@ import {
   type ItemActivityType,
   type ItemCondition,
   type ItemDisposition,
+  type ItemOrigin,
   type ItemStatus,
 } from "@/features/inventory/lib/types";
 
@@ -35,6 +36,9 @@ const ITEM_COLUMNS = [
   "condition",
   "in_box",
   "status",
+  "origin",
+  "borrowed_from",
+  "return_by",
   "manufacturer",
   "model",
   "serial",
@@ -78,6 +82,9 @@ export function itemsToCsv(
       condition: i.condition ?? "",
       in_box: i.inBox === true ? "yes" : i.inBox === false ? "no" : "",
       status: i.status ?? "",
+      origin: i.origin ?? "",
+      borrowed_from: i.borrowedFrom ?? "",
+      return_by: i.borrowReturnBy ?? "",
       manufacturer: i.manufacturer ?? "",
       model: i.model ?? "",
       serial: i.serial ?? "",
@@ -134,6 +141,8 @@ const asDisposition = (v: unknown): ItemDisposition | undefined =>
     : undefined;
 
 const STATUS_SET = new Set<ItemStatus>(ITEM_STATUSES.map((s) => s.id));
+const asOrigin = (v: unknown): ItemOrigin | undefined =>
+  v === "borrowed" || v === "rented" ? v : undefined;
 const asStatus = (v: unknown): ItemStatus | undefined =>
   typeof v === "string" && STATUS_SET.has(v as ItemStatus)
     ? (v as ItemStatus)
@@ -254,6 +263,9 @@ function coerceItem(raw: unknown): InventoryItem | null {
     condition: asCondition(r.condition),
     inBox: typeof r.inBox === "boolean" ? r.inBox : undefined,
     status: asStatus(r.status),
+    origin: asOrigin(r.origin),
+    borrowedFrom: str(r.borrowedFrom).trim() || undefined,
+    borrowReturnBy: isDay(r.borrowReturnBy) ? r.borrowReturnBy : undefined,
     activity: coerceActivity(r.activity),
     value: numOrUndef(r.value),
     notes: str(r.notes).trim() || undefined,

@@ -103,6 +103,13 @@ export type PriceLink = {
   currency?: string;
 };
 
+/** How an item came into your hands. undefined = you own it. Borrowed/rented
+ *  items get every item power (scan, photos, location, price+tax+warranty for
+ *  the fee you paid) but are NOT your assets — they're excluded from the
+ *  value/resale totals, while what you paid still counts as spend. Giving one
+ *  back = the same 🔙 Returned status (record kept, out of totals). */
+export type ItemOrigin = "borrowed" | "rented";
+
 export type InventoryItem = {
   id: string;
   name: string;
@@ -134,6 +141,9 @@ export type InventoryItem = {
   value?: number; // manual current-value estimate (per unit)
   notes?: string;
   status?: ItemStatus; // where it is now (undefined = have)
+  origin?: ItemOrigin; // borrowed/rented (undefined = owned)
+  borrowedFrom?: string; // person or store it came from
+  borrowReturnBy?: string; // YYYY-MM-DD it's due back
   activity?: ItemActivity[]; // life history — drives history + trending
   lentTo?: string | null;
   lentDate?: string | null; // YYYY-MM-DD

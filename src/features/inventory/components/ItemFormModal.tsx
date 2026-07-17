@@ -77,6 +77,9 @@ type Draft = {
   maintenanceDate: string;
   condition: "" | ItemCondition;
   inBox: "" | "yes" | "no";
+  origin: "" | "borrowed" | "rented";
+  borrowedFrom: string;
+  borrowReturnBy: string;
   manufacturer: string;
   model: string;
   serial: string;
@@ -121,6 +124,9 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     maintenanceDate: item.maintenanceDate ?? "",
     condition: item.condition ?? "",
     inBox: item.inBox === true ? "yes" : item.inBox === false ? "no" : "",
+    origin: item.origin ?? "",
+    borrowedFrom: item.borrowedFrom ?? "",
+    borrowReturnBy: item.borrowReturnBy ?? "",
     manufacturer: item.manufacturer ?? "",
     model: item.model ?? "",
     serial: item.serial ?? "",
@@ -613,6 +619,9 @@ export function ItemFormModal({
       maintenanceDate: trimmedOrUndef(draft.maintenanceDate),
       condition: draft.condition || undefined,
       inBox: draft.inBox === "yes" ? true : draft.inBox === "no" ? false : undefined,
+      origin: draft.origin || undefined,
+      borrowedFrom: draft.origin ? trimmedOrUndef(draft.borrowedFrom) : undefined,
+      borrowReturnBy: draft.origin ? trimmedOrUndef(draft.borrowReturnBy) : undefined,
       manufacturer: trimmedOrUndef(draft.manufacturer),
       model: trimmedOrUndef(draft.model),
       serial: trimmedOrUndef(draft.serial),
@@ -1067,6 +1076,48 @@ export function ItemFormModal({
                 <option value="no">No — unboxed (location = where the item is)</option>
               </select>
             </Field>
+
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Ownership">
+                <select
+                  value={draft.origin}
+                  onChange={(e) => set("origin", e.target.value as Draft["origin"])}
+                  className={fieldClass}
+                >
+                  <option value="">Mine</option>
+                  <option value="borrowed">Borrowed</option>
+                  <option value="rented">Rented</option>
+                </select>
+              </Field>
+              {draft.origin && (
+                <>
+                  <Field label="From (person/store)">
+                    <input
+                      type="text"
+                      value={draft.borrowedFrom}
+                      onChange={(e) => set("borrowedFrom", e.target.value)}
+                      placeholder="Sam / CamRent"
+                      className={fieldClass}
+                    />
+                  </Field>
+                  <Field label="Return by">
+                    <DateInput
+                      value={draft.borrowReturnBy}
+                      onChange={(e) => set("borrowReturnBy", e.target.value)}
+                      className={fieldClass}
+                    />
+                  </Field>
+                </>
+              )}
+            </div>
+            {draft.origin && (
+              <p className="-mt-1 text-[11px] text-slate-500">
+                Not yours, so it stays out of your value totals — the{" "}
+                {draft.origin === "rented" ? "rental fee" : "cost"} you enter
+                above (with tax) still counts as spend. Gave it back? Use the
+                🔙 Returned status on the item.
+              </p>
+            )}
 
             <div className="grid grid-cols-3 gap-2">
               <Field label="Purchase date">

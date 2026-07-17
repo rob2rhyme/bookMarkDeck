@@ -56,7 +56,7 @@ const ACTIVITY_META: Record<ItemActivityType, { icon: string; label: string }> =
   used: { icon: "✨", label: "Used" },
   lent: { icon: "🤝", label: "Lent out" },
   returned: { icon: "↩️", label: "Returned" },
-  refunded: { icon: "🔙", label: "Returned to store" },
+  refunded: { icon: "🔙", label: "Returned it" }, // store refund or gave a borrow back
   relocated: { icon: "📦", label: "Moved" },
   misplaced: { icon: "🫥", label: "Misplaced" },
   lost: { icon: "🚫", label: "Lost" },
@@ -489,6 +489,17 @@ export function ItemDetailModal({
             ) : undefined
           }
         />
+        {item.origin && (
+          <FactRow
+            label={item.origin === "rented" ? "Rented from" : "Borrowed from"}
+            value={[
+              item.borrowedFrom || "—",
+              item.borrowReturnBy ? `· return by ${item.borrowReturnBy}` : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          />
+        )}
         <FactRow label="Next upkeep" value={item.maintenanceDate} />
         <FactRow label="Purchased" value={item.purchaseDate} />
         <FactRow

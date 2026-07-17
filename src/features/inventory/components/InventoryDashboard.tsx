@@ -51,6 +51,7 @@ import { ItemDetailModal } from "@/features/inventory/components/ItemDetailModal
 import { RediscoverCard } from "@/features/inventory/components/RediscoverCard";
 import { AiCaptureModal } from "@/features/inventory/components/AiCaptureModal";
 import { InsightsModal } from "@/features/inventory/components/InsightsModal";
+import { BorrowedLedgerModal } from "@/features/inventory/components/BorrowedLedgerModal";
 import type { AiProduct } from "@/features/inventory/lib/aiCapture";
 import { WishlistModal } from "@/features/inventory/components/WishlistModal";
 import { wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
@@ -151,6 +152,7 @@ export function InventoryDashboard() {
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [borrowedOpen, setBorrowedOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [lockOpen, setLockOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -172,6 +174,13 @@ export function InventoryDashboard() {
 
   const lending = useMemo(() => lendingLedger(inv.active, today), [inv.active, today]);
   const overdueCount = lending.filter((e) => e.status === "overdue").length;
+  // Things of other people's in your care (borrowed/rented, not yet given back).
+  const borrowedNow = useMemo(
+    () =>
+      inv.items.filter((i) => i.origin && !i.archived && i.status !== "returned")
+        .length,
+    [inv.items]
+  );
   const declutter = useMemo(() => declutterSummary(inv.active), [inv.active]);
   const collections = useMemo(() => collectionNames(inv.active), [inv.active]);
   const collectionCount = useMemo(() => collectionGroups(inv.active).length, [inv.active]);
@@ -618,6 +627,19 @@ export function InventoryDashboard() {
               </span>
             </button>
           )}
+          {borrowedNow > 0 && (
+            <button
+              type="button"
+              onClick={() => setBorrowedOpen(true)}
+              title="Things you've borrowed or rented — due dates, costs, returned history"
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-300"
+            >
+              🤲 Borrowed
+              <span className="rounded-full bg-sky-500/20 px-1.5 text-[11px] tabular-nums text-sky-100">
+                {borrowedNow}
+              </span>
+            </button>
+          )}
           {total > 0 && (
             <button
               type="button"
@@ -1025,6 +1047,18 @@ export function InventoryDashboard() {
         onRemove={removeWishWithUndo}
         onGotIt={gotItFromWishlist}
         onClose={() => setWishlistOpen(false)}
+      />
+      <BorrowedLedgerModal
+        open={borrowedOpen}
+        items={inv.items}
+        fallbackCurrency={settings.defaultCurrency}
+        today={today}
+        onPick={(item) => {
+          setBorrowedOpen(false);
+          openDetail(item);
+        }}
+        onGiveBack={(id) => inv.setStatus(id, "returned")}
+        onClose={() => setBorrowedOpen(false)}
       />
       <InsightsModal
         open={insightsOpen}
