@@ -2,7 +2,7 @@
 
 import { Archive, Package, Pencil, Trash2 } from "@/components/icons";
 import { CONDITIONS, DISPOSITIONS, type InventoryItem } from "@/features/inventory/lib/types";
-import { formatMoney, itemValue, warrantyState } from "@/features/inventory/lib/value";
+import { formatMoney, itemValue, paidWithTax, warrantyState } from "@/features/inventory/lib/value";
 
 type ItemCardProps = {
   item: InventoryItem;
@@ -34,6 +34,11 @@ export function ItemCard({
 }: ItemCardProps) {
   const currency = item.currency ?? fallbackCurrency;
   const value = itemValue(item);
+  // The card's figure: a manual value stays a worth estimate; otherwise the
+  // number came from the paid price, so show the true total — tax included.
+  const paid = paidWithTax(item);
+  const costShown = item.value == null && paid > 0;
+  const display = costShown ? paid : value;
   const photo = item.photos[0]?.url;
   const w = warrantyState(item, today);
   const badge = WARRANTY_BADGE[w];
@@ -91,9 +96,12 @@ export function ItemCard({
           >
             {item.name}
           </button>
-          {value > 0 && (
-            <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-300">
-              {formatMoney(value, currency)}
+          {display > 0 && (
+            <span
+              title={costShown ? "Total paid (incl. tax)" : "Estimated value"}
+              className="shrink-0 text-sm font-semibold tabular-nums text-emerald-300"
+            >
+              {formatMoney(display, currency)}
             </span>
           )}
         </div>

@@ -267,12 +267,9 @@ export function totalResale(items: InventoryItem[], today: string): number {
   return live(items).reduce((sum, i) => sum + itemResale(i, today), 0);
 }
 
-/** Total originally paid (purchase price × qty) across live items. */
+/** Total originally paid (purchase price × qty + sales tax) across live items. */
 export function totalPaid(items: InventoryItem[]): number {
-  return live(items).reduce((sum, i) => {
-    const p = typeof i.price === "number" && Number.isFinite(i.price) ? i.price : 0;
-    return sum + p * Math.max(1, i.quantity || 1);
-  }, 0);
+  return live(items).reduce((sum, i) => sum + paidWithTax(i), 0);
 }
 
 export type CurvePoint = { year: number; total: number };

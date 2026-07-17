@@ -62,6 +62,11 @@ export function ItemListCard({
   const currency = item.currency ?? fallbackCurrency;
   const value = itemValue(item);
   const tax = taxAmount(item);
+  // Same rule as the grid card: no manual value → the figure is the paid
+  // price, shown tax-inclusive.
+  const paid = paidWithTax(item);
+  const costShown = item.value == null && paid > 0;
+  const display = costShown ? paid : value;
   const photo = item.photos[0]?.url;
   const badge = WARRANTY_BADGE[warrantyState(item, today)];
   const conditionLabel = item.condition
@@ -124,9 +129,12 @@ export function ItemListCard({
             {item.name}
           </button>
           <div className="flex shrink-0 flex-col items-end">
-            {value > 0 && (
-              <span className="text-sm font-semibold tabular-nums text-emerald-300">
-                {formatMoney(value, currency)}
+            {display > 0 && (
+              <span
+                title={costShown ? "Total paid (incl. tax)" : "Estimated value"}
+                className="text-sm font-semibold tabular-nums text-emerald-300"
+              >
+                {formatMoney(display, currency)}
               </span>
             )}
             {item.quantity > 1 && (
