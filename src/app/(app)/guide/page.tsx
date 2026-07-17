@@ -497,6 +497,24 @@ export default function GuidePage() {
               price, and store links.
             </p>
           </Sub>
+          <Sub title="🤲 Borrowed & rented">
+            <p>
+              Not everything in your care is yours. Set{" "}
+              <strong>Ownership</strong> in the item form to{" "}
+              <em>Borrowed</em> or <em>Rented</em> (with who it&apos;s from and
+              a return-by date) and the item gets every power — barcode
+              lookup, photos, a location, the fee you paid with tax and any
+              damage-cover cost — but stays <strong>out of your value
+              totals</strong>; the fee still counts as spend. Cards wear a{" "}
+              <em>🤲 Borrowed / 🏷 Rented</em> badge, and a{" "}
+              <strong>🤲 Borrowed</strong> button gathers everything in your
+              care with due dates (overdue in red) and a one-tap{" "}
+              <strong>Gave back</strong>. Given-back things move to a{" "}
+              <strong>returned history</strong> that keeps what each one cost
+              you — and like every card, an accidental delete offers{" "}
+              <strong>Undo</strong>.
+            </p>
+          </Sub>
           <Sub title="📈 Insights">
             <p>
               The <strong>📈 Insights</strong> button turns your catalog into

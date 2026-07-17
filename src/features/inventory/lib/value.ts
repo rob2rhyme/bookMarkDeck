@@ -70,17 +70,22 @@ export function shiftYears(day: string, years: number): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-// "Live" for money math: not archived and not returned to the store — a
-// refunded item keeps its record but drops out of every total and reminder.
+// "Live" for money math: not archived and not returned/given back — a
+// returned item keeps its record but drops out of every total and reminder.
 const live = (items: InventoryItem[]) =>
   items.filter((i) => !i.archived && i.status !== "returned");
 
+// Your assets: live AND owned. Borrowed/rented things aren't yours — they
+// stay out of worth/resale numbers; what you PAID for them (rental fees,
+// deposits) still counts as spend via totalPaid's live() base.
+const owned = (items: InventoryItem[]) => live(items).filter((i) => !i.origin);
+
 export function totalValue(items: InventoryItem[]): number {
-  return live(items).reduce((sum, i) => sum + itemValue(i), 0);
+  return owned(items).reduce((sum, i) => sum + itemValue(i), 0);
 }
 
 export function itemCount(items: InventoryItem[]): number {
-  return live(items).length;
+  return owned(items).length;
 }
 
 export type Rollup = { key: string; label: string; total: number; count: number };
@@ -88,7 +93,7 @@ export type Rollup = { key: string; label: string; total: number; count: number 
 /** Value grouped by category, biggest first. Uncategorized folds into one row. */
 export function valueByCategory(items: InventoryItem[]): Rollup[] {
   const map = new Map<string, Rollup>();
-  for (const i of live(items)) {
+  for (const i of owned(items)) {
     const key = i.category?.trim() || "Uncategorized";
     const row = map.get(key) ?? { key, label: key, total: 0, count: 0 };
     row.total += itemValue(i);
@@ -105,7 +110,7 @@ export function valueByLocation(
 ): Rollup[] {
   const nameById = new Map(locations.map((l) => [l.id, l.name]));
   const map = new Map<string, Rollup>();
-  for (const i of live(items)) {
+  for (const i of owned(items)) {
     const key = i.locationId ?? "__none__";
     const label = (i.locationId && nameById.get(i.locationId)) || "Unassigned";
     const row = map.get(key) ?? { key, label, total: 0, count: 0 };
@@ -284,7 +289,7 @@ export function itemResale(item: InventoryItem, today: string): number {
 
 /** Total estimated resale now across live items. */
 export function totalResale(items: InventoryItem[], today: string): number {
-  return live(items).reduce((sum, i) => sum + itemResale(i, today), 0);
+  return owned(items).reduce((sum, i) => sum + itemResale(i, today), 0);
 }
 
 /** Total originally paid (purchase price × qty + sales tax) across live items. */
@@ -304,7 +309,7 @@ export function resaleCurve(
   today: string,
   years = 5
 ): CurvePoint[] {
-  const live_ = live(items);
+  const live_ = owned(items);
   const points: CurvePoint[] = [];
   for (let y = 0; y <= years; y++) {
     let total = 0;

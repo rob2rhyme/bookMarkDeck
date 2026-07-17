@@ -89,6 +89,12 @@ export function ItemCard({
             🔙 Returned — not in totals
           </span>
         )}
+        {item.origin && item.status !== "returned" && !item.lentTo && (
+          <span className="absolute left-2 top-2 rounded-full bg-sky-500/25 px-2 py-0.5 text-[10px] font-medium text-sky-100 backdrop-blur">
+            {item.origin === "rented" ? "🏷 Rented" : "🤲 Borrowed"}
+            {item.borrowedFrom ? ` · ${item.borrowedFrom}` : ""}
+          </span>
+        )}
       </button>
 
       <div className="flex flex-1 flex-col gap-2 p-3">
