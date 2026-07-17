@@ -298,8 +298,11 @@ export default function GuidePage() {
               A name is enough to add an item — category, tags, quantity,
               purchase details (price plus a <strong>tax rate</strong> — the
               cost on your cards and totals is always the{" "}
-              <strong>true, tax-included figure</strong>), serial, condition
-              (including{" "}
+              <strong>true, tax-included figure</strong>), a{" "}
+              <strong>warranty plan</strong> (its cost joins that total, taxed
+              like the price, and typing the plan&apos;s{" "}
+              <em>length in years</em> fills the expiry date in from the
+              purchase date automatically), serial, condition (including{" "}
               <em>Open box</em>), whether it&apos;s still{" "}
               <strong>in its original box</strong>, a <strong>store URL</strong>{" "}
               for re-buying, estimated value, <strong>photos</strong> (snap
@@ -325,8 +328,9 @@ export default function GuidePage() {
               Tap any item&apos;s photo or name to open its{" "}
               <strong>detail view</strong> — photo carousel (tap again for
               full-screen, with paging), the facts at a glance (with{" "}
-              <em>price + tax = total</em> when a tax rate is set), warranty
-              countdown, links, notes, and attached receipts — with one Edit
+              <em>price + warranty + tax = total</em> spelled out), warranty
+              countdown with the plan&apos;s length and cost, links, notes, and
+              attached receipts — with one Edit
               button when something needs changing. A <strong>Share</strong>{" "}
               button sends the item to a friend through Messages, WhatsApp, or
               any app in your share sheet (with a copy-to-clipboard fallback),

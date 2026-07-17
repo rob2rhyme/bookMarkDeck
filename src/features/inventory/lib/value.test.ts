@@ -9,6 +9,7 @@ import {
   itemResale,
   itemValue,
   paidWithTax,
+  shiftYears,
   taxAmount,
   maintenanceState,
   reminderCount,
@@ -81,6 +82,33 @@ describe("taxAmount / paidWithTax", () => {
     expect(taxAmount(item({ price: 50 }))).toBe(0);
     expect(taxAmount(item({ price: 50, taxRate: 0 }))).toBe(0);
     expect(paidWithTax(item({ price: 50 }))).toBe(50);
+  });
+
+  it("taxes and totals a warranty-plan cost with the line", () => {
+    const i = item({ price: 100, taxRate: 6, quantity: 2, warrantyCost: 50 });
+    expect(taxAmount(i)).toBeCloseTo(15); // (200 + 50) × 6%
+    expect(paidWithTax(i)).toBeCloseTo(265);
+    // Warranty without a price still counts.
+    const w = item({ taxRate: 6, warrantyCost: 50 });
+    expect(taxAmount(w)).toBeCloseTo(3);
+    expect(paidWithTax(w)).toBeCloseTo(53);
+  });
+});
+
+describe("shiftYears", () => {
+  it("adds whole and fractional years (rounded to months)", () => {
+    expect(shiftYears("2026-07-17", 3)).toBe("2029-07-17");
+    expect(shiftYears("2026-07-17", 0.5)).toBe("2027-01-17");
+  });
+
+  it("clamps to real month ends", () => {
+    expect(shiftYears("2024-02-29", 1)).toBe("2025-02-28");
+  });
+
+  it("rejects bad input", () => {
+    expect(shiftYears("not-a-day", 1)).toBeNull();
+    expect(shiftYears("2026-07-17", 0)).toBeNull();
+    expect(shiftYears("2026-07-17", -2)).toBeNull();
   });
 });
 
@@ -195,8 +223,11 @@ describe("depreciation / resale", () => {
     expect(totalResale(items, today)).toBeCloseTo(2050);
   });
 
-  it("totalPaid includes sales tax", () => {
+  it("totalPaid includes sales tax and warranty plans", () => {
     expect(totalPaid([item({ price: 100, taxRate: 6, quantity: 2 })])).toBeCloseTo(212);
+    expect(
+      totalPaid([item({ price: 100, taxRate: 6, warrantyCost: 50 })])
+    ).toBeCloseTo(159);
   });
 
   it("projects a non-increasing portfolio curve; year 0 equals resale now", () => {

@@ -32,25 +32,42 @@ export function itemValue(item: InventoryItem): number {
 /** Default sales-tax rate (%) prefilled for a new item. */
 export const DEFAULT_TAX_RATE = 6;
 
-/** Sales tax on the purchase price for an item line (price × qty × rate%).
- *  0 when there's no positive price or tax rate. Kept separate from "value"
+const posNum = (v: unknown): number =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
+
+/** Sales tax for an item line: rate% on (price × qty + warranty-plan cost).
+ *  0 when nothing was paid or no positive rate. Kept separate from "value"
  *  (current worth) — this is a purchase-cost concept. */
 export function taxAmount(item: InventoryItem): number {
-  const price =
-    typeof item.price === "number" && Number.isFinite(item.price) ? item.price : 0;
-  const rate =
-    typeof item.taxRate === "number" && Number.isFinite(item.taxRate)
-      ? item.taxRate
-      : 0;
-  if (price <= 0 || rate <= 0) return 0;
-  return price * Math.max(1, item.quantity || 1) * (rate / 100);
+  const base =
+    posNum(item.price) * Math.max(1, item.quantity || 1) + posNum(item.warrantyCost);
+  const rate = posNum(item.taxRate);
+  if (base <= 0 || rate <= 0) return 0;
+  return base * (rate / 100);
 }
 
-/** Total paid for an item line including tax (price × qty + tax). */
+/** Total paid for an item line: price × qty + warranty plan + sales tax. */
 export function paidWithTax(item: InventoryItem): number {
-  const price =
-    typeof item.price === "number" && Number.isFinite(item.price) ? item.price : 0;
-  return price * Math.max(1, item.quantity || 1) + taxAmount(item);
+  return (
+    posNum(item.price) * Math.max(1, item.quantity || 1) +
+    posNum(item.warrantyCost) +
+    taxAmount(item)
+  );
+}
+
+/** Day + N years (fractional ok — rounded to whole months), clamped to real
+ *  month ends (Jan 31 + 1mo → Feb 28/29). For deriving a warranty expiry from
+ *  a plan length. Null for bad input. */
+export function shiftYears(day: string, years: number): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m || !Number.isFinite(years) || years <= 0) return null;
+  const months = Math.round(years * 12);
+  if (months <= 0) return null;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  const dayOfMonth = d.getUTCDate();
+  d.setUTCMonth(d.getUTCMonth() + months);
+  if (d.getUTCDate() !== dayOfMonth) d.setUTCDate(0);
+  return d.toISOString().slice(0, 10);
 }
 
 const live = (items: InventoryItem[]) => items.filter((i) => !i.archived);

@@ -31,10 +31,14 @@ import {
   type InventoryItem,
   type InventoryLocation,
   type InventorySettings,
+  type ItemActivity,
+  type ItemActivityType,
   type ItemCondition,
   type ItemDisposition,
   type ItemDoc,
   type ItemDocKind,
+  type ItemStatus,
+  type PriceLink,
   type WishlistItem,
 } from "@/features/inventory/lib/types";
 
@@ -68,13 +72,80 @@ function timestampToIso(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-const CONDITIONS = new Set<ItemCondition>(["new", "good", "fair", "poor"]);
+const CONDITIONS = new Set<ItemCondition>([
+  "new",
+  "open-box",
+  "good",
+  "fair",
+  "poor",
+]);
 const DISPOSITION_SET = new Set<ItemDisposition>([
   "donate",
   "sell",
   "giveaway",
   "trash",
 ]);
+const STATUS_SET = new Set<ItemStatus>(["have", "lent", "misplaced", "lost"]);
+const ACTIVITY_TYPES = new Set<ItemActivityType>([
+  "acquired",
+  "used",
+  "lent",
+  "returned",
+  "relocated",
+  "misplaced",
+  "lost",
+  "found",
+  "note",
+]);
+
+/** Coerce a raw compare-links array (same shape for items and wishes). */
+function mapCompareLinks(raw: unknown): PriceLink[] | undefined {
+  const list = (Array.isArray(raw) ? raw : [])
+    .map((l) => {
+      const r = (l ?? {}) as Record<string, unknown>;
+      if (typeof r.url !== "string" || !r.url.trim()) return null;
+      return prune({
+        id: typeof r.id === "string" ? r.id : r.url,
+        store: typeof r.store === "string" ? r.store : "",
+        url: r.url,
+        price: numOrUndef(r.price),
+        currency: strOrUndef(r.currency),
+      }) as PriceLink;
+    })
+    .filter((l): l is PriceLink => l !== null);
+  return list.length ? list : undefined;
+}
+
+/** Coerce a raw activity array (an item's life history). */
+function mapActivity(raw: unknown): ItemActivity[] | undefined {
+  const list = (Array.isArray(raw) ? raw : [])
+    .map((a) => {
+      const r = (a ?? {}) as Record<string, unknown>;
+      if (
+        typeof r.type !== "string" ||
+        !ACTIVITY_TYPES.has(r.type as ItemActivityType) ||
+        typeof r.at !== "string"
+      ) {
+        return null;
+      }
+      return prune({
+        id: typeof r.id === "string" ? r.id : crypto.randomUUID(),
+        type: r.type as ItemActivityType,
+        at: r.at,
+        to: strOrUndef(r.to),
+        fromLoc: strOrUndef(r.fromLoc),
+        toLoc: strOrUndef(r.toLoc),
+        condition:
+          typeof r.condition === "string" &&
+          CONDITIONS.has(r.condition as ItemCondition)
+            ? (r.condition as ItemCondition)
+            : undefined,
+        note: strOrUndef(r.note),
+      }) as ItemActivity;
+    })
+    .filter((a): a is ItemActivity => a !== null);
+  return list.length ? list : undefined;
+}
 const numOrUndef = (v: unknown): number | undefined =>
   typeof v === "number" && Number.isFinite(v) ? v : undefined;
 const strOrUndef = (v: unknown): string | undefined =>
@@ -107,20 +178,31 @@ function mapItem(d: {
     quantity: Math.max(1, Math.round(numOrUndef(data.quantity) ?? 1)),
     purchaseDate: strOrUndef(data.purchaseDate),
     price: numOrUndef(data.price),
+    taxRate: numOrUndef(data.taxRate),
     currency: strOrUndef(data.currency),
     retailer: strOrUndef(data.retailer),
+    storeUrl: strOrUndef(data.storeUrl),
+    compareLinks: mapCompareLinks(data.compareLinks),
     manufacturer: strOrUndef(data.manufacturer),
     model: strOrUndef(data.model),
     serial: strOrUndef(data.serial),
     barcode: strOrUndef(data.barcode),
     warrantyExpiry: strOrUndef(data.warrantyExpiry),
+    warrantyCost: numOrUndef(data.warrantyCost),
+    warrantyYears: numOrUndef(data.warrantyYears),
     maintenanceDate: strOrUndef(data.maintenanceDate),
     condition:
       typeof cond === "string" && CONDITIONS.has(cond as ItemCondition)
         ? (cond as ItemCondition)
         : undefined,
+    inBox: typeof data.inBox === "boolean" ? data.inBox : undefined,
     value: numOrUndef(data.value),
     notes: strOrUndef(data.notes),
+    status:
+      typeof data.status === "string" && STATUS_SET.has(data.status as ItemStatus)
+        ? (data.status as ItemStatus)
+        : undefined,
+    activity: mapActivity(data.activity),
     lentTo: typeof data.lentTo === "string" ? data.lentTo : null,
     lentDate: typeof data.lentDate === "string" ? data.lentDate : null,
     dueDate: typeof data.dueDate === "string" ? data.dueDate : null,
@@ -173,17 +255,48 @@ function itemPayload(item: InventoryItem): Record<string, unknown> {
     quantity: Math.max(1, Math.round(item.quantity || 1)),
     purchaseDate: strOrUndef(item.purchaseDate),
     price: numOrUndef(item.price),
+    taxRate: numOrUndef(item.taxRate),
     currency: strOrUndef(item.currency),
     retailer: strOrUndef(item.retailer),
+    storeUrl: strOrUndef(item.storeUrl),
+    compareLinks: item.compareLinks?.length
+      ? item.compareLinks.map((l) =>
+          prune({
+            id: l.id,
+            store: l.store,
+            url: l.url,
+            price: numOrUndef(l.price),
+            currency: strOrUndef(l.currency),
+          })
+        )
+      : undefined,
     manufacturer: strOrUndef(item.manufacturer),
     model: strOrUndef(item.model),
     serial: strOrUndef(item.serial),
     barcode: strOrUndef(item.barcode),
     warrantyExpiry: strOrUndef(item.warrantyExpiry),
+    warrantyCost: numOrUndef(item.warrantyCost),
+    warrantyYears: numOrUndef(item.warrantyYears),
     maintenanceDate: strOrUndef(item.maintenanceDate),
     condition: item.condition,
+    inBox: typeof item.inBox === "boolean" ? item.inBox : undefined,
     value: numOrUndef(item.value),
     notes: strOrUndef(item.notes),
+    status: item.status && STATUS_SET.has(item.status) ? item.status : undefined,
+    activity: item.activity?.length
+      ? item.activity.map((a) =>
+          prune({
+            id: a.id,
+            type: a.type,
+            at: a.at,
+            to: strOrUndef(a.to),
+            fromLoc: strOrUndef(a.fromLoc),
+            toLoc: strOrUndef(a.toLoc),
+            condition: a.condition,
+            note: strOrUndef(a.note),
+          })
+        )
+      : undefined,
     lentTo: item.lentTo?.trim() ? item.lentTo.trim() : null,
     lentDate: item.lentDate ?? null,
     dueDate: item.dueDate ?? null,
