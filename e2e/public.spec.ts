@@ -16,8 +16,10 @@ test.describe("public surface", () => {
     await expect(page).toHaveURL(/\/login(\?|$)/);
   });
 
-  test("legal pages are public and return 200", async ({ page }) => {
-    for (const path of ["/privacy", "/terms", "/faq"]) {
+  test("public pages (legal + guides) return 200 without auth", async ({
+    page,
+  }) => {
+    for (const path of ["/privacy", "/terms", "/faq", "/guide", "/habits/guide"]) {
       const res = await page.goto(path);
       expect(res?.status(), path).toBe(200);
     }
