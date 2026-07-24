@@ -3,9 +3,14 @@ import { getToken } from "next-auth/jwt";
 import Anthropic from "@anthropic-ai/sdk";
 
 import { extractJson } from "@/features/inventory/lib/aiCapture";
+import { createRateLimiter } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
+
+// AI observation runs are heavier than a scan and only needed occasionally;
+// a tight per-user cap keeps authenticated abuse from burning credits.
+const limited = createRateLimiter(60_000, 10);
 
 // Aggregate inventory stats → a handful of warm, specific observations about
 // the owner's interests and how they're shifting. Same opt-in scheme as AI
@@ -33,6 +38,10 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
     return NextResponse.json({ ok: false, error: "ai_unconfigured" }, { status: 503 });
+  }
+
+  if (limited(String(jwt.sub ?? jwt.email ?? "anon"))) {
+    return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
   }
 
   let body: { summary?: unknown };
