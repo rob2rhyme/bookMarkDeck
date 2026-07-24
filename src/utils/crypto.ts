@@ -3,7 +3,13 @@
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const SALT = encoder.encode("bookmarkdeck-drive-sync");
+
+// Legacy fixed salt used before per-payload random salts. Kept ONLY as a
+// decrypt fallback so Drive backups written by older clients (payloads with no
+// `salt` field) still open. New payloads always carry their own random salt.
+const LEGACY_SALT = encoder.encode("bookmarkdeck-drive-sync");
+
+const SALT_BYTES = 16;
 
 function base64Encode(bytes: Uint8Array): string {
   let binary = "";
@@ -22,7 +28,7 @@ function base64Decode(value: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-async function deriveKey(passphrase: string) {
+async function deriveKey(passphrase: string, salt: BufferSource) {
   const material = await crypto.subtle.importKey(
     "raw",
     encoder.encode(passphrase),
@@ -34,7 +40,7 @@ async function deriveKey(passphrase: string) {
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: SALT,
+      salt,
       iterations: 150_000,
       hash: "SHA-256",
     },
@@ -45,15 +51,19 @@ async function deriveKey(passphrase: string) {
   );
 }
 
+export type EncryptedPayload = { iv: string; ciphertext: string; salt?: string };
+
 export async function encryptJson<T>(
   passphrase: string,
   data: T
-): Promise<{ iv: string; ciphertext: string }> {
-  const key = await deriveKey(passphrase);
+): Promise<EncryptedPayload> {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const key = await deriveKey(passphrase, salt);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = encoder.encode(JSON.stringify(data));
   const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
   return {
+    salt: base64Encode(salt),
     iv: base64Encode(iv),
     ciphertext: base64Encode(new Uint8Array(encrypted)),
   };
@@ -61,9 +71,14 @@ export async function encryptJson<T>(
 
 export async function decryptJson<T>(
   passphrase: string,
-  payload: { iv: string; ciphertext: string }
+  payload: EncryptedPayload
 ): Promise<T> {
-  const key = await deriveKey(passphrase);
+  // Use the payload's own salt; fall back to the legacy fixed salt for backups
+  // written before per-payload salts existed.
+  const salt = payload.salt
+    ? new Uint8Array(base64Decode(payload.salt))
+    : LEGACY_SALT;
+  const key = await deriveKey(passphrase, salt);
   const ivBytes = new Uint8Array(base64Decode(payload.iv));
   const cipherBytes = new Uint8Array(base64Decode(payload.ciphertext));
 
