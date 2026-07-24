@@ -159,7 +159,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => handleClick("apple")}
-                    className="hidden flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-slate-50 ring-1 ring-slate-700 transition hover:bg-slate-800 hover:ring-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    className="hidden w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-slate-50 ring-1 ring-slate-700 transition hover:bg-slate-800 hover:ring-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                     disabled={isLoading !== null}
                   >
                     <span className="flex h-5 w-5 items-center justify-center">
@@ -176,7 +176,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => handleClick("microsoft")}
-                    className="hidden flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-500/90 px-3 py-2.5 text-sm font-medium text-slate-50 shadow-sm transition hover:bg-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    className="hidden w-full items-center justify-center gap-2 rounded-2xl bg-sky-500/90 px-3 py-2.5 text-sm font-medium text-slate-50 shadow-sm transition hover:bg-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                     disabled={isLoading !== null}
                   >
                     <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-sky-700/80 text-[11px]">

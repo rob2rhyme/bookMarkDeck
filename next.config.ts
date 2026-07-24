@@ -51,6 +51,20 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
+          {
+            // Legacy clickjacking fallback for browsers that ignore CSP
+            // frame-ancestors (which is already set to 'none' above).
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            // camera=(self): the inventory barcode scanner + receipt OCR use
+            // getUserMedia same-origin (and the Capacitor WebView loads the
+            // site as the top-level document, so 'self' matches). Everything
+            // else is disabled.
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(), geolocation=(), browsing-topics=()",
+          },
         ],
       },
     ];

@@ -23,6 +23,7 @@ import {
   X,
 } from "@/components/icons";
 import { hapticTap } from "@/utils/haptics";
+import { normalizeUrl } from "@/utils/normalizeUrl";
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { setBookmarkFocusLink } from "@/lib/bookmarkFocusLink";
 import { useToast } from "@/components/toast/ToastProvider";
@@ -274,7 +275,7 @@ export function BookmarkCard({
   };
 
   const handleOpen = () => {
-    const finalUrl = (isEditing ? url : bookmark.url).trim();
+    const finalUrl = normalizeUrl(isEditing ? url : bookmark.url);
     if (!finalUrl) return;
     window.open(finalUrl, "_blank", "noopener,noreferrer");
     const nextHits = (bookmark.hits ?? 0) + 1;
@@ -796,7 +797,7 @@ export function BookmarkCard({
                     </p>
                   ) : (
                     <a
-                      href={bookmark.url}
+                      href={normalizeUrl(bookmark.url) || undefined}
                       target="_blank"
                       rel="noreferrer"
                       className="line-clamp-2 break-words text-sm font-semibold text-slate-900 hover:text-blue-600 dark:text-slate-50 dark:hover:text-blue-400"

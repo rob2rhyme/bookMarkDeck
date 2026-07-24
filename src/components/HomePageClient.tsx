@@ -22,6 +22,7 @@ import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
+import { normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 
 function getHostname(rawUrl: string) {
@@ -684,7 +685,9 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       !shouldShowIconUrl && !shouldShowFavicon && iconValue.length > 0;
 
     const handleOpen = () => {
-      const target = bookmark.url.trim();
+      // Normalize at open-time too, so pre-existing bookmarks stored with a bare
+      // host (relative-open bug) or an unsafe scheme are handled safely.
+      const target = normalizeUrl(bookmark.url);
       if (!target) return;
       window.open(target, "_blank", "noopener,noreferrer");
     };
@@ -780,7 +783,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
   };
 
   const handleAddQuick = () => {
-    if (!newUrl.trim()) return;
+    const url = normalizeUrl(newUrl);
+    if (!url) return; // empty or a blocked scheme (javascript:/data:/…)
 
     const folderId =
       newFolderSelection === "__unstaged__"
@@ -793,8 +797,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       .filter(Boolean);
 
     addBookmark({
-      title: newTitle.trim() || newUrl.trim(),
-      url: newUrl.trim(),
+      title: newTitle.trim() || url,
+      url,
       note: "",
       folderId,
       folder: folderName,
@@ -810,13 +814,13 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
   const handleAddShortcut = () => {
     const trimmedName = shortcutName.trim();
-    const trimmedUrl = shortcutUrl.trim();
-    if (!trimmedName || !trimmedUrl) return;
-    const autoIcon = getFaviconUrl(trimmedUrl);
+    const normalizedUrl = normalizeUrl(shortcutUrl);
+    if (!trimmedName || !normalizedUrl) return;
+    const autoIcon = getFaviconUrl(normalizedUrl);
     const icon = shortcutIconTouched ? shortcutIconValue.trim() : autoIcon;
     addShortcut({
       name: trimmedName,
-      url: trimmedUrl,
+      url: normalizedUrl,
       icon: icon || undefined,
     });
     setShortcutName("");
