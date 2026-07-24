@@ -15,6 +15,8 @@ import { Modal } from "@/components/Modal";
 import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useRediscoverBookmark } from "@/hooks/useRediscoverBookmark";
+import { RediscoverBookmarkCard } from "@/components/RediscoverBookmarkCard";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
@@ -102,6 +104,18 @@ export function HomePageClient() {
     areBackupsLoading,
     backupError,
   } = useBookmarks(userId);
+
+  const rediscover = useRediscoverBookmark(userId, bookmarks);
+  const handleRediscoverOpen = (b: Bookmark) => {
+    const target = normalizeUrl(b.url);
+    if (!target) return;
+    window.open(target, "_blank", "noopener,noreferrer");
+    updateBookmark(b.id, {
+      hits: (b.hits ?? 0) + 1,
+      lastUsedAt: new Date().toISOString(),
+    });
+    rediscover.dismiss();
+  };
 
   const { toast } = useToast();
   const [restoreTarget, setRestoreTarget] =
@@ -1461,6 +1475,15 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
             </>
           )}
         </section>
+
+        {/* Rediscover — resurface one stale-but-once-loved bookmark */}
+        {rediscover.bookmark && (
+          <RediscoverBookmarkCard
+            bookmark={rediscover.bookmark}
+            onOpen={handleRediscoverOpen}
+            onDismiss={rediscover.dismiss}
+          />
+        )}
 
         {/* Trending */}
         {trending.length > 0 && (
