@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 
 import { HandHelping, Layers, MapPin, Package, Plus, Search, Settings, Sparkles, Tag, X } from "@/components/icons";
 import { useToast } from "@/components/toast/ToastProvider";
+import { MilestoneRow } from "@/components/MilestoneRow";
 import { downloadText } from "@/utils/download";
 import {
   deleteItemDoc,
@@ -802,6 +803,8 @@ export function InventoryDashboard() {
       )}
 
       <TrendingPanel items={inv.active} onOpen={openDetail} />
+
+      <MilestoneRow className="mt-1" metrics={{ items: total }} />
 
       {/* Toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
