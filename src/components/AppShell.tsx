@@ -14,7 +14,6 @@ import {
   COMMAND_PALETTE_STATE_EVENT,
   OPEN_COMMAND_PALETTE_EVENT,
 } from "@/components/CommandPalette";
-import { useInventoryReminderCount } from "@/features/inventory/hooks/useInventoryReminderCount";
 
 const DESTINATIONS = [
   { href: "/", label: "Bookmarks", Icon: Bookmark },
@@ -23,13 +22,19 @@ const DESTINATIONS = [
   { href: "/inventory", label: "My Stuff", Icon: Package },
 ] as const;
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  navBadges = {},
+}: {
+  children: React.ReactNode;
+  // Per-pillar nav badge counts keyed by href (e.g. { "/inventory": 3 }).
+  // Supplied by AppShellHost so this shell stays feature-agnostic.
+  navBadges?: Record<string, number>;
+}) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const avatarSrc = session?.user?.image ?? null;
   const avatarLabel = session?.user?.name ?? session?.user?.email ?? "Account";
-  // Cross-page reminder count for the "My Stuff" pill (warranty/upkeep/returns).
-  const inventoryReminders = useInventoryReminderCount(session?.user?.email);
 
   // Which top-level pillar are we on? (Bookmarks is the default "/" home.)
   const activeHref =
@@ -126,8 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {/* Top nav tabs are redundant with the mobile bottom nav, so
                       they only show from sm up. */}
                   {otherTabs.map((tab) => {
-                    const reminders =
-                      tab.href === "/inventory" ? inventoryReminders : 0;
+                    const reminders = navBadges[tab.href] ?? 0;
                     return (
                       <Link
                         key={tab.href}
@@ -278,7 +282,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           {DESTINATIONS.map((tab) => {
             const active = tab.href === activeHref;
-            const reminders = tab.href === "/inventory" ? inventoryReminders : 0;
+            const reminders = navBadges[tab.href] ?? 0;
             return (
               <Link
                 key={tab.href}

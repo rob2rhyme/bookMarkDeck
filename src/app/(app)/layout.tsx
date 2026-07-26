@@ -1,4 +1,4 @@
-import { AppShell } from "@/components/AppShell";
+import { AppShellHost } from "@/components/AppShellHost";
 import { FirebaseSyncBridge } from "@/components/FirebaseSyncBridge";
 import { GlobalClientUI } from "@/app/GlobalClientUI";
 
@@ -12,7 +12,7 @@ export default function AppRoutesLayout({
       {/* One Google login → one Firebase session shared by every pillar, so no
           app asks you to "Sign in to sync" on its own. */}
       <FirebaseSyncBridge />
-      <AppShell>{children}</AppShell>
+      <AppShellHost>{children}</AppShellHost>
       <GlobalClientUI />
     </>
   );
