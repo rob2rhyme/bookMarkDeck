@@ -45,3 +45,20 @@ export function nextReminderAt(
   }
   return null;
 }
+
+/**
+ * Notification body for a habit reminder. A reminder only fires for a habit
+ * that isn't done yet, so when there's a live streak to protect
+ * (`currentStreak >= 2`) the day's reminder is that streak's last chance —
+ * frame it around the streak (the strongest retention nudge). Otherwise fall
+ * back to identity-based, then plain copy.
+ */
+export function reminderBody(habit: Habit, currentStreak = 0): string {
+  if (currentStreak >= 2) {
+    return `Keep your ${currentStreak}-day streak alive — ${habit.name} today.`;
+  }
+  if (habit.identity) {
+    return `Time to ${habit.name.toLowerCase()} — ${habit.identity}.`;
+  }
+  return `Time for ${habit.name}.`;
+}

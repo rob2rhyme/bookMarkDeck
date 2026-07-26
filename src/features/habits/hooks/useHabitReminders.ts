@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cancelPush, schedulePush } from "@/features/focus/lib/push";
-import { nextReminderAt } from "@/features/habits/lib/reminders";
+import { nextReminderAt, reminderBody } from "@/features/habits/lib/reminders";
 import type { Habit, HabitStats } from "@/features/habits/lib/types";
 
 type Sched = { fireAt: number; messageId: string | null };
@@ -28,11 +28,6 @@ function save(email: string | null | undefined, map: Record<string, Sched>) {
   try {
     window.localStorage.setItem(keyFor(email), JSON.stringify(map));
   } catch {}
-}
-
-function reminderBody(h: Habit): string {
-  if (h.identity) return `Time to ${h.name.toLowerCase()} — ${h.identity}.`;
-  return `Time for ${h.name}.`;
 }
 
 /**
@@ -111,7 +106,7 @@ export function useHabitReminders(
           const messageId = await schedulePush({
             endTime: desired,
             title: `${h.emoji} ${h.name}`,
-            body: reminderBody(h),
+            body: reminderBody(h, statsByHabit.get(h.id)?.currentStreak ?? 0),
             url: "/habits",
           });
           map[h.id] = { fireAt: desired, messageId };
