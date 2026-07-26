@@ -2,10 +2,33 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-const vercelUrl = process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`;
-if (!process.env.NEXTAUTH_URL && vercelUrl) {
-  // Ensure NextAuth constructs the callback URL with the deployed host when NEXTAUTH_URL is missing.
-  process.env.NEXTAUTH_URL = vercelUrl;
+/**
+ * Resolve the base URL NextAuth builds its OAuth callback from.
+ *
+ * An explicit NEXTAUTH_URL always wins. Otherwise prefer the project's *stable*
+ * production domain over `VERCEL_URL`: `VERCEL_URL` is unique to every single
+ * deployment, so a callback built from it can never be pre-registered in the
+ * Google console — which is exactly what produces
+ * `Error 400: redirect_uri_mismatch` on preview deployments.
+ *
+ * Trade-off (deliberate): signing in from a preview deployment completes on the
+ * production host. That is the price of one registerable redirect URI, and it
+ * beats a sign-in that cannot succeed at all.
+ *
+ * Pure so it can be unit-tested — see auth.config.test.ts.
+ */
+export function resolveNextAuthUrl(
+  env: Record<string, string | undefined>
+): string | undefined {
+  if (env.NEXTAUTH_URL) return env.NEXTAUTH_URL;
+  const host = env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL;
+  return host ? `https://${host}` : undefined;
+}
+
+const resolvedUrl = resolveNextAuthUrl(process.env);
+if (!process.env.NEXTAUTH_URL && resolvedUrl) {
+  // Ensure NextAuth constructs the callback URL with a registerable host.
+  process.env.NEXTAUTH_URL = resolvedUrl;
 }
 
 // Scopes: minimal identity + Google Tasks (the to-do list) + Calendar events
