@@ -9,6 +9,7 @@ import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { HighlightedText } from "@/components/HighlightedText";
 import { Archive, Check, Emoji, Pencil, Timer, Trash } from "@/components/icons";
 import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
+import { MilestoneRow } from "@/components/MilestoneRow";
 import { FocusCorrelationCard } from "@/features/habits/components/FocusCorrelationCard";
 import { useFocusSessions } from "@/features/habits/hooks/useFocusSessions";
 import {
@@ -375,6 +376,15 @@ export function HabitsDashboard() {
                 </p>
               </div>
             </div>
+            <MilestoneRow
+              className="mt-4"
+              metrics={{
+                "habit-streak": Math.max(
+                  0,
+                  ...[...h.statsByHabit.values()].map((s) => s.currentStreak)
+                ),
+              }}
+            />
           </section>
 
           {/* Today */}
