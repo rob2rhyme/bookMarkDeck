@@ -1,5 +1,23 @@
 # Monetizing Bookmark Deck as a PWA
 
+> **✅ Implemented (opt-in, dormant until configured).** The entitlement layer,
+> Lemon Squeezy checkout + signature-verified webhook, `/api/billing/{checkout,
+> webhook,status}`, metered-route gating (AI capture 5/mo, insights 3/mo free
+> then 402), `useEntitlement()` + the account-menu "Upgrade to Premium" CTA are
+> all shipped. With the env below unset there is **no paywall**. To go live:
+> 1. **Upstash Redis** (console.upstash.com/redis) → set `UPSTASH_REDIS_REST_URL`
+>    + `UPSTASH_REDIS_REST_TOKEN`.
+> 2. **Lemon Squeezy** (app.lemonsqueezy.com): create a store + a ~$19.99/yr
+>    subscription product → set `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`,
+>    `LEMONSQUEEZY_VARIANT_ID`.
+> 3. Create an LS **webhook** → `https://<domain>/api/billing/webhook`, subscribe
+>    to subscription + order events, and set its signing secret as
+>    `LEMONSQUEEZY_WEBHOOK_SECRET`.
+> 4. Set `ANTHROPIC_API_KEY` and un-hide the AI-capture button (the last
+>    owner-controlled go-live toggle, `InventoryDashboard`), so there's a premium
+>    feature to sell.
+
+
 _How to charge for the app when it ships as an installable PWA (no app-store
 billing). The model your docs already chose — freemium annual subscription
 (~$19.99/yr) gating only metered-cost features — is right; a PWA changes the
