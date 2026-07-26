@@ -9,9 +9,19 @@ import {
   parseAiProduct,
   splitImageDataUrl,
 } from "@/features/inventory/lib/aiCapture";
+import { createRateLimiter } from "@/lib/rateLimit";
+import { billingConfigured, isPro, withinFreeQuota } from "@/lib/entitlement";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
+
+// Vision calls cost real money per request; cap per-user abuse. Generous for
+// real scanning (a burst of items) but blocks scripted credit-burn.
+const limited = createRateLimiter(60_000, 15);
+
+// Free AI captures per month before Premium is required (only when billing is
+// configured; otherwise there's no paywall).
+const FREE_AI_CAPTURES = 5;
 
 // Photo → "what is this?" via Claude vision. Opt-in: does nothing until the
 // deployment sets ANTHROPIC_API_KEY (absent → ai_unconfigured; the modal
@@ -30,6 +40,23 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
     return NextResponse.json({ ok: false, error: "ai_unconfigured" }, { status: 503 });
+  }
+
+  if (limited(String(jwt.sub ?? jwt.email ?? "anon"))) {
+    return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  }
+
+  if (billingConfigured()) {
+    const email = String(jwt.email ?? "");
+    if (
+      !(await isPro(email)) &&
+      !(await withinFreeQuota(email, "ai-capture", FREE_AI_CAPTURES))
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "upgrade_required" },
+        { status: 402 }
+      );
+    }
   }
 
   let body: { image?: unknown; currency?: unknown };

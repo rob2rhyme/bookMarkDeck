@@ -17,7 +17,16 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        const publicPaths = ["/login", "/privacy", "/terms", "/faq"];
+        // Static docs are public so prospects can see what the app does before
+        // signing up (the guide/faq are the pre-signup value pages).
+        const publicPaths = [
+          "/login",
+          "/privacy",
+          "/terms",
+          "/faq",
+          "/guide",
+          "/habits/guide",
+        ];
         if (publicPaths.includes(req.nextUrl.pathname)) return true;
         return !!token;
       },

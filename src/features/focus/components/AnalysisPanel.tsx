@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
+import { MilestoneBadges } from "@/features/focus/components/MilestoneBadges";
 import { Skeleton } from "@/components/Skeleton";
 import {
   MOOD_BY_KEY,
@@ -279,6 +280,12 @@ export function AnalysisPanel({
               Avg session {avgSessionMin} min
             </p>
           )}
+
+          <MilestoneBadges
+            streak={streak}
+            totalSessions={totalSessions}
+            totalFocusMin={totalFocusMin}
+          />
 
           {/* 7-day chart + mood trend (navigable into the past) */}
           <div className="mb-2 mt-6 flex items-center justify-between gap-2">

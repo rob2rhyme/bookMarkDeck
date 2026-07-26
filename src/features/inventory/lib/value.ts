@@ -203,6 +203,7 @@ export type Attention = {
   maintenanceSoon: InventoryItem[];
   lentOut: InventoryItem[];
   returnOverdue: InventoryItem[];
+  lowStock: InventoryItem[];
 };
 
 /**
@@ -221,6 +222,7 @@ export function attention(items: InventoryItem[], today: string): Attention {
     maintenanceSoon: [],
     lentOut: [],
     returnOverdue: [],
+    lowStock: [],
   };
   for (const i of live(items)) {
     const w = warrantyState(i, today);
@@ -246,6 +248,11 @@ export function attention(items: InventoryItem[], today: string): Attention {
       const d = i.dueDate ? daysUntil(i.dueDate, today) : null;
       if (d !== null && d < 0) out.returnOverdue.push(i);
     }
+    // Consumables you re-buy: running low once quantity hits the restock
+    // threshold (opt-in per item via restockAt).
+    if (typeof i.restockAt === "number" && i.quantity <= i.restockAt) {
+      out.lowStock.push(i);
+    }
   }
   return out;
 }
@@ -260,7 +267,8 @@ export function attentionCount(a: Attention): number {
     a.renewsSoon.length +
     a.maintenanceOverdue.length +
     a.maintenanceSoon.length +
-    a.lentOut.length
+    a.lentOut.length +
+    a.lowStock.length
   );
 }
 
@@ -277,7 +285,8 @@ export function reminderCount(a: Attention): number {
     a.renewsSoon.length +
     a.maintenanceOverdue.length +
     a.maintenanceSoon.length +
-    a.returnOverdue.length
+    a.returnOverdue.length +
+    a.lowStock.length
   );
 }
 

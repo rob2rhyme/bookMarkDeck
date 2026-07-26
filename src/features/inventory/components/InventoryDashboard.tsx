@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 
 import { HandHelping, Layers, MapPin, Package, Plus, Search, Settings, Sparkles, Tag, X } from "@/components/icons";
 import { useToast } from "@/components/toast/ToastProvider";
+import { MilestoneRow } from "@/components/MilestoneRow";
 import { downloadText } from "@/utils/download";
 import {
   deleteItemDoc,
@@ -30,10 +31,7 @@ import {
   itemsToCsv,
 } from "@/features/inventory/lib/exportInventory";
 import { todayKey } from "@/features/inventory/data/inventoryData";
-import {
-  logActivity,
-  type ActivityType,
-} from "@/features/focus/data/focusData";
+import { logActivity, type ActivityType } from "@/lib/activityLog";
 import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
 import type {
   InventoryItem,
@@ -261,6 +259,11 @@ export function InventoryDashboard() {
     const it = inv.items.find((i) => i.id === id);
     inv.releaseItem(id, today || todayKey());
     if (it) logEvent("item_released", `Let go of: ${it.name}`);
+  };
+  // Consumable restock loop: "used one" decrements quantity (floor 0), which can
+  // trip the low-stock threshold and surface the item in Attention.
+  const useOne = (item: InventoryItem) => {
+    inv.upsertItem({ ...item, quantity: Math.max(0, (item.quantity || 0) - 1) });
   };
 
   // Wishlist → My Stuff: bought it, so make it a real item and clear the wish.
@@ -797,11 +800,18 @@ export function InventoryDashboard() {
       {total > 0 && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <ValuePanel items={inv.active} locations={loc.locations} currency={settings.defaultCurrency} today={today} />
-          <AttentionPanel items={inv.active} today={today} onSelect={openDetail} />
+          <AttentionPanel
+            items={inv.active}
+            today={today}
+            onSelect={openDetail}
+            onWish={wishFromItem}
+          />
         </div>
       )}
 
       <TrendingPanel items={inv.active} onOpen={openDetail} />
+
+      <MilestoneRow className="mt-1" metrics={{ items: total }} />
 
       {/* Toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -919,6 +929,7 @@ export function InventoryDashboard() {
                       onOpen={openDetail}
                       onEdit={openEdit}
                       onWish={wishFromItem}
+                      onUseOne={useOne}
                       onArchive={(it) => inv.setArchived(it.id, !it.archived)}
                       onRemove={removeItemAndDocs}
                     />
@@ -940,6 +951,7 @@ export function InventoryDashboard() {
               onOpen={openDetail}
               onEdit={openEdit}
               onWish={wishFromItem}
+              onUseOne={useOne}
               onArchive={(it) => inv.setArchived(it.id, !it.archived)}
               onRemove={removeItemAndDocs}
             />
@@ -957,6 +969,7 @@ export function InventoryDashboard() {
               onOpen={openDetail}
               onEdit={openEdit}
               onWish={wishFromItem}
+              onUseOne={useOne}
               onArchive={(it) => inv.setArchived(it.id, !it.archived)}
               onRemove={removeItemAndDocs}
             />

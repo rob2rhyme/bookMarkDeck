@@ -78,8 +78,13 @@ The `overrides` block in `package.json` has been updated to safe versions (see
   for the 6.x series, 6.14.0 is backwards-compatible.  The `overrides` pin of
   `^8.17.2` is safe; no known vulnerabilities in 8.x.
 - **Grouping:** Bundle with the minimatch override update.
-- **Resolution:** Same as minimatch — ajv is no longer installed after PR #30.
-  The `overrides` entry `^8.17.2` is retained as a defensive pin.
+- **Resolution:** Same as minimatch — ajv was not installed after PR #30. When
+  ESLint was re-enabled (flat config + `lint:eslint`), ESLint's schema layer
+  pulled ajv back in and requires the ajv **6.x** API, which the `^8.17.2`
+  override broke (`TypeError … defaultMeta`). The override was therefore
+  **removed**: ajv is now a **dev-only** transitive of ESLint and resolves to
+  6.x. Any residual 6.x advisory is dev-tooling only (never shipped to the
+  production bundle); `npm audit --omit=dev` does not list ajv.
 
 ---
 

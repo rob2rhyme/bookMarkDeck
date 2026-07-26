@@ -29,5 +29,34 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npm run typecheck
+      # Non-blocking for now: ESLint surfaces a backlog (mostly the intentional
+      # localStorage-hydration pattern, downgraded to warnings). Flip to
+      # blocking once the remaining real findings are cleared.
+      - run: npm run lint:eslint
+        continue-on-error: true
       - run: npm test
       - run: npm run build
+
+  e2e:
+    name: e2e (public surface)
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_FIREBASE_API_KEY: dummy
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: dummy.example.com
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: dummy
+      NEXT_PUBLIC_FIREBASE_APP_ID: dummy
+      NEXTAUTH_URL: http://localhost:3100
+      NEXTAUTH_SECRET: dummy
+      GOOGLE_CLIENT_ID: dummy
+      GOOGLE_CLIENT_SECRET: dummy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Non-blocking: covers only the public surface (authed app needs real creds).
+      - run: npm run e2e
+        continue-on-error: true

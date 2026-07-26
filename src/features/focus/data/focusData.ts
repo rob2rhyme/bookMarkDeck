@@ -23,6 +23,7 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
+import { logActivity, type ActivityType } from "@/lib/activityLog";
 import {
   bookmarkForDay,
   clearBookmarkFocusLink,
@@ -68,27 +69,10 @@ const meditationCol = (uid: string) =>
 const resetsCol = (uid: string) =>
   collection(db, "users", uid, "letThemResets");
 
-export type ActivityType =
-  | "focus"
-  | "task_added"
-  | "task_done"
-  | "mood"
-  | "journal"
-  | "dream"
-  | "hydration"
-  | "todo_added"
-  | "todo_done"
-  | "habit_done"
-  | "habit_skipped"
-  | "bookmark"
-  | "quiz"
-  | "meditation"
-  | "reset"
-  // My Stuff (inventory) moments — logged by the inventory feature.
-  | "item_added"
-  | "item_lent"
-  | "item_returned"
-  | "item_released";
+// ActivityType + logActivity now live in @/lib/activityLog (shared, feature-
+// neutral); re-exported here so existing focus/habits importers keep working.
+export type { ActivityType };
+export { logActivity };
 
 export type ActivityEvent = {
   id: string;
@@ -444,22 +428,6 @@ export async function saveHydration(
 }
 
 /* ------------------------------------------------------------- activity --- */
-
-export async function logActivity(
-  emailHint: string,
-  type: ActivityType,
-  summary: string,
-  day: string
-): Promise<void> {
-  const uid = await uidFor(emailHint);
-  const id = crypto.randomUUID();
-  await setDoc(doc(activityCol(uid), id), {
-    type,
-    summary,
-    day,
-    createdAt: serverTimestamp(),
-  });
-}
 
 export async function deleteActivity(
   emailHint: string,

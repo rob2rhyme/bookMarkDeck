@@ -72,6 +72,7 @@ type Draft = {
   category: string;
   locationId: string;
   quantity: string;
+  restockAt: string;
   value: string;
   price: string;
   taxRate: string;
@@ -123,6 +124,7 @@ function toDraft(item: InventoryItem, fallbackCurrency: string): Draft {
     category: item.category ?? "",
     locationId: item.locationId ?? "",
     quantity: String(item.quantity || 1),
+    restockAt: item.restockAt != null ? String(item.restockAt) : "",
     value: item.value != null ? String(item.value) : "",
     price: item.price != null ? String(item.price) : "",
     taxRate:
@@ -648,6 +650,10 @@ export function ItemFormModal({
       category: trimmedOrUndef(draft.category),
       locationId: draft.locationId || null,
       quantity: Math.max(1, Math.round(numOrUndef(draft.quantity) ?? 1)),
+      restockAt: (() => {
+        const n = numOrUndef(draft.restockAt);
+        return typeof n === "number" && n >= 0 ? Math.round(n) : undefined;
+      })(),
       value: numOrUndef(draft.value),
       price: numOrUndef(draft.price),
       taxRate: numOrUndef(draft.taxRate),
@@ -1200,6 +1206,16 @@ export function ItemFormModal({
                   min={1}
                   value={draft.quantity}
                   onChange={(e) => set("quantity", e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Restock at">
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.restockAt}
+                  onChange={(e) => set("restockAt", e.target.value)}
+                  placeholder="low when ≤"
                   className={fieldClass}
                 />
               </Field>

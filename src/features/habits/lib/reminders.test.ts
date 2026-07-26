@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { nextReminderAt } from "@/features/habits/lib/reminders";
+import { nextReminderAt, reminderBody } from "@/features/habits/lib/reminders";
 import type { Habit } from "@/features/habits/lib/types";
 
 function habit(over: Partial<Habit> = {}): Habit {
@@ -56,5 +56,23 @@ describe("nextReminderAt", () => {
       true
     );
     expect(at).toBeNull();
+  });
+});
+
+describe("reminderBody", () => {
+  it("frames a live streak (>=2) as at-risk — the streak nudge", () => {
+    expect(reminderBody(habit({ name: "Meditate" }), 12)).toBe(
+      "Keep your 12-day streak alive — Meditate today."
+    );
+  });
+
+  it("uses identity copy when there is no streak to protect", () => {
+    expect(
+      reminderBody(habit({ name: "Run", identity: "I am a runner" }), 0)
+    ).toBe("Time to run — I am a runner.");
+  });
+
+  it("falls back to plain copy below the streak threshold", () => {
+    expect(reminderBody(habit({ name: "Floss" }), 1)).toBe("Time for Floss.");
   });
 });

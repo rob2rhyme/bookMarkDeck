@@ -25,6 +25,7 @@ type ItemCardProps = {
   onOpen: (item: InventoryItem) => void;
   onEdit: (item: InventoryItem) => void;
   onWish: (item: InventoryItem) => void; // "want another" → prefilled wish
+  onUseOne?: (item: InventoryItem) => void; // "used one" → quantity − 1
   onArchive: (item: InventoryItem) => void;
   onRemove: (item: InventoryItem) => void;
 };
@@ -42,9 +43,11 @@ export function ItemCard({
   onOpen,
   onEdit,
   onWish,
+  onUseOne,
   onArchive,
   onRemove,
 }: ItemCardProps) {
+  const lowStock = item.restockAt != null && item.quantity <= item.restockAt;
   const currency = item.currency ?? fallbackCurrency;
   const value = itemValue(item);
   // The card's figure: a manual value stays a worth estimate; otherwise the
@@ -220,6 +223,14 @@ export function ItemCard({
               ×{item.quantity}
             </span>
           )}
+          {lowStock && (
+            <span
+              className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-200"
+              title="Running low — time to restock"
+            >
+              Low stock
+            </span>
+          )}
           {item.condition && (
             <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-400">
               {CONDITIONS.find((c) => c.id === item.condition)?.label ??
@@ -257,6 +268,17 @@ export function ItemCard({
         )}
 
         <div className="mt-auto flex items-center justify-end gap-1 pt-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+          {onUseOne && item.restockAt != null && (
+            <button
+              type="button"
+              onClick={() => onUseOne(item)}
+              aria-label={`Used one ${item.name}`}
+              title="Used one — decrease quantity"
+              className="rounded-md px-1.5 py-1 text-xs font-medium leading-none text-slate-400 transition hover:bg-slate-800 hover:text-blue-300"
+            >
+              −1
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onWish(item)}

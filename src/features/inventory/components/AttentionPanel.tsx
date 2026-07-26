@@ -13,6 +13,7 @@ type AttentionPanelProps = {
   items: InventoryItem[];
   today: string;
   onSelect: (item: InventoryItem) => void;
+  onWish?: (item: InventoryItem) => void; // one-tap restock → prefilled wish
 };
 
 function Row({
@@ -40,7 +41,12 @@ function Row({
   );
 }
 
-export function AttentionPanel({ items, today, onSelect }: AttentionPanelProps) {
+export function AttentionPanel({
+  items,
+  today,
+  onSelect,
+  onWish,
+}: AttentionPanelProps) {
   const a = attention(items, today);
   const count = attentionCount(a);
 
@@ -67,6 +73,44 @@ export function AttentionPanel({ items, today, onSelect }: AttentionPanelProps) 
       </h3>
 
       <div className="mt-3 flex flex-col gap-4">
+        {a.lowStock.length > 0 && (
+          <section>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-amber-300/80">
+              Running low
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {a.lowStock.map((i) => (
+                <li
+                  key={i.id}
+                  className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition hover:bg-slate-800/50"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelect(i)}
+                    className="min-w-0 flex-1 truncate text-left text-sm text-slate-200"
+                  >
+                    {i.name}
+                  </button>
+                  <span className="shrink-0 text-xs font-medium tabular-nums text-amber-300">
+                    {i.quantity} left
+                  </span>
+                  {onWish && (
+                    <button
+                      type="button"
+                      onClick={() => onWish(i)}
+                      title="Add to Wishlist — restock"
+                      aria-label={`Add ${i.name} to Wishlist`}
+                      className="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium text-pink-300 transition hover:bg-slate-800"
+                    >
+                      + Wishlist
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {a.warrantyExpired.length > 0 && (
           <section>
             <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-red-300/80">

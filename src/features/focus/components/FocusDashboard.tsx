@@ -33,6 +33,7 @@ import { useFocusJournal } from "@/features/focus/hooks/useFocusJournal";
 import { useFocusScores, type QuizResult } from "@/features/focus/hooks/useFocusScores";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
 import { useFocusStats } from "@/features/focus/hooks/useFocusStats";
+import { useFocusStreakNudge } from "@/features/focus/hooks/useFocusStreakNudge";
 import { isTopicId, topicLabel, type TopicId } from "@/features/focus/lib/topics";
 import { useFocusSync } from "@/features/focus/hooks/useFocusSync";
 import { useFocusTasks } from "@/features/focus/hooks/useFocusTasks";
@@ -158,6 +159,9 @@ export function FocusDashboard() {
 
   const [weekOffset, setWeekOffset] = useState(0);
   const stats = useFocusStats(email, connected, weekOffset);
+
+  // Evening "keep your streak" nudge — dormant until push is configured.
+  useFocusStreakNudge(email, stats.streak, stats.todaySessions);
 
   // Full backup payload for "Export all data (JSON)" / import round-trip.
   const buildBackup = (): FocusBackup => ({

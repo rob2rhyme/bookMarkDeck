@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
+    "lint:eslint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
@@ -17,6 +19,7 @@
     "@capacitor/ios": "^6.2.1",
     "@capacitor/local-notifications": "^6.1.3",
     "@upstash/qstash": "^2.11.1",
+    "@upstash/redis": "^1.38.0",
     "barcode-detector": "^3.2.1",
     "express": "^5.2.1",
     "firebase": "^12.11.0",
@@ -30,20 +33,25 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.1",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^25",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.11",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.9"
   },
   "overrides": {
     "minimatch": ">=10.2.1",
-    "ajv": "^8.17.2",
     "protobufjs": ">=7.6.3 <8",
     "@grpc/grpc-js": ">=1.9.16 <2",
     "qs": ">=6.15.2",

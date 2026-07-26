@@ -9,7 +9,9 @@ const SCOPES = "https://www.googleapis.com/auth/drive.appdata";
 const FILE_NAME = "bookmarkdeck.json";
 
 type DriveFile = { id: string; modifiedTime?: string };
-type EncryptedPayload = { iv: string; ciphertext: string };
+// salt is optional so pre-salt backups still parse; it flows through
+// upload/download untouched (JSON.stringify / res.json()).
+type EncryptedPayload = { iv: string; ciphertext: string; salt?: string };
 type TokenResponse = { access_token?: string; error?: string };
 
 type TokenClientConfig = {

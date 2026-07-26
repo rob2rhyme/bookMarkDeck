@@ -19,11 +19,14 @@ between a bookmark *folder* and a focus session (Phase 4) matters more than any 
   access). No second auth system.
 - **Database:** reuse **Firestore**. **No Supabase. No SQL. No migrations. No RLS.**
 - The three realities, in writing:
-  1. **Firestore (NoSQL):** persistence = **new collections + console-managed security rules**,
-     not table migrations. There is no `firestore.rules` file in the repo (see CLAUDE.md).
-  2. **No automated test suite:** "verify" = `lint` + `typecheck` + `build` + manual smoke.
-  3. **Not yet a PWA:** no manifest/service worker. (PWA is backlog item **B4**.)
-- **Do not touch** the Electron `launcher-desktop/` app or the Google Drive sync path.
+  1. **Firestore (NoSQL):** persistence = **new collections + owner-scoped security rules**,
+     not table migrations. Rules live in the committed `firestore.rules` (see CLAUDE.md);
+     Firestore evaluates the console-deployed copy, so verify/deploy after changes.
+  2. **Automated test suite:** a Vitest suite (`npm run test`) covers pure logic; "verify" =
+     `typecheck` + `test` + `build` + a manual smoke check.
+  3. **PWA shipped:** dynamic `src/app/manifest.ts` + `public/sw.js` + install prompt (was
+     backlog item **B4**).
+- **Do not touch** the desktop launcher (`launcher.js`) or the Google Drive sync path.
 
 ## Rules of engagement (every phase)
 
