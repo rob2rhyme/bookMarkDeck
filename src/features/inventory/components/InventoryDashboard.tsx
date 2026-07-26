@@ -31,10 +31,7 @@ import {
   itemsToCsv,
 } from "@/features/inventory/lib/exportInventory";
 import { todayKey } from "@/features/inventory/data/inventoryData";
-import {
-  logActivity,
-  type ActivityType,
-} from "@/features/focus/data/focusData";
+import { logActivity, type ActivityType } from "@/lib/activityLog";
 import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
 import type {
   InventoryItem,
