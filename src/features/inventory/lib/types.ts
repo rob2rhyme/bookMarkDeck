@@ -169,6 +169,7 @@ export type InventoryItem = {
   renewsOn?: string; // YYYY-MM-DD — digital subs: next renewal (auto-rolls)
   tags: string[];
   quantity: number;
+  restockAt?: number; // low-stock threshold: quantity <= restockAt ⇒ "running low"
   purchaseDate?: string; // YYYY-MM-DD
   price?: number;
   taxRate?: number; // sales-tax % applied to price (e.g. 6 → 6%)

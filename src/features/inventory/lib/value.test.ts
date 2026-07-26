@@ -295,4 +295,17 @@ describe("effectiveUseBy", () => {
     expect(a.useByExpired).toHaveLength(1);
     expect(a.useBySoon).toHaveLength(1);
   });
+
+  it("flags low-stock items (quantity at/below restockAt)", () => {
+    const a = attention(
+      [
+        item({ name: "Coffee", quantity: 1, restockAt: 2 }), // low (1 <= 2)
+        item({ name: "Soap", quantity: 0, restockAt: 0 }), // low (0 <= 0)
+        item({ name: "Rice", quantity: 5, restockAt: 2 }), // fine
+        item({ name: "Pens", quantity: 1 }), // no threshold → ignored
+      ],
+      today
+    );
+    expect(a.lowStock.map((i) => i.name).sort()).toEqual(["Coffee", "Soap"]);
+  });
 });

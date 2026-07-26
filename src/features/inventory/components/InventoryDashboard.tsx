@@ -260,6 +260,11 @@ export function InventoryDashboard() {
     inv.releaseItem(id, today || todayKey());
     if (it) logEvent("item_released", `Let go of: ${it.name}`);
   };
+  // Consumable restock loop: "used one" decrements quantity (floor 0), which can
+  // trip the low-stock threshold and surface the item in Attention.
+  const useOne = (item: InventoryItem) => {
+    inv.upsertItem({ ...item, quantity: Math.max(0, (item.quantity || 0) - 1) });
+  };
 
   // Wishlist → My Stuff: bought it, so make it a real item and clear the wish.
   // Undoable — an accidental tap restores the wish and removes the new item.
@@ -795,7 +800,12 @@ export function InventoryDashboard() {
       {total > 0 && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <ValuePanel items={inv.active} locations={loc.locations} currency={settings.defaultCurrency} today={today} />
-          <AttentionPanel items={inv.active} today={today} onSelect={openDetail} />
+          <AttentionPanel
+            items={inv.active}
+            today={today}
+            onSelect={openDetail}
+            onWish={wishFromItem}
+          />
         </div>
       )}
 
@@ -919,6 +929,7 @@ export function InventoryDashboard() {
                       onOpen={openDetail}
                       onEdit={openEdit}
                       onWish={wishFromItem}
+                      onUseOne={useOne}
                       onArchive={(it) => inv.setArchived(it.id, !it.archived)}
                       onRemove={removeItemAndDocs}
                     />
@@ -940,6 +951,7 @@ export function InventoryDashboard() {
               onOpen={openDetail}
               onEdit={openEdit}
               onWish={wishFromItem}
+              onUseOne={useOne}
               onArchive={(it) => inv.setArchived(it.id, !it.archived)}
               onRemove={removeItemAndDocs}
             />
@@ -957,6 +969,7 @@ export function InventoryDashboard() {
               onOpen={openDetail}
               onEdit={openEdit}
               onWish={wishFromItem}
+              onUseOne={useOne}
               onArchive={(it) => inv.setArchived(it.id, !it.archived)}
               onRemove={removeItemAndDocs}
             />

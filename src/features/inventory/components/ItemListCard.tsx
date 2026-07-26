@@ -23,6 +23,7 @@ type ItemListCardProps = {
   onOpen: (item: InventoryItem) => void;
   onEdit: (item: InventoryItem) => void;
   onWish: (item: InventoryItem) => void; // "want another" → prefilled wish
+  onUseOne?: (item: InventoryItem) => void; // "used one" → quantity − 1
   onArchive: (item: InventoryItem) => void;
   onRemove: (item: InventoryItem) => void;
 };
@@ -57,6 +58,7 @@ export function ItemListCard({
   onOpen,
   onEdit,
   onWish,
+  onUseOne,
   onArchive,
   onRemove,
 }: ItemListCardProps) {
@@ -254,6 +256,17 @@ export function ItemListCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+            {onUseOne && item.restockAt != null && (
+              <button
+                type="button"
+                onClick={() => onUseOne(item)}
+                aria-label={`Used one ${item.name}`}
+                title="Used one — decrease quantity"
+                className="rounded-md px-1.5 py-1 text-xs font-medium leading-none text-slate-400 transition hover:bg-slate-800 hover:text-blue-300"
+              >
+                −1
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onWish(item)}
