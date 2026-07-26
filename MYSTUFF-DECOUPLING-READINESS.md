@@ -66,12 +66,23 @@ sequential:
 
 ## 4. Readiness checklist
 
-- [ ] C1: `AppShell` no longer imports `features/inventory` (badge injected)
-- [ ] C2: inventory API routes are thin shells over `features/inventory/lib`
-- [ ] C3: activity logging injected (no `features/focus` import from inventory)
+- [x] **C1: `AppShell` no longer imports `features/inventory`** — badge injected via
+  `AppShellHost` (the sole composition point that knows about inventory).
+- [x] **C2: inventory API routes only import `features/inventory/lib`** — already
+  directionally clean (route → feature lib, never feature → route); they port with
+  the feature. No dependency inversion needed; the only remaining work is physical
+  co-location at extraction time.
+- [x] **C3: activity logging neutralized** — `logActivity`/`ActivityType` moved to
+  `@/lib/activityLog`; inventory imports no `@/features/focus` anywhere.
 - [ ] Confirm the `lib/*` modules stay React-free (they are today) so they port to Expo
 - [ ] Capacitor 4.2 hardening: offline shell · native barcode · local notifications · share-target
 - [ ] Decide monetization/billing before the store build ships metered features (`MONETIZATION-PWA.md`)
+
+> **Status:** the three code-coupling threads (C1–C3) are resolved —
+> `src/features/inventory` now imports **no other feature**. My Stuff is a true
+> one-folder extraction (plus removing the `/inventory` nav entry + `AppShellHost`
+> line). What remains is the mobile-build work itself (Capacitor hardening / Expo),
+> not decoupling.
 
 **Bottom line:** My Stuff is ~90% decoupled; three small, well-scoped changes make
 it a true one-folder extraction. The mobile app is a distribution project, not a
