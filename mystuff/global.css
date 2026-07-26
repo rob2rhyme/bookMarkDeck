@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theme tokens — one semantic name per role, two value sets.
+ *
+ * Every component uses semantic classes (bg-surface, text-ink, border-line)
+ * and NEVER a raw palette value, so light and dark stay in lockstep and a
+ * future re-skin is a change to this file alone.
+ *
+ * Values are space-separated RGB channels so Tailwind's <alpha-value> works
+ * (e.g. `bg-accent/10`).
+ */
+@layer base {
+  :root {
+    /* Light — warm, calm, high-contrast text */
+    --color-canvas: 248 250 252; /* page background      slate-50  */
+    --color-surface: 255 255 255; /* cards                white     */
+    --color-raised: 241 245 249; /* inputs, chips        slate-100 */
+
+    --color-ink: 15 23 42; /* primary text         slate-900 */
+    --color-muted: 71 85 105; /* secondary text       slate-600 */
+    --color-faint: 148 163 184; /* tertiary / hints     slate-400 */
+
+    --color-line: 226 232 240; /* borders, dividers    slate-200 */
+
+    --color-accent: 37 99 235; /* actions              blue-600  */
+    --color-accent-ink: 255 255 255; /* text on accent       white     */
+
+    --color-good: 22 163 74; /* success              green-600 */
+    --color-warn: 217 119 6; /* attention            amber-600 */
+    --color-bad: 220 38 38; /* danger               red-600   */
+  }
+
+  .dark:root {
+    /* Dark — the Bookmark Deck slate heritage, refined */
+    --color-canvas: 2 6 23; /* slate-950 */
+    --color-surface: 15 23 42; /* slate-900 */
+    --color-raised: 30 41 59; /* slate-800 */
+
+    --color-ink: 248 250 252; /* slate-50  */
+    --color-muted: 148 163 184; /* slate-400 */
+    --color-faint: 100 116 139; /* slate-500 */
+
+    --color-line: 30 41 59; /* slate-800 */
+
+    --color-accent: 59 130 246; /* blue-500  */
+    --color-accent-ink: 255 255 255;
+
+    --color-good: 52 211 153; /* emerald-400 */
+    --color-warn: 251 191 36; /* amber-400   */
+    --color-bad: 248 113 113; /* red-400     */
+  }
+}

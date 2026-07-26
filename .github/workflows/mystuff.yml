@@ -1,0 +1,30 @@
+name: mystuff (native)
+
+# The Expo app is self-contained in mystuff/ with its own toolchain, so it only
+# runs when that folder changes. It will move to its own repo once the port is
+# proven (git subtree split preserves this history).
+on:
+  pull_request:
+    branches: [main]
+    paths: ["mystuff/**", ".github/workflows/mystuff.yml"]
+  push:
+    branches: [main]
+    paths: ["mystuff/**", ".github/workflows/mystuff.yml"]
+
+jobs:
+  native:
+    name: typecheck + tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mystuff
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: mystuff/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
