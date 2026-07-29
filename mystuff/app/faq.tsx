@@ -31,6 +31,14 @@ const FAQ: { q: string; a: string }[] = [
     a: "Always. Export everything as CSV or JSON whenever you like — no lock-in, no export fee, no request form.",
   },
   {
+    q: "Can I change an item after saving it?",
+    a: "Yes — open the item and tap Edit. Rename it, change how many you have, or move it somewhere else. Nothing is locked in, and you can leave fields blank if you don't know them yet.",
+  },
+  {
+    q: "What happens to my things if I delete a location?",
+    a: "Nothing is lost. Items stored there simply become unassigned, and any sub-locations move up a level — so a shelf inside a deleted room becomes a room of its own rather than disappearing.",
+  },
+  {
     q: "What is the Attention list?",
     a: "Anything with a date or level that needs you soon: expiring warranties, food past its use-by, upkeep due, subscriptions about to renew, or supplies running low.",
   },

@@ -7,8 +7,18 @@
 
 import type { InventoryItem } from "./types";
 
-/** Free-text match across every field a person might search by. */
-export function matchesQuery(item: InventoryItem, q: string): boolean {
+/**
+ * Free-text match across every field a person might search by.
+ *
+ * `locationText` is passed in rather than looked up, because an item stores a
+ * location *id* and this module stays pure — but "garage" is one of the first
+ * things anyone types into a home inventory, so it has to be searchable.
+ */
+export function matchesQuery(
+  item: InventoryItem,
+  q: string,
+  locationText?: string
+): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
   const hay = [
@@ -23,6 +33,7 @@ export function matchesQuery(item: InventoryItem, q: string): boolean {
     item.collection,
     item.tags?.join(" "),
     item.links?.map((l) => l.title).join(" "),
+    locationText,
   ]
     .filter(Boolean)
     .join(" ")
@@ -45,12 +56,22 @@ export function visibleItems(
     locationId?: string | null;
     showArchived?: boolean;
     knownLocationIds?: Set<string>;
+    /** Location id → path segments, as `locationPathsById` returns. */
+    locationPaths?: Record<string, string[]>;
   } = {}
 ): InventoryItem[] {
-  const { query = "", locationId = null, showArchived = false, knownLocationIds } = opts;
+  const {
+    query = "",
+    locationId = null,
+    showArchived = false,
+    knownLocationIds,
+    locationPaths,
+  } = opts;
+  const pathText = (id: string | null): string | undefined =>
+    id && locationPaths ? locationPaths[id]?.join(" ") : undefined;
   return items
     .filter((i) => (showArchived ? true : !i.archived))
-    .filter((i) => matchesQuery(i, query))
+    .filter((i) => matchesQuery(i, query, pathText(i.locationId)))
     .filter((i) => {
       if (!locationId) return true;
       const dangling = Boolean(

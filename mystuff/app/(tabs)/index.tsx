@@ -4,6 +4,7 @@ import { router } from "expo-router";
 
 import { useData } from "@/data/provider";
 import { visibleItems } from "@/lib/filterItems";
+import { locationPathsById } from "@/lib/inventorySearch";
 import { ITEM_KINDS } from "@/lib/types";
 import { Badge, Button, EmptyState, Field, ListRow, Skeleton } from "@/ui";
 
@@ -11,11 +12,26 @@ const iconFor = (kind?: string) =>
   ITEM_KINDS.find((k) => k.id === (kind ?? ""))?.icon ?? "📦";
 
 export default function ItemsScreen() {
-  const { items, loading } = useData();
+  const { items, locations, loading } = useData();
   const [query, setQuery] = useState("");
 
+  const paths = useMemo(() => locationPathsById(locations), [locations]);
+
   // Same matching + ordering rules as the web app, now pure and tested.
-  const visible = useMemo(() => visibleItems(items, { query }), [items, query]);
+  const visible = useMemo(
+    () => visibleItems(items, { query, locationPaths: paths }),
+    [items, query, paths]
+  );
+
+  // Where a thing is, is the answer this app exists to give — so it goes on
+  // the row, not two taps away.
+  const detailFor = (locationId: string | null, quantity: number) =>
+    [
+      locationId ? paths[locationId]?.join(" / ") : undefined,
+      quantity > 1 ? `Quantity ${quantity}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · ") || undefined;
 
   if (loading) {
     return (
@@ -69,7 +85,7 @@ export default function ItemsScreen() {
         renderItem={({ item }) => (
           <ListRow
             title={`${iconFor(item.kind)}  ${item.name}`}
-            detail={item.quantity > 1 ? `Quantity ${item.quantity}` : undefined}
+            detail={detailFor(item.locationId, item.quantity)}
             trailing={
               item.restockAt != null && item.quantity <= item.restockAt ? (
                 <Badge label="Low stock" tone="warn" />

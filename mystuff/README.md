@@ -46,12 +46,14 @@ npm test           # vitest — the ported logic suite
 ```
 app/            Expo Router routes
   (tabs)/       Items · Insights · Wishlist · More
-  item/[id]     item detail
+  item/[id]/    item detail + edit
   add           add-item modal
+  locations     nested locations manager
   guide, faq    in-app help
 src/
   lib/          ported business logic — pure, framework-free, tested
   ui/           design system (tokens + primitives)
+  components/   domain components built from the design system
   data/         repository interface + Firestore/SQLite adapters
   backup/       device / iCloud / Drive / Dropbox destinations
   server/       thin API helpers

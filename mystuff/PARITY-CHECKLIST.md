@@ -27,11 +27,11 @@ Legend: `✅ done` · `🚧 in progress` · `⬜ not started` · `⏭ deferred (
 
 | # | Feature | Web source | Status |
 |---|---|---|---|
-| 1.1 | Item CRUD (add / edit / archive / delete) | `useInventory`, `ItemFormModal` | 🚧 add + delete persist; **edit/archive pending** |
+| 1.1 | Item CRUD (add / edit / archive / delete) | `useInventory`, `ItemFormModal` | 🚧 add / edit / delete persist (`itemEdit.ts`, tested); **archive pending** |
 | 1.2 | Type-aware forms — 7 kinds (General/Book/Food/Self-care/Clothing/Tool/Digital) | `ItemFormModal`, `types.ts` | 🚧 kind selection persists; per-kind fields pending |
-| 1.3 | Item detail + life history | `ItemDetailModal`, `activity.ts` | 🚧 detail reads real data; history pending |
+| 1.3 | Item detail + life history | `ItemDetailModal`, `activity.ts` | 🚧 detail reads real data; edits log a `relocated` event; history UI pending |
 | 1.4 | Views: grid / list / shelf | `ItemCard`, `ItemListCard` | ⬜ (list view done) |
-| 1.5 | Search + location filter | `filterItems.ts` (ported from the web's untested inline `matches()`) | ✅ search done + tested; location filter pending UI |
+| 1.5 | Search + location filter | `filterItems.ts` (ported from the web's untested inline `matches()`) | ✅ search done + tested, **now matches location names too** (the web app can't); location *filter* chips pending UI |
 | 1.6 | Undo on destructive actions | `InventoryDashboard` | ⬜ |
 | 1.7 | Quantity + **restock / low-stock loop** ("−1 used") | `value.ts` `lowStock` | ⬜ (lib ported) |
 
@@ -50,7 +50,7 @@ Legend: `✅ done` · `🚧 in progress` · `⬜ not started` · `⏭ deferred (
 
 | # | Feature | Web source | Status |
 |---|---|---|---|
-| 3.1 | Nested locations | `useInventoryLocations`, `LocationManager` | ⬜ |
+| 3.1 | Nested locations | `useInventoryLocations`, `LocationManager` | ✅ add / rename / move / delete + item assignment (`locationTree.ts`, tested). **Fixes two web defects:** deleting a location no longer orphans its children, and a move can't create a cycle |
 | 3.2 | QR location labels + print | `qr.ts`, `locationLabels.ts` | ⬜ — print → `expo-print` |
 | 3.3 | Collections / kits | `collections.ts`, `CollectionsModal` | ⬜ (lib ported) |
 | 3.4 | Starter rooms onboarding | `starterRooms.ts`, `StarterRoomsCard` | ⬜ (lib ported) |

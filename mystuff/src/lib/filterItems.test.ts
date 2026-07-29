@@ -96,4 +96,36 @@ describe("visibleItems", () => {
       visibleItems([x, y], { query: "kettle", locationId: "loc2" }).map((i) => i.id)
     ).toEqual(["y"]);
   });
+
+  describe("searching by location name", () => {
+    const paths = { loc1: ["House", "Garage"], loc2: ["House", "Loft"] };
+    const drill = item({ id: "x", name: "Drill", locationId: "loc1" });
+    const skis = item({ id: "y", name: "Skis", locationId: "loc2" });
+    const loose = item({ id: "z", name: "Passport", locationId: null });
+
+    it("matches on any segment of the location path", () => {
+      expect(
+        visibleItems([drill, skis], { query: "garage", locationPaths: paths }).map(
+          (i) => i.id
+        )
+      ).toEqual(["x"]);
+      // A shared ancestor matches everything under it.
+      expect(
+        visibleItems([drill, skis], { query: "house", locationPaths: paths }).map(
+          (i) => i.id
+        ).sort()
+      ).toEqual(["x", "y"]);
+    });
+
+    it("leaves unassigned and dangling items unmatched, not crashed", () => {
+      const dangling = item({ id: "d", name: "Ladder", locationId: "gone" });
+      expect(
+        visibleItems([loose, dangling], { query: "garage", locationPaths: paths })
+      ).toEqual([]);
+    });
+
+    it("ignores location text when no paths are supplied", () => {
+      expect(visibleItems([drill], { query: "garage" })).toEqual([]);
+    });
+  });
 });

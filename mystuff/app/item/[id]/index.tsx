@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 
 import { useData } from "@/data/provider";
+import { locationPathsById } from "@/lib/inventorySearch";
 import { ITEM_KINDS } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ListRow } from "@/ui";
 
 export default function ItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { items, removeItem } = useData();
+  const { items, locations, removeItem } = useData();
   const [busy, setBusy] = useState(false);
 
+  const paths = useMemo(() => locationPathsById(locations), [locations]);
   const item = items.find((i) => i.id === id);
 
   if (!item) {
@@ -32,6 +34,9 @@ export default function ItemDetailScreen() {
 
   const kind = ITEM_KINDS.find((k) => k.id === (item.kind ?? ""));
   const lowStock = item.restockAt != null && item.quantity <= item.restockAt;
+  const where = item.locationId
+    ? paths[item.locationId]?.join(" / ") ?? "Somewhere that no longer exists"
+    : "Not set";
 
   // Destructive and irreversible, so it asks first — the app's forgiveness rule.
   const confirmDelete = () => {
@@ -74,6 +79,12 @@ export default function ItemDetailScreen() {
 
         <Card title="Details">
           <View>
+            <ListRow
+              title="Where it is"
+              detail={where}
+              onPress={() => router.push(`/item/${item.id}/edit`)}
+              accessibilityHint="Opens the edit form to move this item"
+            />
             <ListRow title="Quantity" detail={String(item.quantity)} />
             {item.category ? (
               <ListRow title="Category" detail={item.category} />
@@ -88,9 +99,15 @@ export default function ItemDetailScreen() {
           </View>
         </Card>
 
-        {/* Editing, photos, price comparison and the ledgers land next —
-            tracked row-by-row in PARITY-CHECKLIST.md. */}
+        {/* Photos, price comparison and the ledgers land next — tracked
+            row-by-row in PARITY-CHECKLIST.md. */}
         <View className="gap-2">
+          <Button
+            label="Edit item"
+            onPress={() => router.push(`/item/${item.id}/edit`)}
+            fullWidth
+            size="lg"
+          />
           <Button
             label="Delete item"
             variant="danger"

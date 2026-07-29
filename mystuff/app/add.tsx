@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 
+import { LocationPicker } from "@/components/LocationPicker";
 import { useData } from "@/data/provider";
 import { newItem } from "@/data/newItem";
 import { ITEM_KINDS, type ItemKind } from "@/lib/types";
@@ -11,9 +12,10 @@ import { Button, Chip, Field } from "@/ui";
 // shapes the form later; everything else can be filled in whenever. A first
 // item should take seconds, not a form-filling session.
 export default function AddItemScreen() {
-  const { saveItem } = useData();
+  const { locations, saveItem } = useData();
   const [name, setName] = useState("");
   const [kind, setKind] = useState<ItemKind | "">("");
+  const [locationId, setLocationId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +26,8 @@ export default function AddItemScreen() {
     setSaving(true);
     setError(null);
     try {
-      await saveItem(newItem({ name, kind }, new Date().toISOString()));
+      const item = newItem({ name, kind }, new Date().toISOString());
+      await saveItem({ ...item, locationId });
       router.back();
     } catch {
       setError("Couldn't save that item. Please try again.");
@@ -65,6 +68,15 @@ export default function AddItemScreen() {
           use-by dates for food, or an author for books.
         </Text>
       </View>
+
+      {/* Only appears once places exist, so a first item is still one field. */}
+      {locations.length > 0 ? (
+        <LocationPicker
+          locations={locations}
+          value={locationId}
+          onChange={setLocationId}
+        />
+      ) : null}
 
       <View className="gap-2">
         <Button

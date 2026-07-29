@@ -9,7 +9,11 @@ export default function MoreScreen() {
     <ScrollView className="flex-1 bg-canvas" contentContainerClassName="p-4 gap-4">
       <Card title="Your things">
         <View>
-          <ListRow title="Locations" detail="Rooms, shelves and boxes" />
+          <ListRow
+            title="Locations"
+            detail="Rooms, shelves and boxes"
+            onPress={() => router.push("/locations")}
+          />
           <ListRow title="On loan" detail="What you've lent out" />
           <ListRow title="Borrowed" detail="What you've borrowed" />
           <ListRow title="Subscriptions" detail="Recurring digital costs" />

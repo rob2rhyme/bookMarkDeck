@@ -8,19 +8,24 @@ import {
   type ReactNode,
 } from "react";
 
-import type { InventoryItem } from "@/lib/types";
+import type { InventoryItem, InventoryLocation } from "@/lib/types";
+import { planLocationDelete } from "@/lib/locationTree";
 import { createLocalRepo } from "./localRepo";
 import { createSqliteStore } from "./sqliteStore";
 import type { InventoryRepo } from "./repo";
 
 type ItemsState = {
   items: InventoryItem[];
+  locations: InventoryLocation[];
   loading: boolean;
   repo: InventoryRepo;
   /** Re-read from storage. Called after every write so the UI never drifts. */
   refresh: () => Promise<void>;
   saveItem: (item: InventoryItem) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
+  saveLocation: (location: InventoryLocation) => Promise<void>;
+  /** Deletes a location, promoting its children and unassigning its items. */
+  removeLocation: (id: string) => Promise<void>;
 };
 
 const Ctx = createContext<ItemsState | null>(null);
@@ -40,13 +45,19 @@ export function DataProvider({
   );
 
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [locations, setLocations] = useState<InventoryLocation[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      setItems(await repo.listItems());
+      const [nextItems, nextLocations] = await Promise.all([
+        repo.listItems(),
+        repo.listLocations(),
+      ]);
+      setItems(nextItems);
+      setLocations(nextLocations);
     } catch {
-      // Storage failures must not blank the screen; keep the last-known list.
+      // Storage failures must not blank the screen; keep the last-known state.
     } finally {
       setLoading(false);
     }
@@ -72,9 +83,50 @@ export function DataProvider({
     [repo, refresh]
   );
 
+  const saveLocation = useCallback(
+    async (location: InventoryLocation) => {
+      await repo.upsertLocation(location);
+      await refresh();
+    },
+    [repo, refresh]
+  );
+
+  const removeLocation = useCallback(
+    async (id: string) => {
+      // Children are promoted and held items unassigned, so a delete can never
+      // orphan a branch or leave items pointing at a location that is gone.
+      const plan = planLocationDelete(locations, items, id, new Date().toISOString());
+      await Promise.all(plan.reparentedLocations.map((l) => repo.upsertLocation(l)));
+      await Promise.all(plan.unassignedItems.map((i) => repo.upsertItem(i)));
+      await repo.deleteLocation(plan.removeId);
+      await refresh();
+    },
+    [repo, refresh, locations, items]
+  );
+
   const value = useMemo(
-    () => ({ items, loading, repo, refresh, saveItem, removeItem }),
-    [items, loading, repo, refresh, saveItem, removeItem]
+    () => ({
+      items,
+      locations,
+      loading,
+      repo,
+      refresh,
+      saveItem,
+      removeItem,
+      saveLocation,
+      removeLocation,
+    }),
+    [
+      items,
+      locations,
+      loading,
+      repo,
+      refresh,
+      saveItem,
+      removeItem,
+      saveLocation,
+      removeLocation,
+    ]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
