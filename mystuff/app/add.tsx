@@ -1,64 +1,85 @@
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 
+import { useData } from "@/data/provider";
+import { newItem } from "@/data/newItem";
+import { ITEM_KINDS, type ItemKind } from "@/lib/types";
 import { Button, Chip, Field } from "@/ui";
 
-// Progressive disclosure: name + kind + scan is the whole required surface.
-// Everything else lives behind "Add details" so a first item takes seconds.
-const KINDS = [
-  { id: "general", label: "General", emoji: "📦" },
-  { id: "book", label: "Book", emoji: "📚" },
-  { id: "food", label: "Food", emoji: "🥫" },
-  { id: "selfcare", label: "Self-care", emoji: "🧴" },
-  { id: "clothing", label: "Clothing", emoji: "👕" },
-  { id: "tool", label: "Tool", emoji: "🛠" },
-  { id: "digital", label: "Digital", emoji: "💾" },
-] as const;
-
+// Progressive disclosure: a name is the only requirement. Kind is one tap and
+// shapes the form later; everything else can be filled in whenever. A first
+// item should take seconds, not a form-filling session.
 export default function AddItemScreen() {
+  const { saveItem } = useData();
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<string>("general");
+  const [kind, setKind] = useState<ItemKind | "">("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canSave = name.trim().length > 0 && !saving;
+
+  const onSave = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await saveItem(newItem({ name, kind }, new Date().toISOString()));
+      router.back();
+    } catch {
+      setError("Couldn't save that item. Please try again.");
+      setSaving(false);
+    }
+  };
 
   return (
-    <ScrollView className="flex-1 bg-canvas" contentContainerClassName="p-4 gap-5">
+    <ScrollView className="flex-1 bg-canvas" contentContainerClassName="gap-5 p-4">
       <Field
         label="What is it?"
         required
         value={name}
         onChangeText={setName}
-        placeholder="e.g. Coffee grinder"
+        placeholder="e.g. Cordless drill"
         autoFocus
-        hint="A name is all you need to start — you can add details later."
+        hint="A name is all you need to start — details can wait."
+        returnKeyType="done"
+        onSubmitEditing={onSave}
+        error={error ?? undefined}
       />
 
       <View className="gap-2">
+        <Text className="text-[13px] font-medium text-muted">Type</Text>
         <View className="flex-row flex-wrap gap-2">
-          {KINDS.map((k) => (
+          {ITEM_KINDS.map((k) => (
             <Chip
-              key={k.id}
+              key={k.id || "general"}
               label={k.label}
-              emoji={k.emoji}
+              emoji={k.icon}
               selected={kind === k.id}
               onPress={() => setKind(k.id)}
             />
           ))}
         </View>
+        <Text className="text-[12px] text-faint">
+          Picking a type means the form asks the right questions later — like
+          use-by dates for food, or an author for books.
+        </Text>
       </View>
 
       <View className="gap-2">
         <Button
           label="Save item"
-          disabled={!name.trim()}
-          onPress={() => router.back()}
+          disabled={!canSave}
+          loading={saving}
+          onPress={onSave}
           fullWidth
+          size="lg"
         />
         <Button
-          label="Scan a barcode instead"
+          label="Cancel"
           variant="ghost"
-          onPress={() => {}}
+          onPress={() => router.back()}
           fullWidth
-          accessibilityHint="Opens the camera to scan a product barcode"
         />
       </View>
     </ScrollView>

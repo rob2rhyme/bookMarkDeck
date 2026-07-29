@@ -63,6 +63,29 @@ src/
 (`crypto.randomUUID`, `Blob`, `canvas`, `navigator.share`, `crypto.subtle`, `localStorage`).
 Their tests came across unchanged and stay green — that is the port's correctness proof.
 
+## Monetization — decided
+
+**One-time $14.99 lifetime unlock. No ads, ever.**
+
+The free tier stays generous (unlimited items); the unlock gates only features
+with a real per-use cost — AI capture, live price offers, photo storage at scale.
+Implementation is RevenueCat IAP (15% Small Business tier) feeding the same
+entitlement store the web app's Lemon Squeezy checkout writes to: one
+entitlement, two payment rails.
+
+**Why not ads.** The revenue math fails for a low-engagement app — roughly
+**$0.20–0.35 per active user per year** at Tier-1 eCPMs, needing 3,000–5,000
+monthly actives just to clear $1,000/year. Worse, AdMob forces an iOS App
+Tracking Transparency prompt and a *"Data Used to Track You"* privacy label,
+which flatly contradicts the on-device privacy promise — and a dozen competitors
+already advertise "no ads" as a feature, so shipping them would rank this app
+last on the axis the category competes on.
+
+**Why one-time rather than subscription.** This audience demonstrably resists
+subscriptions (Itemlist reports most buyers choose lifetime; StuffKeeper sells a
+$14.99 one-time unlock). A subscription is the better business on paper; a
+one-time unlock is the one people actually buy here.
+
 ## Naming
 
 `mystuff` is a **placeholder slug**. "My Stuff" is too generic to own a store listing, and the

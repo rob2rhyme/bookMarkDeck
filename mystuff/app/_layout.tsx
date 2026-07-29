@@ -7,6 +7,7 @@ import { useColorScheme } from "nativewind";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { paletteFor } from "@/ui/theme";
+import { DataProvider } from "@/data/provider";
 
 export default function RootLayout() {
   // `userInterfaceStyle: automatic` in app.json means this follows the system,
@@ -31,17 +32,19 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={navTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="add"
-            options={{ presentation: "modal", headerShown: true, title: "Add item" }}
-          />
-          <Stack.Screen
-            name="item/[id]"
-            options={{ headerShown: true, title: "Item" }}
-          />
-        </Stack>
+        <DataProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="add"
+              options={{ presentation: "modal", headerShown: true, title: "Add item" }}
+            />
+            <Stack.Screen
+              name="item/[id]"
+              options={{ headerShown: true, title: "Item" }}
+            />
+          </Stack>
+        </DataProvider>
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>
     </GestureHandlerRootView>

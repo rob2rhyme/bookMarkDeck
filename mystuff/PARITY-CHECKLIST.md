@@ -19,19 +19,19 @@ Legend: `✅ done` · `🚧 in progress` · `⬜ not started` · `⏭ deferred (
 | 0.2 | NativeWind 4 + semantic theme tokens, **light + dark from day one** | ✅ done |
 | 0.3 | UI primitives (Button, Card, Field, Chip, Badge, EmptyState, Skeleton, ListRow) | ✅ done |
 | 0.4 | Pure `lib/*` ported with tests green (28 files / 210 tests) | ✅ done |
-| 0.5 | Data layer behind a repository interface (`src/data/repo.ts`) | ⬜ not started |
+| 0.5 | Data layer behind a repository interface (`src/data/repo.ts`) | ✅ done |
 | 0.6 | Firestore sync — **same Firebase project**, same `users/{uid}` schema | ⬜ not started |
-| 0.7 | SQLite local store (swap behind the repo interface once parity proven) | ⏭ deferred — after parity, per plan N.5 |
+| 0.7 | SQLite local store (`src/data/sqliteStore.ts`, behind the repo interface) | ✅ done |
 
 ## 1. Items — the core
 
 | # | Feature | Web source | Status |
 |---|---|---|---|
-| 1.1 | Item CRUD (add / edit / archive / delete) | `useInventory`, `ItemFormModal` | 🚧 add form scaffolded |
-| 1.2 | Type-aware forms — 7 kinds (General/Book/Food/Self-care/Clothing/Tool/Digital) | `ItemFormModal`, `types.ts` | 🚧 kind chips scaffolded |
-| 1.3 | Item detail + life history | `ItemDetailModal`, `activity.ts` | ⬜ |
-| 1.4 | Views: grid / list / shelf | `ItemCard`, `ItemListCard` | ⬜ |
-| 1.5 | Search + location filter | `inventorySearch.ts` | ⬜ (lib ported) |
+| 1.1 | Item CRUD (add / edit / archive / delete) | `useInventory`, `ItemFormModal` | 🚧 add + delete persist; **edit/archive pending** |
+| 1.2 | Type-aware forms — 7 kinds (General/Book/Food/Self-care/Clothing/Tool/Digital) | `ItemFormModal`, `types.ts` | 🚧 kind selection persists; per-kind fields pending |
+| 1.3 | Item detail + life history | `ItemDetailModal`, `activity.ts` | 🚧 detail reads real data; history pending |
+| 1.4 | Views: grid / list / shelf | `ItemCard`, `ItemListCard` | ⬜ (list view done) |
+| 1.5 | Search + location filter | `filterItems.ts` (ported from the web's untested inline `matches()`) | ✅ search done + tested; location filter pending UI |
 | 1.6 | Undo on destructive actions | `InventoryDashboard` | ⬜ |
 | 1.7 | Quantity + **restock / low-stock loop** ("−1 used") | `value.ts` `lowStock` | ⬜ (lib ported) |
 

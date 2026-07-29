@@ -1,16 +1,36 @@
+import { useMemo, useState } from "react";
+import { FlatList, Text, View } from "react-native";
 import { router } from "expo-router";
-import { ScrollView, View } from "react-native";
 
-import { Button, EmptyState } from "@/ui";
+import { useData } from "@/data/provider";
+import { visibleItems } from "@/lib/filterItems";
+import { ITEM_KINDS } from "@/lib/types";
+import { Badge, Button, EmptyState, Field, ListRow, Skeleton } from "@/ui";
+
+const iconFor = (kind?: string) =>
+  ITEM_KINDS.find((k) => k.id === (kind ?? ""))?.icon ?? "📦";
 
 export default function ItemsScreen() {
-  // Data layer lands next (src/data/repo.ts behind a repository interface, per
-  // the plan) — this screen currently renders the teaching empty state.
-  const items: unknown[] = [];
+  const { items, loading } = useData();
+  const [query, setQuery] = useState("");
 
-  return (
-    <ScrollView className="flex-1 bg-canvas" contentContainerClassName="p-4 gap-4">
-      {items.length === 0 ? (
+  // Same matching + ordering rules as the web app, now pure and tested.
+  const visible = useMemo(() => visibleItems(items, { query }), [items, query]);
+
+  if (loading) {
+    return (
+      <View className="flex-1 gap-3 bg-canvas p-4">
+        <Skeleton height={44} />
+        <Skeleton height={64} />
+        <Skeleton height={64} />
+        <Skeleton height={64} />
+      </View>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <View className="flex-1 justify-center bg-canvas">
         <EmptyState
           emoji="📦"
           title="Nothing catalogued yet"
@@ -18,16 +38,52 @@ export default function ItemsScreen() {
           actionLabel="Add your first item"
           onAction={() => router.push("/add")}
         />
-      ) : null}
+      </View>
+    );
+  }
 
-      <View className="items-center">
-        <Button
-          label="Scan a barcode"
-          variant="secondary"
-          onPress={() => router.push("/add")}
-          accessibilityHint="Opens the camera to scan a product barcode"
+  return (
+    <View className="flex-1 bg-canvas">
+      <View className="gap-3 p-4 pb-2">
+        <Field
+          label="Search"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Name, tag, location…"
+          returnKeyType="search"
         />
       </View>
-    </ScrollView>
+
+      <FlatList
+        data={visible}
+        keyExtractor={(i) => i.id}
+        contentContainerClassName="px-4 pb-28"
+        ItemSeparatorComponent={() => <View className="h-px bg-line" />}
+        ListEmptyComponent={
+          <EmptyState
+            emoji="🔍"
+            title="No matches"
+            body={`Nothing matches "${query.trim()}". Try a shorter word, or clear the search.`}
+          />
+        }
+        renderItem={({ item }) => (
+          <ListRow
+            title={`${iconFor(item.kind)}  ${item.name}`}
+            detail={item.quantity > 1 ? `Quantity ${item.quantity}` : undefined}
+            trailing={
+              item.restockAt != null && item.quantity <= item.restockAt ? (
+                <Badge label="Low stock" tone="warn" />
+              ) : undefined
+            }
+            onPress={() => router.push(`/item/${item.id}`)}
+            accessibilityHint="Opens item details"
+          />
+        )}
+      />
+
+      <View className="absolute bottom-6 left-0 right-0 items-center">
+        <Button label="＋ Add item" onPress={() => router.push("/add")} size="lg" />
+      </View>
+    </View>
   );
 }
