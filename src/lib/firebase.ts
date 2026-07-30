@@ -108,15 +108,26 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
         try {
           return await tryPopup();
         } catch (err) {
-          const popupBlocked =
-            (err as { code?: string })?.code === "auth/popup-blocked" ||
-            (err as { code?: string })?.code === "auth/popup-closed-by-user";
+          const code = (err as { code?: string })?.code;
 
-          if (!popupBlocked) throw err;
+          if (code === "auth/popup-blocked") {
+            throw new Error(
+              "Google sign-in was blocked. Please allow popups and third-party cookies for Google, then try again."
+            );
+          }
 
-          throw new Error(
-            "Google sign-in was blocked. Please allow popups and third-party cookies for Google, then try again."
-          );
+          // The popup was dismissed. That usually means the user closed it —
+          // but it is also what we see when Google refused the request inside
+          // the popup (e.g. redirect_uri_mismatch, when this project's OAuth
+          // client is missing the .firebaseapp.com/__/auth/handler URI). Don't
+          // assert "popups are blocked": it sends people down the wrong path.
+          if (code === "auth/popup-closed-by-user") {
+            throw new Error(
+              "Google sign-in didn't complete. If the popup showed an error rather than an account picker, see TROUBLESHOOTING.md — the sign-in window closed before returning a credential."
+            );
+          }
+
+          throw err;
         }
       })
       .then((user) => {

@@ -2,10 +2,66 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-const vercelUrl = process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`;
-if (!process.env.NEXTAUTH_URL && vercelUrl) {
-  // Ensure NextAuth constructs the callback URL with the deployed host when NEXTAUTH_URL is missing.
-  process.env.NEXTAUTH_URL = vercelUrl;
+/**
+ * Resolve the public origin NextAuth builds the Google callback URL from.
+ * Order matters: an explicit NEXTAUTH_URL wins, then Vercel's *stable*
+ * production domain. VERCEL_URL is last because it is the per-deployment host
+ * (`<project>-<hash>.vercel.app`) — it changes on every deploy, so it can never
+ * be registered in the Google OAuth client and always fails with
+ * `redirect_uri_mismatch`. A trailing slash is stripped for the same reason:
+ * it would yield `https://host//api/auth/callback/google`, which Google
+ * compares byte-for-byte against the registered URI and rejects.
+ */
+function resolveBaseUrl(): { url?: string; source: string | null } {
+  const candidates: Array<[string, string | undefined]> = [
+    ["NEXTAUTH_URL", process.env.NEXTAUTH_URL],
+    [
+      "VERCEL_PROJECT_PRODUCTION_URL",
+      process.env.VERCEL_PROJECT_PRODUCTION_URL &&
+        `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`,
+    ],
+    [
+      "VERCEL_URL",
+      process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
+    ],
+  ];
+  for (const [source, raw] of candidates) {
+    if (raw) return { url: raw.replace(/\/+$/, ""), source };
+  }
+  return { source: null };
+}
+
+// Resolved once, at module load — deliberately BEFORE the assignment below.
+// Reading process.env later would always report "NEXTAUTH_URL" as the source,
+// because we set it ourselves here, hiding the VERCEL_URL misconfiguration.
+const resolved = resolveBaseUrl();
+
+export const NEXTAUTH_BASE_URL = resolved.url;
+
+/** Which env var the base URL came from — surfaced by /api/auth-diagnostics. */
+export const NEXTAUTH_BASE_URL_SOURCE = resolved.source;
+
+if (NEXTAUTH_BASE_URL && process.env.NEXTAUTH_URL !== NEXTAUTH_BASE_URL) {
+  process.env.NEXTAUTH_URL = NEXTAUTH_BASE_URL;
+}
+
+/**
+ * The exact `redirect_uri` NextAuth sends to Google — this string must be
+ * registered verbatim on the OAuth client. Mirrors next-auth v4's own
+ * resolution: a bare origin gets the default `/api/auth` base path; an explicit
+ * path in NEXTAUTH_URL is used as-is.
+ */
+export function googleCallbackUrl(
+  baseUrl = NEXTAUTH_BASE_URL
+): string | undefined {
+  if (!baseUrl) return undefined;
+  try {
+    const url = new URL(baseUrl);
+    const basePath = url.pathname.replace(/\/+$/, "") || "/api/auth";
+    return `${url.origin}${basePath}/callback/google`;
+  } catch {
+    return undefined;
+  }
 }
 
 // Scopes: minimal identity + Google Tasks (the to-do list) + Calendar events
