@@ -50,31 +50,48 @@ It prints the exact URIs to register and flags common misconfigurations.
 
 ### If this used to work and suddenly broke
 
-The usual trigger is the **Firebase console** step that the cross-app login sync
-(`f58377c`) introduced — README: *"whitelist your Google OAuth client ID on the Firebase
-project's Google provider."* No code change is involved, which is why the regression
-doesn't show up in a diff.
+**Check `NEXTAUTH_URL` first.** This is what caused the July 2026 outage, and it is the
+cheapest thing to rule out.
 
-What that step does:
+When `NEXTAUTH_URL` is unset, next-auth derives the callback host from the Vercel
+environment instead of from a fixed value. The deployment then sends whichever host Vercel
+reports — `<project>.vercel.app`, or a per-deployment preview host — rather than the custom
+domain you actually browse and registered. Google compares the URI byte-for-byte, so an
+unregistered host fails even though the "obvious" callback is registered correctly.
 
-1. It points the Firebase Google provider's **Web SDK configuration** at your
-   `GOOGLE_CLIENT_ID`, instead of the OAuth client Firebase generated for the project.
-2. Firebase's *own* generated client has `https://<project>.firebaseapp.com/__/auth/handler`
-   pre-registered automatically. **Your** client does not.
-3. So every `signInWithPopup` / `signInWithRedirect` — the fallback in
-   `ensureFirebaseGoogleAuth`, i.e. the "Sign in to sync" button — now sends *your* client ID
-   with that handler URI, and Google rejects it.
+Fix: pin it in Vercel → Settings → Environment Variables → **Production**, then redeploy.
 
-The whitelisting is still the right thing to have done: it is what makes the silent
-`signInWithCredential` bridge work at all (`bridgeFirebaseFromIdToken` returns `null`
-when the client isn't whitelisted, dropping you onto the interactive popup). The fix is
-to finish the job — add the handler URI to your client, per the checklist below. Reverting
-the Firebase provider back to its generated client also clears the error, but costs the
-zero-click bridge.
+```bash
+NEXTAUTH_URL=https://<your-canonical-domain>   # no trailing slash
+```
 
-**Tell-tale:** next-auth login itself succeeds and the account is pre-selected on the error
-screen. That pre-selection is `login_hint`, which the app can only pass because next-auth
-already knows your email — so the failing flow is the Firebase one, not the session login.
+With it pinned, the same registered callback goes out no matter which host serves the
+request, and switching between the vercel.app and custom domains can't resurface this.
+
+**Progress marker:** if the Google error is replaced by a Vercel `404: NOT_FOUND` /
+`DEPLOYMENT_NOT_FOUND`, the mismatch is *solved* — Google accepted the URI and redirected.
+You are now landing on a hostname with no deployment behind it (commonly a stale
+`<project>.vercel.app` alias after a project rename). Same fix: pin `NEXTAUTH_URL` to the
+live domain.
+
+#### Secondary cause: the Firebase provider's client
+
+Worth checking only if the URIs and `NEXTAUTH_URL` are all correct. The cross-app login
+sync (`f58377c`) introduced a README step — *"whitelist your Google OAuth client ID on the
+Firebase project's Google provider"* — that points the Firebase Google provider's **Web SDK
+configuration** at your `GOOGLE_CLIENT_ID` instead of the client Firebase generated.
+
+Firebase's *own* generated client has `https://<project>.firebaseapp.com/__/auth/handler`
+pre-registered automatically; yours does not. So after that step, `signInWithPopup` /
+`signInWithRedirect` (the "Sign in to sync" fallback in `ensureFirebaseGoogleAuth`) send
+your client ID with that handler URI, and Google rejects it until you add it.
+
+Keep the whitelisting — it is what makes the silent `signInWithCredential` bridge work at
+all (`bridgeFirebaseFromIdToken` returns `null` when the client isn't whitelisted, dropping
+you onto the interactive popup). Just add the handler URI too, per the checklist below.
+
+> Note: the account shown pre-selected on Google's error page is **not** a signal about
+> which flow failed — Google displays your signed-in account there regardless.
 
 ### This app has TWO Google redirect URIs
 
@@ -100,11 +117,21 @@ zero-click bridge), that handler URI must be added to *your* client too.
    GOOGLE_CLIENT_ID=<id>
    GOOGLE_CLIENT_SECRET=<secret>
    ```
-   Leaving `NEXTAUTH_URL` unset on Vercel falls back to the *per-deployment* host, which
-   changes every deploy and can never be registered.
+   Leaving `NEXTAUTH_URL` unset on Vercel means the callback host is derived from the Vercel
+   environment, which is how an unregistered `<project>.vercel.app` or per-deployment preview
+   host ends up in the request. Pin it.
 2. In Google Cloud Console → **APIs & Services → Credentials**, open the OAuth client whose
-   ID matches `clientId` from the diagnostics route — not a similarly named one. Add under
-   **Authorized redirect URIs** (not JavaScript origins):
+   ID matches `clientId` from the diagnostics route — not a similarly named one.
+
+   > **Two projects, one client.** The OAuth client (`BookmarkDeck`) lives in the
+   > **Bookmark Deck** GCP project; Firestore and Firebase Auth live in
+   > **`unified-project-440e5`**, which has its own auto-generated client. Redirect URIs are
+   > a property of the *client*, not the project — so both URIs below go on the client whose
+   > ID is in `GOOGLE_CLIENT_ID`, in the Bookmark Deck project. `unified-project-440e5`'s
+   > credentials page is not where you edit these, and the Firebase env vars pointing at
+   > `unified-project-440e5` are correct — do not "fix" them to match the other name.
+
+   Add under **Authorized redirect URIs** (not JavaScript origins):
    ```
    https://<your-domain>/api/auth/callback/google
    https://<project>.firebaseapp.com/__/auth/handler
