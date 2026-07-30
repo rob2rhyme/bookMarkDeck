@@ -48,6 +48,34 @@ https://<your-domain>/api/auth-diagnostics
 
 It prints the exact URIs to register and flags common misconfigurations.
 
+### If this used to work and suddenly broke
+
+The usual trigger is the **Firebase console** step that the cross-app login sync
+(`f58377c`) introduced — README: *"whitelist your Google OAuth client ID on the Firebase
+project's Google provider."* No code change is involved, which is why the regression
+doesn't show up in a diff.
+
+What that step does:
+
+1. It points the Firebase Google provider's **Web SDK configuration** at your
+   `GOOGLE_CLIENT_ID`, instead of the OAuth client Firebase generated for the project.
+2. Firebase's *own* generated client has `https://<project>.firebaseapp.com/__/auth/handler`
+   pre-registered automatically. **Your** client does not.
+3. So every `signInWithPopup` / `signInWithRedirect` — the fallback in
+   `ensureFirebaseGoogleAuth`, i.e. the "Sign in to sync" button — now sends *your* client ID
+   with that handler URI, and Google rejects it.
+
+The whitelisting is still the right thing to have done: it is what makes the silent
+`signInWithCredential` bridge work at all (`bridgeFirebaseFromIdToken` returns `null`
+when the client isn't whitelisted, dropping you onto the interactive popup). The fix is
+to finish the job — add the handler URI to your client, per the checklist below. Reverting
+the Firebase provider back to its generated client also clears the error, but costs the
+zero-click bridge.
+
+**Tell-tale:** next-auth login itself succeeds and the account is pre-selected on the error
+screen. That pre-selection is `login_hint`, which the app can only pass because next-auth
+already knows your email — so the failing flow is the Firebase one, not the session login.
+
 ### This app has TWO Google redirect URIs
 
 Both are needed and they are easy to confuse — the dual-layer auth (see `CLAUDE.md`)
