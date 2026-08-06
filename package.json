@@ -32,8 +32,8 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.1",
-    "@playwright/test": "^1.61.1",
+    "@capacitor/cli": "^8.5.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -44,11 +44,11 @@
     "@types/web-push": "^3.6.4",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^16.2.11",
+    "eslint-config-next": "^16.2.12",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "minimatch": ">=10.2.1",
