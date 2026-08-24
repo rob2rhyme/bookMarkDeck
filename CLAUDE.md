@@ -119,8 +119,16 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
 
 `package.json` `overrides` pin patched transitive versions and intentionally **cap**
 `protobufjs <8` and `@grpc/grpc-js <2` for firebase/grpc compatibility. Don't loosen these
-caps without re-verifying firebase. uuid stays at v8 (next-auth@4 dependency); its advisory is
-dismissed as not-affected (v4-random only, no `buf`).
+caps without re-verifying firebase. `postcss >=8.5.23 <9` is a security floor that also
+dedupes the tree onto one copy: `next` pins postcss *exactly*, so if an advisory ever covers
+that pinned version only the override can raise it.
+
+Prefer bumping the real dependency over adding an override: `next >=16.3` is what carries
+patched `sharp` and `postcss`, so it holds the fix for those two.
+
+Known latent issue: `@capacitor/cli` 8.5+ adds `xcode`, which pulls `uuid@7` (GHSA-w5hq-g745-h8pq,
+moderate). The committed lockfile stays on 8.4.1 and is clean; regenerating the lockfile
+reintroduces it. macOS-only iOS tooling, never built on CI or Vercel.
 
 ## Focus feature (`/focus`)
 
