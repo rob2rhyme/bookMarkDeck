@@ -32,8 +32,8 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.1",
-    "@playwright/test": "^1.61.1",
+    "@capacitor/cli": "^8.5.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -48,7 +48,7 @@
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "minimatch": ">=10.2.1",
