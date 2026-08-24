@@ -23,10 +23,23 @@ type Props = {
 
 const LONG_PRESS_MS = 450;
 const MOVE_CANCEL_PX = 10;
+const CARD_WIDTH = 248;
+/** The card's rendered height; measured at runtime, this is only the first-paint seed. */
+const CARD_HEIGHT_ESTIMATE = 132;
+const EDGE_PADDING = 12;
+
+/**
+ * Every shortcut renders the same card, so the first one to mount can share its real
+ * height with the rest. Used only to pick a side — the card is anchored to the tile
+ * edge, so an off-by-a-few estimate can never open a gap between the two.
+ */
+let measuredCardHeight: number | null = null;
 
 type HoverCardPosition = {
   left: number;
-  top: number;
+  /** Distance from the viewport top ("below") or bottom ("above"). */
+  offset: number;
+  placement: "below" | "above";
 };
 
 function getFaviconUrl(rawUrl: string): string | null {
@@ -77,7 +90,10 @@ export function ShortcutIcon({
   onDelete,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const iconButtonRef = useRef<HTMLButtonElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const openCardHeightRef = useRef(CARD_HEIGHT_ESTIMATE);
+  const activeRef = useRef(active);
+  const pinnedRef = useRef(pinned);
   const lastPointerTypeRef = useRef<string>("mouse");
   const closeTimeoutRef = useRef<number | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
@@ -85,7 +101,11 @@ export function ShortcutIcon({
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const [iconLoadErrorFor, setIconLoadErrorFor] = useState<string | null>(null);
-  const [cardPosition, setCardPosition] = useState<HoverCardPosition>({ left: 0, top: 0 });
+  const [cardPosition, setCardPosition] = useState<HoverCardPosition>({
+    left: 0,
+    offset: 0,
+    placement: "below",
+  });
   const [pointerInsideRegion, setPointerInsideRegion] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
 
@@ -113,7 +133,10 @@ export function ShortcutIcon({
     clearCloseTimer();
     closeTimeoutRef.current = window.setTimeout(() => {
       setPointerInsideRegion(false);
-      if (!pinned) onRequestClose();
+      // Read through refs: by the time this fires the pointer may have moved on to a
+      // neighbouring tile, and closing on a stale `active` would shut *its* card.
+      if (!activeRef.current || pinnedRef.current) return;
+      onRequestClose();
     }, 140);
   };
 
@@ -130,32 +153,54 @@ export function ShortcutIcon({
   }, [app]);
 
   const updateCardPosition = () => {
-    const iconButton = iconButtonRef.current;
-    if (!iconButton) return;
+    // Anchor to the wrapper, not the button: the button lifts on hover
+    // (`hover:-translate-y-0.5`), the wrapper's box never moves.
+    const anchor = wrapperRef.current;
+    if (!anchor) return;
 
-    const cardWidth = 248;
-    const cardHeight = 168;
-    const edgePadding = 12;
+    // Seeded only while the card is off screen; scroll/resize repositioning then reuses
+    // it, so a freshly measured height can never re-flip a card the pointer is already
+    // travelling towards. The refined value takes effect on the next open.
+    if (!cardRef.current) openCardHeightRef.current = measuredCardHeight ?? CARD_HEIGHT_ESTIMATE;
+    const cardHeight = openCardHeightRef.current;
 
-    const rect = iconButton.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+    const rect = anchor.getBoundingClientRect();
+    // `getBoundingClientRect` and a fixed box's containing block share the same
+    // origin and both exclude scrollbars — `window.inner*` does not, and an
+    // off-by-a-scrollbar `bottom` would put the gap straight back.
+    const root = document.documentElement;
+    const viewportWidth = root.clientWidth || window.innerWidth;
+    const viewportHeight = root.clientHeight || window.innerHeight;
 
-    const centeredLeft = rect.left + rect.width / 2 - cardWidth / 2;
+    const centeredLeft = rect.left + rect.width / 2 - CARD_WIDTH / 2;
     const clampedLeft = Math.min(
-      Math.max(centeredLeft, edgePadding),
-      viewportWidth - cardWidth - edgePadding
+      Math.max(centeredLeft, EDGE_PADDING),
+      Math.max(EDGE_PADDING, viewportWidth - CARD_WIDTH - EDGE_PADDING)
     );
 
-    const belowTop = rect.bottom;
-    const aboveTop = rect.top - cardHeight;
-    const shouldFlipAbove = belowTop + cardHeight > viewportHeight - edgePadding;
-    const top = shouldFlipAbove
-      ? Math.max(edgePadding, aboveTop)
-      : Math.min(viewportHeight - edgePadding - cardHeight, belowTop);
+    const roomBelow = viewportHeight - EDGE_PADDING - rect.bottom;
+    const roomAbove = rect.top - EDGE_PADDING;
+    const placement: HoverCardPosition["placement"] =
+      roomBelow >= cardHeight || roomBelow >= roomAbove ? "below" : "above";
 
-    setCardPosition({ left: clampedLeft, top });
+    // The card sits flush against the tile edge in both directions, so the pointer
+    // never has to cross a dead gap to reach it. A flipped card is pinned by its
+    // `bottom` and grows upwards, which is what keeps it flush without having to
+    // know its exact height. The clamp only ever pulls the card *over* the tile,
+    // never away from it, so it cannot reopen a gap either.
+    const maxOffset = Math.max(EDGE_PADDING, viewportHeight - EDGE_PADDING - cardHeight);
+    const offset =
+      placement === "below"
+        ? Math.min(rect.bottom, maxOffset)
+        : Math.min(viewportHeight - rect.top, maxOffset);
+
+    setCardPosition({ left: clampedLeft, offset, placement });
   };
+
+  useEffect(() => {
+    activeRef.current = active;
+    pinnedRef.current = pinned;
+  }, [active, pinned]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -170,6 +215,11 @@ export function ShortcutIcon({
     if (!active || isTouch) return;
 
     updateCardPosition();
+
+    // Recorded after this card is placed, so refining the estimate never moves a card
+    // that is already on screen — it only sharpens the next open.
+    const height = cardRef.current?.getBoundingClientRect().height ?? 0;
+    if (height > 0) measuredCardHeight = height;
 
     const handleViewportChange = () => {
       updateCardPosition();
@@ -199,6 +249,7 @@ export function ShortcutIcon({
         if (isTouch) return;
         clearCloseTimer();
         setPointerInsideRegion(true);
+        updateCardPosition();
         onRequestHoverOpen();
       }}
       onPointerLeave={() => {
@@ -208,6 +259,7 @@ export function ShortcutIcon({
       onFocusCapture={() => {
         if (isTouch) return;
         clearCloseTimer();
+        updateCardPosition();
         onRequestHoverOpen();
       }}
       onBlurCapture={(event) => {
@@ -218,7 +270,6 @@ export function ShortcutIcon({
       }}
     >
       <button
-        ref={iconButtonRef}
         type="button"
         onPointerDown={(event) => {
           lastPointerTypeRef.current = event.pointerType;
@@ -291,8 +342,13 @@ export function ShortcutIcon({
 
       {active && !isTouch && (
         <div
+          ref={cardRef}
           className="fixed z-[70] w-[248px] rounded-2xl border border-slate-800 bg-slate-950/95 p-3 shadow-2xl ring-1 ring-white/5"
-          style={{ left: `${cardPosition.left}px`, top: `${cardPosition.top}px` }}
+          style={
+            cardPosition.placement === "below"
+              ? { left: `${cardPosition.left}px`, top: `${cardPosition.offset}px` }
+              : { left: `${cardPosition.left}px`, bottom: `${cardPosition.offset}px` }
+          }
           role="menu"
           aria-label={`Shortcut actions for ${app.name}`}
           onPointerEnter={() => {
