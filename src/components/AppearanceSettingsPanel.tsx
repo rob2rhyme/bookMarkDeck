@@ -6,6 +6,7 @@ import { Modal } from "@/components/Modal";
 import { Bookmark } from "@/components/icons";
 import {
   type FontFamily,
+  type ThemeMode,
   useAppearanceSettings,
 } from "@/lib/appearanceSettings";
 
@@ -22,6 +23,12 @@ const FONTS: { value: FontFamily; label: string }[] = [
   { value: "handwritten", label: "Aa Script" },
   { value: "typewriter", label: "Aa Type" },
   { value: "display", label: "Aa Display" },
+];
+
+const THEMES: { value: ThemeMode; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
 ];
 
 const PILL_BASE =
@@ -99,9 +106,31 @@ export function AppearanceSettingsPanel({
         Appearance
       </h2>
       <p className="mt-1 text-[13px] text-slate-400">
-        Font and sizing for the whole app. System fonts only — saved on this
-        device.
+        Theme, font and sizing for the whole app. System fonts only — saved on
+        this device.
       </p>
+
+      <Row label="Theme">
+        <div className="flex flex-wrap gap-2">
+          {THEMES.map((opt) => {
+            const active = settings.theme === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => update({ theme: opt.value })}
+                className={pillClass(active)}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[12px] text-slate-500">
+          System follows your device&apos;s light/dark setting.
+        </p>
+      </Row>
 
       <Row label="Font">
         <div className="flex flex-wrap gap-2">

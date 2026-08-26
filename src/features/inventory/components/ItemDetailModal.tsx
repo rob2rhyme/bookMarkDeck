@@ -128,7 +128,7 @@ function Lightbox({
         type="button"
         onClick={onClose}
         aria-label="Close photo"
-        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/80 text-slate-200 transition hover:text-white"
+        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/80 text-slate-200 transition hover:text-slate-50"
       >
         <X className="h-4 w-4" />
       </button>
@@ -138,7 +138,7 @@ function Lightbox({
             type="button"
             onClick={() => onIndex((index - 1 + images.length) % images.length)}
             aria-label="Previous photo"
-            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/80 px-3 py-2 text-lg text-slate-200 transition hover:text-white"
+            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/80 px-3 py-2 text-lg text-slate-200 transition hover:text-slate-50"
           >
             ‹
           </button>
@@ -146,7 +146,7 @@ function Lightbox({
             type="button"
             onClick={() => onIndex((index + 1) % images.length)}
             aria-label="Next photo"
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/80 px-3 py-2 text-lg text-slate-200 transition hover:text-white"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/80 px-3 py-2 text-lg text-slate-200 transition hover:text-slate-50"
           >
             ›
           </button>

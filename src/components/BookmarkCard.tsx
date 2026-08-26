@@ -367,7 +367,7 @@ export function BookmarkCard({
 
   return (
     <div
-      className={`relative z-0 overflow-hidden rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl transition dark:bg-slate-900/80 ${
+      className={`relative z-0 overflow-hidden rounded-2xl bg-slate-900/80 shadow-sm backdrop-blur-xl transition ${
         selectMode
           ? "ring-2 ring-offset-0 " +
             (isSelected ? "ring-blue-400" : "ring-transparent")
@@ -386,7 +386,7 @@ export function BookmarkCard({
             aria-label={isSelected ? "Deselect bookmark" : "Select bookmark"}
             aria-pressed={isSelected}
           />
-          <div className="pointer-events-none absolute left-2 top-2 z-40 flex h-5 w-5 items-center justify-center rounded border border-slate-500 bg-slate-900/90 text-[11px] text-white">
+          <div className="pointer-events-none absolute left-2 top-2 z-40 flex h-5 w-5 items-center justify-center rounded border border-slate-500 bg-slate-900/90 text-[11px] text-slate-50">
             {isSelected ? "✓" : ""}
           </div>
         </>
@@ -676,7 +676,7 @@ export function BookmarkCard({
         <div className="relative z-10 space-y-3 p-4">
           {/* favicon + title strip */}
           {!isEditing ? (
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-700/60 bg-slate-950/20 px-3 py-2">
               {shouldShowIconUrl ? (
                 <img
                   src={viewIconUrl ?? ""}
@@ -713,12 +713,12 @@ export function BookmarkCard({
                   {initial}
                 </span>
               )}
-              <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
+              <span className="line-clamp-1 text-xs font-medium text-slate-100">
                 <HighlightedText text={bookmark.title || bookmark.url} query={query} />
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-950/20 px-3 py-2 dark:border-slate-700/60">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-700/60 bg-slate-950/20 px-3 py-2">
               {shouldShowEditIconUrl ? (
                 <img
                   src={editIconUrl ?? ""}
@@ -755,7 +755,7 @@ export function BookmarkCard({
                   {editInitial}
                 </span>
               )}
-              <span className="line-clamp-1 text-xs font-medium text-slate-200 dark:text-slate-100">
+              <span className="line-clamp-1 text-xs font-medium text-slate-100">
                 {title || url}
               </span>
             </div>
@@ -769,30 +769,30 @@ export function BookmarkCard({
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Title"
-                    className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-sm font-semibold text-slate-900 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
+                    className="w-full truncate rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm font-semibold text-slate-50 outline-none focus:border-blue-400"
                   />
                   <input
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="https://example.com"
-                    className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-xs text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                    className="w-full truncate rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-400 outline-none focus:border-blue-400"
                   />
                   <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    <label className="text-[11px] font-medium text-slate-400">
                       Icon (emoji or image URL)
                     </label>
                     <input
                       value={icon}
                       onChange={(e) => setIcon(e.target.value)}
                       placeholder="😀 or https://example.com/icon.png"
-                      className="w-full truncate rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-xs text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                      className="w-full truncate rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-400 outline-none focus:border-blue-400"
                     />
                   </div>
                 </>
               ) : (
                 <>
                   {selectMode ? (
-                    <p className="line-clamp-2 break-words text-sm font-semibold text-slate-900 dark:text-slate-50">
+                    <p className="line-clamp-2 break-words text-sm font-semibold text-slate-50">
                       <HighlightedText text={bookmark.title} query={query} />
                     </p>
                   ) : (
@@ -800,12 +800,12 @@ export function BookmarkCard({
                       href={normalizeUrl(bookmark.url) || undefined}
                       target="_blank"
                       rel="noreferrer"
-                      className="line-clamp-2 break-words text-sm font-semibold text-slate-900 hover:text-blue-600 dark:text-slate-50 dark:hover:text-blue-400"
+                      className="line-clamp-2 break-words text-sm font-semibold text-slate-50 hover:text-blue-400"
                     >
                       <HighlightedText text={bookmark.title} query={query} />
                     </a>
                   )}
-                  <p className="mt-1 line-clamp-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 line-clamp-1 break-all text-xs text-slate-400">
                     <HighlightedText text={bookmark.url} query={query} />
                   </p>
                 </>
@@ -821,7 +821,7 @@ export function BookmarkCard({
                   <select
                     value={currentFolderValue}
                     onChange={(e) => handleFolderChange(e.target.value)}
-                    className="w-full truncate overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    className="w-full truncate overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-blue-400"
                     aria-label="Folder"
                   >
                     <option value="__unstaged__">Unstaged</option>
@@ -835,7 +835,7 @@ export function BookmarkCard({
                 </div>
               ) : (
                 displayFolderName && (
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <span className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-0.5 text-[11px] font-medium text-slate-300">
                     {displayFolderName}
                   </span>
                 )
@@ -846,7 +846,7 @@ export function BookmarkCard({
                   {tags.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200"
+                      className="inline-flex items-center rounded-full bg-blue-950 px-2 py-0.5 text-[10px] font-medium text-blue-200"
                     >
                       #{tag}
                     </span>
@@ -860,14 +860,14 @@ export function BookmarkCard({
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 placeholder="Tags (comma separated)"
-                className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-600 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-300 outline-none focus:border-blue-400"
               />
             )}
           </div>
 
           {/* Note */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+            <label className="mb-1 block text-xs font-medium text-slate-400">
               <span className="flex items-center gap-2">
                 <span>Note</span>
                 {!isEditing && !selectMode && (
@@ -904,7 +904,7 @@ export function BookmarkCard({
                 </div>
               </>
             ) : (
-              <div className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-400 dark:text-slate-300">
+              <div className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-300">
                 {showNote ? (
                   <NoteText
                     text={bookmark.note || "Add login hints, purpose, etc."}
@@ -920,7 +920,7 @@ export function BookmarkCard({
           </div>
 
           {!selectMode && (
-            <div className="mt-3 flex w-full items-center justify-evenly gap-2 border-t border-slate-200/70 pt-2 dark:border-slate-700/70">
+            <div className="mt-3 flex w-full items-center justify-evenly gap-2 border-t border-slate-700/70 pt-2">
               <IconAction
                 label={bookmark.pinned ? "Unpin" : "Pin"}
                 onClick={() => {
@@ -988,7 +988,7 @@ export function BookmarkCard({
           )}
         </div>
 
-        <div className="relative z-10 flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
+        <div className="relative z-10 flex items-center justify-between border-t border-slate-800 px-4 py-2 text-[11px] text-slate-500">
           <span>
             {new Date(bookmark.createdAt).toLocaleDateString(undefined, {
               month: "short",

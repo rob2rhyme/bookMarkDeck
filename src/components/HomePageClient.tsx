@@ -713,7 +713,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     return (
       <div className="group relative flex h-full min-h-[92px] items-center justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-500/50 hover:bg-slate-900">
         <div className="flex min-w-0 flex-1 items-center gap-4">
-          <div className="flex h-12 w-12 min-w-[48px] items-center justify-center overflow-hidden rounded bg-slate-100 text-xl text-white ring-1 ring-white/5">
+          <div className="flex h-12 w-12 min-w-[48px] items-center justify-center overflow-hidden rounded bg-slate-100 text-xl text-slate-900 ring-1 ring-white/5">
             {shouldShowIconUrl ? (
               <img
                 src={iconUrl}
@@ -770,7 +770,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           <button
             type="button"
             onClick={togglePinned}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-200 transition hover:border-blue-400 hover:text-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-200 transition hover:border-blue-400 hover:text-slate-50"
             aria-label={bookmark.pinned ? "Unfavorite" : "Favorite"}
           >
             {bookmark.pinned ? "★" : "☆"}
@@ -778,7 +778,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           <button
             type="button"
             onClick={() => handleDelete(bookmark.id)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50"
             aria-label={`Delete ${bookmark.title || hostname}`}
           >
             ✕
@@ -1527,7 +1527,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                 router.push(`/folders/${encodeURIComponent(folderId)}`);
               })
             }
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-2.5 text-[10px] font-semibold text-slate-100 shadow-sm hover:border-blue-400 hover:text-white sm:h-10 sm:px-4 sm:text-xs"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-2.5 text-[10px] font-semibold text-slate-100 shadow-sm hover:border-blue-400 hover:text-slate-50 sm:h-10 sm:px-4 sm:text-xs"
           >
             <span className="text-lg">＋</span>
             Folder
@@ -1892,7 +1892,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               <div className="flex items-center gap-2">
                 <Link
                   href="/folders/manage"
-                  className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+                  className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50"
                 >
                   Manage
                 </Link>
@@ -1905,7 +1905,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     }
                     setFolderSelectMode(true);
                   }}
-                  className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+                  className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50"
                 >
                   {folderSelectMode ? "Done" : "Select"}
                 </button>
@@ -1924,7 +1924,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     setShowBulkDeleteFoldersConfirm(true);
                   }}
                   disabled={selectedFolderKeys.length === 0}
-                  className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Delete folders
                 </button>
@@ -2062,7 +2062,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               <span>Shortcut removed</span>
               <button type="button"
                 onClick={handleShortcutUndo}
-                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-white"
+                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
               >
                 Undo
               </button>
@@ -2088,7 +2088,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               </span>
               <button type="button"
                 onClick={handleUndo}
-                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-white"
+                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
               >
                 Undo
               </button>
@@ -2296,7 +2296,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       <button
                         type="button"
                         onClick={openRenameForActiveFolder}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-blue-400 hover:text-white"
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-blue-400 hover:text-slate-50"
                         aria-label="Rename folder"
                       >
                         <svg
@@ -2316,7 +2316,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       <button
                         type="button"
                         onClick={openDeleteForActiveFolder}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white"
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50"
                         aria-label="Delete folder"
                       >
                         <svg
@@ -2348,7 +2348,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       setBookmarkSelectMode(true);
                       setSelectedBookmarkIds([]);
                     }}
-                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50"
                   >
                     {bookmarkSelectMode ? "Done" : "Select"}
                   </button>
@@ -2388,7 +2388,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                         setShowBulkMoveBookmarksModal(true);
                       }}
                       disabled={selectedBookmarkIds.length === 0}
-                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Move
                     </button>
@@ -2399,7 +2399,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                         setShowBulkDeleteBookmarksConfirm(true);
                       }}
                       disabled={selectedBookmarkIds.length === 0}
-                      className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Delete
                     </button>

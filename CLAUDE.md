@@ -88,9 +88,40 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
 
 ## Styling
 
-Tailwind v4 utility classes. Dark theme: `bg-gradient` over `slate-950/900`, text `slate-50`,
-muted `slate-400/500`, accent `blue-500/400/300`, pill chrome `rounded-full border-slate-800
-bg-slate-900`. Match these tokens — no inline styles, no foreign styling approach.
+Tailwind v4 utility classes. **Keep writing dark-first, exactly as before**: `bg-gradient` over
+`slate-950/900`, text `slate-50`, muted `slate-400/500`, accent `blue-500/400/300`, pill chrome
+`rounded-full border-slate-800 bg-slate-900`. Match these tokens — no inline styles, no foreign
+styling approach.
+
+### Theme (light + dark)
+
+Both themes are driven from one place: the token map at the top of `src/app/globals.css`. Dark is
+the default; a `light` class on `<html>` re-points the whole palette. **Components are unaware of
+theme** — they use the ordinary `slate-*`/`blue-*` utilities and get both themes for free.
+
+- **How.** `@theme inline` maps each `--color-*` to a `--bd-*` variable; `:root` holds Tailwind's
+  own values (so dark is unchanged) and `.light` holds the mirrored ramp. Because the app is
+  written dark-first — the background end of the ramp is the high numbers, the foreground end the
+  low numbers — mirroring (`n → 1000-n`) carries the meaning across intact.
+- **The `--bd-*` indirection is load-bearing, don't remove it.** Pointing `--color-*` straight at
+  a hex lets the minifier constant-fold opacity modifiers (`bg-slate-900/80` → `#0f172acc`), which
+  then stops tracking the variable and keeps its dark value in light mode.
+- **The one rule when writing new UI:** never pair a literal `white`/`black` with a ramp token on
+  the same element (e.g. `bg-white text-slate-900`). Literals don't theme, so the pair breaks in
+  one mode. Use ramp tokens on both sides — `bg-slate-50 text-slate-950` reads as "inverted
+  surface" in both themes. `text-white` on a saturated `bg-blue-500`/`bg-red-500` ground is fine;
+  those grounds stay dark in light mode.
+- **Adding a palette step.** The map covers exactly the family/step pairs the codebase uses. A new
+  one needs three lines (`@theme inline`, `:root`, `.light`) or it silently keeps its dark value.
+- **Setting.** `theme: "system" | "light" | "dark"` on `AppearanceSettings`
+  (`src/lib/appearanceSettings.tsx`), chosen in the account-menu Appearance panel, applied by
+  `AppearanceApplier`, device-local like fonts and cursors. A blocking inline script in
+  `layout.tsx` sets the class before first paint (no flash); it duplicates the storage key by
+  necessity, so keep the two in sync.
+- **Outside Tailwind's reach**, and handled separately: `public/offline.html` (follows the OS),
+  `viewport.themeColor` in `layout.tsx`, and `manifest.ts` (stays dark — install splash).
+- Semantic aliases (`--bd-page`, `--bd-surface`, `--bd-border`, `--bd-text`, `--bd-text-muted`,
+  `--bd-ring`, `--bd-shadow-card`) exist for CSS that can't use utilities. Prefer utilities.
 
 ## Environment variables
 
