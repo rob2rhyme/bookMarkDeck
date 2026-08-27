@@ -15,6 +15,7 @@ import { useFilingPlaces } from "@/features/filing/hooks/useFilingPlaces";
 import { useFilingParties } from "@/features/filing/hooks/useFilingParties";
 import { useFilingFolders } from "@/features/filing/hooks/useFilingFolders";
 import { useFilingDocuments } from "@/features/filing/hooks/useFilingDocuments";
+import { useFilingSettings } from "@/features/filing/hooks/useFilingSettings";
 import { folderTrail, formatPath, isCheckedOut } from "@/features/filing/lib/breadcrumb";
 import {
   categorySuggestions,
@@ -28,6 +29,10 @@ import { FolderFormModal, type FolderDraft } from "@/features/filing/components/
 import { DocumentFormModal, type DocumentDraft } from "@/features/filing/components/DocumentFormModal";
 import { WhereIsPaperModal } from "@/features/filing/components/WhereIsPaperModal";
 import { LabelPrintModal } from "@/features/filing/components/LabelPrintModal";
+import { UpcomingPanel } from "@/features/filing/components/UpcomingPanel";
+import { ObligationsModal } from "@/features/filing/components/ObligationsModal";
+import { FolderPapersModal } from "@/features/filing/components/FolderPapersModal";
+import { dueItems } from "@/features/filing/lib/obligations";
 import { consumeFilingIntent, FILING_INTENT_NUDGE } from "@/lib/filingIntent";
 import type { FilingDocument, FilingFolder } from "@/features/filing/lib/types";
 
@@ -45,6 +50,7 @@ export function FilingDashboard() {
   const parties = useFilingParties(email, connected);
   const folders = useFilingFolders(email, connected);
   const documents = useFilingDocuments(email, connected);
+  const { settings } = useFilingSettings(email, connected);
 
   const [query, setQuery] = useState("");
   const [partyFilter, setPartyFilter] = useState<string>("");
@@ -58,6 +64,24 @@ export function FilingDashboard() {
   const [whereOpen, setWhereOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [placeFilter, setPlaceFilter] = useState<string>("");
+  const [obligationsFor, setObligationsFor] = useState<string | null>(null);
+  const [papersFor, setPapersFor] = useState<string | null>(null);
+  // Hydration-safe "today": never read the clock during render, and re-check on
+  // an interval so a tab left open overnight rolls over instead of going stale.
+  const [today, setToday] = useState("");
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      setToday(
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+          now.getDate()
+        ).padStart(2, "0")}`
+      );
+    };
+    tick();
+    const id = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const searchData = useMemo(
     () => ({ places: places.places, folders: folders.active, documents: documents.active }),
@@ -78,6 +102,21 @@ export function FilingDashboard() {
   );
 
   const inbox = useMemo(() => unfiled(documents.documents), [documents.documents]);
+
+  const due = useMemo(
+    () => (today ? dueItems(documents.active, today, settings.leadDays) : []),
+    [documents.active, today, settings.leadDays]
+  );
+
+  /** Where a paper's folder lives — the line the Upcoming panel shows. */
+  const trailFor = useCallback(
+    (documentId: string) => {
+      const d = documents.active.find((x) => x.id === documentId);
+      const f = d?.folderId ? folders.byId[d.folderId] : null;
+      return f ? folderTrail(f, places.paths) : [];
+    },
+    [documents.active, folders.byId, places.paths]
+  );
 
   const countByPlace = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -364,6 +403,17 @@ export function FilingDashboard() {
         </div>
       )}
 
+      {/* What's due — the reason to open this page between filing sessions */}
+      {query.trim().length < 2 && (due.length > 0 || documents.active.length > 0) && (
+        <UpcomingPanel
+          items={due}
+          trailFor={trailFor}
+          onComplete={(documentId, obligationId) =>
+            documents.completeObligation(documentId, obligationId, today)
+          }
+        />
+      )}
+
       {/* Unfiled inbox */}
       {inbox.length > 0 && query.trim().length < 2 && (
         <section className="px-3 sm:px-0">
@@ -496,6 +546,15 @@ export function FilingDashboard() {
                       >
                         Edit
                       </button>
+                      {count > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setPapersFor(f.id)}
+                          className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+                        >
+                          Papers
+                        </button>
+                      )}
                     </div>
                   </li>
                 );
@@ -556,6 +615,45 @@ export function FilingDashboard() {
         partyNameById={partyNameById}
         countByPlace={countByPlace}
         countByFolder={documents.countByFolder}
+      />
+      <FolderPapersModal
+        open={Boolean(papersFor)}
+        onClose={() => setPapersFor(null)}
+        folder={papersFor ? folders.byId[papersFor] ?? null : null}
+        documents={documents.active.filter((d) => d.folderId === papersFor)}
+        trail={
+          papersFor && folders.byId[papersFor]
+            ? folderTrail(folders.byId[papersFor], places.paths)
+            : []
+        }
+        today={today}
+        onEdit={(d) => {
+          setPapersFor(null);
+          setEditingDocument(d);
+          setDocumentFormOpen(true);
+        }}
+        onRemind={(documentId) => {
+          setPapersFor(null);
+          setObligationsFor(documentId);
+        }}
+        onRemove={documents.removeDocument}
+        onAdd={() => {
+          setAddToFolderId(papersFor);
+          setPapersFor(null);
+          setEditingDocument(null);
+          setDocumentFormOpen(true);
+        }}
+      />
+      <ObligationsModal
+        open={Boolean(obligationsFor)}
+        onClose={() => setObligationsFor(null)}
+        document={documents.active.find((d) => d.id === obligationsFor) ?? null}
+        today={today}
+        onAdd={documents.addObligation}
+        onComplete={(documentId, obligationId) =>
+          documents.completeObligation(documentId, obligationId, today)
+        }
+        onRemove={documents.removeObligation}
       />
       <DocumentFormModal
         open={documentFormOpen}

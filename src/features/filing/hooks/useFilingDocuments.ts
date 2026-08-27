@@ -8,10 +8,12 @@ import {
   saveDocument,
   subscribeDocuments,
 } from "@/features/filing/data/filingData";
+import { complete, nextDueOn } from "@/features/filing/lib/obligations";
 import type {
   FilingActivity,
   FilingActivityType,
   FilingDocument,
+  Obligation,
 } from "@/features/filing/lib/types";
 
 const BASE_KEY = "bookmarkdeck:filing:documents:v1";
@@ -137,6 +139,12 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     console.error("[filing] document save failed:", err);
   }, []);
 
+  /** Stamp the derived cache. EVERY write goes through here — see `patch`. */
+  const withDerived = (d: FilingDocument): FilingDocument => ({
+    ...d,
+    nextDueOn: nextDueOn(d.obligations),
+  });
+
   const addDocument = useCallback(
     (input: NewDocument): FilingDocument | null => {
       const title = input.title.trim();
@@ -161,9 +169,10 @@ export function useFilingDocuments(email?: string | null, connected = false) {
         createdAt: now,
         updatedAt: null,
       };
-      setDocuments((prev) => [...prev, document]);
-      if (canSync && email) saveDocument(email, document).catch(onSaveError);
-      return document;
+      const stamped = withDerived(document);
+      setDocuments((prev) => [...prev, stamped]);
+      if (canSync && email) saveDocument(email, stamped).catch(onSaveError);
+      return stamped;
     },
     [canSync, email, onSaveError]
   );
@@ -172,7 +181,9 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     (id: string, fn: (d: FilingDocument) => FilingDocument) => {
       setDocuments((prev) => {
         const next = prev.map((d) =>
-          d.id === id ? { ...fn(d), updatedAt: new Date().toISOString() } : d
+          d.id === id
+            ? withDerived({ ...fn(d), updatedAt: new Date().toISOString() })
+            : d
         );
         const updated = next.find((d) => d.id === id);
         if (canSync && email && updated) saveDocument(email, updated).catch(onSaveError);
@@ -220,6 +231,65 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     [patch]
   );
 
+  const addObligation = useCallback(
+    (id: string, obligation: Omit<Obligation, "id">) =>
+      patch(id, (d) => ({
+        ...d,
+        obligations: [...(d.obligations ?? []), { ...obligation, id: crypto.randomUUID() }],
+      })),
+    [patch]
+  );
+
+  const updateObligation = useCallback(
+    (id: string, obligationId: string, changes: Partial<Omit<Obligation, "id">>) =>
+      patch(id, (d) => ({
+        ...d,
+        obligations: (d.obligations ?? []).map((o) =>
+          o.id === obligationId ? { ...o, ...changes } : o
+        ),
+      })),
+    [patch]
+  );
+
+  /**
+   * Mark one occurrence done. A repeat rolls forward by exactly one period
+   * (see lib/obligations.complete) and logs the activity, so the timeline shows
+   * what was actually paid or renewed and when.
+   */
+  const completeObligation = useCallback(
+    (id: string, obligationId: string, on: string) =>
+      patch(id, (d) => {
+        const target = (d.obligations ?? []).find((o) => o.id === obligationId);
+        if (!target) return d;
+        const type: FilingActivityType = target.kind === "pay" ? "paid" : "renewed";
+        return {
+          ...d,
+          obligations: (d.obligations ?? []).map((o) =>
+            o.id === obligationId ? complete(o, on) : o
+          ),
+          activity: [
+            ...(d.activity ?? []),
+            {
+              id: crypto.randomUUID(),
+              type,
+              at: new Date().toISOString(),
+              note: target.label,
+            },
+          ].slice(-MAX_ACTIVITY),
+        };
+      }),
+    [patch]
+  );
+
+  const removeObligation = useCallback(
+    (id: string, obligationId: string) =>
+      patch(id, (d) => ({
+        ...d,
+        obligations: (d.obligations ?? []).filter((o) => o.id !== obligationId),
+      })),
+    [patch]
+  );
+
   const removeDocument = useCallback(
     (id: string) => {
       setDocuments((prev) => prev.filter((d) => d.id !== id));
@@ -249,6 +319,10 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     logActivity,
     setArchived,
     removeDocument,
+    addObligation,
+    updateObligation,
+    completeObligation,
+    removeObligation,
     setDocuments,
   };
 }
