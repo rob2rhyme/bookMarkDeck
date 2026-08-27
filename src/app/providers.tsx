@@ -2,6 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 
+import { AppearanceApplier } from "@/components/AppearanceApplier";
 import { ToastProvider } from "@/components/toast/ToastProvider";
 import { AppearanceProvider } from "@/lib/appearanceSettings";
 import { CursorSettingsProvider } from "@/lib/cursorSettings";
@@ -13,6 +14,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <ToastProvider>
         <AppearanceProvider>
+          {/* Sits with the provider it reads from, not in GlobalClientUI, so
+              appearance reaches every route group. GlobalClientUI is mounted
+              only by (app)/layout.tsx, which left /login, /error and /not-found
+              without the font/scale variables — and, once theming landed,
+              without the theme-color sync for a manual light/dark override. */}
+          <AppearanceApplier />
           <CursorSettingsProvider>
             <HabitsViewProvider>{children}</HabitsViewProvider>
           </CursorSettingsProvider>
