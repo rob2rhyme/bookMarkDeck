@@ -11,17 +11,21 @@ import { UpgradeButton } from "@/components/UpgradeButton";
 import { useEntitlement } from "@/hooks/useEntitlement";
 import { CursorOverlay } from "@/components/CursorOverlay";
 import { CursorSettingsPanel } from "@/components/CursorSettingsPanel";
-import { Bookmark, Package, Repeat, Search, Timer } from "@/components/icons";
+import { Bookmark, Cabinet, Package, Repeat, Search, Timer } from "@/components/icons";
 import {
   COMMAND_PALETTE_STATE_EVENT,
   OPEN_COMMAND_PALETTE_EVENT,
 } from "@/components/CommandPalette";
 
+// `short` is used ONLY by the mobile bottom nav. A fifth pillar makes six cells
+// there (~53px at 320px) and the padding/font are already at their minimum, so
+// the long labels would clip — see ANALYSIS-FILING-LOG.md §11.
 const DESTINATIONS = [
-  { href: "/", label: "Bookmarks", Icon: Bookmark },
+  { href: "/", label: "Bookmarks", short: "Saved", Icon: Bookmark },
   { href: "/focus", label: "Focus", Icon: Timer },
   { href: "/habits", label: "Habits", Icon: Repeat },
-  { href: "/inventory", label: "My Stuff", Icon: Package },
+  { href: "/inventory", label: "My Stuff", short: "Stuff", Icon: Package },
+  { href: "/filing", label: "Filing", Icon: Cabinet },
 ] as const;
 
 export function AppShell({
@@ -318,7 +322,9 @@ export function AppShell({
                     </span>
                   )}
                 </span>
-                <span className="w-full truncate text-center">{tab.label}</span>
+                <span className="w-full truncate text-center">
+                  {"short" in tab ? tab.short : tab.label}
+                </span>
               </Link>
             );
           })}

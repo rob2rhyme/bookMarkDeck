@@ -1,0 +1,171 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import {
+  deleteFolder,
+  fetchFolders,
+  saveFolder,
+  subscribeFolders,
+} from "@/features/filing/data/filingData";
+import { isCheckedOut } from "@/features/filing/lib/breadcrumb";
+import type { FilingFolder } from "@/features/filing/lib/types";
+
+const BASE_KEY = "bookmarkdeck:filing:folders:v1";
+
+const keyFor = (email?: string | null) => (email ? `${BASE_KEY}:${email}` : BASE_KEY);
+
+function loadLocal(email?: string | null): FilingFolder[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(keyFor(email));
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (f): f is FilingFolder =>
+        f && typeof f.id === "string" && typeof f.name === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
+export type NewFolder = {
+  name: string;
+  homePlaceId?: string | null;
+  partyId?: string | null;
+  category?: string;
+  aliases?: string[];
+};
+
+export function useFilingFolders(email?: string | null, connected = false) {
+  const [folders, setFolders] = useState<FilingFolder[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const canSync = connected && Boolean(email);
+
+  const ref = useRef(folders);
+  useEffect(() => {
+    ref.current = folders;
+  }, [folders]);
+
+  useEffect(() => {
+    setFolders(loadLocal(email));
+    setHydrated(true);
+  }, [email]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(keyFor(email), JSON.stringify(folders));
+    } catch {
+      /* quota */
+    }
+  }, [folders, hydrated, email]);
+
+  useEffect(() => {
+    if (!canSync || !email) return;
+    let cancelled = false;
+    let unsub = () => {};
+    (async () => {
+      const cloud = await fetchFolders(email);
+      const cloudIds = new Set(cloud.map((f) => f.id));
+      await Promise.all(
+        ref.current
+          .filter((f) => !cloudIds.has(f.id))
+          .map((f) => saveFolder(email, f).catch(() => {}))
+      );
+    })()
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) unsub = subscribeFolders(email, setFolders);
+      });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [canSync, email]);
+
+  // A rejected write (e.g. a doc over Firestore's 1 MiB cap) should be
+  // diagnosable rather than silent.
+  const onSaveError = useCallback((err: unknown) => {
+    console.error("[filing] folder save failed:", err);
+  }, []);
+
+  const addFolder = useCallback(
+    (input: NewFolder): FilingFolder | null => {
+      const name = input.name.trim();
+      if (!name) return null;
+      const folder: FilingFolder = {
+        id: crypto.randomUUID(),
+        name,
+        homePlaceId: input.homePlaceId ?? null,
+        currentPlaceId: null,
+        parentId: null,
+        partyId: input.partyId ?? null,
+        category: input.category?.trim() || undefined,
+        aliases: (input.aliases ?? []).map((a) => a.trim()).filter(Boolean),
+        tags: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+      };
+      setFolders((prev) => [...prev, folder]);
+      if (canSync && email) saveFolder(email, folder).catch(onSaveError);
+      return folder;
+    },
+    [canSync, email, onSaveError]
+  );
+
+  const patch = useCallback(
+    (id: string, fn: (f: FilingFolder) => FilingFolder) => {
+      setFolders((prev) => {
+        const next = prev.map((f) =>
+          f.id === id ? { ...fn(f), updatedAt: new Date().toISOString() } : f
+        );
+        const updated = next.find((f) => f.id === id);
+        if (canSync && email && updated) saveFolder(email, updated).catch(onSaveError);
+        return next;
+      });
+    },
+    [canSync, email, onSaveError]
+  );
+
+  const updateFolder = useCallback(
+    (id: string, changes: Partial<Omit<FilingFolder, "id">>) =>
+      patch(id, (f) => ({ ...f, ...changes })),
+    [patch]
+  );
+
+  const setArchived = useCallback(
+    (id: string, archived: boolean) => patch(id, (f) => ({ ...f, archived })),
+    [patch]
+  );
+
+  const removeFolder = useCallback(
+    (id: string) => {
+      setFolders((prev) => prev.filter((f) => f.id !== id));
+      if (canSync && email) deleteFolder(email, id).catch(onSaveError);
+    },
+    [canSync, email, onSaveError]
+  );
+
+  const active = useMemo(() => folders.filter((f) => !f.archived), [folders]);
+  const out = useMemo(() => active.filter(isCheckedOut), [active]);
+  const byId = useMemo(
+    () => Object.fromEntries(folders.map((f) => [f.id, f])),
+    [folders]
+  );
+
+  return {
+    folders,
+    active,
+    /** Folders currently somewhere other than home — the custody view (Phase 4). */
+    out,
+    byId,
+    hydrated,
+    addFolder,
+    updateFolder,
+    setArchived,
+    removeFolder,
+    setFolders,
+  };
+}

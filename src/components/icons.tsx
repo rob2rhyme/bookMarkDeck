@@ -339,6 +339,17 @@ export function Package({ className }: IconProps) {
   );
 }
 
+export function Cabinet({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <rect x="3.5" y="2.5" width="17" height="19" rx="1.6" />
+      <path d="M3.5 12h17" />
+      <path d="M9.5 7.2h5" />
+      <path d="M9.5 16.8h5" />
+    </svg>
+  );
+}
+
 export function Tag({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...baseProps(className)}>
