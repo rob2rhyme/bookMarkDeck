@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { OZ_PER_CUP } from "@/features/focus/hooks/useHydration";
 import type { HydrationDay } from "@/features/focus/hooks/useHydrationHistory";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 type RangeKey = "day" | "week" | "month" | "all";
 
@@ -237,11 +238,11 @@ export function HydrationHistory({
       </div>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           Sign in to sync to see your hydration history.
         </p>
       ) : !hasData ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           {range === "day"
             ? "No cups logged today yet."
             : "No hydration logged in this range yet."}

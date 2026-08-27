@@ -9,6 +9,7 @@ import { ContributionsCalendar } from "@/features/focus/components/Contributions
 import type { ActivityEvent, ActivityType } from "@/features/focus/data/focusData";
 import { type MoodKey } from "@/features/focus/lib/mood";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 // A handle to the underlying record so a deleted item can be removed/restored.
 export type ActivityRef =
@@ -232,11 +233,11 @@ export function ActivityHistory({
       </h3>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           Sign in to sync to see your activity timeline.
         </p>
       ) : !hasActivity ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           No activity yet. Focus, add tasks, log your mood or hydration and
           it’ll show up here.
         </p>

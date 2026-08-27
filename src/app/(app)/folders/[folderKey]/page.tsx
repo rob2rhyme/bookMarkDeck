@@ -23,6 +23,7 @@ import { useBookmarkView, bookmarkGridClass } from "@/hooks/useBookmarkView";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
 import { makeFolderOptions } from "@/utils/folderOptions";
+import { FIELD_CLASS } from "@/components/ui/Field";
 
 function folderNameKey(value: string) {
   return value.trim().toLowerCase();
@@ -771,7 +772,7 @@ export default function FolderPage() {
               <select
                 value={bookmarkBulkTarget}
                 onChange={(e) => setBookmarkBulkTarget(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className={FIELD_CLASS}
               >
                 <option value="__unstaged__">Unstaged</option>
                 {folderOptions.map((folder) => (
@@ -865,7 +866,7 @@ export default function FolderPage() {
               placeholder="Folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className={FIELD_CLASS}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
@@ -938,7 +939,7 @@ export default function FolderPage() {
                 setNewSubfolderName(e.target.value);
                 if (newSubfolderError) setNewSubfolderError("");
               }}
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className={FIELD_CLASS}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
@@ -998,7 +999,7 @@ export default function FolderPage() {
                 setRenameFolderName(e.target.value);
                 if (renameFolderError) setRenameFolderError("");
               }}
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className={FIELD_CLASS}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;

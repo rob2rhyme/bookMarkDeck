@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import type { ResetRecord } from "@/features/focus/data/focusData";
 import { resetStreak } from "@/features/focus/lib/letThem";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 type RangeKey = "week" | "month" | "all";
 
@@ -115,11 +116,11 @@ export function LetThemHistory({ available, resets }: LetThemHistoryProps) {
       </div>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           Sign in to sync to see your reset history.
         </p>
       ) : total === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           Log a reset and it&apos;ll chart here.
         </p>
       ) : (

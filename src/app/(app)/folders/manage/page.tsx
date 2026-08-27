@@ -16,6 +16,7 @@ import {
   planHasChanges,
 } from "@/utils/autoOrganize";
 import type { Folder } from "@/types/folder";
+import { FIELD_CLASS } from "@/components/ui/Field";
 
 type SortMode = "name" | "count";
 
@@ -983,7 +984,7 @@ export default function FolderManagementPage() {
             onKeyDown={(event) => {
               if (event.key === "Enter") handleSaveRename();
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
             placeholder="Folder name"
             autoFocus
           />
@@ -1022,7 +1023,7 @@ export default function FolderManagementPage() {
               setDeleteTarget(event.target.value);
               if (deleteError) setDeleteError("");
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
           >
             <option value="__unstaged__">Unstaged</option>
             {folderOptions
@@ -1067,7 +1068,7 @@ export default function FolderManagementPage() {
               setMergeTargetId(event.target.value);
               if (mergeError) setMergeError("");
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
           >
             <option value="">Target folder</option>
             {folderOptions
@@ -1117,7 +1118,7 @@ export default function FolderManagementPage() {
               setMoveTargetId(event.target.value);
               if (moveError) setMoveError("");
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
           >
             <option value="__top__">Top level</option>
             {moveDestinationOptions.map((option) => (
@@ -1440,7 +1441,7 @@ export default function FolderManagementPage() {
             onKeyDown={(event) => {
               if (event.key === "Enter") handleCreateFolder();
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
             placeholder="Folder name"
             autoFocus
           />
@@ -1451,7 +1452,7 @@ export default function FolderManagementPage() {
               setCreateParentId(event.target.value);
               if (createError) setCreateError("");
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
           >
             <option value="__root__">(Root)</option>
             {folderOptions.map((option) => (

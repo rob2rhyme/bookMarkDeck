@@ -20,6 +20,7 @@ import { todayKey } from "@/features/focus/data/focusData";
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
 import { filterTodos } from "@/features/focus/lib/todoSearch";
 import type { Todo, TodoList as TodoListKey } from "@/features/focus/lib/types";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 type TodoListProps = {
   active: Todo[];
@@ -523,13 +524,13 @@ export function TodoList({
 
       <ul className="mt-4 flex flex-col gap-2">
         {sortedActive.length === 0 ? (
-          <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+          <li className={EMPTY_STATE_CLASS}>
             {list === "project"
               ? "No project fixes. Add one — it stays private, off your Google Calendar."
               : "Nothing to do. Add a to-do — give it a due date for a live countdown."}
           </li>
         ) : filteredActive.length === 0 ? (
-          <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+          <li className={EMPTY_STATE_CLASS}>
             No to-dos match “{query}”.
           </li>
         ) : (

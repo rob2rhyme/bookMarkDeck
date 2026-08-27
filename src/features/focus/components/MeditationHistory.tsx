@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import type { MeditationSessionRecord } from "@/features/focus/data/focusData";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 type RangeKey = "day" | "week" | "month" | "all";
 
@@ -238,11 +239,11 @@ export function MeditationHistory({
       </div>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           Sign in to sync to see your meditation history.
         </p>
       ) : !hasData ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           {range === "day"
             ? "No meditation logged today yet."
             : "No meditation logged in this range yet."}

@@ -9,6 +9,7 @@ import { ChevronUp } from "@/components/icons";
 import { NoteText } from "@/components/NoteText";
 import { todayKey } from "@/features/focus/data/focusData";
 import type { JournalNote } from "@/features/focus/lib/types";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 // A self-contained dream-tracking surface: recall stats, a recall heatmap, and a
 // searchable dreams-only timeline. All derived from the journal notes already in
@@ -375,7 +376,7 @@ export function DreamPanel({ notesByDay }: DreamPanelProps) {
 
       {/* Dreams-only timeline — one collapsible card per dream */}
       {timeline.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={`mt-4 ${EMPTY_STATE_CLASS}`}>
           No dreams match these filters.
         </p>
       ) : (

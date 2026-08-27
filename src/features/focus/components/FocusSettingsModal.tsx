@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { X } from "@/components/icons";
 import type { FocusSettings } from "@/features/focus/lib/settings";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import {
   TOPICS,
   type QuizDifficulty,
@@ -105,7 +106,7 @@ function Toggle({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-1 mt-5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+    <p className={`mb-1 mt-5 ${SECTION_LABEL_CLASS}`}>
       {children}
     </p>
   );
@@ -339,7 +340,7 @@ export function FocusSettingsModal({
 
         {(onExportJson || onExportCsv || onImportJson) && (
           <div className="mt-6 border-t border-slate-800/60 pt-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <p className={SECTION_LABEL_CLASS}>
               Your data
             </p>
             <div className="mt-2 flex gap-2">

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 
 import { Modal } from "@/components/Modal";
 import { Bookmark } from "@/components/icons";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import {
   type FontFamily,
   type ThemeMode,
@@ -49,7 +50,7 @@ function Row({
 }) {
   return (
     <div className="mt-5">
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <p className={`mb-2 ${SECTION_LABEL_CLASS}`}>
         {label}
       </p>
       {children}

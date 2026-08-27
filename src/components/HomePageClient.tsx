@@ -26,6 +26,7 @@ import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import { normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
+import { FIELD_CLASS } from "@/components/ui/Field";
 
 function getHostname(rawUrl: string) {
   try {
@@ -2010,14 +2011,14 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   placeholder="App name"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={FIELD_CLASS}
                 />
                 <input
                   type="text"
                   placeholder="https://app.example.com"
                   value={editUrl}
                   onChange={(e) => setEditUrl(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={FIELD_CLASS}
                 />
                 <input
                   type="text"
@@ -2029,7 +2030,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     setEditIconTouched(true);
                     setEditIconValue(e.target.value);
                   }}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={FIELD_CLASS}
                 />
               </div>
               <div className="mt-5 flex justify-end gap-2">
@@ -2204,7 +2205,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                 <select
                   value={bookmarkBulkTarget}
                   onChange={(e) => setBookmarkBulkTarget(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={FIELD_CLASS}
                 >
                   <option value="__unstaged__">Unstaged</option>
                   {folderOptions.map((folder) => (
@@ -2534,7 +2535,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     }
                   }}
                   maxLength={MAX_FOLDER_NAME}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={FIELD_CLASS}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -2645,7 +2646,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       setNewFolderError("");
                     }
                   }}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={FIELD_CLASS}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {

@@ -10,6 +10,7 @@ import { useBookmarks, normalizeFolderName } from "@/hooks/useBookmarks";
 import { useBookmarkView, bookmarkGridClass } from "@/hooks/useBookmarkView";
 import { Bookmark } from "@/types/bookmark";
 import { makeFolderOptions } from "@/utils/folderOptions";
+import { FIELD_CLASS } from "@/components/ui/Field";
 
 export default function UnstagedFolderPage() {
   const { data: session } = useSession();
@@ -351,7 +352,7 @@ export default function UnstagedFolderPage() {
               <select
                 value={bookmarkBulkTarget}
                 onChange={(e) => setBookmarkBulkTarget(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className={FIELD_CLASS}
               >
                 <option value="__unstaged__">Unstaged</option>
                 {folderOptions.map((option) => (
@@ -445,7 +446,7 @@ export default function UnstagedFolderPage() {
               placeholder="Folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className={FIELD_CLASS}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
