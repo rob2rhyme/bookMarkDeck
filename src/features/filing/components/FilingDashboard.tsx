@@ -4,10 +4,10 @@
 // documents, with the search that is the whole point of the feature —
 // type "car title", get "Garage › Grey cabinet › Drawer 2 › Vehicles".
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { Plus, Search, MapPin, Tag, FolderTree } from "@/components/icons";
+import { Plus, Search, MapPin, Tag, FolderTree, Sparkles } from "@/components/icons";
 import { Input } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useFilingSync } from "@/features/filing/hooks/useFilingSync";
@@ -26,6 +26,9 @@ import { PlaceManager } from "@/features/filing/components/PlaceManager";
 import { PartyManager } from "@/features/filing/components/PartyManager";
 import { FolderFormModal, type FolderDraft } from "@/features/filing/components/FolderFormModal";
 import { DocumentFormModal, type DocumentDraft } from "@/features/filing/components/DocumentFormModal";
+import { WhereIsPaperModal } from "@/features/filing/components/WhereIsPaperModal";
+import { LabelPrintModal } from "@/features/filing/components/LabelPrintModal";
+import { consumeFilingIntent, FILING_INTENT_NUDGE } from "@/lib/filingIntent";
 import type { FilingDocument, FilingFolder } from "@/features/filing/lib/types";
 
 const splitAliases = (raw: string) =>
@@ -52,22 +55,26 @@ export function FilingDashboard() {
   const [editingFolder, setEditingFolder] = useState<FilingFolder | null>(null);
   const [editingDocument, setEditingDocument] = useState<FilingDocument | null>(null);
   const [addToFolderId, setAddToFolderId] = useState<string | null>(null);
+  const [whereOpen, setWhereOpen] = useState(false);
+  const [labelsOpen, setLabelsOpen] = useState(false);
+  const [placeFilter, setPlaceFilter] = useState<string>("");
 
-  const hits = useMemo(
-    () =>
-      searchFiling(
-        { places: places.places, folders: folders.active, documents: documents.active },
-        query
-      ),
-    [places.places, folders.active, documents.active, query]
+  const searchData = useMemo(
+    () => ({ places: places.places, folders: folders.active, documents: documents.active }),
+    [places.places, folders.active, documents.active]
   );
+
+  const hits = useMemo(() => searchFiling(searchData, query), [searchData, query]);
 
   const visibleFolders = useMemo(
     () =>
       folders.active
         .filter((f) => (partyFilter ? f.partyId === partyFilter : true))
+        .filter((f) =>
+          placeFilter ? (f.currentPlaceId ?? f.homePlaceId) === placeFilter : true
+        )
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [folders.active, partyFilter]
+    [folders.active, partyFilter, placeFilter]
   );
 
   const inbox = useMemo(() => unfiled(documents.documents), [documents.documents]);
@@ -81,6 +88,11 @@ export function FilingDashboard() {
     return counts;
   }, [folders.active]);
 
+  const partyNameById = useMemo(
+    () => Object.fromEntries(parties.parties.map((p) => [p.id, p.name])),
+    [parties.parties]
+  );
+
   const countByParty = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const f of folders.active) {
@@ -88,6 +100,49 @@ export function FilingDashboard() {
     }
     return counts;
   }, [folders.active]);
+
+  // A scanned label lands on /filing?place=<id> or ?folder=<id>. Apply it once,
+  // so it never overrides a filter the user changes afterwards. A folder link
+  // filters to that folder's place and searches its name, which is the closest
+  // thing to "open this folder" until Phase 4 gives folders their own view.
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const placeId = params.get("place");
+    const folderId = params.get("folder");
+    if (placeId && places.nameById[placeId]) {
+      setPlaceFilter(placeId);
+      deepLinkApplied.current = true;
+      return;
+    }
+    if (folderId && folders.byId[folderId]) {
+      const f = folders.byId[folderId];
+      const home = f.currentPlaceId ?? f.homePlaceId;
+      if (home) setPlaceFilter(home);
+      setQuery(f.name);
+      deepLinkApplied.current = true;
+    }
+  }, [places.nameById, folders.byId]);
+
+  // ⌘K handoff. The palette can't import feature code, so it writes an intent
+  // (@/lib/filingIntent) and routes here. We consume it on mount for the
+  // navigating case, and on the nudge event for the already-on-/filing case,
+  // where Next re-renders without remounting.
+  useEffect(() => {
+    const consume = () => {
+      const intent = consumeFilingIntent();
+      if (intent === "where-is-it") setWhereOpen(true);
+      if (intent === "add-paper") {
+        setEditingDocument(null);
+        setAddToFolderId(null);
+        setDocumentFormOpen(true);
+      }
+    };
+    consume();
+    window.addEventListener(FILING_INTENT_NUDGE, consume);
+    return () => window.removeEventListener(FILING_INTENT_NUDGE, consume);
+  }, []);
 
   const submitFolder = useCallback(
     (draft: FolderDraft) => {
@@ -142,6 +197,20 @@ export function FilingDashboard() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setWhereOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+            >
+              <Search className="h-4 w-4" /> Where is it?
+            </button>
+            <button
+              type="button"
+              onClick={() => setLabelsOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+            >
+              <Sparkles className="h-4 w-4" /> Labels
+            </button>
             <button
               type="button"
               onClick={() => setPlacesOpen(true)}
@@ -204,6 +273,27 @@ export function FilingDashboard() {
             <span className="text-emerald-400">●</span> Synced to your account —
             changes save automatically.
           </p>
+        </div>
+      )}
+
+      {/* Active place filter — usually arrived at by scanning a label */}
+      {placeFilter && places.nameById[placeFilter] && (
+        <div className="px-3 sm:px-0">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2">
+            <span className="text-[13px] text-blue-200">
+              Showing folders in{" "}
+              <strong className="font-semibold">
+                {formatPath(places.paths[placeFilter] ?? [], places.nameById[placeFilter])}
+              </strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setPlaceFilter("")}
+              className="ml-auto rounded-full px-3 py-1 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20"
+            >
+              Show everywhere
+            </button>
+          </div>
         </div>
       )}
 
@@ -445,6 +535,27 @@ export function FilingDashboard() {
         tree={places.tree}
         parties={parties.active}
         categories={categorySuggestions(folders.active)}
+      />
+      <WhereIsPaperModal
+        open={whereOpen}
+        onClose={() => setWhereOpen(false)}
+        data={searchData}
+        partyNameById={partyNameById}
+        onOpenFolder={(folderId) => {
+          const f = folders.byId[folderId];
+          const place = f?.currentPlaceId ?? f?.homePlaceId;
+          if (place) setPlaceFilter(place);
+        }}
+      />
+      <LabelPrintModal
+        open={labelsOpen}
+        onClose={() => setLabelsOpen(false)}
+        tree={places.tree}
+        folders={folders.active}
+        paths={places.paths}
+        partyNameById={partyNameById}
+        countByPlace={countByPlace}
+        countByFolder={documents.countByFolder}
       />
       <DocumentFormModal
         open={documentFormOpen}

@@ -9,12 +9,15 @@ import { useRouter } from "next/navigation";
 
 import { HighlightedText } from "@/components/HighlightedText";
 import { Modal } from "@/components/Modal";
+import { setFilingIntent } from "@/lib/filingIntent";
 import {
   Bookmark,
+  Cabinet,
   ChevronUp,
   FolderTree,
   HelpCircle,
   Plus,
+  Search,
   Timer,
 } from "@/components/icons";
 
@@ -157,6 +160,7 @@ export function CommandPalette() {
       { id: "nav-home", label: "Go to Bookmarks", group: "Navigation", icon: <Bookmark className="h-4 w-4" />, run: go("/") },
       { id: "nav-focus", label: "Go to Focus", group: "Navigation", icon: <Timer className="h-4 w-4" />, run: go("/focus") },
       { id: "nav-folders", label: "Manage folders", group: "Navigation", icon: <FolderTree className="h-4 w-4" />, run: go("/folders/manage") },
+      { id: "nav-filing", label: "Go to Filing", hint: "where your paper lives", group: "Navigation", icon: <Cabinet className="h-4 w-4" />, run: go("/filing") },
       { id: "nav-faq", label: "Open FAQ", group: "Navigation", icon: <HelpCircle className="h-4 w-4" />, run: go("/faq") },
     ];
     const actions: Command[] = [
@@ -174,6 +178,32 @@ export function CommandPalette() {
             /* ignore */
           }
           router.push("/");
+        },
+      },
+      {
+        id: "act-where-is-it",
+        label: "Where is it?",
+        hint: "find a paper",
+        group: "Actions",
+        keywords: "filing paper document find locate folder where",
+        icon: <Search className="h-4 w-4" />,
+        run: () => {
+          close();
+          setFilingIntent("where-is-it");
+          router.push("/filing");
+        },
+      },
+      {
+        id: "act-file-paper",
+        label: "File a paper",
+        hint: "on Filing",
+        group: "Actions",
+        keywords: "filing document paper add",
+        icon: <Plus className="h-4 w-4" />,
+        run: () => {
+          close();
+          setFilingIntent("add-paper");
+          router.push("/filing");
         },
       },
       {
