@@ -308,15 +308,15 @@
   --bd-amber-200: oklch(47.3% 0.137 46.201); /* mirror of 800 */
   --bd-amber-300: oklch(55.5% 0.163 48.998); /* mirror of 700 */
   --bd-amber-400: oklch(66.6% 0.179 58.318); /* mirror of 600 */
-  --bd-amber-500: oklch(76.9% 0.188 70.08); /* mirror of 500 */
+  --bd-amber-500: oklch(76.9% 0.188 70.08); /* ground — held, white text */
   --bd-amber-950: oklch(98.7% 0.022 95.277); /* mirror of 50 */
   /* blue */
   --bd-blue-100: oklch(37.9% 0.146 265.522); /* mirror of 900 */
   --bd-blue-200: oklch(42.4% 0.199 265.638); /* mirror of 800 */
   --bd-blue-300: oklch(48.8% 0.243 264.376); /* mirror of 700 */
   --bd-blue-400: oklch(54.6% 0.245 262.881); /* mirror of 600 */
-  --bd-blue-500: oklch(62.3% 0.214 259.815); /* mirror of 500 */
-  --bd-blue-600: oklch(70.7% 0.165 254.624); /* mirror of 400 */
+  --bd-blue-500: oklch(62.3% 0.214 259.815); /* ground — held, white text */
+  --bd-blue-600: oklch(54.6% 0.245 262.881); /* ground — held, white text */
   --bd-blue-900: oklch(93.2% 0.032 255.585); /* mirror of 100 */
   --bd-blue-950: oklch(97% 0.014 254.604); /* mirror of 50 */
   /* cyan */
@@ -324,27 +324,27 @@
   --bd-cyan-200: oklch(45% 0.085 224.283); /* mirror of 800 */
   --bd-cyan-300: oklch(52% 0.105 223.128); /* mirror of 700 */
   --bd-cyan-400: oklch(60.9% 0.126 221.723); /* mirror of 600 */
-  --bd-cyan-500: oklch(71.5% 0.143 215.221); /* mirror of 500 */
+  --bd-cyan-500: oklch(71.5% 0.143 215.221); /* ground — held, white text */
   /* emerald */
   --bd-emerald-100: oklch(37.8% 0.077 168.94); /* mirror of 900 */
   --bd-emerald-200: oklch(43.2% 0.095 166.913); /* mirror of 800 */
   --bd-emerald-300: oklch(50.8% 0.118 165.612); /* mirror of 700 */
   --bd-emerald-400: oklch(59.6% 0.145 163.225); /* mirror of 600 */
-  --bd-emerald-500: oklch(69.6% 0.17 162.48); /* mirror of 500 */
-  --bd-emerald-600: oklch(76.5% 0.177 163.223); /* mirror of 400 */
-  --bd-emerald-700: oklch(84.5% 0.143 164.978); /* mirror of 300 */
+  --bd-emerald-500: oklch(69.6% 0.17 162.48); /* ground — held, white text */
+  --bd-emerald-600: oklch(59.6% 0.145 163.225); /* ground — held, white text */
+  --bd-emerald-700: oklch(50.8% 0.118 165.612); /* ground — held, white text */
   --bd-emerald-800: oklch(90.5% 0.093 164.15); /* mirror of 200 */
   --bd-emerald-900: oklch(95% 0.052 163.051); /* mirror of 100 */
   --bd-emerald-950: oklch(97.9% 0.021 166.113); /* mirror of 50 */
   /* fuchsia */
   --bd-fuchsia-400: oklch(59.1% 0.293 322.896); /* mirror of 600 */
-  --bd-fuchsia-500: oklch(66.7% 0.295 322.15); /* mirror of 500 */
+  --bd-fuchsia-500: oklch(66.7% 0.295 322.15); /* ground — held, white text */
   /* indigo */
   --bd-indigo-200: oklch(39.8% 0.195 277.366); /* mirror of 800 */
   --bd-indigo-300: oklch(45.7% 0.24 277.023); /* mirror of 700 */
   --bd-indigo-400: oklch(51.1% 0.262 276.966); /* mirror of 600 */
-  --bd-indigo-500: oklch(58.5% 0.233 277.117); /* mirror of 500 */
-  --bd-indigo-600: oklch(67.3% 0.182 276.935); /* mirror of 400 */
+  --bd-indigo-500: oklch(58.5% 0.233 277.117); /* ground — held, white text */
+  --bd-indigo-600: oklch(51.1% 0.262 276.966); /* ground — held, white text */
   --bd-indigo-950: oklch(96.2% 0.018 272.314); /* mirror of 50 */
   /* lime */
   --bd-lime-400: oklch(64.8% 0.2 131.684); /* mirror of 600 */
@@ -354,23 +354,23 @@
   --bd-pink-100: oklch(40.8% 0.153 2.432); /* mirror of 900 */
   --bd-pink-300: oklch(52.5% 0.223 3.958); /* mirror of 700 */
   --bd-pink-400: oklch(59.2% 0.249 0.584); /* mirror of 600 */
-  --bd-pink-500: oklch(65.6% 0.241 354.308); /* mirror of 500 */
+  --bd-pink-500: oklch(65.6% 0.241 354.308); /* ground — held, white text */
   /* red */
   --bd-red-100: oklch(39.6% 0.141 25.723); /* mirror of 900 */
   --bd-red-200: oklch(44.4% 0.177 26.899); /* mirror of 800 */
   --bd-red-300: oklch(50.5% 0.213 27.518); /* mirror of 700 */
   --bd-red-400: oklch(57.7% 0.245 27.325); /* mirror of 600 */
-  --bd-red-500: oklch(63.7% 0.237 25.331); /* mirror of 500 */
-  --bd-red-600: oklch(70.4% 0.191 22.216); /* mirror of 400 */
-  --bd-red-700: oklch(80.8% 0.114 19.571); /* mirror of 300 */
+  --bd-red-500: oklch(63.7% 0.237 25.331); /* ground — held, white text */
+  --bd-red-600: oklch(57.7% 0.245 27.325); /* ground — held, white text */
+  --bd-red-700: oklch(50.5% 0.213 27.518); /* ground — held, white text */
   --bd-red-800: oklch(88.5% 0.062 18.334); /* mirror of 200 */
   --bd-red-900: oklch(93.6% 0.032 17.717); /* mirror of 100 */
   --bd-red-950: oklch(97.1% 0.013 17.38); /* mirror of 50 */
   /* rose */
   --bd-rose-200: oklch(45.5% 0.188 13.697); /* mirror of 800 */
   --bd-rose-300: oklch(51.4% 0.222 16.935); /* mirror of 700 */
-  --bd-rose-500: oklch(64.5% 0.246 16.439); /* mirror of 500 */
-  --bd-rose-700: oklch(81% 0.117 11.638); /* mirror of 300 */
+  --bd-rose-500: oklch(64.5% 0.246 16.439); /* ground — held, white text */
+  --bd-rose-700: oklch(51.4% 0.222 16.935); /* ground — held, white text */
   --bd-rose-900: oklch(94.1% 0.03 12.58); /* mirror of 100 */
   --bd-rose-950: oklch(96.9% 0.015 12.422); /* mirror of 50 */
   /* sky */
@@ -378,9 +378,9 @@
   --bd-sky-200: oklch(44.3% 0.11 240.79); /* mirror of 800 */
   --bd-sky-300: oklch(50% 0.134 242.749); /* mirror of 700 */
   --bd-sky-400: oklch(58.8% 0.158 241.966); /* mirror of 600 */
-  --bd-sky-500: oklch(68.5% 0.169 237.323); /* mirror of 500 */
-  --bd-sky-600: oklch(74.6% 0.16 232.661); /* mirror of 400 */
-  --bd-sky-700: oklch(82.8% 0.111 230.318); /* mirror of 300 */
+  --bd-sky-500: oklch(68.5% 0.169 237.323); /* ground — held, white text */
+  --bd-sky-600: oklch(58.8% 0.158 241.966); /* ground — held, white text */
+  --bd-sky-700: oklch(50% 0.134 242.749); /* ground — held, white text */
   --bd-sky-950: oklch(97.7% 0.013 236.62); /* mirror of 50 */
   /* slate */
   --bd-slate-50: oklch(12.9% 0.042 264.695); /* mirror of 950 */
@@ -399,16 +399,16 @@
   --bd-teal-200: oklch(43.7% 0.078 188.216); /* mirror of 800 */
   --bd-teal-300: oklch(51.1% 0.096 186.391); /* mirror of 700 */
   --bd-teal-400: oklch(60% 0.118 184.704); /* mirror of 600 */
-  --bd-teal-500: oklch(70.4% 0.14 182.503); /* mirror of 500 */
-  --bd-teal-600: oklch(77.7% 0.152 181.912); /* mirror of 400 */
+  --bd-teal-500: oklch(70.4% 0.14 182.503); /* ground — held, white text */
+  --bd-teal-600: oklch(60% 0.118 184.704); /* ground — held, white text */
   --bd-teal-950: oklch(98.4% 0.014 180.72); /* mirror of 50 */
   /* violet */
   --bd-violet-100: oklch(38% 0.189 293.745); /* mirror of 900 */
   --bd-violet-200: oklch(43.2% 0.232 292.759); /* mirror of 800 */
   --bd-violet-300: oklch(49.1% 0.27 292.581); /* mirror of 700 */
   --bd-violet-400: oklch(54.1% 0.281 293.009); /* mirror of 600 */
-  --bd-violet-500: oklch(60.6% 0.25 292.717); /* mirror of 500 */
-  --bd-violet-600: oklch(70.2% 0.183 293.541); /* mirror of 400 */
+  --bd-violet-500: oklch(60.6% 0.25 292.717); /* ground — held, white text */
+  --bd-violet-600: oklch(54.1% 0.281 293.009); /* ground — held, white text */
   --bd-violet-950: oklch(96.9% 0.016 293.756); /* mirror of 50 */
   /* yellow */
   --bd-yellow-400: oklch(68.1% 0.162 75.834); /* mirror of 600 */
@@ -419,13 +419,11 @@
      Mirrored this would be #f1f5f9, which flattens every card into the page. */
   --bd-slate-900: #ffffff;
 
-  /* Accent. On dark, blue-400/300 are bright text and blue-500/600 are button
-     grounds; on light both roles have to darken or link text washes out and
-     white-on-button text fails contrast. */
+  /* Accent text. blue-400/300 are bright link/nav text on dark and have to
+     darken on light or they wash out. The 500/600 grounds are held above with
+     every other family's, so white button text keeps its dark-mode ratio. */
   --bd-blue-300: #1d4ed8;
-  --bd-blue-400: #2563eb; /* link / active nav — 5.17:1 on white  */
-  --bd-blue-500: #2563eb; /* button ground — white text 5.17:1    */
-  --bd-blue-600: #1d4ed8; /* button hover  — white text 7.46:1    */
+  --bd-blue-400: #2563eb; /* link / active nav — 5.17:1 on white */
 
   /* Semantic text colours: the mirrored 600 steps sit just under AA on white,
      so nudge them to the 700 step. Grounds (500) are left mirrored. */
