@@ -30,11 +30,25 @@ const keyFor = (email?: string | null) => (email ? `${BASE_KEY}:${email}` : BASE
  * come back from Firestore when a document is opened.
  *
  * `nextDueOn` is in here on purpose — it is what lets the badge and the Upcoming
- * panel render offline without loading every obligation array.
+ * panel render offline without loading every obligation array. The three
+ * retention inputs are here for the same reason: paired with the folders cache
+ * (which is stored whole), they let the shred queue and the nav badge compute
+ * without a network round-trip. All five are short scalars.
  */
 type SlimDocument = Pick<
   FilingDocument,
-  "id" | "title" | "folderId" | "partyId" | "docType" | "docDate" | "nextDueOn" | "tags" | "archived"
+  | "id"
+  | "title"
+  | "folderId"
+  | "partyId"
+  | "docType"
+  | "docDate"
+  | "filedAt"
+  | "nextDueOn"
+  | "retentionRuleId"
+  | "overrideDestroyOn"
+  | "tags"
+  | "archived"
 >;
 
 const slim = (d: FilingDocument): SlimDocument => ({
@@ -44,7 +58,10 @@ const slim = (d: FilingDocument): SlimDocument => ({
   partyId: d.partyId,
   docType: d.docType,
   docDate: d.docDate,
+  filedAt: d.filedAt,
   nextDueOn: d.nextDueOn,
+  retentionRuleId: d.retentionRuleId,
+  overrideDestroyOn: d.overrideDestroyOn,
   tags: d.tags,
   archived: d.archived,
 });
@@ -290,6 +307,47 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     [patch]
   );
 
+  /**
+   * The end of a paper's life. Archives with a receipt rather than deleting:
+   * the row stays, its timeline records that it was destroyed and when, and the
+   * shred queue stops nagging. Nothing in this pillar deletes on a timer.
+   */
+  const markShredded = useCallback(
+    (id: string, note?: string) =>
+      patch(id, (d) => ({
+        ...d,
+        archived: true,
+        activity: [
+          ...(d.activity ?? []),
+          {
+            id: crypto.randomUUID(),
+            type: "shredded" as FilingActivityType,
+            at: new Date().toISOString(),
+            note,
+          },
+        ].slice(-MAX_ACTIVITY),
+      })),
+    [patch]
+  );
+
+  /** Confirm a paper was looked at and is being kept — resets nothing, just records it. */
+  const markReviewed = useCallback(
+    (id: string, note?: string) =>
+      patch(id, (d) => ({
+        ...d,
+        activity: [
+          ...(d.activity ?? []),
+          {
+            id: crypto.randomUUID(),
+            type: "reviewed" as FilingActivityType,
+            at: new Date().toISOString(),
+            note,
+          },
+        ].slice(-MAX_ACTIVITY),
+      })),
+    [patch]
+  );
+
   const removeDocument = useCallback(
     (id: string) => {
       setDocuments((prev) => prev.filter((d) => d.id !== id));
@@ -318,6 +376,8 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     fileInto,
     logActivity,
     setArchived,
+    markShredded,
+    markReviewed,
     removeDocument,
     addObligation,
     updateObligation,

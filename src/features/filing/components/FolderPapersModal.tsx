@@ -6,6 +6,8 @@
 import { Modal } from "@/components/Modal";
 import { Trash } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ActivityTimeline } from "@/features/filing/components/ActivityTimeline";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import { formatPath } from "@/features/filing/lib/breadcrumb";
 import { bucketOf, relativeDue, daysBetween } from "@/features/filing/lib/obligations";
 import { DOC_TYPES, type FilingDocument, type FilingFolder } from "@/features/filing/lib/types";
@@ -100,6 +102,15 @@ export function FolderPapersModal({
             );
           })}
         </ul>
+      )}
+
+      {(folder.activity?.length ?? 0) > 0 && (
+        <details className="mt-5">
+          <summary className={`cursor-pointer ${SECTION_LABEL_CLASS}`}>
+            Where it&rsquo;s been
+          </summary>
+          <ActivityTimeline activity={folder.activity} />
+        </details>
       )}
 
       <button

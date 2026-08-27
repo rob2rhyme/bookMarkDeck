@@ -10,7 +10,8 @@ import { Modal } from "@/components/Modal";
 import { Trash } from "@/components/icons";
 import { Input, Select } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { SectionLabel } from "@/components/ui/SectionLabel";
+import { ActivityTimeline } from "@/features/filing/components/ActivityTimeline";
+import { SECTION_LABEL_CLASS, SectionLabel } from "@/components/ui/SectionLabel";
 import {
   OBLIGATION_PRESETS,
   bucketOf,
@@ -272,6 +273,15 @@ export function ObligationsModal({
           Add reminder
         </button>
       </form>
+
+      {(document.activity?.length ?? 0) > 0 && (
+        <details className="mt-6">
+          <summary className={`cursor-pointer ${SECTION_LABEL_CLASS}`}>
+            History
+          </summary>
+          <ActivityTimeline activity={document.activity} />
+        </details>
+      )}
     </Modal>
   );
 }

@@ -3,12 +3,16 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
-// lib/obligations is pure (it imports only types), so this adds nothing
-// firebase-shaped to the shared shell's bundle.
+// These three libs are pure — they import only types and each other — so this
+// adds nothing firebase-shaped to the shared shell's bundle.
+import { overdueBackCount } from "@/features/filing/lib/custody";
 import { addDays } from "@/features/filing/lib/obligations";
+import { shredItems } from "@/features/filing/lib/retention";
+import type { FilingDocument, FilingFolder } from "@/features/filing/lib/types";
 
-// Must match the slim cache key useFilingDocuments writes.
+// Must match the cache keys useFilingDocuments / useFilingFolders write.
 const DOCUMENTS_KEY = "bookmarkdeck:filing:documents:v1";
+const FOLDERS_KEY = "bookmarkdeck:filing:folders:v1";
 const SETTINGS_KEY = "bookmarkdeck:filing:settings:v1";
 const DEFAULT_LEAD_DAYS = 30;
 
@@ -39,33 +43,54 @@ function leadDaysFor(email?: string | null): number {
   }
 }
 
+function readArray<T>(key: string): T[] {
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Count from the SLIM cache alone (ANALYSIS-FILING-LOG.md §7): each record
- * carries only `nextDueOn`, not its obligations, which is exactly why that field
- * is in the projection. Anything due within the lead window — or already
- * overdue — counts once, per document.
+ * Count from the caches alone (ANALYSIS-FILING-LOG.md §7). Three things want
+ * attention, and the badge is the sum:
+ *
+ *  1. an obligation due — read straight off the slim `nextDueOn`, which is in
+ *     the projection precisely so this works without the obligation arrays;
+ *  2. a paper whose retention has run out — computed from the slim retention
+ *     inputs against the folders cache, which is stored whole;
+ *  3. a folder somebody has had for longer than they said.
+ *
+ * Counted per document / per folder, so one paper with three overdue
+ * obligations is one number, not three.
  */
 function readCount(email?: string | null): number {
   if (typeof window === "undefined" || !email) return 0;
   try {
-    const raw = window.localStorage.getItem(`${DOCUMENTS_KEY}:${email}`);
-    const docs = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(docs)) return 0;
+    const documents = readArray<FilingDocument>(`${DOCUMENTS_KEY}:${email}`);
+    const folders = readArray<FilingFolder>(`${FOLDERS_KEY}:${email}`);
     const today = todayLocal();
     const lead = leadDaysFor(email);
     const cutoff = addDays(today, lead);
-    return docs.filter(
-      (d: { nextDueOn?: string | null; archived?: boolean }) =>
-        !d.archived && typeof d.nextDueOn === "string" && d.nextDueOn <= cutoff
+
+    const due = documents.filter(
+      (d) => !d.archived && typeof d.nextDueOn === "string" && d.nextDueOn <= cutoff
     ).length;
+    const shred = shredItems(documents, folders, today, lead).length;
+    const late = overdueBackCount(folders, today);
+
+    return due + shred + late;
   } catch {
     return 0;
   }
 }
 
 /**
- * How many papers need doing something about — renewals, payments, filings —
- * for the "Filing" nav badge. Reads the per-user localStorage cache
+ * How many things need doing something about — renewals and payments due,
+ * papers ready to shred, folders somebody hasn't brought back — for the
+ * "Filing" nav badge. Reads the per-user localStorage cache
  * (hydration-safe: starts at 0, fills after mount), so it's a cross-page hint;
  * the /filing Upcoming panel is the live source. Re-reads on navigation, tab
  * focus, and cross-tab storage writes.
@@ -78,7 +103,12 @@ export function useFilingReminderCount(email?: string | null): number {
     const refresh = () => setCount(readCount(email));
     refresh();
     const onStorage = (e: StorageEvent) => {
-      if (!e.key || e.key.startsWith(DOCUMENTS_KEY) || e.key.startsWith(SETTINGS_KEY)) {
+      if (
+        !e.key ||
+        e.key.startsWith(DOCUMENTS_KEY) ||
+        e.key.startsWith(FOLDERS_KEY) ||
+        e.key.startsWith(SETTINGS_KEY)
+      ) {
         refresh();
       }
     };

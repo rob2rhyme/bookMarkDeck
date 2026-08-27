@@ -10,6 +10,7 @@ import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { flattenTree, type PlaceNode } from "@/features/filing/lib/tree";
+import { RETENTION_RULES, destroyOnFor, ruleById } from "@/features/filing/lib/retention";
 import type { FilingFolder, FilingParty } from "@/features/filing/lib/types";
 
 export type FolderDraft = {
@@ -18,6 +19,9 @@ export type FolderDraft = {
   partyId: string | null;
   category: string;
   aliases: string;
+  retentionRuleId: string | null;
+  coversThrough: string;
+  eventDate: string | null;
 };
 
 const EMPTY: FolderDraft = {
@@ -26,6 +30,9 @@ const EMPTY: FolderDraft = {
   partyId: null,
   category: "",
   aliases: "",
+  retentionRuleId: null,
+  coversThrough: "",
+  eventDate: null,
 };
 
 export function FolderFormModal({
@@ -60,6 +67,9 @@ export function FolderFormModal({
             partyId: editing.partyId ?? null,
             category: editing.category ?? "",
             aliases: editing.aliases.join(", "),
+            retentionRuleId: editing.retentionRuleId ?? null,
+            coversThrough: editing.coversThrough ?? "",
+            eventDate: editing.eventDate ?? null,
           }
         : EMPTY
     );
@@ -67,6 +77,20 @@ export function FolderFormModal({
 
   const set = <K extends keyof FolderDraft>(k: K, v: FolderDraft[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
+
+  const rule = ruleById(draft.retentionRuleId);
+  // Preview the date the rule actually produces. Seeing "2031-12-31" rather than
+  // "7 years" is what makes the year-end cutoff legible instead of surprising.
+  const preview = rule
+    ? destroyOnFor(
+        { retentionRuleId: draft.retentionRuleId },
+        {
+          retentionRuleId: draft.retentionRuleId,
+          coversThrough: draft.coversThrough || undefined,
+          eventDate: draft.eventDate,
+        }
+      )
+    : null;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -169,6 +193,82 @@ export function FolderFormModal({
             one you&rsquo;ll actually type at 11pm.
           </p>
         </div>
+
+        {/* Optional, and collapsed: capture speed is the feature here, so nothing
+            below this line is in the way of naming a folder and getting out. */}
+        <details className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+          <summary className="cursor-pointer text-[13px] font-medium text-slate-300">
+            How long to keep it
+            {rule && <span className="ml-1.5 font-normal text-slate-500">· {rule.label}</span>}
+          </summary>
+
+          <div className="mt-3 flex flex-col gap-3">
+            <Select
+              value={draft.retentionRuleId ?? ""}
+              onChange={(e) => set("retentionRuleId", e.target.value || null)}
+              aria-label="Retention rule"
+            >
+              <option value="">No rule — keep it indefinitely</option>
+              {RETENTION_RULES.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </Select>
+
+            {rule?.note && <p className="text-[12px] text-slate-500">{rule.note}</p>}
+
+            {rule && rule.trigger === "fixed" && rule.action !== "permanent" && (
+              <div>
+                <SectionLabel>Contents run through</SectionLabel>
+                <Input
+                  type="date"
+                  value={draft.coversThrough}
+                  onChange={(e) => set("coversThrough", e.target.value)}
+                  aria-label="Covers through"
+                  className="mt-1"
+                />
+                <p className="mt-1 text-[12px] text-slate-500">
+                  The clock starts at the END of that calendar year, not the day
+                  you filed it — so 2024 papers filed in March 2025 age out at the
+                  end of 2031, not in March 2032.
+                </p>
+              </div>
+            )}
+
+            {rule && rule.trigger === "event" && (
+              <div>
+                <SectionLabel>{rule.triggerEvent ?? "When the event happens"}</SectionLabel>
+                <Input
+                  type="date"
+                  value={draft.eventDate ?? ""}
+                  onChange={(e) => set("eventDate", e.target.value || null)}
+                  aria-label="Event date"
+                  className="mt-1"
+                />
+                <p className="mt-1 text-[12px] text-slate-500">
+                  Leave this empty until it actually happens — nothing is counted
+                  down before then.
+                </p>
+              </div>
+            )}
+
+            {rule && (
+              <p className="text-[12px] text-slate-400">
+                {rule.action === "permanent"
+                  ? "Kept indefinitely — it will never appear in the clear-out queue."
+                  : preview
+                    ? `Papers in here come up for review on ${preview}.`
+                    : "No date yet — fill in the field above and one appears."}
+              </p>
+            )}
+
+            <p className="text-[11px] text-slate-500">
+              General guidance, not legal or tax advice. Periods vary by state,
+              profession and circumstance — check yours, and edit freely.
+            </p>
+          </div>
+        </details>
 
         <div className="mt-1 flex gap-2">
           <button

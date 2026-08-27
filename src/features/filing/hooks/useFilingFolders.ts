@@ -9,9 +9,17 @@ import {
   subscribeFolders,
 } from "@/features/filing/data/filingData";
 import { isCheckedOut } from "@/features/filing/lib/breadcrumb";
-import type { FilingFolder } from "@/features/filing/lib/types";
+import { checkOutPatch, returnPatch } from "@/features/filing/lib/custody";
+import type {
+  FilingActivity,
+  FilingActivityType,
+  FilingFolder,
+} from "@/features/filing/lib/types";
 
 const BASE_KEY = "bookmarkdeck:filing:folders:v1";
+const MAX_ACTIVITY = 300;
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 const keyFor = (email?: string | null) => (email ? `${BASE_KEY}:${email}` : BASE_KEY);
 
@@ -140,6 +148,64 @@ export function useFilingFolders(email?: string | null, connected = false) {
     [patch]
   );
 
+  const withActivity = (
+    f: FilingFolder,
+    type: FilingActivityType,
+    extra: Partial<FilingActivity> = {}
+  ): FilingActivity[] =>
+    [
+      ...(f.activity ?? []),
+      { id: crypto.randomUUID(), type, at: new Date().toISOString(), ...extra },
+    ].slice(-MAX_ACTIVITY);
+
+  /**
+   * Send a folder out. There is no flag to set — moving `currentPlaceId` away
+   * from `homePlaceId` IS being checked out, so the two can never disagree.
+   * Place names are snapshotted onto the activity entry so the history still
+   * reads correctly after a place is renamed or deleted.
+   */
+  const checkOut = useCallback(
+    (
+      id: string,
+      input: { toPlaceId: string | null; heldBy?: string | null; dueBack?: string | null },
+      placeName?: (id: string | null) => string | undefined
+    ) =>
+      patch(id, (f) => ({
+        ...f,
+        ...checkOutPatch({ ...input, on: today() }),
+        activity: withActivity(f, "taken", {
+          to: input.heldBy?.trim() || undefined,
+          fromPlace: placeName?.(f.currentPlaceId ?? f.homePlaceId),
+          toPlace: placeName?.(input.toPlaceId),
+        }),
+      })),
+    [patch]
+  );
+
+  /** Bring it home: clears the custody record, keeps the event on the timeline. */
+  const returnFolder = useCallback(
+    (id: string, placeName?: (id: string | null) => string | undefined) =>
+      patch(id, (f) => ({
+        ...f,
+        ...returnPatch(),
+        activity: withActivity(f, "returned", {
+          fromPlace: placeName?.(f.currentPlaceId),
+          toPlace: placeName?.(f.homePlaceId),
+        }),
+      })),
+    [patch]
+  );
+
+  /**
+   * A hold mutes the shred reminder without touching the clock, so lifting it
+   * puts the folder straight back in the queue rather than restarting the years.
+   */
+  const setKeepReason = useCallback(
+    (id: string, reason: string | null) =>
+      patch(id, (f) => ({ ...f, keepReason: reason?.trim() || null })),
+    [patch]
+  );
+
   const removeFolder = useCallback(
     (id: string) => {
       setFolders((prev) => prev.filter((f) => f.id !== id));
@@ -165,6 +231,9 @@ export function useFilingFolders(email?: string | null, connected = false) {
     addFolder,
     updateFolder,
     setArchived,
+    checkOut,
+    returnFolder,
+    setKeepReason,
     removeFolder,
     setFolders,
   };

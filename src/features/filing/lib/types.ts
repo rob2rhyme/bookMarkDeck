@@ -131,6 +131,9 @@ export type FilingFolder = {
   heldBy?: string | null;
   takenAt?: string | null; // YYYY-MM-DD
   dueBack?: string | null; // YYYY-MM-DD
+  /** Where it has been. Custody events live here rather than on the papers —
+   *  you check out the folder, not each sheet inside it. Capped like documents'. */
+  activity?: FilingActivity[];
   note?: string;
   archived?: boolean;
   createdAt: string | null;

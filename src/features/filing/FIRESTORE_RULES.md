@@ -1,6 +1,6 @@
 # Filing — Firestore rules
 
-Phase 1 of the Filing pillar (see `ANALYSIS-FILING-LOG.md`). Data lives under the
+The Filing pillar (see `ANALYSIS-FILING-LOG.md`). Data lives under the
 signed-in user's document, scoped by Firebase `uid`:
 
 ```

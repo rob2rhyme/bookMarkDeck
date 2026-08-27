@@ -217,6 +217,9 @@ function mapFolder(d: { id: string; data: () => Record<string, unknown> }): Fili
     heldBy: strOrNull(data.heldBy),
     takenAt: strOrNull(data.takenAt),
     dueBack: strOrNull(data.dueBack),
+    activity: Array.isArray(data.activity)
+      ? (data.activity.map(mapActivity).filter(Boolean) as FilingActivity[])
+      : undefined,
     note: strOrUndef(data.note),
     archived: boolOrUndef(data.archived),
     createdAt: timestampToIso(data.createdAt),
@@ -246,6 +249,7 @@ function folderPayload(f: FilingFolder) {
     heldBy: f.heldBy ?? null,
     takenAt: f.takenAt ?? null,
     dueBack: f.dueBack ?? null,
+    activity: (f.activity ?? []).map((a) => prune({ ...a })),
     note: f.note,
     archived: f.archived ?? false,
     createdAt: f.createdAt ?? serverTimestamp(),

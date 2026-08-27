@@ -450,7 +450,7 @@ before the next.
 | 1 | Types, data layer, sync, route, dashboard; places/parties/folders/documents CRUD, search, breadcrumb | The skeleton; nothing to demo without it |
 | 2 | **Retrieval**: QR labels, ⌘K entries, "Where is this paper?", Unfiled inbox | The product's actual promise (§3) |
 | 3 | **Reminders**: obligations, `nextDueOn`, Upcoming panel, nav badge, repeat roll-forward, presets | Deliberately before retention — this is the half with a weekly reason to open the app |
-| 4 | **Stewardship**: retention/shred queue folded into the same panel, custody ledger, activity timeline | Reuses Phase 3's surface rather than building a second one |
+| 4 | **Stewardship**: retention/shred queue folded into the same panel, custody ledger, activity timeline | Reuses Phase 3's surface rather than building a second one. **Shipped** — 22 retention presets in `lib/retention.ts`, custody in `lib/custody.ts` |
 | 5 | **Reach**: scheduled push, `.ics` feed | Distribution, once there's something to remind about |
 | 6 | **Connections**: bookmark ↔ document link, CSV/JSON export + import, optional R2 attachment, `/guide` section | The §2 thesis. Not optional |
 
@@ -465,7 +465,7 @@ multi-user sharing · e-signature · document versioning · cloud-drive sync ·
 | # | Decision | Recommendation |
 |---|---|---|
 | 1 | **Bottom nav at six cells.** `AppShell.tsx` renders every destination + ⌘K, each `flex-1`. A fifth pillar makes six cells (~53px at 320px) and the obvious mitigations are already applied — labels are `text-[10px]`, `px-0.5`, `truncate` — so "Bookmarks"/"My Stuff" will clip | Add an optional `short` field used only by the bottom nav: *Saved · Focus · Habits · Stuff · Filing · Search*. Confirm with a 320px screenshot before merging the nav entry |
-| 2 | **Retention preset content** — real year counts and citations (IRS, state bar, CPA workpaper, HIPAA) | Content task, not architectural. Ship a sensible default set with a visible "general guidance, not legal or tax advice" line |
+| 2 | ~~**Retention preset content**~~ | **Settled in Phase 4.** 22 presets in `lib/retention.ts`, sourced from the IRS periods of limitations (3/6/7 years and the no-limit case), the FLSA/ADEA employment floors (3/2/1 years) and the HIPAA 6-year documentation rule — which is deliberately kept distinct from clinical records, where state law governs and HIPAA sets no period. Every preset carries a note saying what its number is based on, and both surfaces show a "general guidance, not legal or tax advice" line |
 | 3 | **Renewal cadence presets** — passport, licence, registration, inspection, estimated-tax quarters | Jurisdiction-specific. Ship defaults and let users edit; don't pretend to be authoritative |
 | 4 | **Is reminder push free or metered?** | In-app panel, badge and `.ics` free; scheduled push follows whatever gating push already has, since it carries real marginal cost |
 | 5 | **Attachments in v1** | **[decided]** index-first: optional photo/PDF per document via the existing R2 pipeline, never required |

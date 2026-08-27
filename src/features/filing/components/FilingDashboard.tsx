@@ -32,7 +32,11 @@ import { LabelPrintModal } from "@/features/filing/components/LabelPrintModal";
 import { UpcomingPanel } from "@/features/filing/components/UpcomingPanel";
 import { ObligationsModal } from "@/features/filing/components/ObligationsModal";
 import { FolderPapersModal } from "@/features/filing/components/FolderPapersModal";
+import { ShredQueue } from "@/features/filing/components/ShredQueue";
+import { CustodyModal } from "@/features/filing/components/CustodyModal";
 import { dueItems } from "@/features/filing/lib/obligations";
+import { shredItems } from "@/features/filing/lib/retention";
+import { custodyItems } from "@/features/filing/lib/custody";
 import { consumeFilingIntent, FILING_INTENT_NUDGE } from "@/lib/filingIntent";
 import type { FilingDocument, FilingFolder } from "@/features/filing/lib/types";
 
@@ -66,6 +70,7 @@ export function FilingDashboard() {
   const [placeFilter, setPlaceFilter] = useState<string>("");
   const [obligationsFor, setObligationsFor] = useState<string | null>(null);
   const [papersFor, setPapersFor] = useState<string | null>(null);
+  const [custodyOpen, setCustodyOpen] = useState(false);
   // Hydration-safe "today": never read the clock during render, and re-check on
   // an interval so a tab left open overnight rolls over instead of going stale.
   const [today, setToday] = useState("");
@@ -107,6 +112,23 @@ export function FilingDashboard() {
     () => (today ? dueItems(documents.active, today, settings.leadDays) : []),
     [documents.active, today, settings.leadDays]
   );
+
+  /** Papers whose retention has run out. Same lead window as the reminders, so
+   *  the two halves of the Attention surface agree on what "soon" means. */
+  const shred = useMemo(
+    () =>
+      today
+        ? shredItems(documents.active, folders.active, today, settings.leadDays)
+        : [],
+    [documents.active, folders.active, today, settings.leadDays]
+  );
+
+  /** Folders away from home — drives the header pill's count. */
+  const out = useMemo(
+    () => (today ? custodyItems(folders.active, today) : []),
+    [folders.active, today]
+  );
+  const lateBack = useMemo(() => out.filter((i) => i.overdue).length, [out]);
 
   /** Where a paper's folder lives — the line the Upcoming panel shows. */
   const trailFor = useCallback(
@@ -192,8 +214,18 @@ export function FilingDashboard() {
         category: draft.category.trim() || undefined,
         aliases: splitAliases(draft.aliases),
       };
-      if (editingFolder) folders.updateFolder(editingFolder.id, payload);
-      else folders.addFolder(payload);
+      const retention = {
+        retentionRuleId: draft.retentionRuleId,
+        coversThrough: draft.coversThrough || undefined,
+        eventDate: draft.eventDate,
+      };
+      if (editingFolder) folders.updateFolder(editingFolder.id, { ...payload, ...retention });
+      else {
+        const created = folders.addFolder(payload);
+        // addFolder takes the fast path's fields only, so the optional retention
+        // block is applied as a follow-up write rather than widening its input.
+        if (created && draft.retentionRuleId) folders.updateFolder(created.id, retention);
+      }
       setEditingFolder(null);
     },
     [editingFolder, folders]
@@ -263,6 +295,20 @@ export function FilingDashboard() {
               className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
               <Tag className="h-4 w-4" /> People
+            </button>
+            <button
+              type="button"
+              onClick={() => setCustodyOpen(true)}
+              className={`flex items-center gap-1.5 rounded-full border bg-slate-900 px-3 py-1.5 text-xs font-semibold transition ${
+                lateBack > 0
+                  ? "border-red-500/60 text-red-300 hover:border-red-400"
+                  : "border-slate-700 text-slate-200 hover:border-slate-500"
+              }`}
+            >
+              <MapPin className="h-4 w-4" /> Who has it
+              {out.length > 0 && (
+                <span className="tabular-nums opacity-80">{out.length}</span>
+              )}
             </button>
             <button
               type="button"
@@ -411,6 +457,16 @@ export function FilingDashboard() {
           onComplete={(documentId, obligationId) =>
             documents.completeObligation(documentId, obligationId, today)
           }
+        />
+      )}
+
+      {/* Ready to clear — the other half of the same Attention surface */}
+      {query.trim().length < 2 && shred.length > 0 && (
+        <ShredQueue
+          items={shred}
+          onShred={(documentId) => documents.markShredded(documentId)}
+          onReviewed={(documentId) => documents.markReviewed(documentId)}
+          onHold={(folderId) => folders.setKeepReason(folderId, "On hold")}
         />
       )}
 
@@ -563,6 +619,21 @@ export function FilingDashboard() {
           )}
         </section>
       )}
+
+      <CustodyModal
+        open={custodyOpen}
+        onClose={() => setCustodyOpen(false)}
+        folders={folders.active}
+        places={places.places}
+        placePaths={places.paths}
+        today={today}
+        onCheckOut={(folderId, input) =>
+          folders.checkOut(folderId, input, (id) => (id ? places.nameById[id] : undefined))
+        }
+        onReturn={(folderId) =>
+          folders.returnFolder(folderId, (id) => (id ? places.nameById[id] : undefined))
+        }
+      />
 
       <PlaceManager
         open={placesOpen}

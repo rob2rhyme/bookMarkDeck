@@ -83,7 +83,7 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   menu), a mobile bottom nav (pillars + ⌘K search), and the footer
   (Guide / Privacy / Terms / FAQ).
 - Existing pages: `/` (home), `/folders/[folderKey]`, `/folders/manage`, `/folders/unstaged`,
-  `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/guide` (site guide),
+  `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/filing`, `/guide` (site guide),
   `/faq`, `/privacy`, `/terms`, `/login`.
 
 ## Styling
@@ -212,6 +212,58 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   Firestore sync (`focusHydration/{day}`, load-on-connect max-merge) + `QuoteBox`.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
+
+## Filing feature (`/filing`)
+
+*Where every paper lives — and what's due next.* A self-contained pillar under
+`src/features/filing/` + the `/filing` route (see `ANALYSIS-FILING-LOG.md`).
+Removable cleanly; never imports another feature.
+
+Bookmark Deck's job is **retrieval** — bookmarks answer "where is it?" for the
+digital world, Filing answers it for the physical one. A `Party` is a *label on a
+folder* ("Mom's", "Client: Acme") inside one owner's account — **not** household
+multi-user, which stays ruled out. Nobody else signs in.
+
+- Route: `src/app/(app)/filing/page.tsx` — the same 15-line auth gate as `/inventory`.
+- UI: `FilingDashboard` composes `UpcomingPanel`, `ShredQueue`, `PlaceManager`,
+  `PartyManager`, `FolderFormModal`, `DocumentFormModal`, `FolderPapersModal`,
+  `ObligationsModal`, `CustodyModal`, `WhereIsPaperModal`, `LabelPrintModal`,
+  `ActivityTimeline`.
+- Collections (all under `users/{uid}/`, so **no `firestore.rules` change**):
+  `filingPlaces`, `filingParties`, `filingFolders`, `filingDocuments`,
+  `filingSettings/settings`. Notes: `src/features/filing/FIRESTORE_RULES.md`.
+- **Scale:** places/parties/folders cache whole; documents are subscribed whole but
+  cached **slim** — only the fields the list, search, badge and queues need.
+  `subscribeDocuments(folderId?)` exists so per-folder lazy loading is a one-line
+  change past a documented threshold.
+
+Three model decisions worth not re-litigating:
+
+1. **Checked out is `currentPlaceId !== homePlaceId`** — there is no flag, so the
+   two can never disagree. `lib/custody.ts`.
+2. **Retention runs from the calendar-year-end cutoff of `coversThrough`**, not
+   from when you filed it. 2024 papers filed in March 2025 age out on
+   **2031-12-31**, not 2032-03-something. `lib/retention.ts`.
+3. **A folder inherits the LONGEST retention of its contents** — one permanent
+   paper makes the whole folder permanent.
+
+Other invariants:
+
+- **`nextDueOn` is derived and restamped on every write** (`withDerived` in
+  `useFilingDocuments`). A stale cache is what makes the badge lie.
+- **Completing a repeat rolls forward exactly one period**, so three missed months
+  read as still overdue rather than silently skipping ahead.
+- **Nothing is ever destroyed on a timer.** The shred queue is a review queue;
+  "shred" archives and writes a `shredded` receipt to the activity timeline. A
+  folder's `keepReason` mutes the reminder **without touching the clock**.
+- **`useFilingReminderCount` reads localStorage only** — obligations due + papers
+  to clear + folders overdue back — so the shared shell never pulls Firebase into
+  its bundle. Same constraint as `useInventoryReminderCount`.
+- Retention and renewal presets are **labelled defaults, not authority**; both
+  surfaces carry a visible "general guidance, not legal or tax advice" line.
+- Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
+  labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
+  `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`.
 
 ## Git & PR workflow
 
