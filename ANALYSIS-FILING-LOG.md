@@ -451,7 +451,7 @@ before the next.
 | 2 | **Retrieval**: QR labels, ⌘K entries, "Where is this paper?", Unfiled inbox | The product's actual promise (§3) |
 | 3 | **Reminders**: obligations, `nextDueOn`, Upcoming panel, nav badge, repeat roll-forward, presets | Deliberately before retention — this is the half with a weekly reason to open the app |
 | 4 | **Stewardship**: retention/shred queue folded into the same panel, custody ledger, activity timeline | Reuses Phase 3's surface rather than building a second one. **Shipped** — 22 retention presets in `lib/retention.ts`, custody in `lib/custody.ts` |
-| 5 | **Reach**: scheduled push, `.ics` feed | Distribution, once there's something to remind about |
+| 5 | **Reach**: scheduled push, `.ics` calendar export | Distribution, once there's something to remind about. **Shipped** — a daily digest rather than per-obligation alarms, because `/api/push/schedule` caps QStash delays at 24h; the `.ics` is an import file, not a subscribable feed (that would mean a publicly-fetchable URL carrying private paperwork) |
 | 6 | **Connections**: bookmark ↔ document link, CSV/JSON export + import, optional R2 attachment, `/guide` section | The §2 thesis. Not optional |
 
 ### Cut regardless

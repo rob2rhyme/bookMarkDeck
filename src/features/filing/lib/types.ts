@@ -273,18 +273,28 @@ export type FilingSettings = {
   /** How many days before a due date the reminder starts nudging (Phase 3). */
   leadDays: number;
   defaultCurrency: string;
+  /** Opt-in daily digest push (Phase 5). Off until asked for. */
+  pushEnabled: boolean;
+  /** Local hour, 0-23, the digest is aimed at. */
+  pushHour: number;
+  /** Put retention dates in the calendar export as well as obligations. */
+  icsIncludeRetention: boolean;
 };
 
 export const DEFAULT_FILING_SETTINGS: FilingSettings = {
   defaultView: "folders",
   leadDays: 30,
   defaultCurrency: "USD",
+  pushEnabled: false,
+  pushHour: 9,
+  icsIncludeRetention: true,
 };
 
 export function normalizeSettings(raw: unknown): FilingSettings {
   const r = (raw ?? {}) as Record<string, unknown>;
   const d = DEFAULT_FILING_SETTINGS;
   const lead = typeof r.leadDays === "number" ? r.leadDays : Number(r.leadDays);
+  const hour = typeof r.pushHour === "number" ? r.pushHour : Number(r.pushHour);
   return {
     defaultView: r.defaultView === "documents" ? "documents" : d.defaultView,
     leadDays: Number.isFinite(lead) ? Math.min(365, Math.max(0, lead)) : d.leadDays,
@@ -292,6 +302,9 @@ export function normalizeSettings(raw: unknown): FilingSettings {
       typeof r.defaultCurrency === "string" && r.defaultCurrency.trim()
         ? r.defaultCurrency
         : d.defaultCurrency,
+    pushEnabled: r.pushEnabled === true,
+    pushHour: Number.isFinite(hour) ? Math.min(23, Math.max(0, Math.floor(hour))) : d.pushHour,
+    icsIncludeRetention: r.icsIncludeRetention !== false,
   };
 }
 

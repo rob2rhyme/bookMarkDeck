@@ -228,7 +228,7 @@ multi-user, which stays ruled out. Nobody else signs in.
 - UI: `FilingDashboard` composes `UpcomingPanel`, `ShredQueue`, `PlaceManager`,
   `PartyManager`, `FolderFormModal`, `DocumentFormModal`, `FolderPapersModal`,
   `ObligationsModal`, `CustodyModal`, `WhereIsPaperModal`, `LabelPrintModal`,
-  `ActivityTimeline`.
+  `ActivityTimeline`, `FilingSettingsModal`.
 - Collections (all under `users/{uid}/`, so **no `firestore.rules` change**):
   `filingPlaces`, `filingParties`, `filingFolders`, `filingDocuments`,
   `filingSettings/settings`. Notes: `src/features/filing/FIRESTORE_RULES.md`.
@@ -261,6 +261,17 @@ Other invariants:
   its bundle. Same constraint as `useInventoryReminderCount`.
 - Retention and renewal presets are **labelled defaults, not authority**; both
   surfaces carry a visible "general guidance, not legal or tax advice" line.
+- **Push is a DAILY DIGEST, not an alarm per obligation.** `/api/push/schedule`
+  clamps QStash delays to 24h, so a renewal months out can't be queued when it's
+  created. One message a day, re-armed whenever you open `/filing`
+  (`useFilingPush` + `lib/digest.ts`). Consequence, stated in the UI: stop
+  opening the app and the digest pauses. The badge and panel stay current.
+- **`lib/push.ts` is COPIED from `features/focus/lib/push.ts`, not imported** —
+  a feature never imports another feature. The `/api/push/*` routes are shared
+  infrastructure, so calling those is fine.
+- **The `.ics` is a file to import, not a feed to subscribe to.** A live feed
+  means a publicly-fetchable URL carrying someone's paperwork; deliberately not
+  built. All-day `VALUE=DATE` events, so no timezone or DST question arises.
 - Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`.

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { Plus, Search, MapPin, Tag, FolderTree, Sparkles } from "@/components/icons";
+import { Plus, Search, MapPin, Tag, FolderTree, Sparkles, Settings } from "@/components/icons";
 import { Input } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useFilingSync } from "@/features/filing/hooks/useFilingSync";
@@ -34,6 +34,8 @@ import { ObligationsModal } from "@/features/filing/components/ObligationsModal"
 import { FolderPapersModal } from "@/features/filing/components/FolderPapersModal";
 import { ShredQueue } from "@/features/filing/components/ShredQueue";
 import { CustodyModal } from "@/features/filing/components/CustodyModal";
+import { FilingSettingsModal } from "@/features/filing/components/FilingSettingsModal";
+import { useFilingPush } from "@/features/filing/hooks/useFilingPush";
 import { dueItems } from "@/features/filing/lib/obligations";
 import { shredItems } from "@/features/filing/lib/retention";
 import { custodyItems } from "@/features/filing/lib/custody";
@@ -54,7 +56,7 @@ export function FilingDashboard() {
   const parties = useFilingParties(email, connected);
   const folders = useFilingFolders(email, connected);
   const documents = useFilingDocuments(email, connected);
-  const { settings } = useFilingSettings(email, connected);
+  const { settings, update: updateSettings } = useFilingSettings(email, connected);
 
   const [query, setQuery] = useState("");
   const [partyFilter, setPartyFilter] = useState<string>("");
@@ -71,6 +73,7 @@ export function FilingDashboard() {
   const [obligationsFor, setObligationsFor] = useState<string | null>(null);
   const [papersFor, setPapersFor] = useState<string | null>(null);
   const [custodyOpen, setCustodyOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Hydration-safe "today": never read the clock during render, and re-check on
   // an interval so a tab left open overnight rolls over instead of going stale.
   const [today, setToday] = useState("");
@@ -129,6 +132,18 @@ export function FilingDashboard() {
     [folders.active, today]
   );
   const lateBack = useMemo(() => out.filter((i) => i.overdue).length, [out]);
+
+  // The opt-in daily digest. `ready` gates on `today` so the first arm isn't
+  // built from an empty dashboard.
+  useFilingPush({
+    email,
+    enabled: settings.pushEnabled,
+    hour: settings.pushHour,
+    due,
+    shred,
+    custody: out,
+    ready: Boolean(today) && documents.hydrated && folders.hydrated,
+  });
 
   /** Where a paper's folder lives — the line the Upcoming panel shows. */
   const trailFor = useCallback(
@@ -295,6 +310,13 @@ export function FilingDashboard() {
               className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
               <Tag className="h-4 w-4" /> People
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+            >
+              <Settings className="h-4 w-4" /> Reminders
             </button>
             <button
               type="button"
@@ -619,6 +641,17 @@ export function FilingDashboard() {
           )}
         </section>
       )}
+
+      <FilingSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={settings}
+        onChange={updateSettings}
+        documents={documents.active}
+        folders={folders.active}
+        trailFor={trailFor}
+        connected={connected}
+      />
 
       <CustodyModal
         open={custodyOpen}
