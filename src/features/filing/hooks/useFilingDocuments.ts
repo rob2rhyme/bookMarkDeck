@@ -33,7 +33,13 @@ const keyFor = (email?: string | null) => (email ? `${BASE_KEY}:${email}` : BASE
  * panel render offline without loading every obligation array. The three
  * retention inputs are here for the same reason: paired with the folders cache
  * (which is stored whole), they let the shred queue and the nav badge compute
- * without a network round-trip. All five are short scalars.
+ * without a network round-trip.
+ *
+ * `bookmarkLink` is here on the same grounds. It is the connection that earns
+ * this pillar its place — the policy in Drawer 2 and the insurer's login page as
+ * one record — and leaving it out meant the link vanished from the papers list
+ * on reload whenever the account wasn't synced. Roughly 100 bytes per linked
+ * paper, which is a fair price for the headline feature surviving a refresh.
  */
 type SlimDocument = Pick<
   FilingDocument,
@@ -47,6 +53,7 @@ type SlimDocument = Pick<
   | "nextDueOn"
   | "retentionRuleId"
   | "overrideDestroyOn"
+  | "bookmarkLink"
   | "tags"
   | "archived"
 >;
@@ -62,6 +69,7 @@ const slim = (d: FilingDocument): SlimDocument => ({
   nextDueOn: d.nextDueOn,
   retentionRuleId: d.retentionRuleId,
   overrideDestroyOn: d.overrideDestroyOn,
+  bookmarkLink: d.bookmarkLink,
   tags: d.tags,
   archived: d.archived,
 });
@@ -356,6 +364,26 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     [canSync, email, onSaveError]
   );
 
+  /**
+   * Restore from a backup: merge by id, restamp the derived cache, then push to
+   * the cloud so an import isn't stranded on this device. Never deletes.
+   */
+  const importMany = useCallback(
+    (incoming: FilingDocument[]) => {
+      if (incoming.length === 0) return;
+      setDocuments((prev) => {
+        const byId = new Map(prev.map((d) => [d.id, d]));
+        for (const item of incoming) {
+          const merged = withDerived({ ...(byId.get(item.id) ?? {}), ...item } as FilingDocument);
+          byId.set(item.id, merged);
+          if (canSync && email) saveDocument(email, merged).catch(onSaveError);
+        }
+        return [...byId.values()];
+      });
+    },
+    [canSync, email, onSaveError]
+  );
+
   const active = useMemo(() => documents.filter((d) => !d.archived), [documents]);
   const countByFolder = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -371,6 +399,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     active,
     countByFolder,
     hydrated,
+    importMany,
     addDocument,
     updateDocument,
     fileInto,

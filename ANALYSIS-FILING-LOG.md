@@ -452,7 +452,7 @@ before the next.
 | 3 | **Reminders**: obligations, `nextDueOn`, Upcoming panel, nav badge, repeat roll-forward, presets | Deliberately before retention — this is the half with a weekly reason to open the app |
 | 4 | **Stewardship**: retention/shred queue folded into the same panel, custody ledger, activity timeline | Reuses Phase 3's surface rather than building a second one. **Shipped** — 22 retention presets in `lib/retention.ts`, custody in `lib/custody.ts` |
 | 5 | **Reach**: scheduled push, `.ics` calendar export | Distribution, once there's something to remind about. **Shipped** — a daily digest rather than per-obligation alarms, because `/api/push/schedule` caps QStash delays at 24h; the `.ics` is an import file, not a subscribable feed (that would mean a publicly-fetchable URL carrying private paperwork) |
-| 6 | **Connections**: bookmark ↔ document link, CSV/JSON export + import, optional R2 attachment, `/guide` section | The §2 thesis. Not optional |
+| 6 | **Connections**: bookmark ↔ document link, CSV/JSON export + import, `/guide` section | The §2 thesis. Not optional. **Shipped** — the link reads the core bookmarks cache (a one-way dependency, not a second subscription); import merges by id and never deletes. **R2 attachments deliberately NOT built**: index-first stands, and the upload path needs its own presign route plus a copied R2 client, which is a slice of its own rather than a footnote to this one |
 
 ### Cut regardless
 

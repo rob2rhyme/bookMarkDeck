@@ -23,6 +23,7 @@ export function FolderPapersModal({
   today,
   onEdit,
   onRemind,
+  onLink,
   onRemove,
   onAdd,
 }: {
@@ -34,6 +35,7 @@ export function FolderPapersModal({
   today: string;
   onEdit: (d: FilingDocument) => void;
   onRemind: (documentId: string) => void;
+  onLink: (documentId: string) => void;
   onRemove: (documentId: string) => void;
   onAdd: () => void;
 }) {
@@ -83,6 +85,24 @@ export function FolderPapersModal({
                     {relativeDue(days)}
                   </span>
                 )}
+                {d.bookmarkLink && (
+                  <a
+                    href={d.bookmarkLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Open ${d.bookmarkLink.title}`}
+                    className="rounded-full border border-blue-500/40 px-2.5 py-0.5 text-[11px] font-semibold text-blue-300 transition hover:border-blue-400"
+                  >
+                    🔗 {d.bookmarkLink.title}
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onLink(d.id)}
+                  className="rounded-full border border-slate-700 px-2.5 py-0.5 text-[11px] font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+                >
+                  {d.bookmarkLink ? "Change" : "Link"}
+                </button>
                 <button
                   type="button"
                   onClick={() => onRemind(d.id)}

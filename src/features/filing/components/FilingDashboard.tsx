@@ -35,6 +35,8 @@ import { FolderPapersModal } from "@/features/filing/components/FolderPapersModa
 import { ShredQueue } from "@/features/filing/components/ShredQueue";
 import { CustodyModal } from "@/features/filing/components/CustodyModal";
 import { FilingSettingsModal } from "@/features/filing/components/FilingSettingsModal";
+import { BookmarkLinkModal } from "@/features/filing/components/BookmarkLinkModal";
+import type { FilingBackup } from "@/features/filing/lib/types";
 import { useFilingPush } from "@/features/filing/hooks/useFilingPush";
 import { dueItems } from "@/features/filing/lib/obligations";
 import { shredItems } from "@/features/filing/lib/retention";
@@ -74,6 +76,7 @@ export function FilingDashboard() {
   const [papersFor, setPapersFor] = useState<string | null>(null);
   const [custodyOpen, setCustodyOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [linkingFor, setLinkingFor] = useState<string | null>(null);
   // Hydration-safe "today": never read the clock during render, and re-check on
   // an interval so a tab left open overnight rolls over instead of going stale.
   const [today, setToday] = useState("");
@@ -219,6 +222,20 @@ export function FilingDashboard() {
     window.addEventListener(FILING_INTENT_NUDGE, consume);
     return () => window.removeEventListener(FILING_INTENT_NUDGE, consume);
   }, []);
+
+  /**
+   * Restoring a backup. Merges by id through each hook's setter — never deletes,
+   * so importing a six-month-old file can't remove six months of filing.
+   */
+  const importBackup = useCallback(
+    (data: FilingBackup) => {
+      places.importMany(data.places);
+      parties.importMany(data.parties);
+      folders.importMany(data.folders);
+      documents.importMany(data.documents);
+    },
+    [places, parties, folders, documents]
+  );
 
   const submitFolder = useCallback(
     (draft: FolderDraft) => {
@@ -642,6 +659,15 @@ export function FilingDashboard() {
         </section>
       )}
 
+      <BookmarkLinkModal
+        open={Boolean(linkingFor)}
+        onClose={() => setLinkingFor(null)}
+        document={documents.active.find((d) => d.id === linkingFor) ?? null}
+        email={email}
+        onLink={(documentId, link) => documents.updateDocument(documentId, { bookmarkLink: link })}
+        onUnlink={(documentId) => documents.updateDocument(documentId, { bookmarkLink: null })}
+      />
+
       <FilingSettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -649,8 +675,11 @@ export function FilingDashboard() {
         onChange={updateSettings}
         documents={documents.active}
         folders={folders.active}
+        places={places.places}
+        parties={parties.parties}
         trailFor={trailFor}
         connected={connected}
+        onImport={importBackup}
       />
 
       <CustodyModal
@@ -739,6 +768,10 @@ export function FilingDashboard() {
         onRemind={(documentId) => {
           setPapersFor(null);
           setObligationsFor(documentId);
+        }}
+        onLink={(documentId) => {
+          setPapersFor(null);
+          setLinkingFor(documentId);
         }}
         onRemove={documents.removeDocument}
         onAdd={() => {

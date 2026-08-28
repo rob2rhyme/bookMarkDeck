@@ -9,7 +9,20 @@ import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { buildIcs, filingEvents } from "@/features/filing/lib/ics";
 import { pushSupported } from "@/features/filing/lib/push";
-import type { FilingDocument, FilingFolder, FilingSettings } from "@/features/filing/lib/types";
+import {
+  buildBackup,
+  documentsToCsv,
+  parseBackup,
+  type ImportSummary,
+} from "@/features/filing/lib/exportFiling";
+import type {
+  FilingBackup,
+  FilingDocument,
+  FilingFolder,
+  FilingParty,
+  FilingPlace,
+  FilingSettings,
+} from "@/features/filing/lib/types";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
@@ -26,8 +39,11 @@ export function FilingSettingsModal({
   onChange,
   documents,
   folders,
+  places,
+  parties,
   trailFor,
   connected,
+  onImport,
 }: {
   open: boolean;
   onClose: () => void;
@@ -35,17 +51,64 @@ export function FilingSettingsModal({
   onChange: (patch: Partial<FilingSettings>) => void;
   documents: FilingDocument[];
   folders: FilingFolder[];
+  places: FilingPlace[];
+  parties: FilingParty[];
   trailFor: (documentId: string) => string[];
   /** Reminders live in the cloud copy, not the on-device cache — see below. */
   connected: boolean;
+  onImport: (data: FilingBackup) => void;
 }) {
   const [exported, setExported] = useState(0);
+  const [importState, setImportState] = useState<
+    { kind: "idle" } | { kind: "done"; summary: ImportSummary } | { kind: "error"; message: string }
+  >({ kind: "idle" });
   const canPush = pushSupported();
 
   const events = filingEvents(documents, folders, {
     includeRetention: settings.icsIncludeRetention,
     trailFor,
   });
+
+  function save(contents: string, filename: string, type: string) {
+    const blob = new Blob([contents], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadJson() {
+    const now = new Date().toISOString();
+    const backup = buildBackup(
+      { places, parties, folders, documents, settings },
+      now
+    );
+    save(
+      JSON.stringify(backup, null, 2),
+      `bookmark-deck-filing-${now.slice(0, 10)}.json`,
+      "application/json"
+    );
+  }
+
+  function downloadCsv() {
+    save(
+      documentsToCsv(documents, folders, parties, trailFor),
+      `bookmark-deck-filing-${new Date().toISOString().slice(0, 10)}.csv`,
+      "text/csv;charset=utf-8"
+    );
+  }
+
+  async function importFile(file: File) {
+    const result = parseBackup(await file.text());
+    if (!result.ok) {
+      setImportState({ kind: "error", message: result.error });
+      return;
+    }
+    onImport(result.data);
+    setImportState({ kind: "done", summary: result.summary });
+  }
 
   function download() {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
@@ -175,6 +238,65 @@ export function FilingSettingsModal({
             <p className="mt-2 text-[12px] text-emerald-400">
               Exported {exported} date{exported === 1 ? "" : "s"}. Re-export after changes —
               this is a file, not a live feed.
+            </p>
+          )}
+        </div>
+
+        <div className="border-t border-slate-800 pt-4">
+          <SectionLabel>Backup</SectionLabel>
+          <p className="mt-1 text-[13px] text-slate-400">
+            JSON is the complete copy and can be imported back. CSV is a flat sheet of
+            your papers and where they live — for a spreadsheet or a printout.
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={downloadJson}
+              className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+            >
+              Export JSON
+            </button>
+            <button
+              type="button"
+              onClick={downloadCsv}
+              disabled={documents.length === 0}
+              className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500 disabled:opacity-40"
+            >
+              Export CSV
+            </button>
+            <label className="cursor-pointer rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500">
+              Import JSON
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = ""; // let the same file be picked twice
+                  if (file) void importFile(file);
+                }}
+              />
+            </label>
+          </div>
+
+          <p className="mt-2 text-[12px] text-slate-500">
+            Importing merges by id and never deletes — restoring an old backup won&rsquo;t
+            remove anything you&rsquo;ve filed since.
+          </p>
+
+          {importState.kind === "error" && (
+            <p className="mt-2 text-[12px] text-red-400">{importState.message}</p>
+          )}
+          {importState.kind === "done" && (
+            <p className="mt-2 text-[12px] text-emerald-400">
+              Imported {importState.summary.places} places, {importState.summary.parties}{" "}
+              people, {importState.summary.folders} folders and{" "}
+              {importState.summary.documents} papers.
+              {importState.summary.skipped > 0 &&
+                ` ${importState.summary.skipped} unreadable record${
+                  importState.summary.skipped === 1 ? "" : "s"
+                } skipped.`}
             </p>
           )}
         </div>

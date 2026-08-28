@@ -150,6 +150,26 @@ export function useFilingPlaces(email?: string | null, connected = false) {
     [canSync, email]
   );
 
+  /**
+   * Restore from a backup: merge by id, then push each result to the cloud so an
+   * import isn't stranded on this device. Never deletes — see lib/exportFiling.
+   */
+  const importMany = useCallback(
+    (incoming: FilingPlace[]) => {
+      if (incoming.length === 0) return;
+      setPlaces((prev) => {
+        const byId = new Map(prev.map((x) => [x.id, x]));
+        for (const item of incoming) {
+          const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingPlace;
+          byId.set(item.id, merged);
+          if (canSync && email) savePlace(email, merged).catch(() => {});
+        }
+        return [...byId.values()];
+      });
+    },
+    [canSync, email]
+  );
+
   const tree = useMemo(() => buildTree(places), [places]);
   const paths = useMemo(() => placePathsById(places), [places]);
   const nameById = useMemo(
@@ -163,6 +183,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
     paths,
     nameById,
     hydrated,
+    importMany,
     addPlace,
     updatePlace,
     movePlace,

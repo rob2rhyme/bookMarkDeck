@@ -228,7 +228,7 @@ multi-user, which stays ruled out. Nobody else signs in.
 - UI: `FilingDashboard` composes `UpcomingPanel`, `ShredQueue`, `PlaceManager`,
   `PartyManager`, `FolderFormModal`, `DocumentFormModal`, `FolderPapersModal`,
   `ObligationsModal`, `CustodyModal`, `WhereIsPaperModal`, `LabelPrintModal`,
-  `ActivityTimeline`, `FilingSettingsModal`.
+  `ActivityTimeline`, `FilingSettingsModal`, `BookmarkLinkModal`.
 - Collections (all under `users/{uid}/`, so **no `firestore.rules` change**):
   `filingPlaces`, `filingParties`, `filingFolders`, `filingDocuments`,
   `filingSettings/settings`. Notes: `src/features/filing/FIRESTORE_RULES.md`.
@@ -272,6 +272,22 @@ Other invariants:
 - **The `.ics` is a file to import, not a feed to subscribe to.** A live feed
   means a publicly-fetchable URL carrying someone's paperwork; deliberately not
   built. All-day `VALUE=DATE` events, so no timezone or DST question arises.
+- **The bookmark↔document link is the pillar's stated condition** — a paper
+  points at the bookmark for its account, so the policy in Drawer 2 and the
+  insurer's login page are one record. `lib/bookmarks.ts` READS the core
+  bookmarks localStorage cache (`bookmarkdeck:v2:{email}`) rather than mounting
+  `useBookmarks`: a one-way read-only dependency on core, not a second
+  subscription to the same data. Keep the key in sync with
+  `storageKeyV2ForUser`.
+- **Import merges by id and NEVER deletes** (`lib/exportFiling.ts`), so
+  restoring a stale backup can't remove what's been filed since. Each hook's
+  `importMany` also writes through to Firestore, or an import would be stranded
+  on one device. JSON round-trips; CSV is export-only and lossy by design.
+- **Attachments (scans/PDFs) are NOT built.** The model reserves
+  `hasAttachment` + a `filingDocs` subcollection, but the upload path would need
+  its own presign route and a copied R2 client (inventory's are feature code and
+  can't be imported). Index-first stands: the pillar is about finding paper, not
+  storing it.
 - Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`.

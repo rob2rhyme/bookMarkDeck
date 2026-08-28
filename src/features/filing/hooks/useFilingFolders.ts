@@ -214,6 +214,26 @@ export function useFilingFolders(email?: string | null, connected = false) {
     [canSync, email, onSaveError]
   );
 
+  /**
+   * Restore from a backup: merge by id, then push each result to the cloud so an
+   * import isn't stranded on this device. Never deletes — see lib/exportFiling.
+   */
+  const importMany = useCallback(
+    (incoming: FilingFolder[]) => {
+      if (incoming.length === 0) return;
+      setFolders((prev) => {
+        const byId = new Map(prev.map((x) => [x.id, x]));
+        for (const item of incoming) {
+          const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingFolder;
+          byId.set(item.id, merged);
+          if (canSync && email) saveFolder(email, merged).catch(onSaveError);
+        }
+        return [...byId.values()];
+      });
+    },
+    [canSync, email, onSaveError]
+  );
+
   const active = useMemo(() => folders.filter((f) => !f.archived), [folders]);
   const out = useMemo(() => active.filter(isCheckedOut), [active]);
   const byId = useMemo(
@@ -228,6 +248,7 @@ export function useFilingFolders(email?: string | null, connected = false) {
     out,
     byId,
     hydrated,
+    importMany,
     addFolder,
     updateFolder,
     setArchived,

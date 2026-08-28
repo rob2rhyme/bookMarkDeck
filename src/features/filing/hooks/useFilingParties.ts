@@ -123,11 +123,32 @@ export function useFilingParties(email?: string | null, connected = false) {
     [parties]
   );
 
+  /**
+   * Restore from a backup: merge by id, then push each result to the cloud so an
+   * import isn't stranded on this device. Never deletes — see lib/exportFiling.
+   */
+  const importMany = useCallback(
+    (incoming: FilingParty[]) => {
+      if (incoming.length === 0) return;
+      setParties((prev) => {
+        const byId = new Map(prev.map((x) => [x.id, x]));
+        for (const item of incoming) {
+          const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingParty;
+          byId.set(item.id, merged);
+          if (canSync && email) saveParty(email, merged).catch(() => {});
+        }
+        return [...byId.values()];
+      });
+    },
+    [canSync, email]
+  );
+
   return {
     parties,
     active,
     byId,
     hydrated,
+    importMany,
     addParty,
     updateParty,
     removeParty,

@@ -8,6 +8,7 @@ const SECTIONS = [
   { id: "focus", label: "Focus" },
   { id: "habits", label: "Habits" },
   { id: "stuff", label: "My Stuff" },
+  { id: "filing", label: "Filing" },
   { id: "sync", label: "Sync & privacy" },
   { id: "personalize", label: "Make it yours" },
   { id: "shortcuts", label: "Tips & shortcuts" },
@@ -635,6 +636,99 @@ export default function GuidePage() {
               your sign-in is still what keeps your data yours, and the PIN stays
               on this device (never synced). Forgot it? A reset turns the lock
               off and reveals your inventory — nothing is ever deleted.
+            </p>
+          </Sub>
+        </Section>
+
+        <Section id="filing" title="Filing — where every paper lives">
+          <Sub title="Places, folders, papers">
+            <p>
+              Filing answers &ldquo;where is it?&rdquo; for paper the way
+              Bookmarks answers it for the web. Start with{" "}
+              <strong>places</strong> — the actual furniture, nested however deep
+              you need: <em>Garage › Grey cabinet › Drawer 2</em>. Then make a{" "}
+              <strong>folder</strong> (the thing you physically pull out) and drop{" "}
+              <strong>papers</strong> into it. A title is enough to file
+              something; everything else is optional. A paper with nowhere to go
+              yet lands in <strong>Unfiled</strong> and waits.
+            </p>
+            <p>
+              Give a folder <strong>other names you might search for</strong> —
+              &ldquo;car&rdquo;, &ldquo;auto&rdquo;, &ldquo;Taurus&rdquo; all find
+              the same one. That&apos;s the difference between remembering the
+              name you filed it under and finding it at 11pm.{" "}
+              <strong>People</strong> label whose paper it is — a family member,
+              a client — and one control switches the whole view to just theirs.
+            </p>
+          </Sub>
+
+          <Sub title="Finding it again">
+            <p>
+              <strong>Where is it?</strong> searches everything and answers with
+              the full path plus the folder to pull. It&apos;s in{" "}
+              <kbd>⌘K</kbd> too, alongside <em>File a paper</em>.{" "}
+              <strong>Labels</strong> prints QR stickers sized for drawers and
+              file folders — scan one with your phone camera and the app opens
+              filtered to exactly that spot.
+            </p>
+          </Sub>
+
+          <Sub title="What&apos;s due next">
+            <p>
+              A paper can carry what it obliges you to do — renew the licence,
+              pay the premium, file the return, book the inspection. Pick a{" "}
+              <strong>preset</strong> and it&apos;s one tap. Everything due
+              gathers in <strong>Coming up</strong>, grouped Overdue · This week ·
+              This month · Later, and the count rides the nav badge from anywhere
+              in the app.
+            </p>
+            <p>
+              Marking a repeating reminder done moves it forward{" "}
+              <strong>exactly one period</strong> — so three missed months read as
+              still overdue rather than quietly skipping ahead to next year.
+              Turn on the optional <strong>daily summary</strong> to get one
+              notification a day (never one per paper), or export an{" "}
+              <strong>.ics file</strong> and import your deadlines into Google,
+              Apple or Outlook Calendar.
+            </p>
+          </Sub>
+
+          <Sub title="Clearing out, and who has what">
+            <p>
+              Give a folder a <strong>retention rule</strong> and its papers
+              surface in <strong>Ready to clear</strong> once they&apos;ve aged
+              out. The clock starts at the <em>end of the year the contents
+              cover</em>, not the day you filed them — so 2024 papers filed in
+              March 2025 come up at the end of 2031, which is the date that
+              actually matters. Nothing is ever deleted on a timer: it&apos;s a
+              review queue, and clearing a paper keeps a dated receipt on its
+              history. <strong>Hold</strong> pauses a folder&apos;s reminder
+              without touching its clock.
+            </p>
+            <p>
+              Lent something out? <strong>Who has it</strong> records where a
+              folder went, who has it and when it&apos;s wanted back — and says
+              so when it&apos;s late. There&apos;s no separate
+              &ldquo;checked out&rdquo; switch to forget: a folder is out
+              precisely because it isn&apos;t where it lives.
+            </p>
+            <p className="text-slate-400">
+              Retention and renewal periods are general guidance, not legal or
+              tax advice — they vary by state, profession and circumstance.
+              Everything is editable.
+            </p>
+          </Sub>
+
+          <Sub title="Linking a paper to its account">
+            <p>
+              A paper can point at the <strong>bookmark</strong> for the account
+              it belongs to, so the policy in Drawer 2 and the insurer&apos;s
+              login page are one record. Open a folder&apos;s papers and hit{" "}
+              <strong>Link</strong>. <strong>Export</strong> gives you JSON (the
+              complete copy, importable again) or CSV (a flat sheet of what you
+              have and where). Importing <strong>merges and never deletes</strong>,
+              so restoring an old backup can&apos;t remove anything you&apos;ve
+              filed since.
             </p>
           </Sub>
         </Section>
