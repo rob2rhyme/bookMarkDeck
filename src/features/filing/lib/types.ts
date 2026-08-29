@@ -256,6 +256,11 @@ export type FilingDocument = {
   /** DERIVED cache of the earliest open obligation. Recomputed on every write and
    *  kept in the slim localStorage projection so the nav badge works offline. */
   nextDueOn?: string | null;
+  /** DERIVED. The two halves of "is anything nudging yet", split so the badge can
+   *  apply each obligation's own lead time without loading the array. See
+   *  `nudgeDates` in lib/obligations.ts. */
+  remindFrom?: string | null;
+  nextDueDefault?: string | null;
   reference?: string; // policy no., account no., case no.
   aliases: string[];
   tags: string[];

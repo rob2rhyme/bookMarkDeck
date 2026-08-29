@@ -8,7 +8,7 @@ import {
   saveDocument,
   subscribeDocuments,
 } from "@/features/filing/data/filingData";
-import { complete, nextDueOn } from "@/features/filing/lib/obligations";
+import { complete, nextDueOn, nudgeDates } from "@/features/filing/lib/obligations";
 import type {
   FilingActivity,
   FilingActivityType,
@@ -51,6 +51,8 @@ type SlimDocument = Pick<
   | "docDate"
   | "filedAt"
   | "nextDueOn"
+  | "remindFrom"
+  | "nextDueDefault"
   | "retentionRuleId"
   | "overrideDestroyOn"
   | "bookmarkLink"
@@ -67,6 +69,8 @@ const slim = (d: FilingDocument): SlimDocument => ({
   docDate: d.docDate,
   filedAt: d.filedAt,
   nextDueOn: d.nextDueOn,
+  remindFrom: d.remindFrom,
+  nextDueDefault: d.nextDueDefault,
   retentionRuleId: d.retentionRuleId,
   overrideDestroyOn: d.overrideDestroyOn,
   bookmarkLink: d.bookmarkLink,
@@ -101,6 +105,21 @@ function loadLocal(email?: string | null): FilingDocument[] {
     return [];
   }
 }
+
+/**
+ * Stamp the derived cache from the obligations. Applied to EVERY write and to
+ * everything arriving from Firestore, so these can never disagree with the
+ * array they're derived from — a stale cache is what makes a badge lie.
+ *
+ * `remindFrom` / `nextDueDefault` are deliberately NOT persisted: they are a
+ * pure function of `obligations`, and a derived value in two places is a
+ * derived value that eventually drifts.
+ */
+const withDerived = (d: FilingDocument): FilingDocument => ({
+  ...d,
+  nextDueOn: nextDueOn(d.obligations),
+  ...nudgeDates(d.obligations),
+});
 
 export type NewDocument = {
   title: string;
@@ -152,7 +171,11 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     })()
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) unsub = subscribeDocuments(email, setDocuments);
+        if (!cancelled) {
+          unsub = subscribeDocuments(email, (cloud) =>
+            setDocuments(cloud.map(withDerived))
+          );
+        }
       });
     return () => {
       cancelled = true;
@@ -163,12 +186,6 @@ export function useFilingDocuments(email?: string | null, connected = false) {
   const onSaveError = useCallback((err: unknown) => {
     console.error("[filing] document save failed:", err);
   }, []);
-
-  /** Stamp the derived cache. EVERY write goes through here — see `patch`. */
-  const withDerived = (d: FilingDocument): FilingDocument => ({
-    ...d,
-    nextDueOn: nextDueOn(d.obligations),
-  });
 
   const addDocument = useCallback(
     (input: NewDocument): FilingDocument | null => {
@@ -188,6 +205,8 @@ export function useFilingDocuments(email?: string | null, connected = false) {
         note: input.note?.trim() || undefined,
         obligations: [],
         nextDueOn: null,
+        remindFrom: null,
+        nextDueDefault: null,
         activity: [
           { id: crypto.randomUUID(), type: "filed", at: now },
         ],
