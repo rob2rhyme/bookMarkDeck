@@ -62,7 +62,11 @@ Rules live in the committed **`firestore.rules`** at the repo root (wired via `f
 which covers every collection, since all user data lives under `users/{uid}`. Per-feature notes:
 `src/features/{focus,habits,inventory}/FIRESTORE_RULES.md`. **Caveat:** Firestore evaluates the
 **console-deployed** ruleset, and no CI step deploys this file, so the repo copy and production
-can drift — verify/deploy after changing it (`firebase deploy --only firestore:rules`). Any new
+can drift — verify/deploy after changing it (`firebase deploy --only firestore:rules`).
+`npm run verify:rules` checks the repo copy against the Firestore emulator (40 assertions:
+owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`); it needs Java
+plus a running emulator so it stays out of CI, and it proves the file is right, not that
+production matches it. Any new
 collection must stay under `users/{uid}` (or get its own owner-scoped rule).
 
 ## State & persistence pattern (hooks own state)
