@@ -232,7 +232,8 @@ multi-user, which stays ruled out. Nobody else signs in.
 - UI: `FilingDashboard` composes `UpcomingPanel`, `ShredQueue`, `PlaceManager`,
   `PartyManager`, `FolderFormModal`, `DocumentFormModal`, `FolderPapersModal`,
   `ObligationsModal`, `CustodyModal`, `WhereIsPaperModal`, `LabelPrintModal`,
-  `ActivityTimeline`, `FilingSettingsModal`, `BookmarkLinkModal`.
+  `ActivityTimeline`, `FilingSettingsModal`, `BookmarkLinkModal`, `ExpiryPanel`,
+  `FilingInsights`.
 - Collections (all under `users/{uid}/`, so **no `firestore.rules` change**):
   `filingPlaces`, `filingParties`, `filingFolders`, `filingDocuments`,
   `filingSettings/settings`. Notes: `src/features/filing/FIRESTORE_RULES.md`.
@@ -257,6 +258,22 @@ Other invariants:
   `useFilingDocuments`). A stale cache is what makes the badge lie.
 - **Completing a repeat rolls forward exactly one period**, so three missed months
   read as still overdue rather than silently skipping ahead.
+- **Expiry is its own lens, not a reminder.** `lib/expiry.ts` + `ExpiryPanel`
+  list everything with a validity date (`kind` of `expires` or `renew`) —
+  including the licence that's fine for three more years — because "what do I
+  hold and when does each lapse" is a different question from "what's due".
+  Bands are expired / ≤30d / ≤180d / ok: renewing a passport is not a same-week
+  job. An obligation records the `presetId` it came from, which is how the
+  **passport six-month travel-validity rule** is applied — many countries refuse
+  entry below six months' validity, so a passport can be in date and still get
+  you turned away. That cutoff is computed, flagged, and captioned as a default
+  to check per destination.
+- **`lib/stats.ts` + `FilingInsights` derive everything from the activity
+  timelines**; nothing new is stored. Consequence, stated in the UI: each
+  timeline is capped at `MAX_ACTIVITY` (300), so a long-lived record's earliest
+  events age out and the figures are recent history, not an audit ledger. Charts
+  are single-series magnitude, so one hue with direct labels — no legend, no
+  categorical palette.
 - **Nothing is ever destroyed on a timer.** The shred queue is a review queue;
   "shred" archives and writes a `shredded` receipt to the activity timeline. A
   folder's `keepReason` mutes the reminder **without touching the clock**.
@@ -294,7 +311,8 @@ Other invariants:
   storing it.
 - Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
-  `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`.
+  `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`,
+  `icons.tsx` (`Clock`, `BarChart`).
 
 ## Git & PR workflow
 
