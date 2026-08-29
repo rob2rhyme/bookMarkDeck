@@ -30,6 +30,7 @@ import {
 import { PriceComparisonPanel } from "@/features/inventory/components/PriceComparisonPanel";
 import { useItemPriceOffers } from "@/features/inventory/hooks/useItemPriceOffers";
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import {
   daysUntil,
   effectiveUseBy,
@@ -128,7 +129,7 @@ function Lightbox({
         type="button"
         onClick={onClose}
         aria-label="Close photo"
-        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/80 text-slate-200 transition hover:text-white"
+        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/80 text-slate-200 transition hover:text-slate-50"
       >
         <X className="h-4 w-4" />
       </button>
@@ -138,7 +139,7 @@ function Lightbox({
             type="button"
             onClick={() => onIndex((index - 1 + images.length) % images.length)}
             aria-label="Previous photo"
-            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/80 px-3 py-2 text-lg text-slate-200 transition hover:text-white"
+            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/80 px-3 py-2 text-lg text-slate-200 transition hover:text-slate-50"
           >
             ‹
           </button>
@@ -146,7 +147,7 @@ function Lightbox({
             type="button"
             onClick={() => onIndex((index + 1) % images.length)}
             aria-label="Next photo"
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/80 px-3 py-2 text-lg text-slate-200 transition hover:text-white"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/80 px-3 py-2 text-lg text-slate-200 transition hover:text-slate-50"
           >
             ›
           </button>
@@ -407,7 +408,7 @@ export function ItemDetailModal({
       {/* Status + quick actions + at-a-glance history */}
       <div className="mt-3 rounded-xl border border-slate-800/70 bg-slate-950/40 p-3">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <span className={`mr-1 ${SECTION_LABEL_CLASS}`}>
             Status
           </span>
           {status === "lent" ? (
@@ -646,7 +647,7 @@ export function ItemDetailModal({
 
       {item.links.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <p className={`mb-1 ${SECTION_LABEL_CLASS}`}>
             Links
           </p>
           <ul className="flex flex-wrap gap-1.5">
@@ -678,7 +679,7 @@ export function ItemDetailModal({
 
       {loans.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <p className={`mb-1.5 ${SECTION_LABEL_CLASS}`}>
             Lending history
           </p>
           <ul className="flex flex-col gap-1.5">
@@ -715,7 +716,7 @@ export function ItemDetailModal({
 
       {timeline.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <p className={`mb-1.5 ${SECTION_LABEL_CLASS}`}>
             Activity
           </p>
           <ul className="flex flex-col gap-1">
@@ -764,7 +765,7 @@ export function ItemDetailModal({
 
       {item.notes && (
         <div className="mt-3">
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <p className={`mb-1 ${SECTION_LABEL_CLASS}`}>
             Notes
           </p>
           <p className="whitespace-pre-wrap break-words text-sm text-slate-300">
@@ -775,7 +776,7 @@ export function ItemDetailModal({
 
       {docs.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <p className={`mb-1 ${SECTION_LABEL_CLASS}`}>
             Receipts &amp; documents
           </p>
           <ul className="flex flex-wrap gap-2">

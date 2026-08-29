@@ -16,6 +16,7 @@ import {
   planHasChanges,
 } from "@/utils/autoOrganize";
 import type { Folder } from "@/types/folder";
+import { FIELD_CLASS } from "@/components/ui/Field";
 
 type SortMode = "name" | "count";
 
@@ -754,7 +755,7 @@ export default function FolderManagementPage() {
             aria-label="Delete folder"
             disabled={hasChildren}
             onClick={() => handleOpenDelete(option)}
-            className={`${iconButtonBaseClassName} border-red-700/60 bg-red-900/30 text-red-200 hover:border-red-400 hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-red-700/60 disabled:hover:bg-red-900/30`}
+            className={`${iconButtonBaseClassName} border-red-700/60 bg-red-900/30 text-red-200 hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-red-700/60 disabled:hover:bg-red-900/30`}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -839,7 +840,7 @@ export default function FolderManagementPage() {
             title="Smart-sort bookmarks into badged category folders"
             aria-label="Auto-organize"
             onClick={handleAutoOrganize}
-            className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/50 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition hover:border-blue-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/80"
+            className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/50 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition hover:border-blue-400 hover:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/80"
           >
             ✨ <span>Auto-organize</span>
           </button>
@@ -853,14 +854,14 @@ export default function FolderManagementPage() {
               setCreateParentId("__root__");
               setShowCreateModal(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/80"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/80"
           >
             <FolderPlus className="h-3.5 w-3.5" />
             <span>+ Folder</span>
           </button>
           <Link
             href="/"
-            className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-white"
+            className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50"
           >
             Back home
           </Link>
@@ -983,7 +984,7 @@ export default function FolderManagementPage() {
             onKeyDown={(event) => {
               if (event.key === "Enter") handleSaveRename();
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
             placeholder="Folder name"
             autoFocus
           />
@@ -1022,7 +1023,7 @@ export default function FolderManagementPage() {
               setDeleteTarget(event.target.value);
               if (deleteError) setDeleteError("");
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
           >
             <option value="__unstaged__">Unstaged</option>
             {folderOptions
@@ -1067,7 +1068,7 @@ export default function FolderManagementPage() {
               setMergeTargetId(event.target.value);
               if (mergeError) setMergeError("");
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
           >
             <option value="">Target folder</option>
             {folderOptions
@@ -1117,7 +1118,7 @@ export default function FolderManagementPage() {
               setMoveTargetId(event.target.value);
               if (moveError) setMoveError("");
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
           >
             <option value="__top__">Top level</option>
             {moveDestinationOptions.map((option) => (
@@ -1440,7 +1441,7 @@ export default function FolderManagementPage() {
             onKeyDown={(event) => {
               if (event.key === "Enter") handleCreateFolder();
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
             placeholder="Folder name"
             autoFocus
           />
@@ -1451,7 +1452,7 @@ export default function FolderManagementPage() {
               setCreateParentId(event.target.value);
               if (createError) setCreateError("");
             }}
-            className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={FIELD_CLASS}
           >
             <option value="__root__">(Root)</option>
             {folderOptions.map((option) => (

@@ -74,7 +74,7 @@ prompt, capping your Anthropic/UPC bill.
 ## 3. What to gate vs keep free (per your roadmap — never claw back)
 
 - **Free forever** (the acquisition wedge vs Sortly's 100-item / Itemtopia's
-  20-item caps): unlimited items, all four pillars, manual price links, ledgers,
+  20-item caps): unlimited items, all five pillars, manual price links, ledgers,
   insights, exports, local + own-cloud backup, on-device capture.
 - **Premium (~$19.99/yr)** — meter only marginal cost / net-new infra:
   1. AI photo capture + AI insights (Anthropic) — **already built**, dormant.

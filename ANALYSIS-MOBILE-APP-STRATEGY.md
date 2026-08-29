@@ -120,7 +120,7 @@ and the store listing.
    rewards a focused promise. List it around the pay-worthy pillar —
    *"My Stuff — private home inventory"* (name/keywords/screenshots lead with
    inventory + price comparison), with Focus/Habits/Bookmarks presented as
-   the built-in "life hub" bonus. One app, one wedge, four pillars inside.
+   the built-in "life hub" bonus. One app, one wedge, five pillars inside.
 4. **Escape hatch kept**: pillars are `src/features/*` isolated by design; if
    a pillar ever deserves its own listing, it can be extracted then. Don't
    pre-pay that cost.

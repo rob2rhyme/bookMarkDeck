@@ -2,6 +2,7 @@
 
 import { Modal } from "@/components/Modal";
 import { type CursorStyle, useCursorSettings } from "@/lib/cursorSettings";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 
 const STYLES: { value: CursorStyle; label: string }[] = [
   { value: "fish", label: "🐟 Fish" },
@@ -22,7 +23,7 @@ function Row({
 }) {
   return (
     <div className="mt-5">
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <p className={`mb-2 ${SECTION_LABEL_CLASS}`}>
         {label}
       </p>
       {children}
@@ -458,7 +459,7 @@ export function CursorSettingsPanel({
           {settings.babies && (
             <>
               <div className="mt-4">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <p className={`mb-2 ${SECTION_LABEL_CLASS}`}>
                   Number of babies — {settings.babyCount}
                 </p>
                 <input
@@ -473,7 +474,7 @@ export function CursorSettingsPanel({
                 />
               </div>
               <div className="mt-4">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <p className={`mb-2 ${SECTION_LABEL_CLASS}`}>
                   Distance apart — {settings.babyGap}
                 </p>
                 <input
@@ -488,7 +489,7 @@ export function CursorSettingsPanel({
                 />
               </div>
               <div className="mt-4">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <p className={`mb-2 ${SECTION_LABEL_CLASS}`}>
                   Sideways spread — {settings.babySpread}
                 </p>
                 <input
@@ -507,7 +508,7 @@ export function CursorSettingsPanel({
                 </div>
               </div>
               <div className="mt-4">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <p className={`mb-2 ${SECTION_LABEL_CLASS}`}>
                   Baby size — {Math.round((settings.babySize ?? 0.5) * 100)}% of
                   parent
                 </p>

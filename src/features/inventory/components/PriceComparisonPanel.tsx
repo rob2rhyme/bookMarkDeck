@@ -12,6 +12,7 @@ import {
 } from "@/features/inventory/lib/priceCompare";
 import type { PriceLink } from "@/features/inventory/lib/types";
 import { formatMoney } from "@/features/inventory/lib/value";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 
 type PriceComparisonPanelProps = {
   /** Live offers (from the barcode price lookup); [] when none/unavailable. */
@@ -105,7 +106,7 @@ export function PriceComparisonPanel({
   return (
     <div className="mt-3">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        <p className={SECTION_LABEL_CLASS}>
           Price comparison
         </p>
         <span className="flex items-center gap-1.5">

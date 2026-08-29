@@ -3,6 +3,7 @@
 import { Package, X } from "@/components/icons";
 import type { InventoryItem } from "@/features/inventory/lib/types";
 import { formatMoney, itemValue } from "@/features/inventory/lib/value";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 
 type RediscoverCardProps = {
   item: InventoryItem;
@@ -43,7 +44,7 @@ export function RediscoverCard({
         <X className="h-4 w-4" />
       </button>
 
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <p className={`mb-2 ${SECTION_LABEL_CLASS}`}>
         ✨ Rediscover
       </p>
 

@@ -11,6 +11,7 @@ import {
   suggestAreaIcon,
 } from "@/features/habits/lib/areas";
 import { WEEKDAY_LABELS } from "@/features/habits/lib/day";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import {
   DEFAULT_HABIT_EMOJI,
   EMOJI_CHOICES,
@@ -215,7 +216,7 @@ export function CreateHabitModal({
       </h2>
 
       {/* Name + live auto-icon */}
-      <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <label className={`mt-4 block ${SECTION_LABEL_CLASS}`}>
         Name
       </label>
       <div className="mt-1 flex items-center gap-2">
@@ -242,7 +243,7 @@ export function CreateHabitModal({
       </p>
 
       {/* Area / category — a primary field so habits get grouped from the start. */}
-      <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <label className={`mt-4 block ${SECTION_LABEL_CLASS}`}>
         Area (optional)
       </label>
       <div className="mt-1 flex items-center gap-2">
@@ -306,7 +307,7 @@ export function CreateHabitModal({
 
         <div className="mt-3">
           {/* Identity */}
-          <label className="block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <label className={`block ${SECTION_LABEL_CLASS}`}>
             Identity (optional)
           </label>
           <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2">
@@ -321,7 +322,7 @@ export function CreateHabitModal({
           </div>
 
           {/* Emoji */}
-          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Icon</p>
+          <p className={`mt-4 mb-1 ${SECTION_LABEL_CLASS}`}>Icon</p>
           <div className="flex flex-wrap gap-1.5">
             {EMOJI_CHOICES.map((e) => (
               <button
@@ -339,7 +340,7 @@ export function CreateHabitModal({
           </div>
 
           {/* Colour */}
-          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Colour</p>
+          <p className={`mt-4 mb-1 ${SECTION_LABEL_CLASS}`}>Colour</p>
           <div className="flex flex-wrap gap-2">
             {HUE_CHOICES.map((h) => (
               <button
@@ -357,7 +358,7 @@ export function CreateHabitModal({
           </div>
 
           {/* Direction — build it up, or quit / cut it down */}
-          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Goal</p>
+          <p className={`mt-4 mb-1 ${SECTION_LABEL_CLASS}`}>Goal</p>
           <div className="flex gap-2">
             <button type="button" className={seg(direction === "build")} onClick={() => setDirection("build")}>
               🌱 Build
@@ -373,7 +374,7 @@ export function CreateHabitModal({
           </p>
 
           {/* Type */}
-          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Type</p>
+          <p className={`mt-4 mb-1 ${SECTION_LABEL_CLASS}`}>Type</p>
           <div className="flex gap-2">
             <button type="button" className={seg(type === "binary")} onClick={() => setType("binary")}>
               Yes / no
@@ -428,7 +429,7 @@ export function CreateHabitModal({
           )}
 
           {/* Schedule */}
-          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Schedule</p>
+          <p className={`mt-4 mb-1 ${SECTION_LABEL_CLASS}`}>Schedule</p>
           <div className="flex gap-2">
             <button type="button" className={seg(kind === "daily")} onClick={() => setKind("daily")}>
               Every day
@@ -479,7 +480,7 @@ export function CreateHabitModal({
           {/* Focus sync — auto-complete this habit from Focus activity */}
           {(linkedSource || candidate) && (
             <>
-              <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <p className={`mt-4 mb-1 ${SECTION_LABEL_CLASS}`}>
                 Focus sync
               </p>
               {linkedSource ? (
@@ -521,7 +522,7 @@ export function CreateHabitModal({
           )}
 
           {/* Reminder */}
-          <p className="mt-4 mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <p className={`mt-4 mb-1 ${SECTION_LABEL_CLASS}`}>
             Reminder (optional)
           </p>
           <div className="flex items-center gap-2">

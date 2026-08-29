@@ -101,7 +101,7 @@ export function BarcodeScanner({ onDetect, onCancel }: BarcodeScannerProps) {
           type="button"
           onClick={onCancel}
           aria-label="Cancel scan"
-          className="rounded-md p-1.5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+          className="rounded-md p-1.5 text-slate-300 transition hover:bg-white/10 hover:text-slate-50"
         >
           <X className="h-5 w-5" />
         </button>

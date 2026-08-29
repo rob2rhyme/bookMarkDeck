@@ -2,8 +2,9 @@
 
 // Shared native date/time inputs used wherever a date or time is picked.
 // Tapping anywhere on the field opens the browser's picker (showPicker — not
-// just the tiny calendar/clock glyph), and [color-scheme:dark] keeps the
-// native chrome + popup matched to the app's dark theme.
+// just the tiny calendar/clock glyph). The native chrome + popup follow the
+// app's theme via `color-scheme` on :root (globals.css) — this used to force
+// [color-scheme:dark], which would pin the picker dark in light mode.
 
 type FieldProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">;
 
@@ -24,7 +25,7 @@ function PickerInput({
         }
         onClick?.(e);
       }}
-      className={`cursor-pointer [color-scheme:dark] ${className}`}
+      className={`cursor-pointer ${className}`}
       {...rest}
     />
   );

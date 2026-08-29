@@ -1,6 +1,7 @@
 "use client";
 
 import type { InventoryItem } from "@/features/inventory/lib/types";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import {
   hasTrending,
   trending,
@@ -38,7 +39,7 @@ export function TrendingPanel({ items, onOpen }: TrendingPanelProps) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {columns.map((c) => (
           <div key={c.key}>
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <p className={`mb-1.5 ${SECTION_LABEL_CLASS}`}>
               {c.title}
             </p>
             <ul className="flex flex-col gap-0.5">

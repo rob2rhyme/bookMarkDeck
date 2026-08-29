@@ -1,6 +1,7 @@
 "use client";
 
-// Central appearance settings — font family + global text/emoji/icon scaling.
+// Central appearance settings — theme + font family + global text/emoji/icon
+// scaling.
 // Local-only (per device), mirroring cursorSettings: a small React context so
 // the panel writes and an applier reads update live, with a localStorage cache
 // (hydration-safe).
@@ -38,7 +39,15 @@ export const FONT_FAMILIES = [
 
 export type FontFamily = (typeof FONT_FAMILIES)[number];
 
+// "system" follows the OS; the other two pin it. The resolved value is applied
+// as a `light` class on <html> (see AppearanceApplier + the no-flash script in
+// layout.tsx) — dark is the default, so only light needs a class.
+export const THEME_MODES = ["system", "light", "dark"] as const;
+
+export type ThemeMode = (typeof THEME_MODES)[number];
+
 export type AppearanceSettings = {
+  theme: ThemeMode;
   fontFamily: FontFamily;
   fontScale: number; // root font-size multiplier (0.85–1.4)
   emojiScale: number; // extra emoji multiplier on top of text (0.75–1.75)
@@ -46,6 +55,7 @@ export type AppearanceSettings = {
 };
 
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
+  theme: "system",
   fontFamily: "system",
   fontScale: 1,
   emojiScale: 1,
@@ -73,7 +83,11 @@ export function normalizeAppearanceSettings(raw: unknown): AppearanceSettings {
   const r = (raw ?? {}) as Record<string, unknown>;
   const d = DEFAULT_APPEARANCE_SETTINGS;
   const family = r.fontFamily;
+  const theme = r.theme;
   return {
+    theme: (THEME_MODES as readonly string[]).includes(theme as string)
+      ? (theme as ThemeMode)
+      : d.theme,
     fontFamily: (FONT_FAMILIES as readonly string[]).includes(family as string)
       ? (family as FontFamily)
       : "system",

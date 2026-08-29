@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Check, Pencil, X } from "@/components/icons";
 import type { FocusTask } from "@/features/focus/lib/types";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 type Bucket = { sessions: number; focusMin: number };
 
@@ -88,7 +89,7 @@ export function TaskTracker({
 
       <ul className="mt-4 flex flex-col gap-2">
         {activeTasks.length === 0 ? (
-          <li className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+          <li className={EMPTY_STATE_CLASS}>
             No tasks yet. Add one, then start the timer to log time against it.
           </li>
         ) : (

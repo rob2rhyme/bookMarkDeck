@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Modal } from "@/components/Modal";
 import { X } from "@/components/icons";
 import { isValidPin } from "@/features/inventory/lib/appLock";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 
 type AppLockModalProps = {
   open: boolean;
@@ -104,7 +105,7 @@ export function AppLockModal({
       {showPinForm ? (
         <form onSubmit={savePin} className="mt-4 flex flex-col gap-2">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <span className={`mb-1 block ${SECTION_LABEL_CLASS}`}>
               {enabled ? "New PIN" : "Choose a PIN"} (4–8 digits)
             </span>
             <input
@@ -119,7 +120,7 @@ export function AppLockModal({
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <span className={`mb-1 block ${SECTION_LABEL_CLASS}`}>
               Confirm PIN
             </span>
             <input

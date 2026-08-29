@@ -11,6 +11,7 @@ import {
   type MoodKey,
 } from "@/features/focus/lib/mood";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 type AnalysisPanelProps = {
   available: boolean;
@@ -208,7 +209,7 @@ export function AnalysisPanel({
       </h3>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           Sign in to sync to see your daily goal, streak, history, and time per
           task.
         </p>

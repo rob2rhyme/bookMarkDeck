@@ -1,6 +1,7 @@
 "use client";
 
 import type { InventoryItem, InventoryLocation } from "@/features/inventory/lib/types";
+import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import {
   formatMoney,
   itemCount,
@@ -99,7 +100,7 @@ export function ValuePanel({ items, locations, currency, today }: ValuePanelProp
     <div className="rounded-2xl border border-slate-800/70 bg-slate-900/60 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <p className={SECTION_LABEL_CLASS}>
             Total value
           </p>
           <p className="text-3xl font-semibold tabular-nums text-emerald-300">

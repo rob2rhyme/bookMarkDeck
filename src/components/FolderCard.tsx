@@ -166,7 +166,7 @@ export function FolderCard({
       aria-pressed={selectMode ? !!isSelected : undefined}
     >
       {selectMode && isSelectable && (
-        <span className="absolute left-4 top-4 flex h-5 w-5 items-center justify-center rounded border border-slate-500 bg-slate-900/90 text-[11px] text-white">
+        <span className="absolute left-4 top-4 flex h-5 w-5 items-center justify-center rounded border border-slate-500 bg-slate-900/90 text-[11px] text-slate-50">
           {isSelected ? "✓" : ""}
         </span>
       )}

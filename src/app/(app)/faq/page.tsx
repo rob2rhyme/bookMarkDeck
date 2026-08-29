@@ -28,7 +28,7 @@ export default function FaqPage() {
 
         <Q q="Why don't I see “Sign in to sync” buttons anymore?">
           <p>
-            One Google sign-in now connects sync for all four pillars
+            One Google sign-in now connects sync for all five pillars
             automatically — no per-app taps. If the silent connection ever
             can&apos;t complete (rare), the button reappears and a single tap
             reconnects everything at once.
@@ -119,7 +119,7 @@ export default function FaqPage() {
             <Link href="/guide" className="text-blue-300 hover:text-blue-200">
               Guide
             </Link>{" "}
-            walks through all four pillars in plain language, and{" "}
+            walks through all five pillars in plain language, and{" "}
             <Link
               href="/habits/guide"
               className="text-blue-300 hover:text-blue-200"

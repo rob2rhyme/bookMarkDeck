@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import type { ScoreRecord } from "@/features/focus/lib/types";
 import { isTopicId, topicEmoji, topicLabel } from "@/features/focus/lib/topics";
+import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 import {
   AnswerDetailModal,
   TopicDetailModal,
@@ -73,11 +74,11 @@ export function ScoresPanel({
       </h3>
 
       {!available ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           Sign in to sync to keep your quiz points.
         </p>
       ) : answered === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-700/70 bg-slate-950/30 px-3 py-6 text-center text-sm text-slate-400">
+        <p className={EMPTY_STATE_CLASS}>
           No points yet. Answer a quick quiz in “Need a push?” to start your
           score.
         </p>

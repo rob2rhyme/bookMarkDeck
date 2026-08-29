@@ -119,7 +119,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => handleClick("google")}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-950 shadow-sm transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                     disabled={isLoading !== null}
                   >
                     {/* Google G — clean inline SVG */}
