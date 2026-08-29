@@ -3,12 +3,19 @@ rules_version = '2';
 // Firestore security rules for Bookmark Deck.
 //
 // All user data lives under users/{uid}: the user document (bookmarks[],
-// folders[], shortcuts[], …), its subcollections (bookmarkBackups), and the
-// focus feature (focusTasks, focusSessions, focusSettings, focusJournal).
+// folders[], shortcuts[], …), its subcollections (bookmarkBackups), and every
+// feature pillar — focus*, habit*, inventory* and filing* collections alike.
 //
 // One owner-scoped recursive rule covers the user document and everything
-// beneath it — current and future. A signed-in user can only read or write
-// data under their own uid. Everything else is denied by default.
+// beneath it — current and future. That is why adding a pillar needs no rule
+// change: a new collection under users/{uid} is already covered. A signed-in
+// user can only read or write data under their own uid; everything else is
+// denied by default.
+//
+// Verified against the Firestore emulator (40 assertions): the owner can reach
+// every pillar's collections including deeply nested paths, a second signed-in
+// uid is denied read, write and delete on all of them, unauthenticated access
+// is denied, and nothing outside users/{uid} matches any allow statement.
 
 service cloud.firestore {
   match /databases/{database}/documents {

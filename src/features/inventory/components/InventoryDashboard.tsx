@@ -576,12 +576,22 @@ export function InventoryDashboard() {
         </div>
         {/* Wrap onto multiple rows rather than a single scrolling strip — at
             large font sizes a fixed row overflowed the mobile viewport. */}
-        <div className="flex shrink-0 flex-wrap gap-2">
+        {/* One scrollable line rather than a wrapping block: the row stays a
+            single band at every width, and the primary action sits first so
+            it never scrolls out of reach. */}
+        <div className="-mx-3 flex shrink-0 gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0 bd-no-scrollbar">
+          <button
+            type="button"
+            onClick={openAdd}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+          >
+            <Plus className="h-4 w-4" /> Add item
+          </button>
           {total > 0 && (
             <button
               type="button"
               onClick={() => setWhereOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
             >
               <MapPin className="h-4 w-4" /> Find &amp; ask
             </button>
@@ -590,7 +600,7 @@ export function InventoryDashboard() {
             <button
               type="button"
               onClick={() => setLendOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400 hover:text-violet-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400 hover:text-violet-300"
             >
               <HandHelping className="h-4 w-4" /> On loan
               <span
@@ -608,7 +618,7 @@ export function InventoryDashboard() {
             <button
               type="button"
               onClick={() => setDeclutterOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
             >
               <Sparkles className="h-4 w-4" /> Declutter
               <span className="rounded-full bg-emerald-500/20 px-1.5 text-[11px] tabular-nums text-emerald-100">
@@ -620,7 +630,7 @@ export function InventoryDashboard() {
             <button
               type="button"
               onClick={() => setCollectionsOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-teal-400 hover:text-teal-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-teal-400 hover:text-teal-300"
             >
               <Layers className="h-4 w-4" /> Kits
               <span className="rounded-full bg-teal-500/20 px-1.5 text-[11px] tabular-nums text-teal-100">
@@ -632,7 +642,7 @@ export function InventoryDashboard() {
             <button
               type="button"
               onClick={() => setCalendarOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-300"
             >
               📅 Upkeep
               <span className="rounded-full bg-sky-500/20 px-1.5 text-[11px] tabular-nums text-sky-100">
@@ -645,7 +655,7 @@ export function InventoryDashboard() {
               type="button"
               onClick={() => setSubsOpen(true)}
               title="Subscriptions & digital purchases — recurring totals, renewals, licenses"
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
             >
               💳 Subs
               <span className="rounded-full bg-cyan-500/20 px-1.5 text-[11px] tabular-nums text-cyan-100">
@@ -658,7 +668,7 @@ export function InventoryDashboard() {
               type="button"
               onClick={() => setBorrowedOpen(true)}
               title="Things you've borrowed or rented — due dates, costs, returned history"
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-300"
             >
               🤲 Borrowed
               <span className="rounded-full bg-sky-500/20 px-1.5 text-[11px] tabular-nums text-sky-100">
@@ -671,7 +681,7 @@ export function InventoryDashboard() {
               type="button"
               onClick={() => setInsightsOpen(true)}
               title="Charts + facts about what you collect"
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
             >
               📈 Insights
             </button>
@@ -679,7 +689,7 @@ export function InventoryDashboard() {
           <button
             type="button"
             onClick={() => setWishlistOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-pink-400 hover:text-pink-300"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-pink-400 hover:text-pink-300"
           >
             ♡ Wishlist
             {wishlist.items.length > 0 && (
@@ -692,7 +702,7 @@ export function InventoryDashboard() {
             type="button"
             onClick={lock.enabled ? lock.lockNow : () => setLockOpen(true)}
             title={lock.enabled ? "Lock My Stuff now" : "Lock My Stuff behind a PIN"}
-            className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-400 hover:text-slate-100"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-400 hover:text-slate-100"
           >
             🔒 {lock.enabled ? "Lock now" : "Lock"}
           </button>
@@ -701,7 +711,7 @@ export function InventoryDashboard() {
               type="button"
               onClick={() => setLockOpen(true)}
               aria-label="Lock settings"
-              className="rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-400 transition hover:border-slate-400 hover:text-slate-200"
+              className="shrink-0 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-400 transition hover:border-slate-400 hover:text-slate-200"
             >
               <Settings className="h-4 w-4" />
             </button>
@@ -709,7 +719,7 @@ export function InventoryDashboard() {
           <button
             type="button"
             onClick={() => setLocOpen(true)}
-            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+            className="shrink-0 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
           >
             Locations
           </button>
@@ -720,16 +730,9 @@ export function InventoryDashboard() {
             type="button"
             onClick={() => setAiOpen(true)}
             title="Snap a photo — AI names it, then wishlist it or add it"
-            className="hidden items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400 hover:text-violet-300"
+            className="hidden shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400 hover:text-violet-300"
           >
             ✨ AI add
-          </button>
-          <button
-            type="button"
-            onClick={openAdd}
-            className="flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
-          >
-            <Plus className="h-4 w-4" /> Add item
           </button>
         </div>
       </div>

@@ -37,6 +37,20 @@ Firestore evaluates the **console-deployed** ruleset and no CI step deploys the
 repo copy, so verify there after any rules change
 (`firebase deploy --only firestore:rules`).
 
+`npm run verify:rules` checks the repo copy against the Firestore emulator — 40
+assertions covering owner access to every pillar's collections (nested paths
+included), cross-uid denial on read/write/delete, anonymous denial, and that the
+recursive rule doesn't leak outside `users/{uid}`. It needs Java and a running
+emulator, so it isn't part of `npm test` or CI:
+
+```
+npx firebase emulators:start --only firestore --project rules-check
+npm run verify:rules
+```
+
+A pass proves the **file** is right. It says nothing about what production is
+serving — only a deploy does that.
+
 ## Sync — the same shape as the other pillars
 
 Audited field-by-field against `features/inventory`, because "it saves locally
