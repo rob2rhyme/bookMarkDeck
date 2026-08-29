@@ -299,46 +299,60 @@ export function FilingDashboard() {
               Where every paper lives — and what&rsquo;s due next.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          {/* One scrollable line rather than a wrapping block: the row stays a
+              single band at every width, and the primary action sits first so
+              it never scrolls out of reach. */}
+          <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0 bd-no-scrollbar">
+            <button
+              type="button"
+              onClick={() => {
+                setEditingDocument(null);
+                setAddToFolderId(null);
+                setDocumentFormOpen(true);
+              }}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            >
+              <Plus className="h-4 w-4" /> File a paper
+            </button>
             <button
               type="button"
               onClick={() => setWhereOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
             >
               <Search className="h-4 w-4" /> Where is it?
             </button>
             <button
               type="button"
               onClick={() => setLabelsOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
               <Sparkles className="h-4 w-4" /> Labels
             </button>
             <button
               type="button"
               onClick={() => setPlacesOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
               <MapPin className="h-4 w-4" /> Places
             </button>
             <button
               type="button"
               onClick={() => setPartiesOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
               <Tag className="h-4 w-4" /> People
             </button>
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
               <Settings className="h-4 w-4" /> Reminders
             </button>
             <button
               type="button"
               onClick={() => setCustodyOpen(true)}
-              className={`flex items-center gap-1.5 rounded-full border bg-slate-900 px-3 py-1.5 text-xs font-semibold transition ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border bg-slate-900 px-3 py-1.5 text-xs font-semibold transition ${
                 lateBack > 0
                   ? "border-red-500/60 text-red-300 hover:border-red-400"
                   : "border-slate-700 text-slate-200 hover:border-slate-500"
@@ -355,20 +369,9 @@ export function FilingDashboard() {
                 setEditingFolder(null);
                 setFolderFormOpen(true);
               }}
-              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
               <Plus className="h-4 w-4" /> Folder
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingDocument(null);
-                setAddToFolderId(null);
-                setDocumentFormOpen(true);
-              }}
-              className="flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-            >
-              <Plus className="h-4 w-4" /> File a paper
             </button>
           </div>
         </div>
