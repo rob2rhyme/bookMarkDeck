@@ -54,12 +54,13 @@ export default function GuidePage() {
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-slate-300">
         Bookmark Deck is a calm, private home for your online life — and the
-        life around it. Four pillars share one roof: <strong>Bookmarks</strong>{" "}
+        life around it. Five pillars share one roof: <strong>Bookmarks</strong>{" "}
         (the sites and apps you use), <strong>Focus</strong> (the work you do),{" "}
-        <strong>Habits</strong> (the consistency you build), and{" "}
-        <strong>My Stuff</strong> (the things you own). Everything is
-        local-first and syncs to your own account when you ask it to. This page
-        is the long version of how it all works.
+        <strong>Habits</strong> (the consistency you build),{" "}
+        <strong>My Stuff</strong> (the things you own), and{" "}
+        <strong>Filing</strong> (where your paper lives, and what it&apos;s due
+        for). Everything is local-first and syncs to your own account when you
+        ask it to. This page is the long version of how it all works.
       </p>
 
       {/* Contents */}
@@ -744,8 +745,8 @@ export default function GuidePage() {
           <Sub title="One sign-in covers everything">
             <p>
               Signing in with Google once connects cloud sync for{" "}
-              <strong>every</strong> pillar — Bookmarks, Focus, Habits, and My
-              Stuff — automatically and silently on your next visit. No more
+              <strong>every</strong> pillar — Bookmarks, Focus, Habits, My Stuff
+              and Filing — automatically and silently on your next visit. No more
               per-app &ldquo;Sign in to sync&rdquo; taps. (If the silent
               connection ever can&apos;t complete, that button simply
               reappears — one tap reconnects all pillars at once.)
@@ -756,10 +757,13 @@ export default function GuidePage() {
               <strong>Bookmarks &amp; shortcuts</strong> sync only when you
               press <em>Sync to cloud</em> / <em>Sync from cloud</em> on the
               home page — explicit by design, with the last 7 snapshots kept as
-              restorable backups. <strong>Focus, Habits, and My Stuff</strong>{" "}
-              save to your account automatically while you&apos;re signed in,
-              and each still has manual sync/export buttons. Cloud data lives
-              in Firebase under your Google account and is scoped to you alone.
+              restorable backups.{" "}
+              <strong>Focus, Habits, My Stuff and Filing</strong> save to your
+              account automatically while you&apos;re signed in, and each still
+              has manual sync/export buttons. Anything you create before
+              connecting is pushed up when you do, rather than being overwritten
+              by the first sync. Cloud data lives in Firebase under your Google
+              account and is scoped to you alone.
             </p>
           </Sub>
           <Sub title="Privacy">
@@ -817,7 +821,7 @@ export default function GuidePage() {
               bookmark, search everything.
             </li>
             <li>
-              On mobile, the bottom bar holds all four pillars plus a Search
+              On mobile, the bottom bar holds all five pillars plus a Search
               tab; it tucks away while you&apos;re typing.
             </li>
             <li>

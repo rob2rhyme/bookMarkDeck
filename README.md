@@ -1,6 +1,6 @@
 # Bookmark Deck
 
-A calm, private home for your online life — and the life around it. Four pillars share one roof:
+A calm, private home for your online life — and the life around it. Five pillars share one roof:
 
 | Pillar | What it holds |
 |---|---|
@@ -8,6 +8,7 @@ A calm, private home for your online life — and the life around it. Four pilla
 | **Focus** (`/focus`) | The work you do — Pomodoro timer, tasks & to-dos, journal, analysis, wellbeing extras |
 | **Habits** (`/habits`) | The consistency you build — forgiving streaks, insights, gentle reminders |
 | **My Stuff** (`/inventory`) | The things you own — home inventory with photos, values, warranties, lending & more |
+| **Filing** (`/filing`) | Where every paper lives — cabinets, folders and papers, plus what they oblige you to do |
 
 Everything is **local-first** (saves to your device instantly, works offline, installable as a PWA) and syncs to your own Google account when you're signed in. **One sign-in connects sync for every pillar** — no per-app prompts. No analytics, no ads.
 
@@ -43,6 +44,15 @@ Everything is **local-first** (saves to your device instantly, works offline, in
 - **🔥 Trending** (most used / lent / moved, 90 days), value panel with a category-aware **resale estimate** and depreciation curve, attention panel + nav badge for warranties/upkeep, wishlist with already-own detection and scan-filled product thumbnails, kits/collections, declutter pile, daily **Rediscover** nudge, "where's my…" quick-find, insurance report (PDF), CSV/JSON export & merge-safe import, and an optional PIN/biometric **app lock**.
 - Deletes offer **Undo** — items come back whole, photos and receipts included.
 
+### Filing — where every paper lives
+- **Places → folders → papers.** Nest the actual furniture as deep as you need (*Garage › Grey cabinet › Drawer 2*), then file papers into the folder you physically pull out. A title is enough; a paper with nowhere to go yet waits in **Unfiled**.
+- **Find it by any word you'd think of.** Folder aliases mean "car", "auto" and "Taurus" all hit the same one, and **Where is it?** answers with the full path. Printable **QR labels** sized for drawers and file folders — scan one and the app opens filtered to that spot. In ⌘K too.
+- **What's due next.** A paper carries what it obliges you to do — renew, pay, file, inspect — from one-tap presets. Everything gathers in **Coming up** (Overdue · This week · This month · Later) and rides the nav badge. Marking a repeat done rolls it forward *exactly one period*, so missed months read as still overdue instead of quietly skipping ahead. Optional **daily summary** notification, or export an **.ics** for Google/Apple/Outlook Calendar.
+- **Clearing out, properly.** Retention runs from the *end of the year the contents cover*, not the day you filed — so 2024 papers filed in March 2025 come up at the end of 2031. Presets cite what their number rests on (IRS limitation periods, FLSA/ADEA, HIPAA). Nothing is deleted on a timer: it's a review queue, and clearing a paper leaves a dated receipt. **Hold** pauses a reminder without touching its clock.
+- **Who has it.** A folder is "out" precisely because it isn't where it lives — no separate switch to forget. Records who took it and when it's wanted back, and says so when it's late.
+- **Linked to your bookmarks.** A paper can point at the bookmark for the account it belongs to, so the policy in Drawer 2 and the insurer's login page are one record. JSON/CSV export; importing merges and never deletes.
+- Retention and renewal periods are labelled guidance, not legal or tax advice.
+
 ### Personalization
 - Appearance settings (fonts — including your own font file, kept on-device — and size tuning), decorative cursor companions, and a mobile bottom nav.
 
@@ -77,12 +87,12 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests + build on every PR.
 - **Dual-layer auth**: next-auth (Google) owns the session; Firebase Auth owns Firestore access. A silent id_token bridge connects the two, so one Google sign-in covers every pillar's sync (see `CLAUDE.md` → *Auth*).
 - **Data**: one Firestore document per user (`users/{uid}`) plus per-feature subcollections; `localStorage` is a per-user local cache. Cloud writes are optimistic and fail-safe.
 - **PWA**: manifest + conservative service worker (network-first navigations, cache-first hashed assets, `/api/*` untouched) + offline fallback.
-- Feature pillars live under `src/features/{focus,habits,inventory}` and are removable; shared UI in `src/components`.
+- Feature pillars live under `src/features/{focus,habits,inventory,filing}` and are removable; shared UI in `src/components`.
 
 ### More documentation
 
 - **In-app**: `/guide` (the full user guide), `/faq`, `/habits/guide`, `/privacy`, `/terms`
-- **Repo**: `CLAUDE.md` (architecture source of truth), `FOCUS-INTEGRATION.md`, `INVENTORY-ROADMAP.md`, `SECURITY.md`, `CAPACITOR_IOS.md`, `TROUBLESHOOTING.md`
+- **Repo**: `CLAUDE.md` (architecture source of truth), `FOCUS-INTEGRATION.md`, `INVENTORY-ROADMAP.md`, `ANALYSIS-FILING-LOG.md`, `SECURITY.md`, `CAPACITOR_IOS.md`, `TROUBLESHOOTING.md`
 
 ## Privacy summary
 

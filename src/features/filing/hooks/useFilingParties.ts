@@ -76,6 +76,13 @@ export function useFilingParties(email?: string | null, connected = false) {
     };
   }, [canSync, email]);
 
+  // A rejected write (e.g. a doc over Firestore's 1 MiB cap) should be
+  // diagnosable rather than silent — same as the folders/documents hooks and
+  // features/inventory/hooks/useInventory.ts.
+  const onSaveError = useCallback((err: unknown) => {
+    console.error("[filing] party save failed:", err);
+  }, []);
+
   const addParty = useCallback(
     (name: string, kind: PartyKind = "family", color?: TabColor): FilingParty | null => {
       const trimmed = name.trim();
@@ -89,10 +96,10 @@ export function useFilingParties(email?: string | null, connected = false) {
         updatedAt: null,
       };
       setParties((prev) => [...prev, party]);
-      if (canSync && email) saveParty(email, party).catch(() => {});
+      if (canSync && email) saveParty(email, party).catch(onSaveError);
       return party;
     },
-    [canSync, email]
+    [canSync, email, onSaveError]
   );
 
   const updateParty = useCallback(
@@ -102,19 +109,19 @@ export function useFilingParties(email?: string | null, connected = false) {
           p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p
         );
         const updated = next.find((p) => p.id === id);
-        if (canSync && email && updated) saveParty(email, updated).catch(() => {});
+        if (canSync && email && updated) saveParty(email, updated).catch(onSaveError);
         return next;
       });
     },
-    [canSync, email]
+    [canSync, email, onSaveError]
   );
 
   const removeParty = useCallback(
     (id: string) => {
       setParties((prev) => prev.filter((p) => p.id !== id));
-      if (canSync && email) deleteParty(email, id).catch(() => {});
+      if (canSync && email) deleteParty(email, id).catch(onSaveError);
     },
-    [canSync, email]
+    [canSync, email, onSaveError]
   );
 
   const active = useMemo(() => parties.filter((p) => !p.archived), [parties]);
@@ -135,12 +142,12 @@ export function useFilingParties(email?: string | null, connected = false) {
         for (const item of incoming) {
           const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingParty;
           byId.set(item.id, merged);
-          if (canSync && email) saveParty(email, merged).catch(() => {});
+          if (canSync && email) saveParty(email, merged).catch(onSaveError);
         }
         return [...byId.values()];
       });
     },
-    [canSync, email]
+    [canSync, email, onSaveError]
   );
 
   return {

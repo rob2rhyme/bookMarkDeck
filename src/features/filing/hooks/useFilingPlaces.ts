@@ -81,6 +81,13 @@ export function useFilingPlaces(email?: string | null, connected = false) {
     };
   }, [canSync, email]);
 
+  // A rejected write (e.g. a doc over Firestore's 1 MiB cap) should be
+  // diagnosable rather than silent — same as the folders/documents hooks and
+  // features/inventory/hooks/useInventory.ts.
+  const onSaveError = useCallback((err: unknown) => {
+    console.error("[filing] place save failed:", err);
+  }, []);
+
   const addPlace = useCallback(
     (name: string, parentId: string | null = null, kind?: PlaceKind): FilingPlace | null => {
       const trimmed = name.trim();
@@ -95,10 +102,10 @@ export function useFilingPlaces(email?: string | null, connected = false) {
         updatedAt: null,
       };
       setPlaces((prev) => [...prev, place]);
-      if (canSync && email) savePlace(email, place).catch(() => {});
+      if (canSync && email) savePlace(email, place).catch(onSaveError);
       return place;
     },
-    [canSync, email]
+    [canSync, email, onSaveError]
   );
 
   const updatePlace = useCallback(
@@ -108,11 +115,11 @@ export function useFilingPlaces(email?: string | null, connected = false) {
           p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p
         );
         const updated = next.find((p) => p.id === id);
-        if (canSync && email && updated) savePlace(email, updated).catch(() => {});
+        if (canSync && email && updated) savePlace(email, updated).catch(onSaveError);
         return next;
       });
     },
-    [canSync, email]
+    [canSync, email, onSaveError]
   );
 
   /**
@@ -139,15 +146,15 @@ export function useFilingPlaces(email?: string | null, connected = false) {
           .map((p) => (p.parentId === id ? { ...p, parentId: null } : p))
           .filter((p) => p.id !== id);
         if (canSync && email) {
-          deletePlace(email, id).catch(() => {});
+          deletePlace(email, id).catch(onSaveError);
           orphans.forEach((p) =>
-            savePlace(email, { ...p, parentId: null }).catch(() => {})
+            savePlace(email, { ...p, parentId: null }).catch(onSaveError)
           );
         }
         return next;
       });
     },
-    [canSync, email]
+    [canSync, email, onSaveError]
   );
 
   /**
@@ -162,12 +169,12 @@ export function useFilingPlaces(email?: string | null, connected = false) {
         for (const item of incoming) {
           const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingPlace;
           byId.set(item.id, merged);
-          if (canSync && email) savePlace(email, merged).catch(() => {});
+          if (canSync && email) savePlace(email, merged).catch(onSaveError);
         }
         return [...byId.values()];
       });
     },
-    [canSync, email]
+    [canSync, email, onSaveError]
   );
 
   const tree = useMemo(() => buildTree(places), [places]);
