@@ -93,6 +93,9 @@ export function ObligationsModal({
       repeat,
       repeatMonths: repeat === "custom" ? Number(repeatMonths) || undefined : undefined,
       leadDays: preset?.leadDays,
+      // Kept so rules that depend on WHICH document this is still apply later —
+      // the passport travel-validity window can't be inferred from the date.
+      presetId: preset?.id,
     });
     setDueOn("");
     setLabel("");

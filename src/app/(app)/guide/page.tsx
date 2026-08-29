@@ -694,6 +694,42 @@ export default function GuidePage() {
             </p>
           </Sub>
 
+          <Sub title="What expires, and when">
+            <p>
+              <strong>Valid until</strong> is a separate list from{" "}
+              <em>Coming up</em>, because an expiring passport isn&apos;t the same
+              kind of thing as an unpaid bill — you can&apos;t settle it late, and
+              renewing takes months. It shows <em>everything</em> with an expiry
+              date, including the licence that&apos;s fine for another three
+              years, so you can see what you hold at a glance. Presets cover
+              passports, driving licences, national ID cards, residence and work
+              permits, visas, permanent-resident cards, Global Entry and
+              memberships.
+            </p>
+            <p>
+              For passports it also tracks the{" "}
+              <strong>six-month rule</strong>: many countries refuse entry — and
+              airlines refuse boarding — unless your passport is valid for six
+              months beyond your trip, so a passport can be perfectly in date and
+              still turn you away at the desk. Filing shows the date that
+              actually matters. Requirements vary (the Schengen area asks three
+              months; some places only want validity on the day you land), so
+              check your destination.
+            </p>
+          </Sub>
+
+          <Sub title="Filing history">
+            <p>
+              <strong>History</strong> is the picture of what you&apos;ve
+              actually done: papers filed, renewals and payments handled, things
+              cleared out, and a month-by-month bar chart of the last year — tap
+              any month for its breakdown. Alongside it, what kind of handling
+              dominates and where your paper actually lives. It&apos;s counted
+              from each record&apos;s own history, which keeps its last 300
+              events, so a very long-lived paper&apos;s earliest entries age out.
+            </p>
+          </Sub>
+
           <Sub title="Clearing out, and who has what">
             <p>
               Give a folder a <strong>retention rule</strong> and its papers

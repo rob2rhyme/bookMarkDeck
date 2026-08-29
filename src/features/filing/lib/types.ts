@@ -207,6 +207,10 @@ export type Obligation = {
   repeatMonths?: number; // when repeat === "custom"
   leadDays?: number; // nudge this early; default from settings
   completedOn?: string | null; // paid/renewed on — a repeat rolls to the next
+  /** Which preset created this, when one did. Kept because some rules key off
+   *  the document rather than the date — a passport's six-month travel-validity
+   *  window can't be inferred from "renew in 120 months". */
+  presetId?: string;
   archived?: boolean;
 };
 

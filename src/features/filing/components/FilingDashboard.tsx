@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { Plus, Search, MapPin, Tag, FolderTree, Sparkles, Settings } from "@/components/icons";
+import { Plus, Search, MapPin, Tag, FolderTree, Sparkles, Settings, Clock, BarChart } from "@/components/icons";
 import { Input } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useFilingSync } from "@/features/filing/hooks/useFilingSync";
@@ -36,6 +36,9 @@ import { ShredQueue } from "@/features/filing/components/ShredQueue";
 import { CustodyModal } from "@/features/filing/components/CustodyModal";
 import { FilingSettingsModal } from "@/features/filing/components/FilingSettingsModal";
 import { BookmarkLinkModal } from "@/features/filing/components/BookmarkLinkModal";
+import { ExpiryPanel } from "@/features/filing/components/ExpiryPanel";
+import { FilingInsights } from "@/features/filing/components/FilingInsights";
+import { expiryItems, expiringCount } from "@/features/filing/lib/expiry";
 import type { FilingBackup } from "@/features/filing/lib/types";
 import { useFilingPush } from "@/features/filing/hooks/useFilingPush";
 import { dueItems } from "@/features/filing/lib/obligations";
@@ -77,6 +80,9 @@ export function FilingDashboard() {
   const [custodyOpen, setCustodyOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [linkingFor, setLinkingFor] = useState<string | null>(null);
+  // Which secondary surface is open. Only one at a time: the dashboard is
+  // already long, and these are things you go looking for, not glance at.
+  const [lens, setLens] = useState<"none" | "expiry" | "insights">("none");
   // Hydration-safe "today": never read the clock during render, and re-check on
   // an interval so a tab left open overnight rolls over instead of going stale.
   const [today, setToday] = useState("");
@@ -128,6 +134,13 @@ export function FilingDashboard() {
         : [],
     [documents.active, folders.active, today, settings.leadDays]
   );
+
+  /** Everything with a validity date — the whole list, not just what's imminent. */
+  const expiry = useMemo(
+    () => (today ? expiryItems(documents.active, folders.active, today) : []),
+    [documents.active, folders.active, today]
+  );
+  const expiringSoon = useMemo(() => expiringCount(expiry), [expiry]);
 
   /** Folders away from home — drives the header pill's count. */
   const out = useMemo(
@@ -344,6 +357,33 @@ export function FilingDashboard() {
             </button>
             <button
               type="button"
+              onClick={() => setLens(lens === "expiry" ? "none" : "expiry")}
+              aria-pressed={lens === "expiry"}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border bg-slate-900 px-3 py-1.5 text-xs font-semibold transition ${
+                expiringSoon > 0
+                  ? "border-amber-500/60 text-amber-300 hover:border-amber-400"
+                  : lens === "expiry"
+                    ? "border-blue-400 text-blue-300"
+                    : "border-slate-700 text-slate-200 hover:border-slate-500"
+              }`}
+            >
+              <Clock className="h-4 w-4" /> Valid until
+              {expiringSoon > 0 && (
+                <span className="tabular-nums opacity-80">{expiringSoon}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLens(lens === "insights" ? "none" : "insights")}
+              aria-pressed={lens === "insights"}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition ${
+                lens === "insights" ? "border-blue-400 text-blue-300" : "hover:border-slate-500"
+              }`}
+            >
+              <BarChart className="h-4 w-4" /> History
+            </button>
+            <button
+              type="button"
               onClick={() => setSettingsOpen(true)}
               className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
@@ -489,6 +529,26 @@ export function FilingDashboard() {
             cabinet, a drawer — then make a folder and drop papers into it.
           </EmptyState>
         </div>
+      )}
+
+      {lens === "expiry" && (
+        <ExpiryPanel
+          items={expiry}
+          connected={connected}
+          onRenew={(documentId, obligationId) =>
+            documents.completeObligation(documentId, obligationId, today)
+          }
+          onOpen={(documentId) => setObligationsFor(documentId)}
+        />
+      )}
+
+      {lens === "insights" && (
+        <FilingInsights
+          documents={documents.documents}
+          folders={folders.folders}
+          placeCount={places.places.length}
+          today={today}
+        />
       )}
 
       {/* What's due — the reason to open this page between filing sessions */}

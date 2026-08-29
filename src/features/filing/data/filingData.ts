@@ -292,6 +292,7 @@ function mapObligation(raw: unknown): Obligation | null {
     repeat: RECURRENCES.has(repeat as Recurrence) ? (repeat as Recurrence) : undefined,
     repeatMonths: numOrUndef(o.repeatMonths),
     leadDays: numOrUndef(o.leadDays),
+    presetId: strOrUndef(o.presetId),
     completedOn: strOrNull(o.completedOn),
     archived: boolOrUndef(o.archived),
   });

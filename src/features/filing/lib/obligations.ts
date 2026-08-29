@@ -211,8 +211,18 @@ export type ObligationPreset = {
 };
 
 export const OBLIGATION_PRESETS: ObligationPreset[] = [
+  // — Identity and status documents. These EXPIRE: you cannot pay one late, and
+  //   the consequence is being turned away at a desk, so the lead times are
+  //   months rather than days.
   { id: "passport", label: "Passport", kind: "renew", repeat: "custom", repeatMonths: 120, leadDays: 180 },
   { id: "licence", label: "Driver's licence", kind: "renew", repeat: "custom", repeatMonths: 48, leadDays: 60 },
+  { id: "national-id", label: "National ID card", kind: "renew", repeat: "custom", repeatMonths: 120, leadDays: 90 },
+  { id: "residence-permit", label: "Residence permit", kind: "expires", repeat: "custom", repeatMonths: 24, leadDays: 90 },
+  { id: "green-card", label: "Permanent resident card", kind: "renew", repeat: "custom", repeatMonths: 120, leadDays: 180 },
+  { id: "visa", label: "Visa", kind: "expires", repeat: "none", leadDays: 60 },
+  { id: "work-permit", label: "Work permit", kind: "expires", repeat: "yearly", leadDays: 90 },
+  { id: "trusted-traveller", label: "Global Entry / PreCheck", kind: "renew", repeat: "custom", repeatMonths: 60, leadDays: 90 },
+  { id: "membership", label: "Membership", kind: "expires", repeat: "yearly", leadDays: 30 },
   { id: "registration", label: "Vehicle registration", kind: "renew", repeat: "yearly", leadDays: 30 },
   { id: "inspection", label: "Vehicle inspection", kind: "inspect", repeat: "yearly", leadDays: 30 },
   { id: "policy", label: "Insurance policy", kind: "renew", repeat: "yearly", leadDays: 45 },
