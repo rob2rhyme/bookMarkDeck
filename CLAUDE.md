@@ -255,7 +255,17 @@ Three model decisions worth not re-litigating:
 Other invariants:
 
 - **`nextDueOn` is derived and restamped on every write** (`withDerived` in
-  `useFilingDocuments`). A stale cache is what makes the badge lie.
+  `useFilingDocuments`), and on everything arriving from Firestore, so it can
+  never disagree with the array it comes from. A stale cache is what makes the
+  badge lie.
+- **The badge honours each obligation's OWN lead time.** It can't load the
+  obligation arrays, so `withDerived` also caches `remindFrom` (earliest
+  `dueOn − leadDays` among obligations that set one) and `nextDueDefault`
+  (earliest `dueOn` among those that don't, which follow the account default).
+  Together they reproduce `isDue` exactly — with only `nextDueOn` and the
+  account default, a passport nudges in the panel for six months while the badge
+  stays silent for five of them. Both are derived, so they are deliberately NOT
+  persisted to Firestore: a derived value in two places eventually drifts.
 - **Completing a repeat rolls forward exactly one period**, so three missed months
   read as still overdue rather than silently skipping ahead.
 - **Expiry is its own lens, not a reminder.** `lib/expiry.ts` + `ExpiryPanel`

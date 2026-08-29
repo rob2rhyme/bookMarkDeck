@@ -57,8 +57,9 @@ function readArray<T>(key: string): T[] {
  * Count from the caches alone (ANALYSIS-FILING-LOG.md §7). Three things want
  * attention, and the badge is the sum:
  *
- *  1. an obligation due — read straight off the slim `nextDueOn`, which is in
- *     the projection precisely so this works without the obligation arrays;
+ *  1. an obligation nudging — from `remindFrom` / `nextDueDefault`, the two
+ *     cached halves that let this apply each obligation's OWN lead time
+ *     without the arrays (see `nudgeDates`);
  *  2. a paper whose retention has run out — computed from the slim retention
  *     inputs against the folders cache, which is stored whole;
  *  3. a folder somebody has had for longer than they said.
@@ -75,9 +76,24 @@ function readCount(email?: string | null): number {
     const lead = leadDaysFor(email);
     const cutoff = addDays(today, lead);
 
-    const due = documents.filter(
-      (d) => !d.archived && typeof d.nextDueOn === "string" && d.nextDueOn <= cutoff
-    ).length;
+    // Reproduces isDue() from two cached dates: obligations that set their own
+    // lead resolved to an absolute date, and the rest measured against the
+    // account default. Comparing nextDueOn to the default alone would ignore
+    // per-obligation leads entirely — a passport nudges in the panel six months
+    // out and the badge would stay silent for five of them.
+    const due = documents.filter((d) => {
+      if (d.archived) return false;
+      if (typeof d.remindFrom === "string" && d.remindFrom <= today) return true;
+      if (typeof d.nextDueDefault === "string" && d.nextDueDefault <= cutoff) return true;
+      // Records written before this field existed, and any the cloud hasn't
+      // restamped yet: fall back to the old behaviour rather than under-count.
+      return (
+        d.remindFrom === undefined &&
+        d.nextDueDefault === undefined &&
+        typeof d.nextDueOn === "string" &&
+        d.nextDueOn <= cutoff
+      );
+    }).length;
     const shred = shredItems(documents, folders, today, lead).length;
     const late = overdueBackCount(folders, today);
 

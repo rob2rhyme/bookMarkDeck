@@ -11,6 +11,7 @@ import {
   isDue,
   isOpen,
   nextDueOn,
+  nudgeDates,
   periodMonths,
   relativeDue,
 } from "@/features/filing/lib/obligations";
@@ -237,5 +238,95 @@ describe("relativeDue", () => {
     expect(relativeDue(-1)).toBe("yesterday");
     expect(relativeDue(5)).toBe("in 5 days");
     expect(relativeDue(-5)).toBe("5 days ago");
+  });
+});
+
+describe("nudgeDates — what the badge caches", () => {
+  const ob = (over: Partial<Obligation> = {}): Obligation => ({
+    id: "o",
+    kind: "pay",
+    dueOn: "2026-09-01",
+    ...over,
+  });
+
+  it("resolves an explicit lead to an absolute date", () => {
+    // A passport due in 2027 with a 180-day lead starts nudging in 2026.
+    expect(nudgeDates([ob({ dueOn: "2027-01-01", leadDays: 180 })])).toEqual({
+      remindFrom: "2026-07-05",
+      nextDueDefault: null,
+    });
+  });
+
+  it("leaves a lead-less obligation as a plain due date", () => {
+    expect(nudgeDates([ob({ dueOn: "2026-09-01" })])).toEqual({
+      remindFrom: null,
+      nextDueDefault: "2026-09-01",
+    });
+  });
+
+  it("tracks both halves independently, not just the earliest overall", () => {
+    // The passport nudges first even though the bill is due first — which is
+    // exactly the case a single cached date gets wrong.
+    const out = nudgeDates([
+      ob({ id: "a", dueOn: "2027-01-01", leadDays: 180 }),
+      ob({ id: "b", dueOn: "2026-09-15" }),
+    ]);
+    expect(out).toEqual({ remindFrom: "2026-07-05", nextDueDefault: "2026-09-15" });
+  });
+
+  it("takes the earliest within each half", () => {
+    const out = nudgeDates([
+      ob({ id: "a", dueOn: "2027-01-01", leadDays: 180 }),
+      ob({ id: "b", dueOn: "2026-10-01", leadDays: 30 }),
+      ob({ id: "c", dueOn: "2026-12-01" }),
+      ob({ id: "d", dueOn: "2026-11-01" }),
+    ]);
+    expect(out).toEqual({ remindFrom: "2026-07-05", nextDueDefault: "2026-11-01" });
+  });
+
+  it("treats a zero lead as explicit, not absent", () => {
+    expect(nudgeDates([ob({ dueOn: "2026-09-01", leadDays: 0 })])).toEqual({
+      remindFrom: "2026-09-01",
+      nextDueDefault: null,
+    });
+  });
+
+  it("ignores archived, completed one-offs and undated obligations", () => {
+    expect(nudgeDates([ob({ archived: true, leadDays: 10 })]).remindFrom).toBeNull();
+    expect(nudgeDates([ob({ completedOn: "2026-08-01" })]).nextDueDefault).toBeNull();
+    expect(nudgeDates([ob({ dueOn: "", leadDays: 10 })]).remindFrom).toBeNull();
+  });
+
+  it("keeps a completed REPEAT, which has already rolled forward", () => {
+    const out = nudgeDates([ob({ dueOn: "2026-10-01", repeat: "yearly", completedOn: "2025-10-01" })]);
+    expect(out.nextDueDefault).toBe("2026-10-01");
+  });
+
+  it("is empty for no obligations", () => {
+    expect(nudgeDates(undefined)).toEqual({ remindFrom: null, nextDueDefault: null });
+    expect(nudgeDates([])).toEqual({ remindFrom: null, nextDueDefault: null });
+  });
+
+  it("agrees with isDue for every combination", () => {
+    // The property that matters: the cached pair must reproduce isDue exactly.
+    const today = "2026-08-29";
+    const D = 30;
+    const cases: Obligation[][] = [
+      [ob({ dueOn: "2027-01-01", leadDays: 180 })],   // nudging via lead
+      [ob({ dueOn: "2027-06-01", leadDays: 180 })],   // not yet
+      [ob({ dueOn: "2026-09-10" })],                  // nudging via default
+      [ob({ dueOn: "2026-12-01" })],                  // not yet
+      [ob({ dueOn: "2026-09-10", leadDays: 5 })],     // explicit lead too short
+      [ob({ id: "a", dueOn: "2026-12-01" }), ob({ id: "b", dueOn: "2027-01-01", leadDays: 180 })],
+      [ob({ dueOn: "2026-01-01" })],                  // overdue
+    ];
+    for (const obligations of cases) {
+      const expected = obligations.some((o) => isDue(o, today, D));
+      const { remindFrom, nextDueDefault } = nudgeDates(obligations);
+      const fromCache =
+        (remindFrom !== null && remindFrom <= today) ||
+        (nextDueDefault !== null && nextDueDefault <= addDays(today, D));
+      expect(fromCache, JSON.stringify(obligations)).toBe(expected);
+    }
   });
 });

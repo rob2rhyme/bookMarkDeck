@@ -143,6 +143,40 @@ export function nextDueOn(obligations: Obligation[] | undefined): string | null 
   return open.reduce((min, o) => (o.dueOn < min ? o.dueOn : min), open[0].dueOn);
 }
 
+/**
+ * The two dates the nav badge needs to reproduce `isDue` exactly, without
+ * loading the obligation arrays it can't afford to cache.
+ *
+ * `isDue` is `dueOn - (o.leadDays ?? accountDefault) <= today`. The account
+ * default isn't known when a document is written, so the two halves are cached
+ * separately: obligations that set their OWN lead resolve to an absolute date
+ * here, and the rest keep a plain due date for the reader to apply the default
+ * to. Splitting it this way is what keeps the badge from either lying or
+ * needing the settings doc at write time.
+ */
+export type NudgeDates = {
+  /** Earliest `dueOn - leadDays` among open obligations that set a lead. */
+  remindFrom: string | null;
+  /** Earliest `dueOn` among open obligations that DON'T — they follow the
+   *  account default, which only the reader knows. */
+  nextDueDefault: string | null;
+};
+
+export function nudgeDates(obligations: Obligation[] | undefined): NudgeDates {
+  let remindFrom: string | null = null;
+  let nextDueDefault: string | null = null;
+  for (const o of obligations ?? []) {
+    if (!isOpen(o) || !isDate(o.dueOn)) continue;
+    if (typeof o.leadDays === "number" && o.leadDays >= 0) {
+      const from = addDays(o.dueOn, -o.leadDays);
+      if (remindFrom === null || from < remindFrom) remindFrom = from;
+    } else if (nextDueDefault === null || o.dueOn < nextDueDefault) {
+      nextDueDefault = o.dueOn;
+    }
+  }
+  return { remindFrom, nextDueDefault };
+}
+
 export type DueItem = {
   document: FilingDocument;
   obligation: Obligation;
