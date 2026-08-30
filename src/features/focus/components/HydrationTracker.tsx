@@ -211,7 +211,7 @@ export function HydrationTracker({
         <button
           type="button"
           onClick={onDrink}
-          className="flex-1 rounded-lg bg-sky-600 px-4 py-3 text-base font-medium text-white transition hover:bg-sky-500"
+          className="flex-1 rounded-lg bg-sky-700 px-4 py-3 text-base font-medium text-white transition hover:bg-sky-600"
         >
           + Drink a cup
         </button>
