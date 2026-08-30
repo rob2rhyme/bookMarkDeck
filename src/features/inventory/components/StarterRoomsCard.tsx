@@ -43,7 +43,7 @@ export function StarterRoomsCard({ rooms, onSeed, onDismiss }: StarterRoomsCardP
         <button
           type="button"
           onClick={onSeed}
-          className="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-500"
+          className="rounded-full bg-sky-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-600"
         >
           Add these rooms
         </button>
