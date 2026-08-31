@@ -233,10 +233,10 @@ multi-user, which stays ruled out. Nobody else signs in.
   `PartyManager`, `FolderFormModal`, `DocumentFormModal`, `FolderPapersModal`,
   `ObligationsModal`, `CustodyModal`, `WhereIsPaperModal`, `LabelPrintModal`,
   `ActivityTimeline`, `FilingSettingsModal`, `BookmarkLinkModal`, `ExpiryPanel`,
-  `FilingInsights`.
+  `FilingInsights`, `AttachmentsModal`.
 - Collections (all under `users/{uid}/`, so **no `firestore.rules` change**):
   `filingPlaces`, `filingParties`, `filingFolders`, `filingDocuments`,
-  `filingSettings/settings`. Notes: `src/features/filing/FIRESTORE_RULES.md`.
+  `filingSettings/settings`, `filingDocs` (attachment pointers). Notes: `src/features/filing/FIRESTORE_RULES.md`.
 - **Scale:** places/parties/folders cache whole; documents are subscribed whole but
   cached **slim** — only the fields the list, search, badge and queues need.
   `subscribeDocuments(folderId?)` exists so per-folder lazy loading is a one-line
@@ -314,11 +314,25 @@ Other invariants:
   restoring a stale backup can't remove what's been filed since. Each hook's
   `importMany` also writes through to Firestore, or an import would be stranded
   on one device. JSON round-trips; CSV is export-only and lossy by design.
-- **Attachments (scans/PDFs) are NOT built.** The model reserves
-  `hasAttachment` + a `filingDocs` subcollection, but the upload path would need
-  its own presign route and a copied R2 client (inventory's are feature code and
-  can't be imported). Index-first stands: the pillar is about finding paper, not
-  storing it.
+- **Attachments are optional and index-first.** A scan is a convenience for when
+  you can't get to the paper; the record works without one. Pointers live in
+  `filingDocs/{id}` and are loaded **per document, on open** — the only
+  collection here not subscribed whole, because it's the only one that grows
+  without bound. Objects go to R2 via `/api/filing/attachment/presign` +
+  `/api/filing/object/delete`, with `lib/r2.ts` COPIED from inventory's (a
+  feature never imports another feature) and its `isOwnedFilingPath` scoped to
+  the `filing/` prefix so a bug there can't reach an inventory object.
+  - PDFs and images only; **SVG and HTML are refused** because the public bucket
+    is a different origin and both execute script there. The content-type is
+    *signed*, so the PUT can't swap it afterwards.
+  - A presigned PUT can't carry a size condition (S3 only supports that on POST
+    policies), so the 20 MB cap is a **declared-size check**, and the per-user
+    issuance throttle is what actually limits abuse.
+  - The object key is composed server-side from the session subject, so a client
+    can't target another user's prefix.
+  - The whole surface **hides itself** when the R2 env vars are absent, rather
+    than offering a button that can't work (`attachmentsEnabled()` probes the
+    presign route once).
 - Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`,

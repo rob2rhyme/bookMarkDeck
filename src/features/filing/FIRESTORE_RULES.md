@@ -9,12 +9,20 @@ users/{uid}/filingParties/{partyId}        # whose paper it is
 users/{uid}/filingFolders/{folderId}       # the folder you physically pull
 users/{uid}/filingDocuments/{documentId}   # the paper
 users/{uid}/filingSettings/settings        # settings doc
-users/{uid}/filingDocs/{docId}             # RESERVED — scans/photos, not built
+users/{uid}/filingDocs/{docId}             # attachment pointers (name, size, R2 key)
 ```
 
-`filingDocs` is reserved by the model (`hasAttachment` on a document) but no code
-writes it: attachments would need their own presign route and R2 client, and
-index-first is the pillar's stated position.
+`filingDocs` holds POINTERS, not bytes: name, size, content type, the R2 object
+key and its public URL. The objects themselves live in Cloudflare R2 under
+`filing/{userSeg}/{documentId}/`, where `userSeg` is derived server-side from the
+session subject and never client-supplied.
+
+Two consequences worth stating. The **public bucket is a different origin** with
+no Firestore rule over it — an object URL is unguessable but not access-
+controlled, which is why SVG and HTML are refused at presign time and why a scan
+should not be treated as a secret. And deleting a document removes its pointer
+first, then the object: a failed object delete leaves an orphan nobody sees,
+whereas the reverse would leave a row pointing at bytes that are already gone.
 
 ## Firestore — no change required ✅
 
