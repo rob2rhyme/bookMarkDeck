@@ -24,6 +24,8 @@ export function FolderPapersModal({
   onEdit,
   onRemind,
   onLink,
+  onScans,
+  scansEnabled,
   onRemove,
   onAdd,
 }: {
@@ -36,6 +38,9 @@ export function FolderPapersModal({
   onEdit: (d: FilingDocument) => void;
   onRemind: (documentId: string) => void;
   onLink: (documentId: string) => void;
+  onScans: (documentId: string) => void;
+  /** Withheld entirely when object storage isn't configured. */
+  scansEnabled: boolean;
   onRemove: (documentId: string) => void;
   onAdd: () => void;
 }) {
@@ -95,6 +100,15 @@ export function FolderPapersModal({
                   >
                     🔗 {d.bookmarkLink.title}
                   </a>
+                )}
+                {scansEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => onScans(d.id)}
+                    className="rounded-full border border-slate-700 px-2.5 py-0.5 text-[11px] font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
+                  >
+                    {d.hasAttachment ? "📎 Scans" : "Scan"}
+                  </button>
                 )}
                 <button
                   type="button"

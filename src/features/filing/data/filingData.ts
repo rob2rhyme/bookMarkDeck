@@ -9,6 +9,7 @@
 //   users/{uid}/filingFolders/{id}         -> the folder you physically pull
 //   users/{uid}/filingDocuments/{id}       -> the paper
 //   users/{uid}/filingSettings/settings    -> settings doc
+//   users/{uid}/filingDocs/{id}            -> attachment pointers (R2 keys)
 //
 // The existing recursive owner rule (match /users/{uid}/{document=**}) already
 // covers these — see FIRESTORE_RULES.md. No rule change required.
@@ -49,6 +50,7 @@ import {
   type PlaceKind,
   type Recurrence,
   type TabColor,
+  type FilingAttachment,
 } from "@/features/filing/lib/types";
 
 const placesCol = (uid: string) => collection(db, "users", uid, "filingPlaces");
@@ -56,6 +58,7 @@ const partiesCol = (uid: string) => collection(db, "users", uid, "filingParties"
 const foldersCol = (uid: string) => collection(db, "users", uid, "filingFolders");
 const documentsCol = (uid: string) => collection(db, "users", uid, "filingDocuments");
 const settingsDoc = (uid: string) => doc(db, "users", uid, "filingSettings", "settings");
+const attachmentsCol = (uid: string) => collection(db, "users", uid, "filingDocs");
 
 async function uidFor(emailHint: string): Promise<string> {
   const user = await ensureFirebaseGoogleAuth(emailHint);
@@ -418,6 +421,66 @@ export async function saveSettings(
 ): Promise<void> {
   const uid = await uidFor(emailHint);
   await setDoc(settingsDoc(uid), { ...settings, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+/* -------------------------------------------------------- attachments --- */
+
+function mapAttachment(d: {
+  id: string;
+  data: () => Record<string, unknown>;
+}): FilingAttachment | null {
+  const data = d.data();
+  const path = str(data.path);
+  const url = str(data.url);
+  // A pointer with no object behind it is worse than no pointer — it renders as
+  // a broken link the user can't act on. Drop it.
+  if (!path || !url) return null;
+  return {
+    id: d.id,
+    documentId: str(data.documentId),
+    name: str(data.name) || "Attachment",
+    contentType: str(data.contentType),
+    size: typeof data.size === "number" ? data.size : 0,
+    path,
+    url,
+    addedAt: timestampToIso(data.addedAt),
+  };
+}
+
+export async function fetchAttachments(
+  emailHint: string,
+  documentId?: string
+): Promise<FilingAttachment[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocs(attachmentsCol(uid));
+  return snap.docs
+    .map(mapAttachment)
+    .filter((a): a is FilingAttachment => a !== null)
+    .filter((a) => !documentId || a.documentId === documentId);
+}
+
+export async function saveAttachment(
+  emailHint: string,
+  attachment: FilingAttachment
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(attachmentsCol(uid), attachment.id),
+    prune({
+      documentId: attachment.documentId,
+      name: attachment.name,
+      contentType: attachment.contentType,
+      size: attachment.size,
+      path: attachment.path,
+      url: attachment.url,
+      addedAt: attachment.addedAt ?? serverTimestamp(),
+    })
+  );
+}
+
+export async function deleteAttachment(emailHint: string, id: string): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await deleteDoc(doc(attachmentsCol(uid), id));
 }
 
 /* --------------------------------------------------- realtime listeners --- */

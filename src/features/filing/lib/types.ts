@@ -214,6 +214,27 @@ export type Obligation = {
   archived?: boolean;
 };
 
+/**
+ * A scan or PDF attached to a paper. Lives in its own subcollection
+ * (`filingDocs`) rather than on the document: attachments are the one part of
+ * this pillar that grows without bound, and the slim projection exists to keep
+ * the document list cheap.
+ *
+ * `path` is the R2 object key, kept so the object can be cleaned up when the
+ * record goes. `url` is the public URL, denormalised so the list renders
+ * without a second lookup.
+ */
+export type FilingAttachment = {
+  id: string;
+  documentId: string;
+  name: string;
+  contentType: string;
+  size: number;
+  path: string;
+  url: string;
+  addedAt: string | null;
+};
+
 export type FilingActivityType =
   | "filed"
   | "moved"

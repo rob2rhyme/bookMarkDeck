@@ -756,6 +756,23 @@ export default function GuidePage() {
             </p>
           </Sub>
 
+          <Sub title="Attaching a scan">
+            <p>
+              A paper can carry a <strong>scan</strong> — a PDF or a photo — for
+              when you need the contents and can&apos;t get to the filing
+              cabinet. It&apos;s deliberately optional: Filing is about finding
+              the paper, so every record works perfectly well without one. Open a
+              folder&apos;s papers and hit <strong>Scan</strong>. Scans are
+              stored in your account, so this needs sync on, and the button only
+              appears when file storage is set up on your deployment.
+            </p>
+            <p className="text-slate-400">
+              Treat a scan as a convenience, not a vault: it&apos;s stored at an
+              unguessable address rather than behind a password, so keep genuinely
+              sensitive originals as paper.
+            </p>
+          </Sub>
+
           <Sub title="Linking a paper to its account">
             <p>
               A paper can point at the <strong>bookmark</strong> for the account

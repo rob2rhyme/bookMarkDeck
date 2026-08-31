@@ -37,6 +37,8 @@ import { CustodyModal } from "@/features/filing/components/CustodyModal";
 import { FilingSettingsModal } from "@/features/filing/components/FilingSettingsModal";
 import { BookmarkLinkModal } from "@/features/filing/components/BookmarkLinkModal";
 import { ExpiryPanel } from "@/features/filing/components/ExpiryPanel";
+import { AttachmentsModal } from "@/features/filing/components/AttachmentsModal";
+import { useFilingAttachments } from "@/features/filing/hooks/useFilingAttachments";
 import { FilingInsights } from "@/features/filing/components/FilingInsights";
 import { expiryItems, expiringCount } from "@/features/filing/lib/expiry";
 import type { FilingBackup } from "@/features/filing/lib/types";
@@ -80,6 +82,7 @@ export function FilingDashboard() {
   const [custodyOpen, setCustodyOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [linkingFor, setLinkingFor] = useState<string | null>(null);
+  const [scansFor, setScansFor] = useState<string | null>(null);
   // Which secondary surface is open. Only one at a time: the dashboard is
   // already long, and these are things you go looking for, not glance at.
   const [lens, setLens] = useState<"none" | "expiry" | "insights">("none");
@@ -134,6 +137,10 @@ export function FilingDashboard() {
         : [],
     [documents.active, folders.active, today, settings.leadDays]
   );
+
+  // Loaded per document, on open — attachments are the one collection here that
+  // grows without bound, so opening the filing log must not pay for them.
+  const scans = useFilingAttachments(email, connected, scansFor);
 
   /** Everything with a validity date — the whole list, not just what's imminent. */
   const expiry = useMemo(
@@ -722,6 +729,27 @@ export function FilingDashboard() {
         </section>
       )}
 
+      <AttachmentsModal
+        open={Boolean(scansFor)}
+        onClose={() => setScansFor(null)}
+        document={documents.active.find((d) => d.id === scansFor) ?? null}
+        attachments={scans.attachments}
+        loading={scans.loading}
+        connected={connected}
+        onAdd={(a) => {
+          void scans.add(a);
+          // Mirror onto the document so the papers list can show the clip
+          // without loading every attachment.
+          documents.updateDocument(a.documentId, { hasAttachment: true });
+        }}
+        onRemove={(a) => {
+          void scans.remove(a);
+          if (scans.attachments.length <= 1) {
+            documents.updateDocument(a.documentId, { hasAttachment: false });
+          }
+        }}
+      />
+
       <BookmarkLinkModal
         open={Boolean(linkingFor)}
         onClose={() => setLinkingFor(null)}
@@ -836,6 +864,11 @@ export function FilingDashboard() {
           setPapersFor(null);
           setLinkingFor(documentId);
         }}
+        onScans={(documentId) => {
+          setPapersFor(null);
+          setScansFor(documentId);
+        }}
+        scansEnabled={scans.enabled === true}
         onRemove={documents.removeDocument}
         onAdd={() => {
           setAddToFolderId(papersFor);
