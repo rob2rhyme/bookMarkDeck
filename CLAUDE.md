@@ -160,8 +160,11 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   `focus`/`habits` feature `lib/` helpers (streaks, formatting, exports, mood, settings, etc.).
 - "Verify" = lint + typecheck + build + `npm run test`, plus a **manual smoke check**:
   login, bookmark sync, Drive sync.
-- CI: `.github/workflows/ci.yml` runs `typecheck` + `test` + `build` (root) on
-  PRs/pushes to `main`, with dummy env vars. Vercel builds previews.
+- CI: `.github/workflows/ci.yml` runs `actionlint` (workflows) + `typecheck` + `test` +
+  `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds previews.
+  actionlint is blocking and pinned: an invalid workflow expression fails at *startup*,
+  producing a run with no jobs and no entry in the PR's check list, so the failure looks
+  like nothing ran.
   `.github/workflows/firestore-rules.yml` is separate and path-filtered to the rules
   files — verify → deploy → read back (see **Firestore security rules** above).
 
