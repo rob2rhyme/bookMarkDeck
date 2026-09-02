@@ -75,9 +75,13 @@ then reads the released ruleset back to confirm the deploy landed:
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |
 
-The deploy half needs the repo secret `FIREBASE_SERVICE_ACCOUNT` (a service-account key with
-`roles/firebaserules.admin`); without it the deploy job skips with a notice rather than failing,
-so forks still get the verification half. The last two commands read the same credential locally
+The deploy half needs the repo secret `FIREBASE_SERVICE_ACCOUNT` — a JSON key for a service
+account holding **both** `roles/firebaserules.admin` (create rulesets, move the release) and
+`roles/serviceusage.serviceUsageConsumer` (what firebase-tools needs to call project APIs as a
+service account rather than a user). Service accounts live in the Cloud console, not the Firebase
+one: console.cloud.google.com → IAM & Admin → Service Accounts, same project as `.firebaserc`.
+Full steps are in the workflow header. Without the secret the deploy job skips with a notice
+rather than failing, so forks still get the verification half. The last two commands read the same credential locally
 via `GOOGLE_APPLICATION_CREDENTIALS`. `firebase-tools` is pinned in `package.json` and is
 deliberately **not** a dependency — it's fetched by `npx -y`, so it can't drag transitive
 advisories into the lockfile.

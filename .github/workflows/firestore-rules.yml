@@ -8,11 +8,23 @@ name: Firestore rules
 # Every step here is an npm script, so CI runs exactly what a developer runs
 # locally and firebase-tools is pinned in one place (package.json).
 #
-# Setup (one-time, by the project owner):
-#   1. In the Google Cloud console for the Firebase project, create a service
-#      account and grant it "Firebase Rules Admin" (roles/firebaserules.admin).
-#   2. Create a JSON key for it.
-#   3. Paste the whole JSON file into the repo secret FIREBASE_SERVICE_ACCOUNT.
+# Setup (one-time, by the project owner). A Firebase project IS a Google Cloud
+# project — the same project seen through two consoles — and service accounts
+# live only in the Cloud one, so all of this happens there:
+#   1. console.cloud.google.com, with the project from .firebaserc selected →
+#      IAM & Admin → Service Accounts → + Create service account.
+#   2. Grant it BOTH of these roles — one alone is not enough:
+#        Firebase Rules Admin    roles/firebaserules.admin
+#          creates rulesets and moves the cloud.firestore release
+#        Service Usage Consumer  roles/serviceusage.serviceUsageConsumer
+#          what firebase-tools needs to call project APIs as a service account
+#          rather than a user; firebase-tools grants it to the CI accounts it
+#          provisions itself (firebase/firebase-tools#6895)
+#   3. Click the new account's email → Keys → Add key → Create new key → JSON.
+#      It downloads once and cannot be downloaded again.
+#   4. GitHub → this repo → Settings → Secrets and variables → Actions → New
+#      repository secret, named FIREBASE_SERVICE_ACCOUNT, holding that whole
+#      JSON file.
 # Without that secret the deploy job SKIPS rather than fails, so the
 # verification half still runs on forks and on pull requests from them.
 #
