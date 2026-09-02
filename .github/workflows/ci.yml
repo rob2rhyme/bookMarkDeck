@@ -9,6 +9,27 @@ on:
       - main
 
 jobs:
+  # Cheap and blocking, and deliberately first: a workflow file with an invalid
+  # expression fails at STARTUP, which produces a run with no jobs and nothing
+  # in the PR's check list — the failure mode is looking like nothing ran.
+  # actionlint catches that class (bad context, bad `needs`, unknown action
+  # inputs) in about a second, and shellcheck-lints the `run:` blocks too.
+  workflows:
+    name: workflows (actionlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The upstream installer, pinned by tag so both the script and the binary
+      # are fixed. Not an action: no third-party action in the supply chain for
+      # a one-binary linter.
+      - name: Install actionlint
+        run: |
+          curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash" \
+            | bash -s -- "$ACTIONLINT_VERSION"
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+      - run: ./actionlint -color
+
   root:
     name: root (build + typecheck)
     runs-on: ubuntu-latest
