@@ -60,14 +60,27 @@ Rules live in the committed **`firestore.rules`** at the repo root (wired via `f
 `.firebaserc`, project `unified-project-440e5`): a single owner-scoped recursive rule
 `match /users/{uid}/{document=**}` allowing read/write only when `request.auth.uid == uid` —
 which covers every collection, since all user data lives under `users/{uid}`. Per-feature notes:
-`src/features/{focus,habits,inventory}/FIRESTORE_RULES.md`. **Caveat:** Firestore evaluates the
-**console-deployed** ruleset, and no CI step deploys this file, so the repo copy and production
-can drift — verify/deploy after changing it (`firebase deploy --only firestore:rules`).
-`npm run verify:rules` checks the repo copy against the Firestore emulator (40 assertions:
-owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`); it needs Java
-plus a running emulator so it stays out of CI, and it proves the file is right, not that
-production matches it. Any new
-collection must stay under `users/{uid}` (or get its own owner-scoped rule).
+`src/features/{focus,habits,inventory}/FIRESTORE_RULES.md`. Any new collection must stay under
+`users/{uid}` (or get its own owner-scoped rule).
+
+Firestore evaluates the **deployed** ruleset, so the repo copy and production used to be able to
+drift silently. **`.github/workflows/firestore-rules.yml` closes that gap** — on any change to
+the rules files it proves the ruleset against the emulator, deploys it on merge to `main`, and
+then reads the released ruleset back to confirm the deploy landed:
+
+| Command | Answers |
+|---|---|
+| `npm run verify:rules` | is the **file** correct? (40 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`) — needs `FIRESTORE_EMULATOR_HOST` |
+| `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
+| `npm run deploy:rules` | push the repo copy to production |
+| `npm run check:rules` | is **production** running the repo copy? |
+
+The deploy half needs the repo secret `FIREBASE_SERVICE_ACCOUNT` (a service-account key with
+`roles/firebaserules.admin`); without it the deploy job skips with a notice rather than failing,
+so forks still get the verification half. The last two commands read the same credential locally
+via `GOOGLE_APPLICATION_CREDENTIALS`. `firebase-tools` is pinned in `package.json` and is
+deliberately **not** a dependency — it's fetched by `npx -y`, so it can't drag transitive
+advisories into the lockfile.
 
 ## State & persistence pattern (hooks own state)
 
@@ -149,6 +162,8 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   login, bookmark sync, Drive sync.
 - CI: `.github/workflows/ci.yml` runs `typecheck` + `test` + `build` (root) on
   PRs/pushes to `main`, with dummy env vars. Vercel builds previews.
+  `.github/workflows/firestore-rules.yml` is separate and path-filtered to the rules
+  files — verify → deploy → read back (see **Firestore security rules** above).
 
 ## Dependency security note
 

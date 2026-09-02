@@ -41,23 +41,24 @@ service cloud.firestore {
 }
 ```
 
-Firestore evaluates the **console-deployed** ruleset and no CI step deploys the
-repo copy, so verify there after any rules change
-(`firebase deploy --only firestore:rules`).
+Firestore evaluates the **deployed** ruleset, so a correct file in the repo is
+only half the story. `.github/workflows/firestore-rules.yml` handles both halves
+on any change to the rules files: verify against the emulator, deploy on merge to
+`main`, then read the released ruleset back to confirm it landed.
 
 `npm run verify:rules` checks the repo copy against the Firestore emulator — 40
 assertions covering owner access to every pillar's collections (nested paths
 included), cross-uid denial on read/write/delete, anonymous denial, and that the
 recursive rule doesn't leak outside `users/{uid}`. It needs Java and a running
-emulator, so it isn't part of `npm test` or CI:
+emulator, so it's out of `npm test` and lives in its own workflow:
 
 ```
-npx firebase emulators:start --only firestore --project rules-check
-npm run verify:rules
+npm run verify:rules:emulated   # boots the emulator and runs the assertions
+npm run check:rules             # asks production what it is actually serving
 ```
 
-A pass proves the **file** is right. It says nothing about what production is
-serving — only a deploy does that.
+A `verify` pass proves the **file** is right; only `check:rules` proves
+production matches it.
 
 ## Sync — the same shape as the other pillars
 
