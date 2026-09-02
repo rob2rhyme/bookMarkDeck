@@ -2,16 +2,17 @@
 /**
  * Verify firestore.rules against the Firestore emulator.
  *
- * Not part of `npm test` and not in CI: it needs Java and a running emulator,
- * which the CI image doesn't carry. Run it by hand after touching the rules —
- * and remember that Firestore evaluates the CONSOLE-DEPLOYED ruleset, so a pass
- * here proves the file is correct, not that production matches it.
+ * Out of `npm test` because it needs Java and a running emulator; it runs in its
+ * own workflow (.github/workflows/firestore-rules.yml), which gates the deploy
+ * on it. A pass here proves the FILE is correct — scripts/check-deployed-rules.mjs
+ * is what proves production is running it.
  *
- *   npx firebase emulators:start --only firestore --project rules-check
- *   node scripts/verify-firestore-rules.mjs
+ *   npm run verify:rules:emulated          # boots the emulator around this script
+ *   node scripts/verify-firestore-rules.mjs  # against an emulator you already have
  *
- * The emulator must be bound to IPv4 (`"host": "127.0.0.1"` under
- * emulators.firestore in firebase.json) on hosts without IPv6.
+ * FIRESTORE_EMULATOR_HOST selects the emulator; emulators:exec sets it. When
+ * starting one by hand on a host without IPv6, bind it to IPv4 (`"host":
+ * "127.0.0.1"` under emulators.firestore in firebase.json).
  */
 import fs from "node:fs";
 import path from "node:path";

@@ -1,0 +1,133 @@
+name: Firestore rules
+
+# Firestore evaluates the DEPLOYED ruleset, so the repo copy and production can
+# drift silently. This workflow removes that gap: every change to the rules is
+# proved against the emulator, deployed on merge to main, and then read back
+# from the live project to confirm the deploy actually landed.
+#
+# Every step here is an npm script, so CI runs exactly what a developer runs
+# locally and firebase-tools is pinned in one place (package.json).
+#
+# Setup (one-time, by the project owner):
+#   1. In the Google Cloud console for the Firebase project, create a service
+#      account and grant it "Firebase Rules Admin" (roles/firebaserules.admin).
+#   2. Create a JSON key for it.
+#   3. Paste the whole JSON file into the repo secret FIREBASE_SERVICE_ACCOUNT.
+# Without that secret the deploy job SKIPS rather than fails, so the
+# verification half still runs on forks and on pull requests from them.
+#
+# The two path lists below are duplicated on purpose: GitHub Actions does not
+# support YAML anchors, so they have to be kept in sync by hand.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firestore.rules"
+      - "firestore.indexes.json"
+      - "firebase.json"
+      - ".firebaserc"
+      - "scripts/verify-firestore-rules.mjs"
+      - "scripts/check-deployed-rules.mjs"
+      - ".github/workflows/firestore-rules.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "firestore.rules"
+      - "firestore.indexes.json"
+      - "firebase.json"
+      - ".firebaserc"
+      - "scripts/verify-firestore-rules.mjs"
+      - "scripts/check-deployed-rules.mjs"
+      - ".github/workflows/firestore-rules.yml"
+  # Lets the owner deploy without touching a file — the recovery path when the
+  # readback reports that production has drifted from the repo.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firestore-rules-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: verify (emulator)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      # The Firestore emulator is a Java process.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+      # emulators:exec boots the emulator, exports FIRESTORE_EMULATOR_HOST into
+      # the script, and propagates its exit code — so a failed assertion fails
+      # the job. 40 assertions; see scripts/verify-firestore-rules.mjs.
+      - name: Verify rules against the emulator
+        run: npm run verify:rules:emulated
+
+  deploy:
+    name: deploy (production)
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+      # No `npm ci` here: every command in this job is either plain node or
+      # `npx -y firebase-tools`, so the project's dependencies aren't needed.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # `secrets` isn't readable from a job-level `if`, so the guard is a step
+      # that every later step keys off.
+      - name: Check for deploy credentials
+        id: guard
+        run: |
+          if [ -n "${FIREBASE_SERVICE_ACCOUNT:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Firestore rules not deployed::FIREBASE_SERVICE_ACCOUNT is not set, so the rules were verified but not deployed. See the header of .github/workflows/firestore-rules.yml."
+          fi
+
+      # Written to RUNNER_TEMP (wiped with the runner) rather than the
+      # workspace, so it can't be swept up by a later step or an artifact upload.
+      # The key path is exported through GITHUB_ENV rather than set as job-level
+      # `env`: the `runner` context isn't available there, and hardcoding /tmp
+      # would be worse.
+      - name: Write the service-account key
+        if: steps.guard.outputs.present == 'true'
+        run: |
+          umask 077
+          key="$RUNNER_TEMP/firebase-sa.json"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$key" >> "$GITHUB_ENV"
+          node -e "const sa=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); if(sa.type!=='service_account'){console.error('FIREBASE_SERVICE_ACCOUNT is not a service-account key');process.exit(1)} console.log('Deploying as '+sa.client_email+' to '+sa.project_id)" "$key"
+
+      # Project comes from .firebaserc; `--only firestore:rules` leaves indexes
+      # alone. GOOGLE_APPLICATION_CREDENTIALS is the supported auth path —
+      # `--token`/FIREBASE_TOKEN is deprecated, so it isn't used here.
+      - name: Deploy firestore.rules
+        if: steps.guard.outputs.present == 'true'
+        run: npm run deploy:rules
+
+      # A deploy can report success without changing the live ruleset, so
+      # success isn't taken on trust: read the released ruleset back and compare
+      # it with the file in this commit.
+      - name: Confirm production is running this ruleset
+        if: steps.guard.outputs.present == 'true'
+        run: npm run check:rules
+
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-sa.json"
