@@ -80,7 +80,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
     steps:
       - uses: actions/checkout@v4
       # No `npm ci` here: every command in this job is either plain node or
@@ -103,12 +102,17 @@ jobs:
 
       # Written to RUNNER_TEMP (wiped with the runner) rather than the
       # workspace, so it can't be swept up by a later step or an artifact upload.
+      # The key path is exported through GITHUB_ENV rather than set as job-level
+      # `env`: the `runner` context isn't available there, and hardcoding /tmp
+      # would be worse.
       - name: Write the service-account key
         if: steps.guard.outputs.present == 'true'
         run: |
           umask 077
-          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS"
-          node -e "const sa=JSON.parse(require('fs').readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS,'utf8')); if(sa.type!=='service_account'){console.error('FIREBASE_SERVICE_ACCOUNT is not a service-account key');process.exit(1)} console.log('Deploying as '+sa.client_email+' to '+sa.project_id)"
+          key="$RUNNER_TEMP/firebase-sa.json"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$key" >> "$GITHUB_ENV"
+          node -e "const sa=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); if(sa.type!=='service_account'){console.error('FIREBASE_SERVICE_ACCOUNT is not a service-account key');process.exit(1)} console.log('Deploying as '+sa.client_email+' to '+sa.project_id)" "$key"
 
       # Project comes from .firebaserc; `--only firestore:rules` leaves indexes
       # alone. GOOGLE_APPLICATION_CREDENTIALS is the supported auth path —
@@ -126,4 +130,4 @@ jobs:
 
       - name: Remove the key
         if: always()
-        run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
+        run: rm -f "$RUNNER_TEMP/firebase-sa.json"
