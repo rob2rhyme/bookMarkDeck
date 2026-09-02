@@ -18,7 +18,7 @@ jobs:
     name: workflows (actionlint)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # The upstream installer, pinned by tag so both the script and the binary
       # are fixed. Not an action: no third-party action in the supply chain for
       # a one-binary linter.
@@ -43,8 +43,8 @@ jobs:
       GOOGLE_CLIENT_ID: dummy
       GOOGLE_CLIENT_SECRET: dummy
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: "npm"
@@ -71,8 +71,8 @@ jobs:
       GOOGLE_CLIENT_ID: dummy
       GOOGLE_CLIENT_SECRET: dummy
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: "npm"
