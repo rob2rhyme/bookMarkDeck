@@ -64,6 +64,7 @@ on:
       - ".firebaserc"
       - "scripts/verify-firestore-rules.mjs"
       - "scripts/check-deployed-rules.mjs"
+      - "scripts/check-service-account.mjs"
       - ".github/workflows/firestore-rules.yml"
   pull_request:
     branches: [main]
@@ -74,6 +75,7 @@ on:
       - ".firebaserc"
       - "scripts/verify-firestore-rules.mjs"
       - "scripts/check-deployed-rules.mjs"
+      - "scripts/check-service-account.mjs"
       - ".github/workflows/firestore-rules.yml"
   # Lets the owner deploy without touching a file — the recovery path when the
   # readback reports that production has drifted from the repo.
