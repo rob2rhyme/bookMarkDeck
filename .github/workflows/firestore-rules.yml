@@ -12,19 +12,39 @@ name: Firestore rules
 # project — the same project seen through two consoles — and service accounts
 # live only in the Cloud one, so all of this happens there:
 #   1. console.cloud.google.com, with the project from .firebaserc selected →
-#      IAM & Admin → Service Accounts → + Create service account.
-#   2. Grant it BOTH of these roles — one alone is not enough:
+#      IAM & Admin → Service Accounts → + Create service account. Make a NEW
+#      one; do not reuse the firebase-adminsdk-… account already listed. That
+#      is a service agent for the Admin SDK — anything else using it would
+#      inherit whatever is granted here, and its key could not be rotated
+#      without wondering what else breaks.
+#        Service account name  GitHub Actions — Firestore rules
+#        Service account ID    github-actions-rules
+#        Description           Deploys firestore.rules from the Firestore
+#                              rules workflow in rob2rhyme/bookMarkDeck.
+#                              Roles: Firebase Rules Admin + Service Usage
+#                              Consumer.
+#   2. Step 2 of that form is labelled "Permissions (optional)". It is not
+#      optional here — grant BOTH roles, because one alone is not enough:
 #        Firebase Rules Admin    roles/firebaserules.admin
 #          creates rulesets and moves the cloud.firestore release
 #        Service Usage Consumer  roles/serviceusage.serviceUsageConsumer
 #          what firebase-tools needs to call project APIs as a service account
 #          rather than a user; firebase-tools grants it to the CI accounts it
 #          provisions itself (firebase/firebase-tools#6895)
+#      Skipping it produces an account with no permissions and a 403 at deploy
+#      time; the repair is IAM & Admin → IAM → the account → Edit → add roles.
+#      Step 3, "Principals with access", is for letting people impersonate the
+#      account. Leave it empty.
 #   3. Click the new account's email → Keys → Add key → Create new key → JSON.
-#      It downloads once and cannot be downloaded again.
+#      It downloads once and cannot be downloaded again. If Add key is greyed
+#      out, the org policy iam.disableServiceAccountKeyCreation is set and this
+#      workflow needs reworking for Workload Identity Federation instead —
+#      which has its own firebase-tools problem (firebase/firebase-tools#10726),
+#      so read that before starting.
 #   4. GitHub → this repo → Settings → Secrets and variables → Actions → New
 #      repository secret, named FIREBASE_SERVICE_ACCOUNT, holding that whole
-#      JSON file.
+#      JSON file — outer braces included. Then delete the download: the secret
+#      is the only copy anything needs.
 # Without that secret the deploy job SKIPS rather than fails, so the
 # verification half still runs on forks and on pull requests from them.
 #
