@@ -43,7 +43,10 @@ name: Firestore rules
 #      so read that before starting.
 #   4. GitHub → this repo → Settings → Secrets and variables → Actions → New
 #      repository secret, named FIREBASE_SERVICE_ACCOUNT, holding that whole
-#      JSON file — outer braces included. Then delete the download: the secret
+#      JSON file — outer braces included. Not the account's email, name or id:
+#      those are identifiers, not the credential. `npm run check:sa <the file>`
+#      confirms you have the right thing before you paste, and prints nothing
+#      but the account email and project. Then delete the download: the secret
 #      is the only copy anything needs.
 # Without that secret the deploy job SKIPS rather than fails, so the
 # verification half still runs on forks and on pull requests from them.
@@ -61,6 +64,7 @@ on:
       - ".firebaserc"
       - "scripts/verify-firestore-rules.mjs"
       - "scripts/check-deployed-rules.mjs"
+      - "scripts/check-service-account.mjs"
       - ".github/workflows/firestore-rules.yml"
   pull_request:
     branches: [main]
@@ -71,6 +75,7 @@ on:
       - ".firebaserc"
       - "scripts/verify-firestore-rules.mjs"
       - "scripts/check-deployed-rules.mjs"
+      - "scripts/check-service-account.mjs"
       - ".github/workflows/firestore-rules.yml"
   # Lets the owner deploy without touching a file — the recovery path when the
   # readback reports that production has drifted from the repo.
@@ -137,6 +142,9 @@ jobs:
       # The key path is exported through GITHUB_ENV rather than set as job-level
       # `env`: the `runner` context isn't available there, and hardcoding /tmp
       # would be worse.
+      # The validation is a script, not an inline JSON.parse, because a parser's
+      # error quotes a FRAGMENT of its input — and a fragment doesn't match the
+      # secret masker, so a truncated key would print part of itself into a log.
       - name: Write the service-account key
         if: steps.guard.outputs.present == 'true'
         run: |
@@ -144,7 +152,7 @@ jobs:
           key="$RUNNER_TEMP/firebase-sa.json"
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$key" >> "$GITHUB_ENV"
-          node -e "const sa=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); if(sa.type!=='service_account'){console.error('FIREBASE_SERVICE_ACCOUNT is not a service-account key');process.exit(1)} console.log('Deploying as '+sa.client_email+' to '+sa.project_id)" "$key"
+          node scripts/check-service-account.mjs "$key"
 
       # Project comes from .firebaserc; `--only firestore:rules` leaves indexes
       # alone. GOOGLE_APPLICATION_CREDENTIALS is the supported auth path —

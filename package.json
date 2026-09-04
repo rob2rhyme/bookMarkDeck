@@ -15,6 +15,7 @@
     "verify:rules": "node scripts/verify-firestore-rules.mjs",
     "verify:rules:emulated": "npx -y firebase-tools@15.28.2 emulators:exec --only firestore --project rules-check \"npm run verify:rules\"",
     "check:rules": "node scripts/check-deployed-rules.mjs",
+    "check:sa": "node scripts/check-service-account.mjs",
     "deploy:rules": "npx -y firebase-tools@15.28.2 deploy --only firestore:rules --non-interactive"
   },
   "dependencies": {
