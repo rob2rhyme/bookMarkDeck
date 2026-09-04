@@ -31,6 +31,19 @@
 *.key
 *.crt
 
+# Service-account keys. The rules-deploy setup has the owner download a Google
+# private key (see .github/workflows/firestore-rules.yml); *.key above doesn't
+# cover it, because GCP hands it out as .json. It belongs in the
+# FIREBASE_SERVICE_ACCOUNT repo secret and nowhere else — these patterns are the
+# backstop for a stray drag into the working tree. Named narrowly so no real
+# config file is shadowed.
+*-firebase-adminsdk-*.json
+service-account*.json
+*-service-account.json
+serviceaccount*.json
+gcp-key*.json
+unified-project-*.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*
