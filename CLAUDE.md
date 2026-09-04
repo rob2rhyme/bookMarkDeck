@@ -74,6 +74,7 @@ then reads the released ruleset back to confirm the deploy landed:
 | `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |
+| `npm run check:sa <key.json>` | is this file a usable service-account key? (never echoes its contents) |
 
 The deploy half needs the repo secret `FIREBASE_SERVICE_ACCOUNT` — a JSON key for a service
 account holding **both** `roles/firebaserules.admin` (create rulesets, move the release) and
