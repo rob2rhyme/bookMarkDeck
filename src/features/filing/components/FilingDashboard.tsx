@@ -17,7 +17,7 @@ import { useFilingFolders } from "@/features/filing/hooks/useFilingFolders";
 import { useFilingDocuments } from "@/features/filing/hooks/useFilingDocuments";
 import { useFilingSettings } from "@/features/filing/hooks/useFilingSettings";
 import { folderTrail, formatPath, isCheckedOut } from "@/features/filing/lib/breadcrumb";
-import { misfiledFolders } from "@/features/filing/lib/drawers";
+import { misfiledFolders, placeLabel } from "@/features/filing/lib/drawers";
 import { rollUpCounts, subtreeIds } from "@/features/filing/lib/tree";
 import {
   categorySuggestions,
@@ -204,6 +204,11 @@ export function FilingDashboard() {
   const misfiled = useMemo(
     () => misfiledFolders(places.places, folders.active),
     [places.places, folders.active]
+  );
+
+  const placeById = useMemo(
+    () => new Map(places.places.map((p) => [p.id, p])),
+    [places.places]
   );
 
   const partyNameById = useMemo(
@@ -622,9 +627,17 @@ export function FilingDashboard() {
                   <span className="block truncate text-sm text-slate-200">
                     {m.folder.name}
                   </span>
-                  <span className="block truncate text-[11px] text-slate-500">
-                    in {places.nameById[m.placeId] ?? "somewhere"} — belongs in{" "}
-                    {places.nameById[m.suggestedPlaceId] ?? "another drawer"}
+                  {/* The rule, not just the drawer's name — it is the whole
+                      reason this row is here, so it has to be readable. */}
+                  <span className="block text-[11px] text-slate-500">
+                    in{" "}
+                    <span className="whitespace-nowrap">
+                      {placeLabel(placeById.get(m.placeId), "somewhere")}
+                    </span>{" "}
+                    — belongs in{" "}
+                    <span className="whitespace-nowrap">
+                      {placeLabel(placeById.get(m.suggestedPlaceId), "another drawer")}
+                    </span>
                   </span>
                 </span>
                 <button
