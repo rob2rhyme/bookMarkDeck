@@ -265,7 +265,7 @@ multi-user, which stays ruled out. Nobody else signs in.
   `subscribeDocuments(folderId?)` exists so per-folder lazy loading is a one-line
   change past a documented threshold.
 
-Three model decisions worth not re-litigating:
+Four model decisions worth not re-litigating:
 
 1. **Checked out is `currentPlaceId !== homePlaceId`** — there is no flag, so the
    two can never disagree. `lib/custody.ts`.
@@ -274,8 +274,38 @@ Three model decisions worth not re-litigating:
    **2031-12-31**, not 2032-03-something. `lib/retention.ts`.
 3. **A folder inherits the LONGEST retention of its contents** — one permanent
    paper makes the whole folder permanent.
+4. **A drawer's label is a RULE, and the rule is parsed, never stored.**
+   `FilingPlace.contents` holds the text as typed — "A-J", "Taxes", "2019",
+   "Misc." — because that text is what gets printed onto the sticker;
+   `lib/drawers.ts` reads it back into a rule on demand. Storing the parsed form
+   beside it would be a derived value in two places, which is the drift this file
+   warns about everywhere else.
 
 Other invariants:
+
+- **A place filter means the whole subtree, and counts roll up.** Both were
+  wrong until drawers made it obvious: filtering matched one exact place id, so
+  scanning a *cabinet's* QR listed nothing (its folders live in its drawers),
+  and `countByPlace` didn't roll up, so a cabinet holding forty folders printed
+  **"0 folders"** onto its own label. `subtreeIds` and `rollUpCounts` in
+  `lib/tree.ts`.
+- **A misfile is only raised when a SIBLING drawer claims the folder.** Without
+  that condition it nags about every folder whose drawer happens to carry a
+  rule, including ones with no better home anywhere. Judged on `homePlaceId` —
+  where the folder *belongs* — so a folder checked out to your desk reads as
+  out, not misfiled. Moving it updates the record; the paper is still your job.
+- **An overflow drawer ("Misc.", "Other", "General") claims nothing and is
+  offered when nothing else does** — which is exactly what one is for. When
+  there is no overflow drawer either, the suggestion is empty rather than a
+  guess.
+- **The A-Z quick-build weighs the busy initials.** Equal letter counts give one
+  drawer that jams and one holding Q, X and Z; the weighting is why real
+  cabinets read A-J / K-P / Q-Z. Approximate on purpose — any drawer's label can
+  be retyped. `alphabetSplit` in `lib/drawers.ts`.
+- **A cabinet's drawers are created as one batch** (`addCabinet`), not by
+  repeated `addPlace` calls: `ref.current` only catches up on the next render,
+  so five calls in a row hand every drawer the same `sortOrder` and the cabinet
+  reads 1, 10, 2 down its front.
 
 - **`nextDueOn` is derived and restamped on every write** (`withDerived` in
   `useFilingDocuments`), and on everything arriving from Firestore, so it can

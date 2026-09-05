@@ -99,6 +99,21 @@ describe("filingLabelsHtml", () => {
     expect(html).toContain("Acme Ltd");
   });
 
+  it("prints what a drawer holds, above its name", () => {
+    const html = filingLabelsHtml([label({ name: "Drawer 2", contents: "K-P" })]);
+    expect(html).toContain('<div class="holds">K-P</div>');
+    expect(html.indexOf('class="holds"')).toBeLessThan(html.indexOf('class="name"'));
+  });
+
+  it("leaves the holds line out when a place has no rule", () => {
+    expect(filingLabelsHtml([label()])).not.toContain('class="holds"');
+  });
+
+  it("escapes markup in what a drawer holds", () => {
+    const html = filingLabelsHtml([label({ contents: "<b>A-J</b>" })]);
+    expect(html).toContain("&lt;b&gt;A-J&lt;/b&gt;");
+  });
+
   it("escapes names so a stray angle bracket can't break the document", () => {
     const html = filingLabelsHtml([label({ name: 'Bob & <script>alert("x")</script>' })]);
     expect(html).toContain("Bob &amp; &lt;script&gt;");

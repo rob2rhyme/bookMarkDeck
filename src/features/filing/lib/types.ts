@@ -36,6 +36,13 @@ export type FilingPlace = {
   name: string; // "Garage", "Grey cabinet", "Drawer 2"
   parentId: string | null;
   kind?: PlaceKind;
+  /**
+   * What this place HOLDS, as written on its label: "A-J", "Taxes", "2019",
+   * "Misc." Stored as the typed text because that text is what gets printed on
+   * the sticker; the rule behind it is parsed on read (lib/drawers.ts) rather
+   * than stored alongside, so the two can never drift apart.
+   */
+  contents?: string;
   note?: string;
   sortOrder?: number;
   createdAt: string | null;

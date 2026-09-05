@@ -452,6 +452,7 @@ before the next.
 | 3 | **Reminders**: obligations, `nextDueOn`, Upcoming panel, nav badge, repeat roll-forward, presets | Deliberately before retention — this is the half with a weekly reason to open the app |
 | 4 | **Stewardship**: retention/shred queue folded into the same panel, custody ledger, activity timeline | Reuses Phase 3's surface rather than building a second one. **Shipped** — 22 retention presets in `lib/retention.ts`, custody in `lib/custody.ts` |
 | 5 | **Reach**: scheduled push, `.ics` calendar export | Distribution, once there's something to remind about. **Shipped** — a daily digest rather than per-obligation alarms, because `/api/push/schedule` caps QStash delays at 24h; the `.ics` is an import file, not a subscribable feed (that would mean a publicly-fetchable URL carrying private paperwork) |
+| 7 | **Drawer rules**: a place can say what it HOLDS (`contents` — "A-J", "Taxes", "2019", "Misc."), drawer suggestion when filing, a misfile nudge, cabinet quick-build, the rule printed on the label | The one thing the place tree couldn't express. A cabinet's drawer fronts are not names, they are *rules*: they tell anyone holding a folder where it goes, which is what makes a labelled cabinet self-filing. **Shipped** — rule parsed from the label text on read (`lib/drawers.ts`), never stored beside it, because the text is what gets printed and a second copy would drift. Carried two fixes it depends on: a place filter that includes the subtree (scanning a *cabinet* label listed nothing, since the folders live in its drawers) and counts that roll up (a cabinet printed "0 folders" while holding forty) |
 | 6 | **Connections**: bookmark ↔ document link, CSV/JSON export + import, `/guide` section | The §2 thesis. Not optional. **Shipped** — the link reads the core bookmarks cache (a one-way dependency, not a second subscription); import merges by id and never deletes. **R2 attachments shipped separately** (see the attachments note in `CLAUDE.md`): index-first still stands — a scan is optional, loaded per document on open, and the whole surface hides itself when R2 isn't configured |
 
 ### Cut regardless
@@ -459,6 +460,27 @@ before the next.
 RFID · barcode inventory of every sheet · full-text OCR search over scans ·
 multi-user sharing · e-signature · document versioning · cloud-drive sync ·
 "AI file everything for me" · storage-unit rental integrations.
+
+Cut again at Phase 7, with reasons, rather than quietly dropped:
+
+- **Drawer fullness / capacity.** "Capacity planning" was already dropped when
+  borrowing from enterprise records systems (§5); a drawer that reports 80% full
+  is a number nobody acts on until it jams anyway. Not reopened.
+- **A cabinet-door label listing its drawers' ranges.** Attractive, but neither
+  cabinet in the source photo does it — both label the drawer fronts. The drawer
+  labels alone reproduce the object.
+- **Year-drawer retention rollover** ("the 2019 drawer ages out as one"). Collides
+  with the settled rule that a container inherits the *longest* retention of its
+  contents. The `years` rule lays the groundwork; the shred half needs its own
+  think, not a bolt-on.
+
+### Where the alphabetical rule is weakest, stated plainly
+
+An A-Z split assumes name-shaped folders ("Novak, Ellen", "Client: Acme"). Plenty
+of this app's folders are "Vehicles" or "2024 Taxes", where a letter range is
+mechanically fine but carries less meaning than a category. All four rule kinds
+ship so a cabinet can be split whichever way suits it; for household paper the
+`label` and `years` rules are the ones expected to earn their keep.
 
 ## 11. Open decisions (gating)
 

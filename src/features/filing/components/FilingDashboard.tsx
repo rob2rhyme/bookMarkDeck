@@ -17,6 +17,8 @@ import { useFilingFolders } from "@/features/filing/hooks/useFilingFolders";
 import { useFilingDocuments } from "@/features/filing/hooks/useFilingDocuments";
 import { useFilingSettings } from "@/features/filing/hooks/useFilingSettings";
 import { folderTrail, formatPath, isCheckedOut } from "@/features/filing/lib/breadcrumb";
+import { misfiledFolders } from "@/features/filing/lib/drawers";
+import { rollUpCounts, subtreeIds } from "@/features/filing/lib/tree";
 import {
   categorySuggestions,
   searchFiling,
@@ -110,15 +112,25 @@ export function FilingDashboard() {
 
   const hits = useMemo(() => searchFiling(searchData, query), [searchData, query]);
 
+  // Filtering to a place means everything inside it, not just what sits at that
+  // exact node. Scanning a cabinet's printed label used to list nothing at all,
+  // because the folders live in its drawers.
+  const placeScope = useMemo(
+    () => (placeFilter ? subtreeIds(places.places, placeFilter) : null),
+    [places.places, placeFilter]
+  );
+
   const visibleFolders = useMemo(
     () =>
       folders.active
         .filter((f) => (partyFilter ? f.partyId === partyFilter : true))
-        .filter((f) =>
-          placeFilter ? (f.currentPlaceId ?? f.homePlaceId) === placeFilter : true
-        )
+        .filter((f) => {
+          if (!placeScope) return true;
+          const at = f.currentPlaceId ?? f.homePlaceId;
+          return at ? placeScope.has(at) : false;
+        })
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [folders.active, partyFilter, placeFilter]
+    [folders.active, partyFilter, placeScope]
   );
 
   const inbox = useMemo(() => unfiled(documents.documents), [documents.documents]);
@@ -178,14 +190,21 @@ export function FilingDashboard() {
     [documents.active, folders.byId, places.paths]
   );
 
+  // Rolled up, so a cabinet reports what its drawers hold. This number is also
+  // printed onto the label stuck to the cabinet, where "0 folders" is a lie.
   const countByPlace = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const direct: Record<string, number> = {};
     for (const f of folders.active) {
       const id = f.currentPlaceId ?? f.homePlaceId;
-      if (id) counts[id] = (counts[id] ?? 0) + 1;
+      if (id) direct[id] = (direct[id] ?? 0) + 1;
     }
-    return counts;
-  }, [folders.active]);
+    return rollUpCounts(places.places, direct);
+  }, [folders.active, places.places]);
+
+  const misfiled = useMemo(
+    () => misfiledFolders(places.places, folders.active),
+    [places.places, folders.active]
+  );
 
   const partyNameById = useMemo(
     () => Object.fromEntries(parties.parties.map((p) => [p.id, p.name])),
@@ -579,6 +598,56 @@ export function FilingDashboard() {
         />
       )}
 
+      {/* In the wrong drawer — only ever raised when a neighbour claims it */}
+      {query.trim().length < 2 && misfiled.length > 0 && (
+        <section className="px-3 sm:px-0">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+              In the wrong drawer
+            </h3>
+            <span className="text-[11px] tabular-nums text-slate-500">
+              {misfiled.length}
+            </span>
+          </div>
+          <ul className="flex flex-col gap-1">
+            {misfiled.map((m) => (
+              <li
+                key={m.folder.id}
+                className="flex items-center gap-2 rounded-lg border border-slate-800/70 bg-slate-950/40 px-3 py-2"
+              >
+                <span aria-hidden className="shrink-0">
+                  🗂️
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-slate-200">
+                    {m.folder.name}
+                  </span>
+                  <span className="block truncate text-[11px] text-slate-500">
+                    in {places.nameById[m.placeId] ?? "somewhere"} — belongs in{" "}
+                    {places.nameById[m.suggestedPlaceId] ?? "another drawer"}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    folders.updateFolder(m.folder.id, {
+                      homePlaceId: m.suggestedPlaceId,
+                    })
+                  }
+                  className="shrink-0 rounded-md border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-blue-400 hover:text-blue-200"
+                >
+                  Move
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[12px] text-slate-500">
+            Raised only when another drawer in the same cabinet claims it. Moving
+            it here updates the record — the paper itself is still your job.
+          </p>
+        </section>
+      )}
+
       {/* Unfiled inbox */}
       {inbox.length > 0 && query.trim().length < 2 && (
         <section className="px-3 sm:px-0">
@@ -793,6 +862,7 @@ export function FilingDashboard() {
         onClose={() => setPlacesOpen(false)}
         tree={places.tree}
         addPlace={places.addPlace}
+        addCabinet={places.addCabinet}
         updatePlace={places.updatePlace}
         movePlace={places.movePlace}
         removePlace={places.removePlace}

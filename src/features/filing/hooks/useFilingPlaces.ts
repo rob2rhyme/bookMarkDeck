@@ -8,6 +8,7 @@ import {
   savePlace,
   subscribePlaces,
 } from "@/features/filing/data/filingData";
+import { alphabetSplit } from "@/features/filing/lib/drawers";
 import { buildTree, subtreeIds } from "@/features/filing/lib/tree";
 import { placePathsById } from "@/features/filing/lib/breadcrumb";
 import type { FilingPlace, PlaceKind } from "@/features/filing/lib/types";
@@ -89,7 +90,12 @@ export function useFilingPlaces(email?: string | null, connected = false) {
   }, []);
 
   const addPlace = useCallback(
-    (name: string, parentId: string | null = null, kind?: PlaceKind): FilingPlace | null => {
+    (
+      name: string,
+      parentId: string | null = null,
+      kind?: PlaceKind,
+      contents?: string
+    ): FilingPlace | null => {
       const trimmed = name.trim();
       if (!trimmed) return null;
       const place: FilingPlace = {
@@ -97,6 +103,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
         name: trimmed,
         parentId,
         kind,
+        contents: contents?.trim() || undefined,
         sortOrder: ref.current.length,
         createdAt: new Date().toISOString(),
         updatedAt: null,
@@ -104,6 +111,58 @@ export function useFilingPlaces(email?: string | null, connected = false) {
       setPlaces((prev) => [...prev, place]);
       if (canSync && email) savePlace(email, place).catch(onSaveError);
       return place;
+    },
+    [canSync, email, onSaveError]
+  );
+
+  /**
+   * A cabinet and its drawers in one go. Built as a single batch rather than
+   * repeated addPlace calls on purpose: `ref.current` only catches up on the
+   * next render, so five calls in a row would hand every drawer the same
+   * sortOrder and the cabinet would read 1, 10, 2 down its front.
+   *
+   * The A-Z scheme labels each drawer with the slice of the alphabet it holds,
+   * which is the whole point of a labelled cabinet — see lib/drawers.ts.
+   */
+  const addCabinet = useCallback(
+    (
+      name: string,
+      parentId: string | null,
+      drawerCount: number,
+      scheme: "letters" | "numbers"
+    ): FilingPlace | null => {
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      const count = Math.max(1, Math.min(12, Math.floor(drawerCount) || 1));
+      const now = new Date().toISOString();
+
+      const cabinet: FilingPlace = {
+        id: crypto.randomUUID(),
+        name: trimmed,
+        parentId,
+        kind: "cabinet",
+        sortOrder: ref.current.length,
+        createdAt: now,
+        updatedAt: null,
+      };
+      const spans = scheme === "letters" ? alphabetSplit(count) : [];
+      const drawers: FilingPlace[] = Array.from({ length: count }, (_, i) => ({
+        id: crypto.randomUUID(),
+        name: `Drawer ${i + 1}`,
+        parentId: cabinet.id,
+        kind: "drawer" as const,
+        contents: spans[i],
+        sortOrder: i,
+        createdAt: now,
+        updatedAt: null,
+      }));
+
+      const batch = [cabinet, ...drawers];
+      setPlaces((prev) => [...prev, ...batch]);
+      if (canSync && email) {
+        batch.forEach((p) => savePlace(email, p).catch(onSaveError));
+      }
+      return cabinet;
     },
     [canSync, email, onSaveError]
   );
@@ -192,6 +251,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
     hydrated,
     importMany,
     addPlace,
+    addCabinet,
     updatePlace,
     movePlace,
     removePlace,

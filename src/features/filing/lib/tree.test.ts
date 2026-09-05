@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTree, flattenTree, subtreeIds } from "@/features/filing/lib/tree";
+import {
+  buildTree,
+  flattenTree,
+  rollUpCounts,
+  subtreeIds,
+} from "@/features/filing/lib/tree";
 import type { FilingPlace } from "@/features/filing/lib/types";
 
 const place = (id: string, name: string, parentId: string | null = null,
@@ -73,5 +78,39 @@ describe("subtreeIds", () => {
 
   it("excludes unrelated branches", () => {
     expect(subtreeIds(places, "garage").has("home")).toBe(false);
+  });
+});
+
+describe("rollUpCounts", () => {
+  const PLACES = [
+    place("office", "Office"),
+    place("cab", "Grey cabinet", "office"),
+    place("d1", "Drawer 1", "cab"),
+    place("d2", "Drawer 2", "cab"),
+  ];
+
+  it("adds up everything nested underneath", () => {
+    const totals = rollUpCounts(PLACES, { d1: 10, d2: 30 });
+    expect(totals.cab).toBe(40);
+    expect(totals.office).toBe(40);
+  });
+
+  it("counts a place's own folders alongside its children's", () => {
+    const totals = rollUpCounts(PLACES, { cab: 2, d1: 10, d2: 30 });
+    expect(totals.cab).toBe(42);
+  });
+
+  it("is zero for a place holding nothing", () => {
+    expect(rollUpCounts(PLACES, {})).toEqual({ office: 0, cab: 0, d1: 0, d2: 0 });
+  });
+
+  it("still counts a child whose parent is missing", () => {
+    const totals = rollUpCounts([place("x", "Orphan", "gone")], { x: 3 });
+    expect(totals.x).toBe(3);
+  });
+
+  it("breaks a cycle rather than looping forever", () => {
+    const cyclic = [place("a", "A", "b"), place("b", "B", "a")];
+    expect(() => rollUpCounts(cyclic, { a: 1, b: 1 })).not.toThrow();
   });
 });
