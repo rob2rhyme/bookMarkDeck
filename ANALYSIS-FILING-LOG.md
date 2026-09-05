@@ -452,8 +452,49 @@ before the next.
 | 3 | **Reminders**: obligations, `nextDueOn`, Upcoming panel, nav badge, repeat roll-forward, presets | Deliberately before retention — this is the half with a weekly reason to open the app |
 | 4 | **Stewardship**: retention/shred queue folded into the same panel, custody ledger, activity timeline | Reuses Phase 3's surface rather than building a second one. **Shipped** — 22 retention presets in `lib/retention.ts`, custody in `lib/custody.ts` |
 | 5 | **Reach**: scheduled push, `.ics` calendar export | Distribution, once there's something to remind about. **Shipped** — a daily digest rather than per-obligation alarms, because `/api/push/schedule` caps QStash delays at 24h; the `.ics` is an import file, not a subscribable feed (that would mean a publicly-fetchable URL carrying private paperwork) |
-| 7 | **Drawer rules**: a place can say what it HOLDS (`contents` — "A-J", "Taxes", "2019", "Misc."), drawer suggestion when filing, a misfile nudge, cabinet quick-build, the rule printed on the label | The one thing the place tree couldn't express. A cabinet's drawer fronts are not names, they are *rules*: they tell anyone holding a folder where it goes, which is what makes a labelled cabinet self-filing. **Shipped** — rule parsed from the label text on read (`lib/drawers.ts`), never stored beside it, because the text is what gets printed and a second copy would drift. Carried two fixes it depends on: a place filter that includes the subtree (scanning a *cabinet* label listed nothing, since the folders live in its drawers) and counts that roll up (a cabinet printed "0 folders" while holding forty) |
+| 7 | **Drawer rules**: a place can say what it HOLDS (`contents` — "A-J", "Taxes", "2019", "Misc."), drawer suggestion when filing, a misfile nudge, cabinet quick-build, the rule printed on the label | The one thing the place tree couldn't express. A cabinet's drawer fronts are not names, they are *rules*: they tell anyone holding a folder where it goes, which is what makes a labelled cabinet self-filing. **Shipped** — rule parsed from the label text on read (`lib/drawers.ts`), never stored beside it, because the text is what gets printed and a second copy would drift. Carried two fixes it depends on: a place filter that includes the subtree (scanning a *cabinet* label listed nothing, since the folders live in its drawers) and counts that roll up (a cabinet printed "0 folders" while holding forty). Three further defects surfaced only when the thing was run — see *What running it found* |
 | 6 | **Connections**: bookmark ↔ document link, CSV/JSON export + import, `/guide` section | The §2 thesis. Not optional. **Shipped** — the link reads the core bookmarks cache (a one-way dependency, not a second subscription); import merges by id and never deletes. **R2 attachments shipped separately** (see the attachments note in `CLAUDE.md`): index-first still stands — a scan is optional, loaded per document on open, and the whole surface hides itself when R2 isn't configured |
+
+### What running it found — three defects the test suite could not
+
+Phase 7 shipped green: 779 tests, lint and build clean. Then the app was driven
+in a browser at 430px and the printed sheet captured, and three defects fell out
+in the first ten minutes. All three were invisible to the suite, and the reason
+is worth stating because it generalises to this whole pillar:
+
+> **Filing's output is physical.** A phone held in a room, and a sticker glued to
+> furniture. Pure functions can prove that "Novak, Ellen" belongs in K-P; nothing
+> in `tests/` can tell you the field holding "A-J" collapsed to a sliver, or that
+> the label you are about to glue to a cabinet is the quietest thing on the page.
+
+| Found | Cause | Fixed |
+|---|---|---|
+| The drawer's label field was squeezed to an unusable sliver on every nested row at phone width | `ROW_FIELD` carries `shrink-0`; the input appended `flex-1 shrink` on top. Both set `flex-shrink`, so Tailwind's emitted order decided it, not intent — and `min-w-0` let it collapse rather than wrap | #262 — the label takes its own full-width line (`basis-full`), which is also the honest reading order |
+| The nudge read "in Drawer 4 — belongs in Drawer 1" — names only, so it asked to be taken on faith | The rule is the entire reason the row exists, and the quick-build names drawers `Drawer 1…4`, carrying no meaning of their own | #263 — `placeLabel` renders "Drawer 4 · R-Z", matching how the folder form already phrases its suggestion |
+| On the printed sheet the cabinet card read quieter than the drawers behind it | A drawer leads with its range at 20pt; a cabinet has no range, so it fell through to the ordinary 13pt name — the parent object printed smaller than its children, on the bigger surface | #264 — stated as a rule instead of a special case: **a card's dominant line is whatever identifies it**, the rule when it has one, otherwise its own name |
+
+The third is the one worth remembering. The fix was not "make cabinets bigger";
+it was noticing that the card had no rule for what leads it, only a default that
+happened to suit drawers. Written as a rule it also fixes an unlabelled drawer, a
+room and a shelf, and it needs no branch on `kind` — consistent with the rest of
+the pillar, which never gates behaviour on what sort of place something is.
+
+**Confirmed rather than fixed:** a folder sitting in a drawer labelled "Misc."
+raises no nudge. That is `misfiledFolders` skipping overflow drawers by design,
+and it means relabelling a drawer "Misc." is how you deliberately silence
+nagging about a junk drawer. Worth knowing; it reads like a bug until you see why.
+
+**Accepted, not fixed:**
+
+- A fresh 12-drawer cabinet prints twelve cards reading "0 folders". Labelling a
+  drawer before it holds anything is the normal order of work, so the count is
+  honest rather than wrong.
+- A long cabinet name wraps several lines at 20pt on its door card. The card
+  grows to fit; worth revisiting only against real cabinet names.
+
+One fix is visible on the furniture rather than the screen: with counts rolled
+up, a cabinet door label now prints "3 folders" where it used to print "0". A
+screen bug you re-read; a sticker you glue on and trust.
 
 ### Cut regardless
 
