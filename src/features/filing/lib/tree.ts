@@ -58,3 +58,35 @@ export function subtreeIds(places: FilingPlace[], id: string): Set<string> {
   walk(id);
   return out;
 }
+
+/**
+ * Each place's count including everything nested under it. A cabinet whose four
+ * drawers hold ten folders each holds forty — and says so. Without this a
+ * cabinet reads "0 folders" while being full, which is wrong on screen and
+ * wronger once it is printed onto the label stuck to its door.
+ */
+export function rollUpCounts(
+  places: FilingPlace[],
+  direct: Record<string, number>
+): Record<string, number> {
+  const childrenOf = new Map<string, string[]>();
+  for (const p of places) {
+    if (!p.parentId) continue;
+    const list = childrenOf.get(p.parentId) ?? [];
+    list.push(p.id);
+    childrenOf.set(p.parentId, list);
+  }
+  const total: Record<string, number> = {};
+  const walk = (id: string, seen: Set<string>): number => {
+    const known = total[id];
+    if (known !== undefined) return known;
+    if (seen.has(id)) return 0; // cycle guard
+    seen.add(id);
+    let sum = direct[id] ?? 0;
+    for (const child of childrenOf.get(id) ?? []) sum += walk(child, seen);
+    total[id] = sum;
+    return sum;
+  };
+  for (const p of places) walk(p.id, new Set());
+  return total;
+}

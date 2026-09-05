@@ -63,6 +63,7 @@ export function LabelPrintModal({
             name: p.name,
             path: paths[p.id] ?? [p.name],
             count: countByPlace[p.id] ?? 0,
+            contents: p.contents,
             qrSvg: await qrSvg(labelUrl(origin, "place", p.id)),
           });
         }

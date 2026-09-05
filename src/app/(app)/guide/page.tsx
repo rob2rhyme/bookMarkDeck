@@ -663,6 +663,34 @@ export default function GuidePage() {
             </p>
           </Sub>
 
+          <Sub title="Drawers that say what they hold">
+            <p>
+              A real cabinet has <em>A-J</em>, <em>K-P</em>, <em>Q-Z</em>,{" "}
+              <em>Misc.</em> across its drawer fronts — and those aren&apos;t
+              names, they&apos;re rules. They tell anyone holding a folder where
+              it goes without asking. Give a drawer the same label here (a letter
+              range, a category like <em>Taxes</em>, a year like <em>2019</em>,
+              or <em>Misc.</em> for the catch-all) and filing a folder suggests
+              the drawer that claims it.
+            </p>
+            <p>
+              A folder in the wrong drawer gets flagged under{" "}
+              <strong>In the wrong drawer</strong> — but only when another drawer
+              in the same cabinet actually wants it, so it stays quiet about
+              folders with no better home. Moving it updates the record; the
+              paper itself is still your job. Drawer labels print with the range
+              across the front, so the sticker reads like the cabinet.
+            </p>
+            <p>
+              Setting up a cabinet drawer by drawer is tedious, so{" "}
+              <strong>Places → Add a whole cabinet at once</strong> does it in
+              one step. The A-Z option weighs how common each initial actually
+              is — which is why real cabinets read A-J, K-P, Q-Z rather than four
+              equal slices with S and X in the same drawer. Retype any
+              drawer&apos;s label afterwards.
+            </p>
+          </Sub>
+
           <Sub title="Finding it again">
             <p>
               <strong>Where is it?</strong> searches everything and answers with

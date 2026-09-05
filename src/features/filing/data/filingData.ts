@@ -114,6 +114,7 @@ function mapPlace(d: { id: string; data: () => Record<string, unknown> }): Filin
     name: str(data.name),
     parentId: strOrNull(data.parentId),
     kind: PLACE_KIND_SET.has(kind as PlaceKind) ? (kind as PlaceKind) : undefined,
+    contents: strOrUndef(data.contents),
     note: strOrUndef(data.note),
     sortOrder: numOrUndef(data.sortOrder),
     createdAt: timestampToIso(data.createdAt),
@@ -135,6 +136,10 @@ export async function savePlace(emailHint: string, place: FilingPlace): Promise<
       name: place.name,
       parentId: place.parentId ?? null,
       kind: place.kind,
+      // "" rather than undefined: this write merges, and `prune` drops
+      // undefined — so clearing a drawer's label would never reach the cloud.
+      // `strOrUndef` reads "" back as unset, closing the round-trip.
+      contents: place.contents ?? "",
       note: place.note,
       sortOrder: place.sortOrder,
       createdAt: place.createdAt ?? serverTimestamp(),

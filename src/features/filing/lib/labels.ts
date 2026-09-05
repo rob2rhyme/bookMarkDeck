@@ -23,6 +23,8 @@ export type FilingLabel = {
   path: string[];
   /** Folders in a place, or papers in a folder. */
   count: number;
+  /** What a place holds, as written on it: "A-J", "Taxes". Places only. */
+  contents?: string;
   /** Whose folder it is, when it belongs to someone in particular. */
   party?: string;
   qrSvg: string; // pre-rendered inline <svg>…</svg>
@@ -52,6 +54,7 @@ function card(l: FilingLabel): string {
       <div class="label ${l.kind}">
         <div class="qr">${l.qrSvg}</div>
         <div class="meta">
+          ${l.contents ? `<div class="holds">${esc(l.contents)}</div>` : ""}
           <div class="name">${esc(l.name)}</div>
           ${trail ? `<div class="path">${esc(trail)}</div>` : ""}
           <div class="foot">${
@@ -107,6 +110,12 @@ export function filingLabelsHtml(
   .folder .qr { width: 15mm; height: 15mm; }
   .qr svg { width: 100%; height: 100%; display: block; }
   .meta { min-width: 0; }
+  /* What the drawer holds, read from across the room — on a real cabinet front
+     the range IS the label, and the drawer's own name is the fine print. */
+  .holds { font-weight: 800; line-height: 1.05; word-break: break-word;
+           letter-spacing: -.01em; }
+  .place .holds { font-size: 20pt; }
+  .place .holds + .name { font-size: 10pt; font-weight: 600; color: #475569; }
   .name { font-weight: 700; word-break: break-word; line-height: 1.15; }
   .place .name { font-size: 13pt; }
   .folder .name { font-size: 12pt; }

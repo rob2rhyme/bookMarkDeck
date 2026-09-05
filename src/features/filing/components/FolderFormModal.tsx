@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { suggestPlaces } from "@/features/filing/lib/drawers";
 import { flattenTree, type PlaceNode } from "@/features/filing/lib/tree";
 import { RETENTION_RULES, destroyOnFor, ruleById } from "@/features/filing/lib/retention";
 import type { FilingFolder, FilingParty } from "@/features/filing/lib/types";
@@ -54,6 +55,17 @@ export function FolderFormModal({
 }) {
   const [draft, setDraft] = useState<FolderDraft>(EMPTY);
   const flat = flattenTree(tree);
+
+  // The drawer whose label claims this folder — the question a cabinet with
+  // "A-J" on the front answers for you before you've opened it.
+  const name = draft.name.trim();
+  const [bestId] = name
+    ? suggestPlaces(flat, { name, category: draft.category })
+    : [];
+  const suggested =
+    bestId && bestId !== draft.homePlaceId
+      ? flat.find((p) => p.id === bestId) ?? null
+      : null;
 
   // Refill when the modal opens, so editing one folder then another doesn't
   // leave the previous values behind.
@@ -142,6 +154,16 @@ export function FolderFormModal({
               </option>
             ))}
           </Select>
+          {suggested && (
+            <button
+              type="button"
+              onClick={() => set("homePlaceId", suggested.id)}
+              className="mt-1.5 text-left text-[12px] text-blue-300 underline-offset-2 transition hover:underline"
+            >
+              Suggested: {suggested.name}
+              {suggested.contents ? ` · ${suggested.contents}` : ""}
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
