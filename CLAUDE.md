@@ -11,7 +11,7 @@ sessions (the work) → a record of progress. *Connection over breadth.*
 
 ## Stack
 
-- **Next.js 16** (App Router) · **React 19.2.6** · TypeScript · `reactCompiler: true`.
+- **Next.js 16** (App Router) · **React 19.2.8** · TypeScript · `reactCompiler: true`.
 - **next-auth v4** (Google provider) for the Next.js session.
 - **Firebase / Firestore (NoSQL)** for per-user cloud data, accessed **client-side**.
 - **Tailwind CSS v4** (utility classes; dark slate theme).
