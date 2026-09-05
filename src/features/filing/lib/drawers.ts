@@ -143,6 +143,20 @@ export function matchesRule(rule: DrawerRule, folder: FolderLike): boolean {
   return (folder.tags ?? []).some((t) => t.trim().toLowerCase() === rule.value);
 }
 
+/**
+ * "Drawer 4 · R-Z" — a place named alongside the rule that explains it. Uses the
+ * label text as typed rather than the parsed rule, so what you read here is what
+ * is written on the drawer and printed on its sticker.
+ */
+export function placeLabel(
+  place: Pick<FilingPlace, "name" | "contents"> | undefined,
+  fallback: string
+): string {
+  if (!place) return fallback;
+  const rule = place.contents?.trim();
+  return rule ? `${place.name} · ${rule}` : place.name;
+}
+
 /** How deep each place sits, so a drawer outranks the cabinet holding it. */
 function depthById(places: FilingPlace[]): Record<string, number> {
   const byId = new Map(places.map((p) => [p.id, p]));

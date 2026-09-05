@@ -6,6 +6,7 @@ import {
   folderYear,
   matchesRule,
   misfiledFolders,
+  placeLabel,
   parseRule,
   suggestPlaces,
   type DrawerRule,
@@ -243,5 +244,20 @@ describe("alphabetSplit", () => {
     for (const span of alphabetSplit(4)) {
       expect(parseRule(span)?.kind).toBe("letters");
     }
+  });
+});
+
+describe("placeLabel", () => {
+  it("names the rule that explains the place", () => {
+    expect(placeLabel({ name: "Drawer 4", contents: "R-Z" }, "?")).toBe("Drawer 4 · R-Z");
+  });
+
+  it("is just the name when the place carries no rule", () => {
+    expect(placeLabel({ name: "Drawer 4" }, "?")).toBe("Drawer 4");
+    expect(placeLabel({ name: "Drawer 4", contents: "   " }, "?")).toBe("Drawer 4");
+  });
+
+  it("falls back when the place is gone", () => {
+    expect(placeLabel(undefined, "another drawer")).toBe("another drawer");
   });
 });
