@@ -21,8 +21,13 @@ const kindIcon = (kind?: PlaceKind) =>
   PLACE_KINDS.find((k) => k.id === (kind ?? ""))?.icon ?? "📍";
 
 /** The older, denser field style the in-row controls have always used. */
-const ROW_FIELD =
-  "shrink-0 rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-1 text-[11px] text-slate-300 outline-none focus:border-blue-400";
+const ROW_FIELD_BASE =
+  "rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-1 text-[11px] text-slate-300 outline-none focus:border-blue-400";
+const ROW_FIELD = `shrink-0 ${ROW_FIELD_BASE}`;
+/** The label sits on its own line: two selects plus a text field don't fit a
+ *  phone once a drawer is indented under its cabinet, and a flex child that is
+ *  allowed to shrink collapses to a sliver instead of wrapping. */
+const ROW_INPUT = `basis-full ${ROW_FIELD_BASE}`;
 
 export function PlaceManager({
   open,
@@ -266,13 +271,6 @@ export function PlaceManager({
                       </option>
                     ))}
                   </select>
-                  <input
-                    value={p.contents ?? ""}
-                    onChange={(e) => updatePlace(p.id, { contents: e.target.value })}
-                    placeholder="Holds… A-J"
-                    aria-label={`What ${p.name} holds`}
-                    className={`${ROW_FIELD} min-w-0 flex-1 shrink`}
-                  />
                   <select
                     value={p.parentId ?? ""}
                     onChange={(e) => {
@@ -293,6 +291,13 @@ export function PlaceManager({
                         </option>
                       ))}
                   </select>
+                  <input
+                    value={p.contents ?? ""}
+                    onChange={(e) => updatePlace(p.id, { contents: e.target.value })}
+                    placeholder="Holds… A-J, Taxes, 2019"
+                    aria-label={`What ${p.name} holds`}
+                    className={ROW_INPUT}
+                  />
                 </div>
               </li>
             ))}
