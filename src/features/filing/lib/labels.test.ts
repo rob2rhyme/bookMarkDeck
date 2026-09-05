@@ -114,6 +114,24 @@ describe("filingLabelsHtml", () => {
     expect(html).toContain("&lt;b&gt;A-J&lt;/b&gt;");
   });
 
+  it("leads a place with no rule with its own name", () => {
+    // A cabinet door has a name and nothing else; it must not print quieter
+    // than the drawers behind it.
+    const html = filingLabelsHtml([label({ name: "Grey cabinet" })]);
+    expect(html).toContain('<div class="name lead">Grey cabinet</div>');
+  });
+
+  it("does not promote the name when a rule already leads the card", () => {
+    const html = filingLabelsHtml([label({ name: "Drawer 2", contents: "K-P" })]);
+    expect(html).toContain('<div class="name">Drawer 2</div>');
+    expect(html).not.toContain("name lead");
+  });
+
+  it("never promotes a folder's name — folders are read edge-on", () => {
+    const html = filingLabelsHtml([label({ kind: "folder", name: "Vehicles" })]);
+    expect(html).not.toContain("name lead");
+  });
+
   it("escapes names so a stray angle bracket can't break the document", () => {
     const html = filingLabelsHtml([label({ name: 'Bob & <script>alert("x")</script>' })]);
     expect(html).toContain("Bob &amp; &lt;script&gt;");

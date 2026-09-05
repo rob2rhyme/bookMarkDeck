@@ -50,12 +50,16 @@ export function countLabel(kind: LabelKind, count: number): string {
 function card(l: FilingLabel): string {
   // A label's own name is the last crumb, so drop it from the trail above.
   const trail = l.path.length > 1 ? l.path.slice(0, -1).join(" › ") : "";
+  // A card's dominant line is whatever identifies it: the rule when it has one,
+  // otherwise its own name. That is what stops a cabinet door — which has no
+  // rule, only a name — printing quieter than the drawers behind it.
+  const leadName = l.kind === "place" && !l.contents;
   return `
       <div class="label ${l.kind}">
         <div class="qr">${l.qrSvg}</div>
         <div class="meta">
           ${l.contents ? `<div class="holds">${esc(l.contents)}</div>` : ""}
-          <div class="name">${esc(l.name)}</div>
+          <div class="name${leadName ? " lead" : ""}">${esc(l.name)}</div>
           ${trail ? `<div class="path">${esc(trail)}</div>` : ""}
           <div class="foot">${
             l.party ? `<span class="party">${esc(l.party)}</span>` : ""
@@ -117,6 +121,10 @@ export function filingLabelsHtml(
   .place .holds { font-size: 20pt; }
   .place .holds + .name { font-size: 10pt; font-weight: 600; color: #475569; }
   .name { font-weight: 700; word-break: break-word; line-height: 1.15; }
+  /* A place with no rule — a cabinet door, a room, an unlabelled drawer — leads
+     with its name at the same weight a range gets, so it reads from as far. */
+  .place .name.lead { font-size: 20pt; font-weight: 800; line-height: 1.05;
+                      letter-spacing: -.01em; }
   .place .name { font-size: 13pt; }
   .folder .name { font-size: 12pt; }
   .path { color: #64748b; font-size: 8pt; margin-top: 1mm; }
