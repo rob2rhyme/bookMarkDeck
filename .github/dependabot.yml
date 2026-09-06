@@ -18,9 +18,46 @@ updates:
       # Uninstallable on npm 10.9.7: arborist crashes in #loadPeerSet walking
       # vitest's optional peers -- "Cannot read properties of null (reading
       # 'edgesOut')". An npm bug, not a vitest defect. See PR #255.
+      # 4.1.10 AND 4.1.11 both crash; 4.1.9 installs. Enumerated rather than
+      # ">=4.1.10" so the release that fixes it still opens a PR.
       - dependency-name: "vitest"
-        versions: ["4.1.11"]
+        versions: ["4.1.10", "4.1.11"]
+      # TS 7.0 breaks typescript-eslint, which eslint-config-next pulls in:
+      # "typescript-eslint does not support TS 7.0". Note `tsc --noEmit` itself
+      # passes under 7.0 — only the eslint pass fails, and CI runs that
+      # non-blocking, so this would have merged green and broken lint silently.
+      # Scoped to 7.0.x: typescript-eslint tracks support for >=7.1 (PR #272).
+      - dependency-name: "typescript"
+        versions: ["7.0.x"]
+      # ESLint 10 breaks eslint-plugin-react (via eslint-config-next): "Error
+      # while loading rule 'react/display-name': contextOrFilename.getFilename
+      # is not a function". Unblocks when those plugins support ESLint 10
+      # (PR #274); eslint 11 would still surface.
+      - dependency-name: "eslint"
+        versions: ["10.x"]
+      # jsdom 30 needs node ^22.22.2 || ^24.15.0 || >=26; CI pins node 20
+      # (.github/workflows/ci.yml), where jsdom/lib/api.js fails to load and
+      # 12 tests never run. It installs and passes on node 22, which is how it
+      # slipped through locally. The real unblocker is raising CI's node, not a
+      # newer jsdom -- drop this ignore when that happens (PR #276).
+      - dependency-name: "jsdom"
+        versions: ["30.x"]
     groups:
+      # FIRST on purpose: a dependency joins the first group it matches, and
+      # dev-dependencies would otherwise claim @capacitor/cli.
+      #
+      # The Capacitor packages are bound by peer dependencies -- @capacitor/ios
+      # requires a matching @capacitor/core -- so bumping one alone fails
+      # `npm ci` with ERESOLVE (PRs #147/#148/#149, then #273/#275/#277, all
+      # closed unmergeable). One PR moving them together is the only shape that
+      # resolves. Majors included: 6 -> 8 is exactly the move that needs making.
+      capacitor:
+        patterns:
+          - "@capacitor/*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
       dev-dependencies:
         dependency-type: "development"
         update-types:
