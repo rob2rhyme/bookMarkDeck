@@ -5,6 +5,21 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    # Scoped to the broken versions, NOT the packages: a bare dependency-name
+    # would silence the release that fixes it too. 4.1.12 and 8.6/9.x still
+    # open a PR, which is exactly when to re-check whether the blocker cleared.
+    ignore:
+      # 8.5.x adds `xcode`, which depends on uuid@7 (GHSA-w5hq-g745-h8pq).
+      # Still true in 8.5.1. See the dependency note in CLAUDE.md; taking it
+      # needs `xcode` to drop uuid@7, or a deliberate Capacitor 6 -> 8
+      # migration verified on a Mac (PR #148).
+      - dependency-name: "@capacitor/cli"
+        versions: ["8.5.x"]
+      # Uninstallable on npm 10.9.7: arborist crashes in #loadPeerSet walking
+      # vitest's optional peers -- "Cannot read properties of null (reading
+      # 'edgesOut')". An npm bug, not a vitest defect. See PR #255.
+      - dependency-name: "vitest"
+        versions: ["4.1.11"]
     groups:
       dev-dependencies:
         dependency-type: "development"
