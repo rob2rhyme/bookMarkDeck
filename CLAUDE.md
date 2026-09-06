@@ -167,11 +167,19 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   login, bookmark sync, Drive sync.
 - CI: `.github/workflows/ci.yml` runs `actionlint` (workflows) + `typecheck` + `test` +
   `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds previews.
+  **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
+  load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
+  fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
+  The trap it closed is worth remembering — a local Node of exactly `v22.22.2` ran all 785
+  tests while CI on 20 reached 773, so "green locally" proves nothing about CI unless the
+  runtimes match. Check `node -v` against the workflow before trusting a local run.
   actionlint is blocking and pinned: an invalid workflow expression fails at *startup*,
   producing a run with no jobs and no entry in the PR's check list, so the failure looks
   like nothing ran.
   `.github/workflows/firestore-rules.yml` is separate and path-filtered to the rules
-  files — verify → deploy → read back (see **Firestore security rules** above).
+  files — verify → deploy → read back (see **Firestore security rules** above). Its path
+  filter includes **the workflow file itself**, so a change to that workflow is verified on
+  its own PR rather than landing unproven until someone next touches the rules.
 
 ## Dependency security note
 
@@ -184,9 +192,43 @@ that pinned version only the override can raise it.
 Prefer bumping the real dependency over adding an override: `next >=16.3` is what carries
 patched `sharp` and `postcss`, so it holds the fix for those two.
 
-Known latent issue: `@capacitor/cli` 8.5+ adds `xcode`, which pulls `uuid@7` (GHSA-w5hq-g745-h8pq,
-moderate). The committed lockfile stays on 8.4.1 and is clean; regenerating the lockfile
-reintroduces it. macOS-only iOS tooling, never built on CI or Vercel.
+`@capacitor/cli` is pinned with a **tilde** (`~8.4.3`), not a caret, and that is
+load-bearing: 8.5+ adds `xcode`, which pulls `uuid@7` (GHSA-w5hq-g745-h8pq, moderate).
+Dependabot proposed `^8.4.3`; npm resolves that to **8.5.1**, and audit goes from 0 to 3
+moderate. A dependabot `ignore` stops 8.5.x being *proposed* but cannot stop a caret from
+*resolving* there — so the range has to hold the line, and regenerating the lockfile is
+safe rather than something to avoid. macOS-only iOS tooling, never built on CI or Vercel.
+
+### Dependabot: what is held back, and until when
+
+`.github/dependabot.yml` ignores four packages at **specific versions**. Each is blocked on
+a fix outside this repo; without the ignores they regenerate weekly (#255 was closed and
+#268 reappeared with the same content inside the hour).
+
+| Package | Ignored | Blocker | Unblocks when |
+|---|---|---|---|
+| `@capacitor/cli` | `8.5.x` | `xcode` → `uuid@7` | `xcode` drops `uuid@7`, or a deliberate Capacitor 6→8 migration |
+| `vitest` | `4.1.10`, `4.1.11` | npm arborist crashes in `#loadPeerSet` walking vitest's optional peers | npm's resolver handles that peer graph |
+| `typescript` | `7.0.x` | `typescript-eslint` does not support TS 7.0 | TS ≥7.1 (typescript-eslint#10940) |
+| `eslint` | `10.x` | `eslint-plugin-react` uses the context API ESLint 10 removed | `eslint-config-next` supports ESLint 10 |
+
+Two rules govern that file, both worth keeping:
+
+- **Ignores name versions, never bare packages.** A bare `dependency-name` silences the
+  release that *fixes* the problem along with the problem — which is how a repo ends up
+  years behind on something nobody meant to freeze. This binds our own entries too: the
+  `jsdom` `30.x` ignore was **removed** the moment CI moved to Node 22, because its stated
+  cause was gone. An ignore that outlives its reason is a bug.
+- **The `capacitor` group is FIRST in the `groups` map.** A dependency joins the first group
+  it matches, and `dev-dependencies` would otherwise claim `@capacitor/cli`. The Capacitor
+  packages are peer-bound — `@capacitor/ios` requires a matching `@capacitor/core` — so
+  bumping one alone fails `npm ci` with `ERESOLVE`. Six PRs were closed unmergeable for that
+  single cause before grouping fixed it; one PR moving them together is the only shape that
+  resolves. Majors are included because 6 → 8 is the move that needs making.
+
+`typescript` deserves one extra note: `npm run lint` is `tsc --noEmit`, and it **passes**
+under TS 7.0 — only the separate `lint:eslint` pass fails. Since CI runs that one
+non-blocking, a TS 7 bump merges green while silently breaking linting.
 
 ## Focus feature (`/focus`)
 
