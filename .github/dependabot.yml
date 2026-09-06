@@ -35,13 +35,6 @@ updates:
       # (PR #274); eslint 11 would still surface.
       - dependency-name: "eslint"
         versions: ["10.x"]
-      # jsdom 30 needs node ^22.22.2 || ^24.15.0 || >=26; CI pins node 20
-      # (.github/workflows/ci.yml), where jsdom/lib/api.js fails to load and
-      # 12 tests never run. It installs and passes on node 22, which is how it
-      # slipped through locally. The real unblocker is raising CI's node, not a
-      # newer jsdom -- drop this ignore when that happens (PR #276).
-      - dependency-name: "jsdom"
-        versions: ["30.x"]
     groups:
       # FIRST on purpose: a dependency joins the first group it matches, and
       # dev-dependencies would otherwise claim @capacitor/cli.
