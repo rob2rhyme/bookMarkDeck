@@ -3,10 +3,16 @@ import { defineConfig } from "@playwright/test";
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const BASE_URL = `http://localhost:${PORT}`;
 
-// The authenticated app needs real Google/Firebase credentials, so E2E only
-// covers the reachable public surface: login, the legal pages, the auth
-// redirect, and the security headers. Authenticated flows are out of scope
-// here (they'd require a signed next-auth session cookie via storageState).
+// E2E covers the public surface: login, the legal pages, the auth redirect, and
+// the security headers.
+//
+// The authenticated app is NOT out of reach, despite what this comment used to
+// claim. The gate is `getServerSession(authConfig)`, which only verifies a
+// next-auth JWT against NEXTAUTH_SECRET — no Google round-trip — so a cookie
+// minted with `next-auth/jwt`'s `encode()` and the dummy secret below passes it.
+// Real Firebase credentials are needed only for live Firestore sync, which is
+// opt-in and simply stays off. Authed specs are worth adding; nothing here
+// blocks them.
 const dummyEnv: Record<string, string> = {
   NEXT_PUBLIC_FIREBASE_API_KEY: "dummy",
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "dummy",
