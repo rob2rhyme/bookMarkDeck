@@ -160,9 +160,18 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
 
 - `npm run dev` — dev server.
 - `npm run lint` → `tsc --noEmit` · `npm run typecheck` → `tsc --noEmit` · `npm run build` → `next build`.
-- `npm run test` → `vitest run` (`npm run test:watch` for watch mode). A **Vitest** suite
-  exists — pure-logic unit tests (no component/E2E) covering `src/utils`, `src/lib`, and the
-  `focus`/`habits` feature `lib/` helpers (streaks, formatting, exports, mood, settings, etc.).
+- `npm run test` → `vitest run` (`npm run test:watch` for watch mode). Two Vitest
+  **projects**, split by filename — the convention is in `vitest.config.ts`:
+  - **node** (`*.test.ts[x]`) — the bulk: pure-logic units over `src/utils`, `src/lib`, and the
+    `focus`/`habits`/`filing` feature `lib/` helpers (streaks, formatting, exports, mood, etc.).
+  - **dom** (`*.dom.test.ts[x]`) — jsdom + `@testing-library/react`, for hooks and DOM logic
+    that pure functions can't reach. `vitest.setup.dom.ts` unmounts between tests.
+    **A hook whose bug would survive a pure-logic test belongs here** — e.g.
+    `useFocusTimer.dom.test.tsx` covers the restore-from-localStorage paths, which depend on
+    effect *ordering* and so are invisible to any unit test of the maths.
+- `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own CI job, currently
+  non-blocking. Covers the public surface; the authed app is reachable via a forged
+  next-auth cookie (see `playwright.config.ts`) but has no specs yet.
 - "Verify" = lint + typecheck + build + `npm run test`, plus a **manual smoke check**:
   login, bookmark sync, Drive sync.
 - CI: `.github/workflows/ci.yml` runs `actionlint` (workflows) + `typecheck` + `lint:eslint`

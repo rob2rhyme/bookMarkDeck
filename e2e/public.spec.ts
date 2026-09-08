@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-// Public surface only — the authenticated app is unreachable without real
-// Google/Firebase credentials.
+// Public surface. The authenticated app is reachable too — see the note in
+// playwright.config.ts — it just has no specs yet.
 test.describe("public surface", () => {
   test("login page renders the Google sign-in button", async ({ page }) => {
     await page.goto("/login");
