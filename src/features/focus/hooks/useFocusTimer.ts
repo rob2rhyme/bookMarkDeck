@@ -180,7 +180,12 @@ export function useFocusTimer({
     else persistTimer();
   }, []);
 
-  handleCompleteRef.current = (opts) => {
+  // Defined during render so it closes over the latest props (canSync, email,
+  // onFocusComplete), but published to the ref after commit — writing a ref
+  // during render is what React forbids. Both refs seed to a no-op and are only
+  // ever invoked from intervals and handlers, so a commit-time write is soon
+  // enough; the effects that call them are declared below and so run after these.
+  const handleComplete = (opts?: { skipNotify?: boolean }) => {
     // Cancel the push: either we're alerting in-page (foreground), or it has
     // already fired (catch-up on return) so cancelling is a harmless no-op.
     stopPush();
@@ -224,10 +229,13 @@ export function useFocusTimer({
       transitionTo("focus", s.autoStartFocus);
     }
   };
+  useEffect(() => {
+    handleCompleteRef.current = handleComplete;
+  });
 
   // `schedule` defaults to true (a fresh start). Resuming a restored block
   // passes false to reuse the push that's already scheduled server-side.
-  startWithRef.current = (seconds: number, schedule = true) => {
+  const startWith = (seconds: number, schedule = true) => {
     clearTick();
     endTimeRef.current = Date.now() + seconds * 1000;
     runningRef.current = true;
@@ -277,6 +285,9 @@ export function useFocusTimer({
     }, 250);
     persistTimer();
   };
+  useEffect(() => {
+    startWithRef.current = startWith;
+  });
 
   const start = useCallback(() => {
     initAudio(); // unlock audio from this user gesture
