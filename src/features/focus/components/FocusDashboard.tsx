@@ -117,7 +117,9 @@ export function FocusDashboard() {
   // seed + activate that task once on arrival. consume() clears the intent, so
   // this is idempotent across re-renders.
   const addTaskRef = useRef(tasks.addTask);
-  addTaskRef.current = tasks.addTask;
+  useEffect(() => {
+    addTaskRef.current = tasks.addTask;
+  });
   useEffect(() => {
     const seed = consumeFocusTaskIntent();
     if (seed) addTaskRef.current(seed);

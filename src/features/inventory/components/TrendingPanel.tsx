@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import type { InventoryItem } from "@/features/inventory/lib/types";
 import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import {
@@ -19,7 +21,10 @@ type TrendingPanelProps = {
  * activity log; hides itself when there's nothing to show.
  */
 export function TrendingPanel({ items, onOpen }: TrendingPanelProps) {
-  const t = trending(items, Date.now(), 90, 5);
+  // Frozen at mount: reading the clock during render makes the component
+  // non-idempotent, and a 90-day window doesn't shift while the page is open.
+  const [now] = useState(() => Date.now());
+  const t = trending(items, now, 90, 5);
   if (!hasTrending(t)) return null;
 
   const columns: { key: string; title: string; entries: TrendingEntry[] }[] = [

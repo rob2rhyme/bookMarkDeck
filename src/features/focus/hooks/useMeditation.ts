@@ -70,10 +70,14 @@ export function useMeditation({
   const lastPhaseRef = useRef(-1);
   const lastStepRef = useRef(-1);
 
+  // Latest-value refs, written after commit rather than during render: the
+  // interval below reads them, so a commit-time write is soon enough.
   const voiceRef = useRef(voice);
-  voiceRef.current = voice;
   const ambientRef = useRef(ambient);
-  ambientRef.current = ambient;
+  useEffect(() => {
+    voiceRef.current = voice;
+    ambientRef.current = ambient;
+  });
 
   // Today's logged meditation minutes (cross-device, from the cloud).
   useEffect(() => {
@@ -124,7 +128,9 @@ export function useMeditation({
   }, [soundEnabled, chimeSound, connected, email, onLog]);
 
   const completeRef = useRef(complete);
-  completeRef.current = complete;
+  useEffect(() => {
+    completeRef.current = complete;
+  });
 
   useEffect(() => {
     if (!running) return;

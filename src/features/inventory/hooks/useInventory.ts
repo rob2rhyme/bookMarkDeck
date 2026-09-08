@@ -149,7 +149,6 @@ export function useInventory(email?: string | null, connected = false) {
       cancelled = true;
       unsub();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
   /** Insert or replace an item (full document). */

@@ -47,12 +47,14 @@ function Donut({ slices, total }: { slices: Slice[]; total: number }) {
   const cy = 70;
   const r = 54;
   const sum = slices.reduce((s, x) => s + x.count, 0) || 1;
-  let angle = -Math.PI / 2;
+  // Each slice starts where every slice before it ended, derived rather than
+  // accumulated — mutating a running `angle` here is a render-phase write.
+  const START = -Math.PI / 2;
   const arcs = slices.map((s, i) => {
     const sweep = (s.count / sum) * Math.PI * 2;
-    const a0 = angle;
-    const a1 = angle + sweep;
-    angle = a1;
+    const before = slices.slice(0, i).reduce((t, x) => t + x.count, 0);
+    const a0 = START + (before / sum) * Math.PI * 2;
+    const a1 = a0 + sweep;
     const large = sweep > Math.PI ? 1 : 0;
     const p = (a: number) => `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
     return {
