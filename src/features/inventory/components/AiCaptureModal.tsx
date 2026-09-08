@@ -205,7 +205,7 @@ export function AiCaptureModal({
               <p className="mt-2 text-sm text-slate-400">{product.description}</p>
             )}
             <p className="mt-3 text-[11px] text-slate-500">
-              An AI guess — you can edit everything before it's saved.
+              An AI guess — you can edit everything before it&apos;s saved.
             </p>
           </div>
         )}
@@ -213,7 +213,7 @@ export function AiCaptureModal({
         {phase === "miss" && (
           <>
             <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-              Couldn't recognize a product — try a closer, well-lit photo.
+              Couldn&apos;t recognize a product — try a closer, well-lit photo.
             </p>
             {pickButton("Try another photo")}
           </>
@@ -256,7 +256,7 @@ export function AiCaptureModal({
 
         <p className="text-[11px] text-slate-500">
           The photo is compressed on your device and sent once to the AI service
-          to identify it — this app doesn't store it on any server.
+          to identify it — this app doesn&apos;t store it on any server.
         </p>
       </div>
     </Modal>

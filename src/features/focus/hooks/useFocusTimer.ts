@@ -366,7 +366,6 @@ export function useFocusTimer({
         setSecondsLeft(secs);
       }
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // When durations change in settings and we're idle, snap to the new value —

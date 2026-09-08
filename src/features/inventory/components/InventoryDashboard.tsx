@@ -417,7 +417,6 @@ export function InventoryDashboard() {
       setLocationFilter(id);
       deepLinkApplied.current = true;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loc.nameById]);
 
   // Attachments live in their own subcollection; the form drives them via

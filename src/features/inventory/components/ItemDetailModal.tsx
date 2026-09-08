@@ -203,6 +203,10 @@ export function ItemDetailModal({
   } | null>(null);
   const [docs, setDocs] = useState<ItemDoc[]>([]);
   const [showAllActivity, setShowAllActivity] = useState(false);
+  // Reading the clock during render makes the component non-idempotent. This
+  // component stays mounted and toggles on `open`, so freezing at mount would
+  // leave the "x days ago" figures stale from page load — restamp on each open.
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const { toast } = useToast();
   // Live competitor prices (by barcode); manual compare-links are the fallback.
   const priceOffers = useItemPriceOffers(item?.barcode, open);
@@ -241,6 +245,7 @@ export function ItemDetailModal({
     setLightbox(null);
     setDocs([]);
     setShowAllActivity(false);
+    setNowMs(Date.now());
     if (item && canAttach && item.updatedAt) {
       let cancelled = false;
       onFetchDocs(item.id)
@@ -263,7 +268,6 @@ export function ItemDetailModal({
   const useByDays = useBy ? daysUntil(useBy, today) : null;
   const renews = nextRenewal(item, today);
   const renewDays = renews ? daysUntil(renews, today) : null;
-  const nowMs = Date.now();
   const status: ItemStatus =
     item.status ?? (item.lentTo?.trim() ? "lent" : "have");
   const summary = activitySummary(item, nowMs);

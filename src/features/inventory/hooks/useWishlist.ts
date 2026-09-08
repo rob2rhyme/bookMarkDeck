@@ -73,7 +73,6 @@ export function useWishlist(email?: string | null, connected = false) {
       cancelled = true;
       unsub();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
   const upsert = useCallback(

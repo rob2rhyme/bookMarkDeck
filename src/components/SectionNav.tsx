@@ -91,6 +91,10 @@ export function SectionNav({
       "(prefers-reduced-motion: reduce)"
     ).matches;
     if (reduce || Math.abs(dist) < 4) {
+      // `jump` only ever runs from a chip's onClick, never during render — the
+      // rule can't see that. The identical write inside `step` below sits in a
+      // callback, so it isn't flagged.
+      // eslint-disable-next-line react-hooks/immutability
       scroller.scrollTop = targetY;
       return;
     }

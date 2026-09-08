@@ -101,7 +101,6 @@ export function useInventoryLocations(email?: string | null, connected = false) 
       cancelled = true;
       unsub();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
   const addLocation = useCallback(
