@@ -165,8 +165,13 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   `focus`/`habits` feature `lib/` helpers (streaks, formatting, exports, mood, settings, etc.).
 - "Verify" = lint + typecheck + build + `npm run test`, plus a **manual smoke check**:
   login, bookmark sync, Drive sync.
-- CI: `.github/workflows/ci.yml` runs `actionlint` (workflows) + `typecheck` + `test` +
-  `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds previews.
+- CI: `.github/workflows/ci.yml` runs `actionlint` (workflows) + `typecheck` + `lint:eslint`
+  + `test` + `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds
+  previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
+  backlog was cleared. It carries real weight, because `npm run lint` is only
+  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The ~88
+  remaining *warnings* are deliberate, mostly `react-hooks/set-state-in-effect` from the
+  hydration pattern below; only errors fail the build.
   **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
   load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
   fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
@@ -227,8 +232,10 @@ Two rules govern that file, both worth keeping:
   resolves. Majors are included because 6 → 8 is the move that needs making.
 
 `typescript` deserves one extra note: `npm run lint` is `tsc --noEmit`, and it **passes**
-under TS 7.0 — only the separate `lint:eslint` pass fails. Since CI runs that one
-non-blocking, a TS 7 bump merges green while silently breaking linting.
+under TS 7.0 — only the separate `lint:eslint` pass fails. That pass is now **blocking**,
+so a TS 7 bump fails CI loudly instead of merging green while silently breaking linting.
+The ignore stays until `typescript-eslint` supports TS 7; what changed is that removing it
+prematurely is no longer a silent mistake.
 
 ## Focus feature (`/focus`)
 
@@ -445,3 +452,13 @@ Other invariants:
 
 - File comments are sparse; match the surrounding density. `@/` is the `src/` alias.
 - Follow existing patterns exactly; prefer the smallest diff to shared files.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
