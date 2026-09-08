@@ -37,7 +37,17 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
-  reporter: "line",
+  // This suite blocks merges, which changes what the config has to guarantee:
+  // - `retries` was never set (default 0), so `trace: "on-first-retry"` below
+  //   could never fire. Two retries on CI absorb genuine browser flake and make
+  //   the trace actually get captured when something does fail.
+  // - `forbidOnly` because a stray `test.only` would quietly shrink the suite to
+  //   one test and still exit 0 — a silent hole in a blocking gate.
+  retries: process.env.CI ? 2 : 0,
+  forbidOnly: !!process.env.CI,
+  reporter: process.env.CI
+    ? [["line"], ["html", { open: "never" }]]
+    : "line",
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",

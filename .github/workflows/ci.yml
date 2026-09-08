@@ -60,7 +60,7 @@ jobs:
       - run: npm run build
 
   e2e:
-    name: e2e (public surface)
+    name: e2e
     runs-on: ubuntu-latest
     env:
       NEXT_PUBLIC_FIREBASE_API_KEY: dummy
@@ -79,6 +79,16 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # Non-blocking: covers only the public surface (authed app needs real creds).
+      # Blocking. Covers the public surface AND the authed pillars — the latter
+      # via a forged next-auth cookie (see e2e/fixtures/session.ts), so no real
+      # credentials are involved. playwright.config.ts sets retries + forbidOnly
+      # for exactly this: a gate that can block a merge must not fail on flake,
+      # and must not pass on a stray `test.only`.
       - run: npm run e2e
-        continue-on-error: true
+      # A blocking failure needs to be diagnosable without re-running locally.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

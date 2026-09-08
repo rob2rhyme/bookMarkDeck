@@ -169,9 +169,17 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     **A hook whose bug would survive a pure-logic test belongs here** — e.g.
     `useFocusTimer.dom.test.tsx` covers the restore-from-localStorage paths, which depend on
     effect *ordering* and so are invisible to any unit test of the maths.
-- `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own CI job, currently
-  non-blocking. Covers the public surface; the authed app is reachable via a forged
-  next-auth cookie (see `playwright.config.ts`) but has no specs yet.
+- `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
+  Covers the public surface *and* all five authed pillars — signing in needs no real
+  credentials, because the gate is `getServerSession`, which only verifies a
+  next-auth JWT against `NEXTAUTH_SECRET`; `e2e/fixtures/session.ts` mints a cookie
+  with the same dummy secret the test server runs with. Firebase creds gate only
+  live Firestore sync, so the pillars render their empty state.
+  Two settings exist because it blocks merges: `retries: 2` on CI (which is also
+  what makes `trace: "on-first-retry"` fire at all — before, retries defaulted to
+  0, so the trace could never be captured), and `forbidOnly`, since a stray
+  `test.only` would otherwise shrink the suite to one test and still exit 0.
+  On failure the HTML report uploads as a `playwright-report` artifact.
 - "Verify" = lint + typecheck + build + `npm run test`, plus a **manual smoke check**:
   login, bookmark sync, Drive sync.
 - CI: `.github/workflows/ci.yml` runs `actionlint` (workflows) + `typecheck` + `lint:eslint`
