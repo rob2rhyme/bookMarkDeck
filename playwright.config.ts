@@ -13,13 +13,17 @@ const BASE_URL = `http://localhost:${PORT}`;
 // Real Firebase credentials are needed only for live Firestore sync, which is
 // opt-in and simply stays off. Authed specs are worth adding; nothing here
 // blocks them.
+// Exported so e2e/fixtures/session.ts signs its forged cookie with the very
+// secret the server verifies against — two copies would drift apart silently.
+export const E2E_SECRET = "dummy-e2e-secret";
+
 const dummyEnv: Record<string, string> = {
   NEXT_PUBLIC_FIREBASE_API_KEY: "dummy",
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "dummy",
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: "dummy",
   NEXT_PUBLIC_FIREBASE_APP_ID: "dummy",
   NEXTAUTH_URL: BASE_URL,
-  NEXTAUTH_SECRET: "dummy-e2e-secret",
+  NEXTAUTH_SECRET: E2E_SECRET,
   GOOGLE_CLIENT_ID: "dummy",
   GOOGLE_CLIENT_SECRET: "dummy",
 };
