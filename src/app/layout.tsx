@@ -5,7 +5,10 @@ import { Providers } from "./providers";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "Bookmark Deck",
+  // `template` suffixes titles set by child segments; `default` is what `/`
+  // and any segment without its own title falls back to (and is required
+  // whenever a template is set).
+  title: { default: "Bookmark Deck", template: "%s · Bookmark Deck" },
   description: "A simple bookmark manager",
   applicationName: "Bookmark Deck",
   appleWebApp: {

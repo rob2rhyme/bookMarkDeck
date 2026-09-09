@@ -1,6 +1,10 @@
 // src/app/(app)/guide/page.tsx — the site guide: what every pillar does and how.
 import Link from "next/link";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Guide" };
+
 const SECTIONS = [
   { id: "start", label: "Getting started" },
   { id: "bookmarks", label: "Bookmarks" },

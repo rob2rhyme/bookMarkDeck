@@ -4,12 +4,15 @@ import { test, expect } from "./fixtures/session";
 
 // The five pillars, and the nav label each one carries in AppShell's
 // DESTINATIONS. Labels (not copy) are what the header renders as aria-labels.
+// `title` is what each route serves in <title>. `/` has no title of its own, so
+// it falls back to the root layout's `title.default`; the rest are suffixed by
+// `title.template`.
 const PILLARS = [
-  { path: "/", label: "Bookmarks" },
-  { path: "/focus", label: "Focus" },
-  { path: "/habits", label: "Habits" },
-  { path: "/inventory", label: "My Stuff" },
-  { path: "/filing", label: "Filing" },
+  { path: "/", label: "Bookmarks", title: "Bookmark Deck" },
+  { path: "/focus", label: "Focus", title: "Focus · Bookmark Deck" },
+  { path: "/habits", label: "Habits", title: "Habits · Bookmark Deck" },
+  { path: "/inventory", label: "My Stuff", title: "My Stuff · Bookmark Deck" },
+  { path: "/filing", label: "Filing", title: "Filing · Bookmark Deck" },
 ] as const;
 
 anon.describe("auth gate", () => {
@@ -24,7 +27,15 @@ anon.describe("auth gate", () => {
 });
 
 test.describe("signed in", () => {
-  for (const { path, label } of PILLARS) {
+  for (const { path, label, title } of PILLARS) {
+    test(`${path} serves its own <title>`, async ({ page }) => {
+      // The per-route anchor that did not exist when these specs were written:
+      // every route used to serve "Bookmark Deck". Catches a missing title, a
+      // wrong one, and the template silently ceasing to apply.
+      await page.goto(path);
+      await expect(page).toHaveTitle(title);
+    });
+
     test(`${path} renders inside the app shell`, async ({ page }) => {
       const crashes: string[] = [];
       // `pageerror` only — uncaught exceptions. NOT console: Firebase cannot
