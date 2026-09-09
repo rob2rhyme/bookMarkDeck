@@ -3,6 +3,10 @@ import Link from "next/link";
 
 import LegalPageLayout from "@/components/LegalPageLayout";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "FAQ" };
+
 function Q({ q, children }: { q: string; children: React.ReactNode }) {
   return (
     <div>

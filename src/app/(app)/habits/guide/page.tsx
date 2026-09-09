@@ -1,6 +1,10 @@
 // src/app/(app)/habits/guide/page.tsx
 import Link from "next/link";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Habits guide" };
+
 export default function HabitsGuidePage() {
   return (
     <div className="mx-auto max-w-2xl py-2">

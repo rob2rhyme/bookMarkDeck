@@ -1,6 +1,10 @@
 //src/app/privacy/page.tsx
 import LegalPageLayout from "@/components/LegalPageLayout";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Privacy" };
+
 export default function PrivacyPage() {
   return (
     <LegalPageLayout title="Privacy Policy" lastUpdated="June 25, 2026">

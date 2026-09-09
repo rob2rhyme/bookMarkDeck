@@ -1,6 +1,10 @@
 //src/app/terms/page.tsx
 import LegalPageLayout from "@/components/LegalPageLayout";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Terms" };
+
 export default function TermsPage() {
   return (
     <LegalPageLayout title="Terms of Service" lastUpdated="February 12, 2026">
