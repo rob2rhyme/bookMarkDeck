@@ -161,7 +161,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
 - `npm run dev` — dev server.
 - `npm run lint` → `tsc --noEmit` · `npm run typecheck` → `tsc --noEmit` · `npm run build` → `next build`.
 - `npm run test` → `vitest run` (`npm run test:watch` for watch mode). Two Vitest
-  **projects**, split by filename — the convention is in `vitest.config.ts`:
+  **projects**, split by filename — the convention is in `vitest.config.mts`:
   - **node** (`*.test.ts[x]`) — the bulk: pure-logic units over `src/utils`, `src/lib`, and the
     `focus`/`habits`/`filing` feature `lib/` helpers (streaks, formatting, exports, mood, etc.).
   - **dom** (`*.dom.test.ts[x]`) — jsdom + `@testing-library/react`, for hooks and DOM logic
@@ -223,14 +223,22 @@ safe rather than something to avoid. macOS-only iOS tooling, never built on CI o
 
 ### Dependabot: what is held back, and until when
 
-`.github/dependabot.yml` ignores four packages at **specific versions**. Each is blocked on
-a fix outside this repo; without the ignores they regenerate weekly (#255 was closed and
+`.github/dependabot.yml` ignores **three** packages at **specific versions**. Each is blocked
+on a fix outside this repo; without the ignores they regenerate weekly (#255 was closed and
 #268 reappeared with the same content inside the hour).
+
+**An ignore can acquire a cost it did not start with.** The `vitest` entry was created for an
+install-time npm crash. It later turned out that the only non-vulnerable release in the 4.x
+line (4.1.11, for GHSA-82fw-gwwq-j7x9) was one of the two versions it silenced — so a
+convenience hold had quietly become a security hold, and `npm audit` was the only thing
+saying so. Resolved by moving to vitest 5 rather than by loosening the ignore. When one of
+the rows below is long-lived, re-check what it is costing, not just whether its stated
+blocker still holds.
 
 | Package | Ignored | Blocker | Unblocks when |
 |---|---|---|---|
 | `@capacitor/cli` | `8.5.x` | `xcode` → `uuid@7` | `xcode` drops `uuid@7`, or a deliberate Capacitor 6→8 migration |
-| `vitest` | `4.1.10`, `4.1.11` | npm arborist crashes in `#loadPeerSet` walking vitest's optional peers | npm's resolver handles that peer graph |
+| ~~`vitest`~~ | — | *resolved:* moved to **vitest 5** | — |
 | `typescript` | `7.0.x` | `typescript-eslint` does not support TS 7.0 | TS ≥7.1 (typescript-eslint#10940) |
 | `eslint` | `10.x` | `eslint-plugin-react` uses the context API ESLint 10 removed | `eslint-config-next` supports ESLint 10 |
 
