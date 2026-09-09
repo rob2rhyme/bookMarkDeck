@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
+import { ContributionsCalendar } from "@/components/ContributionsCalendar";
 import { ChevronUp, Trash2 } from "@/components/icons";
 import { ExpandToggle } from "@/components/ExpandToggle";
 import { useToast } from "@/components/toast/ToastProvider";

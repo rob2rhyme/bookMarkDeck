@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
+import { ContributionsCalendar } from "@/components/ContributionsCalendar";
 import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { ExpandToggle } from "@/components/ExpandToggle";
 import { ChevronUp } from "@/components/icons";

@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 // @testing-library/react is already a dependency where user-event is not.
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import { ContributionsCalendar, levelFor } from "./ContributionsCalendar";
+import { ContributionsCalendar } from "./ContributionsCalendar";
 
 /**
  * The help toggle exists because it was silently lost once: a large unrelated
@@ -40,16 +40,5 @@ describe("ContributionsCalendar help toggle", () => {
 
     fireEvent.click(trigger);
     expect(screen.queryByText(HELP)).toBeNull();
-  });
-});
-
-describe("levelFor", () => {
-  // The thresholds decide the heatmap's colour, so pin the boundaries.
-  it("maps counts onto the five levels at their boundaries", () => {
-    expect([0, -1].map(levelFor)).toEqual([0, 0]);
-    expect([1, 2].map(levelFor)).toEqual([1, 1]);
-    expect([3, 4].map(levelFor)).toEqual([2, 2]);
-    expect([5, 7].map(levelFor)).toEqual([3, 3]);
-    expect([8, 99].map(levelFor)).toEqual([4, 4]);
   });
 });

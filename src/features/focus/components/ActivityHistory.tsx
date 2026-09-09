@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Trash2, X } from "@/components/icons";
 import { ExpandToggle } from "@/components/ExpandToggle";
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
-import { ContributionsCalendar } from "@/features/focus/components/ContributionsCalendar";
+import { ContributionsCalendar } from "@/components/ContributionsCalendar";
 import type { ActivityEvent, ActivityType } from "@/features/focus/data/focusData";
 import { type MoodKey } from "@/features/focus/lib/mood";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";

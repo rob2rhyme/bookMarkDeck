@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { levelFor } from "@/features/focus/components/ContributionsCalendar";
+import { levelFor } from "./ContributionsCalendar";
 
 describe("levelFor (contribution heatmap intensity)", () => {
   it("maps day counts to the five intensity buckets", () => {
