@@ -70,18 +70,23 @@ export function HabitsDashboard() {
   const sessions = useFocusSessions(email, connected);
 
   // Auto-check a habit when a focus session it launched completes today.
+  // Destructured so exhaustive-deps can see these as plain identifiers; the dep
+  // *values* are the same ones the array already listed. Depending on `h` itself
+  // (what the rule otherwise asks for) would re-run this on every render, since
+  // the hook returns a fresh object each time.
+  const { today, allHabits, statsByHabit, toggleToday } = h;
   useEffect(() => {
-    if (!h.today || sessions.length === 0) return;
+    if (!today || sessions.length === 0) return;
     const link = peekHabitFocusLink();
-    if (!link || link.day !== h.today) return;
+    if (!link || link.day !== today) return;
     const completed = sessions.some(
-      (s) => s.day === h.today && (s.createdAt ?? "") >= link.at
+      (s) => s.day === today && (s.createdAt ?? "") >= link.at
     );
     if (!completed) return;
-    const habit = h.allHabits.find((x) => x.id === link.habitId);
+    const habit = allHabits.find((x) => x.id === link.habitId);
     clearHabitFocusLink(); // clear first so this can't loop
-    if (habit && !h.statsByHabit.get(habit.id)?.doneToday) h.toggleToday(habit);
-  }, [sessions, h.today, h.allHabits, h.statsByHabit, h.toggleToday]);
+    if (habit && !statsByHabit.get(habit.id)?.doneToday) toggleToday(habit);
+  }, [sessions, today, allHabits, statsByHabit, toggleToday]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
