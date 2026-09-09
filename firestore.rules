@@ -12,7 +12,9 @@ rules_version = '2';
 // user can only read or write data under their own uid; everything else is
 // denied by default.
 //
-// Verified against the Firestore emulator (40 assertions): the owner can reach
+// Verified against the Firestore emulator (44 assertions — the count is printed
+// by scripts/verify-firestore-rules.mjs and repeated in CLAUDE.md, so the three
+// move together): the owner can reach
 // every pillar's collections including deeply nested paths, a second signed-in
 // uid is denied read, write and delete on all of them, unauthenticated access
 // is denied, and nothing outside users/{uid} matches any allow statement.

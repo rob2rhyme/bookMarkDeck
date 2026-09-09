@@ -46,9 +46,21 @@ const alice = env.authenticatedContext(ALICE).firestore();
 const bob = env.authenticatedContext(BOB).firestore();
 const anon = env.unauthenticatedContext().firestore();
 
-/** Every collection a pillar writes under users/{uid}. */
+// A SAMPLE of the collections pillars write under users/{uid} — not an
+// inventory. firestore.rules is one recursive match on users/{uid}/{document=**},
+// so every name is covered whether or not it is listed here; the point is to
+// exercise the rule against realistic paths. Names must be real ones, though:
+// this list used to include "habitsLog", which the app has never written, while
+// the collections habits actually uses went unsampled.
 const FILING = ["filingPlaces", "filingParties", "filingFolders", "filingDocuments", "filingSettings"];
-const OTHERS = ["focusTasks", "habitsLog", "inventoryItems", "bookmarkBackups"];
+const OTHERS = [
+  "focusTasks",
+  "focusSessions",
+  "habits",
+  "habitEntries",
+  "inventoryItems",
+  "bookmarkBackups",
+];
 
 let pass = 0;
 const failures = [];
