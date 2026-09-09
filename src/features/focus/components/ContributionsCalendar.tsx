@@ -165,6 +165,13 @@ export function ContributionsCalendar({
 
       {/* Footer: help link + legend. */}
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setShowHelp((v) => !v)}
+          className="text-[11px] text-slate-400 underline-offset-2 transition hover:text-slate-200 hover:underline"
+        >
+          Learn how we count contributions
+        </button>
         <div className="flex items-center gap-1 text-[11px] text-slate-400">
           <span>Less</span>
           {LEVEL_CLASS.map((cls, i) => (

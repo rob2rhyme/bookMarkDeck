@@ -273,19 +273,22 @@ export function SimpleHabitsDashboard() {
   // gesture (often blocked). The chip's "Saved on this device · Sync" button
   // triggers the interactive connect from a real tap instead.
 
-  // Auto-check a habit when a focus session it launched completes today.
+  // Auto-check a habit when a focus session it launched completes today. See the
+  // note on the twin of this effect in HabitsDashboard for why `h` is
+  // destructured rather than listed as a dependency.
+  const { today, allHabits, statsByHabit, toggleToday } = h;
   useEffect(() => {
-    if (!h.today || sessions.length === 0) return;
+    if (!today || sessions.length === 0) return;
     const link = peekHabitFocusLink();
-    if (!link || link.day !== h.today) return;
+    if (!link || link.day !== today) return;
     const completed = sessions.some(
-      (s) => s.day === h.today && (s.createdAt ?? "") >= link.at
+      (s) => s.day === today && (s.createdAt ?? "") >= link.at
     );
     if (!completed) return;
-    const habit = h.allHabits.find((x) => x.id === link.habitId);
+    const habit = allHabits.find((x) => x.id === link.habitId);
     clearHabitFocusLink();
-    if (habit && !h.statsByHabit.get(habit.id)?.doneToday) h.toggleToday(habit);
-  }, [sessions, h.today, h.allHabits, h.statsByHabit, h.toggleToday]);
+    if (habit && !statsByHabit.get(habit.id)?.doneToday) toggleToday(habit);
+  }, [sessions, today, allHabits, statsByHabit, toggleToday]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
