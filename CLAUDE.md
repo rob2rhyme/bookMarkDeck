@@ -61,7 +61,14 @@ Rules live in the committed **`firestore.rules`** at the repo root (wired via `f
 `match /users/{uid}/{document=**}` allowing read/write only when `request.auth.uid == uid` —
 which covers every collection, since all user data lives under `users/{uid}`. Per-feature notes:
 `src/features/{focus,habits,inventory}/FIRESTORE_RULES.md`. Any new collection must stay under
-`users/{uid}` (or get its own owner-scoped rule).
+`users/{uid}` (or get its own owner-scoped rule) — and that is **enforced**, not just asked for:
+`src/lib/firestorePaths.test.ts` scans the source for `doc(db, …)` / `collection(db, …)` and fails
+if any path is not rooted at `users` with a uid *variable*. A stray root collection would otherwise
+pass lint, typecheck and build, and only fail at runtime — where the tempting fix is a top-level
+allow in `firestore.rules`, which is the drift this section warns about.
+
+The assertion count below is printed by the script and repeated in `firestore.rules`; the three
+move together.
 
 Firestore evaluates the **deployed** ruleset, so the repo copy and production used to be able to
 drift silently. **`.github/workflows/firestore-rules.yml` closes that gap** — on any change to
@@ -70,7 +77,7 @@ then reads the released ruleset back to confirm the deploy landed:
 
 | Command | Answers |
 |---|---|
-| `npm run verify:rules` | is the **file** correct? (40 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`) — needs `FIRESTORE_EMULATOR_HOST` |
+| `npm run verify:rules` | is the **file** correct? (44 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`) — needs `FIRESTORE_EMULATOR_HOST` |
 | `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |
