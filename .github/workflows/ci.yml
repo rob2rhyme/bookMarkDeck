@@ -50,11 +50,12 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npm run typecheck
-      # Blocking. The error backlog is cleared; what remains is warnings, mostly
-      # the intentional localStorage-hydration pattern (set-state-in-effect),
-      # deliberately downgraded. A new *error* now fails the build — which
-      # matters because `npm run lint` is only `tsc --noEmit`, so this is the
-      # sole check that catches a lint-level regression.
+      # Blocking. The error backlog is cleared; what remains is warnings, every
+      # one of them the intentional localStorage-hydration pattern
+      # (react-hooks/set-state-in-effect), deliberately downgraded — so a warning
+      # from any other rule is new, not backlog. A new *error* now fails the
+      # build — which matters because `npm run lint` is only `tsc --noEmit`, so
+      # this is the sole check that catches a lint-level regression.
       - run: npm run lint:eslint
       - run: npm test
       - run: npm run build

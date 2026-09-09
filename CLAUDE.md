@@ -176,6 +176,11 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     **A hook whose bug would survive a pure-logic test belongs here** — e.g.
     `useFocusTimer.dom.test.tsx` covers the restore-from-localStorage paths, which depend on
     effect *ordering* and so are invisible to any unit test of the maths.
+  - Two **source-scanning** tests sit in that node project and assert properties of how the
+    code is written rather than what it returns, so nothing else could catch them:
+    `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`) and
+    `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
+    two sections below, and `MYSTUFF-DECOUPLING-READINESS.md` for the declared exceptions).
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
   Covers the public surface *and* all five authed pillars — signing in needs no real
   credentials, because the gate is `getServerSession`, which only verifies a
@@ -193,9 +198,11 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   + `test` + `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds
   previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
   backlog was cleared. It carries real weight, because `npm run lint` is only
-  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The ~88
-  remaining *warnings* are deliberate, mostly `react-hooks/set-state-in-effect` from the
-  hydration pattern below; only errors fail the build.
+  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 84
+  remaining *warnings* are deliberate and are **all one rule** —
+  `react-hooks/set-state-in-effect`, from the hydration pattern below; only errors fail
+  the build. That the set is homogeneous is the useful part: a warning from any other
+  rule is new, and worth reading rather than assuming it is backlog.
   **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
   load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
   fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
@@ -271,8 +278,15 @@ prematurely is no longer a silent mistake.
 
 ## Focus feature (`/focus`)
 
-A self-contained "focused-work hub" (see `FOCUS-INTEGRATION.md`). Fully isolated
-under `src/features/focus/` + the `/focus` route; removable cleanly.
+A self-contained "focused-work hub" (see `FOCUS-INTEGRATION.md`), under
+`src/features/focus/` + the `/focus` route. It **imports no other feature** — but it is
+not removable cleanly, because **habits imports it** (4 files, 5 import statements:
+`useFocusSessions`, `FocusCorrelationCard`, `useHabitReminders`, `trackableSources`), so
+`rm -rf src/features/focus` breaks the habits build. Those edges are deliberate — habits
+correlating with focus sessions is a product feature — and are declared and enforced in
+`src/lib/featureBoundaries.test.ts`, with the reasoning in
+`MYSTUFF-DECOUPLING-READINESS.md` §C4. Removability has two directions and this line used
+to conflate them; filing (below) is the one that is clean in both.
 
 A **task-centric work tracker + journal** (not coupled to bookmarks).
 

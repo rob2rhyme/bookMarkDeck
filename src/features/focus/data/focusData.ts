@@ -70,7 +70,11 @@ const resetsCol = (uid: string) =>
   collection(db, "users", uid, "letThemResets");
 
 // ActivityType + logActivity now live in @/lib/activityLog (shared, feature-
-// neutral); re-exported here so existing focus/habits importers keep working.
+// neutral). Re-exported here for focus's own files, which still import the type
+// through this module. Habits no longer does: importing a feature-neutral helper
+// *through* a feature is what made it look like a habits->focus dependency, so it
+// points at @/lib/activityLog directly, the same fix C3 applied to inventory. A
+// re-export is a convenience for this feature, not a door into it.
 export type { ActivityType };
 export { logActivity };
 

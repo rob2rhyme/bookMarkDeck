@@ -20,17 +20,22 @@ Measured across `src/features` (imports of `@/features/<other>`, tests excluded)
 | **Inventory** | yes — `AppShell` (C1) | **no** |
 | **Focus** | no | **no** — but see below, habits reaches *in* |
 | **Filing** | no | no |
-| **Habits** | no — only its route | **yes: 9 edges** (7 → focus, 2 → inventory) |
+| **Habits** | no — only its route | **yes: 7 edges** (5 → focus, 2 → inventory) |
 
 So habits is cleanly removable, and **focus is not**: deleting
-`src/features/focus` breaks habits' build in seven places.
+`src/features/focus` breaks habits' build in four files.
+
+**These counts are now measured, not maintained.** `src/lib/featureBoundaries.test.ts`
+scans the source, declares each edge below with its reason, and asserts the set exactly —
+so a new edge fails CI, and an edge that gets severed fails too, telling you to delete its
+line here. The list can no longer drift in either direction.
 
 | # | Coupling | Evidence | Why it blocks a clean lift |
 |---|----------|----------|----------------------------|
 | C1 | **Shared shell → feature reverse dep** | `AppShell.tsx` imports `useInventoryReminderCount` for the nav badge | Deleting `src/features/inventory` **breaks the shared shell's build** |
 | C2 | **Feature server code outside the feature folder** | 6 route handlers in `src/app/api/inventory/*` import `features/inventory/lib/{aiCapture,productLookup,r2}` | The inventory server surface isn't co-located; it can't be dropped as one directory |
 | C3 | ~~inventory → focus `logActivity`~~ | **Resolved.** `InventoryDashboard` no longer imports from focus; there is no inventory→focus edge anywhere. | — |
-| C4 | **habits → focus** (7) | `logActivity` in *both* habits dashboards; `subscribeSessions` + `FocusSessionRecord` in `useFocusSessions`; `FocusSessionRecord` in `FocusCorrelationCard`; `cancelPush`/`schedulePush` in `useHabitReminders`; `focusData` in `trackableSources` | Focus can't be lifted out without habits following. The push import also contradicts the rule stated in `features/filing/lib/push.ts` — that a feature must never import another, which is why filing *copied* it |
+| C4 | **habits → focus** (5) | `subscribeSessions` + `FocusSessionRecord` in `useFocusSessions`; `FocusSessionRecord` in `FocusCorrelationCard`; `cancelPush`/`schedulePush` in `useHabitReminders`; `focusData` in `trackableSources`. *Was 7:* both habits dashboards imported `logActivity` through `focusData`, which only re-exports it from the feature-neutral `@/lib/activityLog` — the C3 shim. They now import it directly, so two edges were never product coupling at all | Focus can't be lifted out without habits following. The push import also contradicts the rule stated in `features/filing/lib/push.ts` — that a feature must never import another, which is why filing *copied* it |
 | C5 | **habits → inventory** (2) | `subscribeItems` + `releasedOn` in `trackableSources.ts` | Habits' "trackable sources" reads inventory directly |
 
 C4 and C5 are **not accidents** — habits correlating with focus sessions and
@@ -54,9 +59,12 @@ Everything else is already clean: its own Firestore collections
    Next needs them but make each a thin shell that only imports from
    `features/inventory/lib/*`; or, for the spin-out, port those `lib/*` modules
    (already React-free + unit-tested) verbatim to the new app's `src/server/`.
-3. ~~**C3 — inject the activity logger.**~~ **Done** — inventory no longer imports
-   `logActivity` from focus. The pattern it used (inject an optional logger, so a
-   feature emits activity without importing another) is the template for C4 below.
+3. ~~**C3 — inject the activity logger.**~~ **Done** — neither inventory nor habits
+   imports `logActivity` from focus; both use `@/lib/activityLog`. The pattern it used
+   (move the shared helper somewhere feature-neutral, or inject it) is the template for
+   C4 below. Worth noting how the habits half was missed for so long: `focusData` still
+   *re-exports* `logActivity`, so the import kept working and looked like a real
+   dependency. A compatibility shim left in place is a coupling that reads as intentional.
 4. **C4/C5 — only if focus or inventory is the pillar being lifted.** Habits is
    the one reaching out, so extracting *habits* needs nothing here. Extracting
    *focus* or *inventory* means habits must get its sessions/items injected the
@@ -101,7 +109,10 @@ sequential:
   the feature. No dependency inversion needed; the only remaining work is physical
   co-location at extraction time.
 - [x] **C3: activity logging neutralized** — `logActivity`/`ActivityType` moved to
-  `@/lib/activityLog`; inventory imports no `@/features/focus` anywhere.
+  `@/lib/activityLog`; neither inventory nor habits imports it from `@/features/focus`.
+- [x] **The boundary is enforced, not just documented** — `src/lib/featureBoundaries.test.ts`
+  fails CI on any cross-feature import not declared in the C4/C5 table above, and on any
+  `@/features/*` import in `AppShell.tsx` (the C1 regression).
 - [ ] Confirm the `lib/*` modules stay React-free (they are today) so they port to Expo
 - [ ] Capacitor 4.2 hardening: offline shell · native barcode · local notifications · share-target
 - [ ] Decide monetization/billing before the store build ships metered features (`MONETIZATION-PWA.md`)

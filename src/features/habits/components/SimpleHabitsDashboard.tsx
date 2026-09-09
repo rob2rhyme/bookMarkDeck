@@ -23,7 +23,7 @@ import {
   Trash,
 } from "@/components/icons";
 import { RowMenu, type RowMenuItem } from "@/features/habits/components/RowMenu";
-import { logActivity } from "@/features/focus/data/focusData";
+import { logActivity } from "@/lib/activityLog";
 import { todayKey } from "@/features/habits/lib/day";
 import {
   clearHabitFocusLink,
