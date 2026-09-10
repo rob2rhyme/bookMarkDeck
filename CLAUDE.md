@@ -152,7 +152,9 @@ theme** — they use the ordinary `slate-*`/`blue-*` utilities and get both them
   (`src/lib/appearanceSettings.tsx`), chosen in the account-menu Appearance panel, applied by
   `AppearanceApplier`, device-local like fonts and cursors. A blocking inline script in
   `layout.tsx` sets the class before first paint (no flash); it duplicates the storage key by
-  necessity, so keep the two in sync.
+  necessity — a string in the HTML head cannot import — so keep the two in sync.
+  `src/lib/storageKeys.test.ts` now enforces that: bump one copy and it fails naming the key.
+  Bumping only one would bring back exactly the flash the script exists to prevent.
 - **Outside Tailwind's reach**, and handled separately: `public/offline.html` (follows the OS),
   `viewport.themeColor` in `layout.tsx`, and `manifest.ts` (stays dark — install splash).
 - Semantic aliases (`--bd-page`, `--bd-surface`, `--bd-border`, `--bd-text`, `--bd-text-muted`,
@@ -182,14 +184,15 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     **A hook whose bug would survive a pure-logic test belongs here** — e.g.
     `useFocusTimer.dom.test.tsx` covers the restore-from-localStorage paths, which depend on
     effect *ordering* and so are invisible to any unit test of the maths.
-  - Four **source-scanning** tests sit in that node project and assert properties of how
+  - Five **source-scanning** tests sit in that node project and assert properties of how
     the code is written rather than what it returns, so nothing else could catch them:
     `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
     `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
     two sections below, and `MYSTUFF-DECOUPLING-READINESS.md` for the declared exceptions),
     `src/lib/copiedModules.test.ts` (the two deliberately duplicated modules keep the
-    same exports), and `src/lib/themeTokens.test.ts` (the theme map covers every palette
-    step the code uses — see **Theme** below).
+    same exports), `src/lib/themeTokens.test.ts` (the theme map covers every palette
+    step the code uses — see **Theme** below), and `src/lib/storageKeys.test.ts` (the
+    localStorage keys that are hardcoded in more than one file stay in agreement).
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
   Covers the public surface *and* all five authed pillars — signing in needs no real
   credentials, because the gate is `getServerSession`, which only verifies a
@@ -474,7 +477,12 @@ Other invariants:
   bookmarks localStorage cache (`bookmarkdeck:v2:{email}`) rather than mounting
   `useBookmarks`: a one-way read-only dependency on core, not a second
   subscription to the same data. Keep the key in sync with
-  `storageKeyV2ForUser`.
+  `storageKeyV2ForUser` — and note it is **four** files, not two: `useBookmarks`
+  owns it, and filing's `lib/bookmarks.ts`, inventory's `useBookmarkLibrary` and
+  `CommandPalette` all hardcode it to read the same cache.
+  `src/lib/storageKeys.test.ts` pins that set, along with the ten other keys
+  hardcoded in more than one file — bump one copy and the reader silently reads
+  nothing, which no other check can see.
 - **Import merges by id and NEVER deletes** (`lib/exportFiling.ts`), so
   restoring a stale backup can't remove what's been filed since. Each hook's
   `importMany` also writes through to Firestore, or an import would be stranded
