@@ -142,6 +142,12 @@ theme** — they use the ordinary `slate-*`/`blue-*` utilities and get both them
   those grounds stay dark in light mode.
 - **Adding a palette step.** The map covers exactly the family/step pairs the codebase uses. A new
   one needs three lines (`@theme inline`, `:root`, `.light`) or it silently keeps its dark value.
+  **`src/lib/themeTokens.test.ts` enforces this** — it fails on a step the source uses but the map
+  omits, on a token missing from `:root` or `.light`, and on a palette value nothing maps. It found
+  one on the way in: `teal-700` (`LetThemCard`) was declared nowhere. That one was harmless by
+  luck — an undeclared step stays put, which is what a saturated ground under white text wants
+  anyway — but it was right by accident rather than by declaration, so it is now declared *held*
+  beside `teal-500`/`teal-600`, at Tailwind's own value, changing nothing that renders.
 - **Setting.** `theme: "system" | "light" | "dark"` on `AppearanceSettings`
   (`src/lib/appearanceSettings.tsx`), chosen in the account-menu Appearance panel, applied by
   `AppearanceApplier`, device-local like fonts and cursors. A blocking inline script in
@@ -176,13 +182,14 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     **A hook whose bug would survive a pure-logic test belongs here** — e.g.
     `useFocusTimer.dom.test.tsx` covers the restore-from-localStorage paths, which depend on
     effect *ordering* and so are invisible to any unit test of the maths.
-  - Three **source-scanning** tests sit in that node project and assert properties of how
+  - Four **source-scanning** tests sit in that node project and assert properties of how
     the code is written rather than what it returns, so nothing else could catch them:
     `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
     `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
     two sections below, and `MYSTUFF-DECOUPLING-READINESS.md` for the declared exceptions),
-    and `src/lib/copiedModules.test.ts` (the two deliberately duplicated modules keep the
-    same exports).
+    `src/lib/copiedModules.test.ts` (the two deliberately duplicated modules keep the
+    same exports), and `src/lib/themeTokens.test.ts` (the theme map covers every palette
+    step the code uses — see **Theme** below).
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
   Covers the public surface *and* all five authed pillars — signing in needs no real
   credentials, because the gate is `getServerSession`, which only verifies a
