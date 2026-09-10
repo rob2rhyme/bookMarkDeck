@@ -162,6 +162,7 @@
   --color-teal-400: var(--bd-teal-400);
   --color-teal-500: var(--bd-teal-500);
   --color-teal-600: var(--bd-teal-600);
+  --color-teal-700: var(--bd-teal-700);
   --color-teal-950: var(--bd-teal-950);
   /* violet */
   --color-violet-100: var(--bd-violet-100);
@@ -277,6 +278,7 @@
   --bd-teal-400: oklch(77.7% 0.152 181.912);
   --bd-teal-500: oklch(70.4% 0.14 182.503);
   --bd-teal-600: oklch(60% 0.118 184.704);
+  --bd-teal-700: oklch(51.1% 0.096 186.391);
   --bd-teal-950: oklch(27.7% 0.046 192.524);
   /* violet */
   --bd-violet-100: oklch(94.3% 0.029 294.588);
@@ -401,6 +403,7 @@
   --bd-teal-400: oklch(60% 0.118 184.704); /* mirror of 600 */
   --bd-teal-500: oklch(70.4% 0.14 182.503); /* ground — held, white text */
   --bd-teal-600: oklch(60% 0.118 184.704); /* ground — held, white text */
+  --bd-teal-700: oklch(51.1% 0.096 186.391); /* ground — held, white text */
   --bd-teal-950: oklch(98.4% 0.014 180.72); /* mirror of 50 */
   /* violet */
   --bd-violet-100: oklch(38% 0.189 293.745); /* mirror of 900 */
