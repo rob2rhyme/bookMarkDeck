@@ -17,7 +17,7 @@ import {
   peekHabitFocusLink,
   setHabitFocusLink,
 } from "@/features/habits/lib/focusLink";
-import { logActivity } from "@/features/focus/data/focusData";
+import { logActivity } from "@/lib/activityLog";
 import { todayKey } from "@/features/habits/lib/day";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
 import { HabitCard } from "@/features/habits/components/HabitCard";
