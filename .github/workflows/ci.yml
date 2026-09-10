@@ -79,7 +79,18 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Deliberately NOT --with-deps. That flag makes Playwright shell out to
+      # `apt-get update`, which reads every configured source — and this runner
+      # image ships Chrome, Chromium, Edge and Firefox, so Google's apt repo is
+      # one of them. On #295 that repo served a Packages.gz whose hashes did not
+      # match its freshly published Release file; apt exited non-zero and the job
+      # died at install, 40s in, before a test body ran. A blocking merge gate
+      # should not depend on a third-party repo's publish timing. The libraries
+      # --with-deps installs are already present as those browsers' own apt
+      # dependencies, so the flag was buying nothing. If a future image ever does
+      # lack them, Playwright says so by name at browser launch ("Host system is
+      # missing dependencies") — put the flag back then, not before.
+      - run: npx playwright install chromium
       # Blocking. Covers the public surface AND the authed pillars — the latter
       # via a forged next-auth cookie (see e2e/fixtures/session.ts), so no real
       # credentials are involved. playwright.config.ts sets retries + forbidOnly
