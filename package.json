@@ -19,7 +19,7 @@
     "deploy:rules": "npx -y firebase-tools@15.28.2 deploy --only firestore:rules --non-interactive"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.123.0",
+    "@anthropic-ai/sdk": "^0.124.0",
     "@capacitor/core": "^6.2.1",
     "@capacitor/ios": "^6.2.1",
     "@capacitor/local-notifications": "^6.1.3",
