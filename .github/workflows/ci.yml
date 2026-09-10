@@ -79,6 +79,27 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
+      # Cache the browser downloads (~300 MB: chromium, its headless shell, and
+      # ffmpeg). Keyed on the RESOLVED Playwright version from the lockfile, not
+      # the `^1.62.1` range in package.json — a caret resolves to different
+      # versions over time while the range string never changes, so keying on it
+      # would serve one Playwright's browsers to another. A given Playwright
+      # version pins its browser build, so the resolved version is the honest key.
+      #
+      # No `restore-keys` on purpose: a partial match would restore a DIFFERENT
+      # version's browsers, which is worse than a clean miss.
+      - id: pw
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      # Run unconditionally rather than gating on a cache hit. Gating is the
+      # common recipe, but it trusts the cache to be complete: a partial or
+      # corrupt restore would skip the install and break a BLOCKING gate. Running
+      # always is self-healing — on a good hit it has nothing to fetch, and on a
+      # bad one it just downloads, which is exactly what happens today. The worst
+      # case is "no speedup", never "broken".
       # Deliberately NOT --with-deps. That flag makes Playwright shell out to
       # `apt-get update`, which reads every configured source — and this runner
       # image ships Chrome, Chromium, Edge and Firefox, so Google's apt repo is
