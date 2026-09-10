@@ -16,10 +16,25 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+/**
+ * Whether push could work at all — the VAPID key this deployment may not have,
+ * plus the browser APIs. Callers use it to say so rather than offer a control
+ * that silently does nothing: scheduling without it is a no-op, and asking for
+ * notification permission to reach that no-op costs the user a prompt for
+ * nothing. Kept identical to features/filing/lib/push.ts (see its header).
+ */
+export function pushSupported(): boolean {
+  return (
+    Boolean(VAPID_PUBLIC) &&
+    typeof window !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    "Notification" in window
+  );
+}
+
 async function getSubscription(): Promise<PushSubscriptionJSON | null> {
-  if (!VAPID_PUBLIC) return null;
-  if (typeof window === "undefined") return null;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+  if (!pushSupported()) return null;
   try {
     if (Notification.permission !== "granted") {
       const perm = await Notification.requestPermission();
@@ -30,7 +45,7 @@ async function getSubscription(): Promise<PushSubscriptionJSON | null> {
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC as string),
       });
     }
     return sub.toJSON();

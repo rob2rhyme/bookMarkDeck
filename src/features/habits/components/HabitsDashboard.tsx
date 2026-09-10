@@ -300,6 +300,11 @@ export function HabitsDashboard() {
           for this site to receive them.
         </p>
       )}
+      {reminders.hasReminders && reminders.permission === "unsupported" && (
+        <p className="text-xs text-slate-500">
+          Reminders need notifications set up on this deployment.
+        </p>
+      )}
 
       {importMsg && (
         <p className="self-start rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300">
@@ -701,6 +706,7 @@ export function HabitsDashboard() {
         nextSortOrder={nextSortOrder}
         existingAreas={areas.map((a) => a.name)}
         areaIcons={areaIcons}
+        canRemind={reminders.permission !== "unsupported"}
       />
       <HabitOnboarding
         open={onboardOpen}
