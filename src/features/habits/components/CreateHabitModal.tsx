@@ -44,6 +44,13 @@ type CreateHabitModalProps = {
   existingAreas?: string[];
   /** Existing area → icon, to prefill the icon when reusing an area name. */
   areaIcons?: Map<string, string>;
+  /**
+   * Whether a reminder can actually be delivered. Injected rather than read
+   * here: this component would otherwise have to import the push client from
+   * another feature. Defaults to true so the hint reads as it always did when
+   * a caller doesn't pass it.
+   */
+  canRemind?: boolean;
 };
 
 type SchedKind = "daily" | "weekdays" | "timesPerWeek";
@@ -58,6 +65,7 @@ export function CreateHabitModal({
   nextSortOrder,
   existingAreas = [],
   areaIcons,
+  canRemind = true,
 }: CreateHabitModalProps) {
   const [name, setName] = useState("");
   const [area, setArea] = useState("");
@@ -542,7 +550,9 @@ export function CreateHabitModal({
               </button>
             )}
             <span className="text-[11px] text-slate-500">
-              A gentle push at this time on scheduled days.
+              {canRemind
+                ? "A gentle push at this time on scheduled days."
+                : "Notifications aren’t set up on this deployment, so this time won’t send a push yet."}
             </span>
           </div>
         </div>

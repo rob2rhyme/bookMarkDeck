@@ -176,11 +176,13 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     **A hook whose bug would survive a pure-logic test belongs here** — e.g.
     `useFocusTimer.dom.test.tsx` covers the restore-from-localStorage paths, which depend on
     effect *ordering* and so are invisible to any unit test of the maths.
-  - Two **source-scanning** tests sit in that node project and assert properties of how the
-    code is written rather than what it returns, so nothing else could catch them:
-    `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`) and
+  - Three **source-scanning** tests sit in that node project and assert properties of how
+    the code is written rather than what it returns, so nothing else could catch them:
+    `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
     `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
-    two sections below, and `MYSTUFF-DECOUPLING-READINESS.md` for the declared exceptions).
+    two sections below, and `MYSTUFF-DECOUPLING-READINESS.md` for the declared exceptions),
+    and `src/lib/copiedModules.test.ts` (the two deliberately duplicated modules keep the
+    same exports).
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
   Covers the public surface *and* all five authed pillars — signing in needs no real
   credentials, because the gate is `getServerSession`, which only verifies a
@@ -448,6 +450,14 @@ Other invariants:
 - **`lib/push.ts` is COPIED from `features/focus/lib/push.ts`, not imported** —
   a feature never imports another feature. The `/api/push/*` routes are shared
   infrastructure, so calling those is fine.
+  **Choosing duplication means owning the drift**, and for a while nothing did:
+  this copy grew `pushSupported()` and focus's never got it, so habits — which
+  imports focus's copy — offered "Turn on reminders" on a deployment with no
+  VAPID key. The prompt was raised and granted; the reminder could never fire.
+  `src/lib/copiedModules.test.ts` now asserts both copied pairs export the same
+  names (pillar token normalised, so `isOwnedFilingPath` vs
+  `isOwnedInventoryPath` still reads as a match). Improve one copy and the test
+  fails until it is carried across.
 - **The `.ics` is a file to import, not a feed to subscribe to.** A live feed
   means a publicly-fetchable URL carrying someone's paperwork; deliberately not
   built. All-day `VALUE=DATE` events, so no timezone or DST question arises.

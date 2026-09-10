@@ -459,6 +459,11 @@ export function SimpleHabitsDashboard() {
             Reminders are blocked in your browser settings.
           </span>
         )}
+        {reminders.hasReminders && reminders.permission === "unsupported" && (
+          <span className="text-xs text-slate-500">
+            Reminders need notifications set up on this deployment.
+          </span>
+        )}
         <Link
           href="/habits/guide"
           className="ml-auto text-xs text-slate-500 underline-offset-2 transition hover:text-slate-300 hover:underline"
@@ -713,6 +718,7 @@ export function SimpleHabitsDashboard() {
         nextSortOrder={nextSortOrder}
         existingAreas={areas.map((a) => a.name)}
         areaIcons={areaIcons}
+        canRemind={reminders.permission !== "unsupported"}
       />
       <HabitOnboarding
         open={onboardOpen}

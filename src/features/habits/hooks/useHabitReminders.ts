@@ -2,12 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { cancelPush, schedulePush } from "@/features/focus/lib/push";
+import { cancelPush, pushSupported, schedulePush } from "@/features/focus/lib/push";
 import { nextReminderAt, reminderBody } from "@/features/habits/lib/reminders";
 import type { Habit, HabitStats } from "@/features/habits/lib/types";
 
 type Sched = { fireAt: number; messageId: string | null };
-type Perm = NotificationPermission | "unsupported";
+/**
+ * "checking" is the pre-effect state and is deliberately distinct from
+ * "unsupported": both render nothing, but conflating them would flash the
+ * "notifications aren't set up" line on first paint of a deployment where push
+ * works fine, before the effect below has run.
+ */
+type Perm = NotificationPermission | "unsupported" | "checking";
 
 const KEY = "bd:habit-reminders:v1";
 
@@ -43,7 +49,7 @@ export function useHabitReminders(
   statsByHabit: Map<string, HabitStats>,
   today: string
 ) {
-  const [permission, setPermission] = useState<Perm>("unsupported");
+  const [permission, setPermission] = useState<Perm>("checking");
   const mapRef = useRef<Record<string, Sched>>({});
   const runningRef = useRef(false);
 
@@ -51,9 +57,13 @@ export function useHabitReminders(
     mapRef.current = load(email);
   }, [email]);
 
+  // "unsupported" means push cannot work here AT ALL — which includes a
+  // deployment with no VAPID key, not just a browser without Notification.
+  // Checking only the browser is what let the dashboards offer "Turn on
+  // reminders" on a deployment where scheduling always no-ops: the prompt was
+  // granted and the reminder could never fire, with nothing saying so.
   useEffect(() => {
-    if (typeof Notification === "undefined") setPermission("unsupported");
-    else setPermission(Notification.permission);
+    setPermission(pushSupported() ? Notification.permission : "unsupported");
   }, []);
 
   // A compact signature of the desired schedule — re-reconcile when it changes.
@@ -126,7 +136,7 @@ export function useHabitReminders(
   }, [permission, signature, today, email, habits, statsByHabit]);
 
   const requestPermission = useCallback(async () => {
-    if (typeof Notification === "undefined") return;
+    if (!pushSupported()) return;
     const p = await Notification.requestPermission();
     setPermission(p);
   }, []);
