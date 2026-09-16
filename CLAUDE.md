@@ -211,10 +211,30 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
   backlog was cleared. It carries real weight, because `npm run lint` is only
   `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 84
-  remaining *warnings* are deliberate and are **all one rule** —
-  `react-hooks/set-state-in-effect`, from the hydration pattern below; only errors fail
-  the build. That the set is homogeneous is the useful part: a warning from any other
-  rule is new, and worth reading rather than assuming it is backlog.
+  remaining *warnings* are **all one rule** — `react-hooks/set-state-in-effect`; only
+  errors fail the build. That the set is homogeneous is the useful part: a warning from
+  any other rule is new, and worth reading rather than assuming it is backlog.
+  **They are not all the hydration pattern**, which this line used to claim. Classified
+  by the shape of the effect each sits in (2026-09-16):
+
+  | Shape | Count |
+  |---|---|
+  | cloud subscribe / fetch (`[canSync, email]`, `[connected, email]`) | 28 |
+  | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 15 |
+  | modal / panel reset on open (`[open, …]`) | 14 |
+  | other storage-backed reload | 14 |
+  | **derived-state reset** | **13** |
+
+  Hydration-shaped effects are about **29 of 84**; the biggest group is Firestore
+  subscriptions, which have nothing to do with hydration. The distinction earns its
+  place because the blanket version of it is how #292's regression stayed in `main` for
+  months — a deleted button whose orphaned state warned for exactly this rule, waved off
+  as expected backlog.
+  **If the count ever moves, read the derived-state 13 first**: they are the ones React
+  advises deriving during render (or resetting via `key`) instead of writing from an
+  effect. All 13 were inspected on the date above and are sound — each uses a functional
+  updater or an early-return guard, so none can loop or fight user input — but that is a
+  finding with an expiry, not a permanent property.
   **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
   load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
   fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
