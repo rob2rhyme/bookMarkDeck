@@ -10,9 +10,16 @@ updates:
     # open a PR, which is exactly when to re-check whether the blocker cleared.
     ignore:
       # 8.5.x adds `xcode`, which depends on uuid@7 (GHSA-w5hq-g745-h8pq).
-      # Still true in 8.5.1. See the dependency note in CLAUDE.md; taking it
-      # needs `xcode` to drop uuid@7, or a deliberate Capacitor 6 -> 8
-      # migration verified on a Mac (PR #148).
+      # Re-verified on 2026-09-23: cli@8.5.2 still depends on xcode@^3.0.1,
+      # which still depends on uuid@^7.0.3. See the dependency note in CLAUDE.md.
+      #
+      # This entry used to offer a second unblock condition -- "or a deliberate
+      # Capacitor 6 -> 8 migration verified on a Mac (PR #148)". That clause is
+      # SPENT and was removed: the 6 -> 8 migration landed in #307, and core/ios
+      # are now on 8.5.2 while the cli stays at 8.4.3. Reading the clause today
+      # ("the migration happened, so lift the ignore") would reintroduce three
+      # moderate advisories. The only thing that unblocks this now is `xcode`
+      # dropping uuid@7.
       - dependency-name: "@capacitor/cli"
         versions: ["8.5.x"]
       # (The vitest 4.1.10/4.1.11 ignore was removed once the project moved to
