@@ -57,6 +57,16 @@ Confirm `capacitor.config.ts` `server.url` points at **your** deployed domain.
 > `CAP_PLUGIN_METHOD` are unchanged. So it *should* build as-is. If it doesn't,
 > fix it here so the next person inherits the fix.
 
+> **Try the official plugin first.** This custom plugin exists to set
+> `content.interruptionLevel = .timeSensitive`, and `@capacitor/local-notifications`
+> **8.1.0** added exactly that as a first-class option
+> (`interruptionLevel: 'active' | 'critical' | 'passive' | 'timeSensitive'`). The Swift
+> below predates it. So before writing any of it, try
+> `npm i @capacitor/local-notifications` and the plugin's `schedule()` with
+> `interruptionLevel: 'timeSensitive'` — if that works, everything in this section goes
+> away. (The package was a dependency here until it was dropped as unused; nothing ever
+> imported it, because this plugin was written instead.)
+
 Create two files in `ios/App/App/`:
 
 **`TimerAlertPlugin.swift`**
