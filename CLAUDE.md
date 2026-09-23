@@ -295,12 +295,41 @@ Two rules govern that file, both worth keeping:
   years behind on something nobody meant to freeze. This binds our own entries too: the
   `jsdom` `30.x` ignore was **removed** the moment CI moved to Node 22, because its stated
   cause was gone. An ignore that outlives its reason is a bug.
-- **The `capacitor` group is FIRST in the `groups` map.** A dependency joins the first group
-  it matches, and `dev-dependencies` would otherwise claim `@capacitor/cli`. The Capacitor
-  packages are peer-bound — `@capacitor/ios` requires a matching `@capacitor/core` — so
-  bumping one alone fails `npm ci` with `ERESOLVE`. Six PRs were closed unmergeable for that
-  single cause before grouping fixed it; one PR moving them together is the only shape that
-  resolves. Majors are included because 6 → 8 is the move that needs making.
+- **The `capacitor` group needs `exclude-patterns` on the catch-all groups, or it never
+  fires.** The Capacitor packages are peer-bound — `@capacitor/ios` requires a matching
+  `@capacitor/core` — so bumping one alone fails `npm ci` with `ERESOLVE`; one PR moving
+  them together is the only shape that resolves, and majors are included because 6 → 8 is
+  the move that needs making. **This line used to say the group was listed first on
+  purpose, because "a dependency joins the first group it matches". That is not how
+  Dependabot assigns groups, and the group had never once fired.** It runs a *specificity*
+  pass; map order is irrelevant. From the updater log of 2026-09-17 (job `105213613712`):
+
+  ```
+  INFO Skipping @capacitor/core for group 'capacitor'
+       - belongs to more specific group 'production-minor-patch'
+  WARN Skipping update group for 'capacitor' as it does not match any allowed dependencies.
+  INFO Adding dependencies as handled: ().
+  ```
+
+  `dependency-type` + `update-types` outranks `patterns`, so all four `@capacitor/*`
+  packages were reassigned to the catch-all groups — which then dropped them again, a
+  6 → 8 bump being a major and those groups taking only minor and patch. Matching no group
+  at all, they fell through to the individual updater. That is what the nine PRs closed
+  unmergeable for this one cause actually were (#147/#148/#149, #273/#275/#277, #304/#305,
+  plus the `local-notifications` single): not a problem grouping fixed, but one it was
+  silently failing to. `exclude-patterns: ["@capacitor/*"]` on both catch-alls leaves the
+  specificity pass nothing to prefer — `DependencyGroup#contains?` returns false on an
+  excluded name before any other rule is read.
+
+  **The YAML is not the proof.** A group that matches nothing fails by going quiet, so the
+  only check that means anything is the next updater log: the "more specific group" lines
+  gone, and one grouped PR instead of singles.
+- **A closed Dependabot PR whose branch survives suppresses its own replacement.** #275 was
+  closed on 2026-09-06, but its branch is still on the remote, and the 17 Sep run logged
+  `Pull request #275 already exists for @capacitor/local-notifications` and skipped the
+  package entirely. The stray-branch backlog is not cosmetic — it silently shrinks what
+  Dependabot will propose. `@dependabot recreate` forces the issue on a single PR; deleting
+  the branch is the actual fix.
 
 `typescript` deserves one extra note: `npm run lint` is `tsc --noEmit`, and it **passes**
 under TS 7.0 — only the separate `lint:eslint` pass fails. That pass is now **blocking**,
