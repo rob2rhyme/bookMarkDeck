@@ -267,10 +267,18 @@ moderate. A dependabot `ignore` stops 8.5.x being *proposed* but cannot stop a c
 *resolving* there — so the range has to hold the line, and regenerating the lockfile is
 safe rather than something to avoid. macOS-only iOS tooling, never built on CI or Vercel.
 
-**The rest of Capacitor moved to 8 without it** (#307: `core`/`ios` 6.2.1 → 8.5.2,
-`local-notifications` 6.1.3 → 8.3.1), so the trio is deliberately *not* on one version:
-`cli` 8.4.3 beside `core` 8.5.2. Same major, no peer edge between them, `npm ci` clean,
-audit 0. Do not "tidy" that by lifting the tilde.
+**The rest of Capacitor moved to 8 without it** (#307: `core`/`ios` 6.2.1 → 8.5.2), so
+the set is deliberately *not* on one version: `cli` 8.4.3 beside `core` 8.5.2. Same
+major, no peer edge between them, `npm ci` clean, audit 0. Do not "tidy" that by lifting
+the tilde.
+
+**`@capacitor/local-notifications` was bumped in #307 and then removed as unused.** It
+had been a dependency since the shell landed (`a14b40b`, which added all four Capacitor
+packages as a set) and was never once imported — the time-sensitive timer alert is the
+hand-written Swift `TimerAlert` plugin in `CAPACITOR_IOS.md`. It may well come back: 8.1.0
+added `interruptionLevel: 'timeSensitive'`, which is the *only* reason that custom plugin
+exists, so building the iOS shell should start by trying the official plugin. Re-adding is
+one `npm i`; that note lives in `CAPACITOR_IOS.md` §2 where it will actually be read.
 
 ### Dependabot: what is held back, and until when
 
