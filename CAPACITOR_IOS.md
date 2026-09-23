@@ -17,7 +17,10 @@ Everything web-side already ships: when the app runs inside the shell,
 `TimerAlert` plugin. On the plain web/PWA it's a no-op (web push still applies).
 
 ## Prerequisites
-- macOS with **Xcode** + Command Line Tools, and **CocoaPods** (`sudo gem install cocoapods`).
+- macOS with **Xcode 26.0+** and Command Line Tools. Capacitor 8 requires it;
+  older Xcode will not build the project.
+- **CocoaPods** (`sudo gem install cocoapods`) **only if you take the CocoaPods
+  path in step 1** — the default no longer needs it.
 - A free Apple ID is enough to run on your own device (7-day signing); a paid
   Apple Developer account ($99/yr) for TestFlight / long-lived installs.
 
@@ -26,12 +29,34 @@ Deps are already in `package.json`. From the repo root:
 
 ```bash
 npm install
-npx cap add ios          # creates the ios/ native project
+npx cap add ios          # creates the ios/ native project (Swift Package Manager)
 ```
+
+**Capacitor 8 creates an SPM project, not a CocoaPods one.** So there is no
+`Podfile` and no `.xcworkspace` — `ios/App/App.xcodeproj` is what opens. If you
+want the CocoaPods layout instead (and the `Podfile` the rest of this file used
+to assume), ask for it explicitly:
+
+```bash
+npx cap add ios --packagemanager CocoaPods
+```
+
+Either way, set the **iOS Deployment Target to 15.0** — Capacitor 8's minimum —
+on the project *and* on the App target. On the CocoaPods path also set
+`platform :ios, '15.0'` in `ios/App/Podfile`.
 
 Confirm `capacitor.config.ts` `server.url` points at **your** deployed domain.
 
 ## 2. Add the custom `TimerAlert` plugin
+> **Untested against Capacitor 8.** The Swift and Objective-C below were written
+> for Capacitor 6 and nothing in this repo compiles them — there is no `ios/`
+> directory in git and no macOS runner in CI, so the first person to run this on
+> a Mac is the test. The 8.0 release notes list one `@capacitor/ios` breaking
+> change, to `CAPBridgeViewController`'s `viewDidAppear` / `viewWillTransition`
+> notifications, which this plugin does not use; `CAPPlugin`, `CAPPluginCall` and
+> `CAP_PLUGIN_METHOD` are unchanged. So it *should* build as-is. If it doesn't,
+> fix it here so the next person inherits the fix.
+
 Create two files in `ios/App/App/`:
 
 **`TimerAlertPlugin.swift`**
@@ -99,7 +124,8 @@ When Xcode asks to create an Objective-C bridging header (because of the `.m`),
 accept it.
 
 ## 3. Enable the Time-Sensitive capability
-Open the workspace: `npx cap open ios`. Then in Xcode:
+Open the project: `npx cap open ios` (the `.xcodeproj` on the SPM default, the
+`.xcworkspace` if you chose CocoaPods). Then in Xcode:
 
 1. Select the **App** target → **Signing & Capabilities**.
 2. Set your **Team** (your Apple ID) and a unique **Bundle Identifier**

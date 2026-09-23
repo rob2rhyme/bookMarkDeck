@@ -267,6 +267,11 @@ moderate. A dependabot `ignore` stops 8.5.x being *proposed* but cannot stop a c
 *resolving* there — so the range has to hold the line, and regenerating the lockfile is
 safe rather than something to avoid. macOS-only iOS tooling, never built on CI or Vercel.
 
+**The rest of Capacitor moved to 8 without it** (#307: `core`/`ios` 6.2.1 → 8.5.2,
+`local-notifications` 6.1.3 → 8.3.1), so the trio is deliberately *not* on one version:
+`cli` 8.4.3 beside `core` 8.5.2. Same major, no peer edge between them, `npm ci` clean,
+audit 0. Do not "tidy" that by lifting the tilde.
+
 ### Dependabot: what is held back, and until when
 
 `.github/dependabot.yml` ignores **three** packages at **specific versions**. Each is blocked
@@ -283,7 +288,7 @@ blocker still holds.
 
 | Package | Ignored | Blocker | Unblocks when |
 |---|---|---|---|
-| `@capacitor/cli` | `8.5.x` | `xcode` → `uuid@7` | `xcode` drops `uuid@7`, or a deliberate Capacitor 6→8 migration |
+| `@capacitor/cli` | `8.5.x` | `xcode` → `uuid@7` | `xcode` drops `uuid@7` — **and nothing else**: the 6→8 migration landed in #307 without it |
 | ~~`vitest`~~ | — | *resolved:* moved to **vitest 5** | — |
 | `typescript` | `7.0.x` | `typescript-eslint` does not support TS 7.0 | TS ≥7.1 (typescript-eslint#10940) |
 | `eslint` | `10.x` | `eslint-plugin-react` uses the context API ESLint 10 removed | `eslint-config-next` supports ESLint 10 |
@@ -324,6 +329,15 @@ Two rules govern that file, both worth keeping:
   **The YAML is not the proof.** A group that matches nothing fails by going quiet, so the
   only check that means anything is the next updater log: the "more specific group" lines
   gone, and one grouped PR instead of singles.
+- **Dependabot rebases a grouped PR between your verification and your merge, so verify
+  the MERGED diff, not the branch.** #303 was checked out, installed and gated locally at
+  `@anthropic-ai/sdk` 0.125.0; by the time it merged, Dependabot had rebased it onto a
+  newer `main` and what landed was **0.127.0**. The squash commit's message on `main` still
+  says 0.125.0 and is wrong about it. Coverage happened to survive — the next PR sat on that
+  same `main`, so its gate exercised 0.127.0 — but that was luck, not method. `git show
+  <merge-sha> -- package.json` after the fact is the cheap check; `expectedHeadSha` on the
+  merge call is the cheaper one, because it refuses the merge instead of silently changing
+  what you shipped.
 - **A closed Dependabot PR whose branch survives suppresses its own replacement.** #275 was
   closed on 2026-09-06, but its branch is still on the remote, and the 17 Sep run logged
   `Pull request #275 already exists for @capacitor/local-notifications` and skipped the
