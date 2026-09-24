@@ -23,7 +23,7 @@
     "@capacitor/core": "^8.5.2",
     "@capacitor/ios": "^8.5.2",
     "@upstash/qstash": "^2.11.3",
-    "@upstash/redis": "^1.38.3",
+    "@upstash/redis": "^1.39.0",
     "barcode-detector": "^3.2.2",
     "express": "^5.2.1",
     "firebase": "^12.19.0",
