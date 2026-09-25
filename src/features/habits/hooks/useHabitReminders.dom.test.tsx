@@ -18,7 +18,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
  */
 
 const pushSupported = vi.fn();
-vi.mock("@/features/focus/lib/push", () => ({
+vi.mock("@/lib/push", () => ({
   pushSupported: () => pushSupported(),
   schedulePush: vi.fn().mockResolvedValue("push-id"),
   cancelPush: vi.fn().mockResolvedValue(undefined),

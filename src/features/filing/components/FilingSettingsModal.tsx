@@ -8,7 +8,7 @@ import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { buildIcs, filingEvents } from "@/features/filing/lib/ics";
-import { pushSupported } from "@/features/filing/lib/push";
+import { pushSupported } from "@/lib/push";
 import {
   buildBackup,
   documentsToCsv,

@@ -1,19 +1,23 @@
 "use client";
 
-// Client-side Web Push helpers for Filing.
+// Client-side Web Push helpers — the typed client for the /api/push/* routes.
 //
-// COPIED from features/focus/lib/push.ts rather than imported. A feature must
-// never import another feature — that is the coupling MYSTUFF-DECOUPLING-
-// READINESS.md records as blocking a clean extraction, and the reason
-// InventoryLocation exists beside src/types/folder.ts instead of sharing it.
-// The ~60 duplicated lines are the price of `rm -rf src/features/filing`
-// staying a complete removal.
+// SHARED, not per-feature. These routes are already shared infrastructure (see
+// CLAUDE.md), so their client is too, and it lives beside firebase.ts and
+// rateLimit.ts rather than inside a pillar. It replaces two identical copies in
+// features/focus and features/filing whose only divergence was the default
+// click-through below — and whose drift once shipped a live bug (#297: filing's
+// copy grew pushSupported(), focus's did not, and habits imports focus's, so a
+// "Turn on reminders" control was offered on a deployment with no VAPID key).
 //
-// The API routes under /api/push are shared infrastructure, not feature code,
-// so calling them is fine.
+// Note this is NOT the argument for merging features/{inventory,filing}/lib/r2.ts.
+// Those stay copied on purpose: baking the prefix into isOwnedFilingPath makes it
+// structurally incapable of authorising an inventory object, which a shared
+// isOwnedPath(path, seg, prefix) would downgrade to a runtime argument.
 //
 // Everything degrades to a no-op when push isn't configured (no VAPID key),
-// unsupported, or permission is denied.
+// unsupported, or permission is denied — so the foreground chime keeps working
+// regardless.
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -28,8 +32,11 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * Whether push could work at all — used to hide the setting rather than offer a
- * toggle that silently does nothing.
+ * Whether push could work at all — the VAPID key this deployment may not have,
+ * plus the browser APIs. Callers use it to say so rather than offer a control
+ * that silently does nothing: scheduling without it is a no-op, and asking for
+ * notification permission to reach that no-op costs the user a prompt for
+ * nothing.
  */
 export function pushSupported(): boolean {
   return (
@@ -62,12 +69,19 @@ async function getSubscription(): Promise<PushSubscriptionJSON | null> {
   }
 }
 
-/** Schedule a server-fired push. Returns a cancellable id, or null. */
+/**
+ * Schedule a server-fired push at `endTime`. Returns a message id used to
+ * cancel it, or null if push isn't available.
+ *
+ * `url` is REQUIRED: the per-pillar copies each defaulted it to their own route,
+ * and a shared default would silently send one pillar's notification to
+ * another's page. Every caller states its own destination.
+ */
 export async function schedulePush(opts: {
   endTime: number;
   title: string;
   body: string;
-  url?: string;
+  url: string;
 }): Promise<string | null> {
   const subscription = await getSubscription();
   if (!subscription) return null;
@@ -81,7 +95,7 @@ export async function schedulePush(opts: {
         delaySec,
         title: opts.title,
         body: opts.body,
-        url: opts.url ?? "/filing",
+        url: opts.url,
       }),
     });
     if (!res.ok) return null;
@@ -101,6 +115,6 @@ export async function cancelPush(messageId: string | null): Promise<void> {
       body: JSON.stringify({ messageId }),
     });
   } catch {
-    /* best-effort */
+    // best-effort
   }
 }

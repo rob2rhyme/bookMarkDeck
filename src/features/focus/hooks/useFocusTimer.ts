@@ -13,7 +13,7 @@ import {
   notify,
   requestNotificationPermission,
 } from "@/features/focus/lib/notify";
-import { cancelPush, schedulePush } from "@/features/focus/lib/push";
+import { cancelPush, schedulePush } from "@/lib/push";
 import {
   cancelNativeTimerAlert,
   ensureNativeNotifPermission,
@@ -259,6 +259,7 @@ export function useFocusTimer({
         endTime: endTimeRef.current,
         title: alertTitle,
         body: alertBody,
+        url: "/focus",
       }).then((id) => {
         if (pushGenRef.current === gen) {
           pushIdRef.current = id;
