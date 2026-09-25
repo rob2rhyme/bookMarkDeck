@@ -189,8 +189,9 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
     `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
     two sections below, and `MYSTUFF-DECOUPLING-READINESS.md` for the declared exceptions),
-    `src/lib/copiedModules.test.ts` (the two deliberately duplicated modules keep the
-    same exports), `src/lib/themeTokens.test.ts` (the theme map covers every palette
+    `src/lib/copiedModules.test.ts` (the deliberately duplicated `r2.ts` pair keeps the
+    same exports — `push.ts` was the second pair until it moved to `@/lib/push`),
+    `src/lib/themeTokens.test.ts` (the theme map covers every palette
     step the code uses — see **Theme** below), and `src/lib/storageKeys.test.ts` (the
     localStorage keys that are hardcoded in more than one file stay in agreement).
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
