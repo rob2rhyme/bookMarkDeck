@@ -3,21 +3,29 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Two modules in this repo are DUPLICATED on purpose. Their headers say so and
- * say why: "COPIED from features/focus/lib/push.ts rather than imported. A
- * feature must never import another feature … The ~60 duplicated lines are the
- * price of `rm -rf src/features/filing` staying a complete removal."
+ * `r2.ts` is DUPLICATED on purpose between inventory and filing, and the copy
+ * earns its keep: baking the prefix into `isOwnedFilingPath` makes that function
+ * STRUCTURALLY incapable of authorising an inventory object. A shared
+ * `isOwnedPath(path, seg, prefix)` would downgrade that to a runtime argument —
+ * on the exact check that stops one pillar deleting another's files.
  *
  * The policy is deliberate. What was missing is the other half of it — nothing
  * kept the copies honest, and they drifted. Filing's push client grew a
  * `pushSupported()` export (so a control that cannot work is not offered);
- * focus's copy never got it, and habits imports focus's copy. The result was a
+ * focus's copy never got it, and habits imported focus's copy. The result was a
  * "Turn on reminders" button on a deployment with no VAPID key: the browser
  * permission prompt was raised and granted, and the reminder could never fire.
  *
  * So the copies' PUBLIC SURFACES are asserted equal here. An improvement to one
- * copy now fails until it is carried across — which is the whole bargain of
- * choosing duplication over a shared module.
+ * copy fails until it is carried across — the whole bargain of choosing
+ * duplication over a shared module.
+ *
+ * `push.ts` USED to be the second pair, and is the counter-example worth
+ * keeping in view: its two copies bought nothing. They were code-identical but
+ * for one default string, so the duplication was pure cost, and the bug above
+ * was what it cost. It now lives at `src/lib/push.ts`. The lesson is not "never
+ * duplicate" — it is that a copy has to buy a property you can name, as r2's
+ * does.
  *
  * Export names only, NOT text. The copies legitimately differ in their comments,
  * and r2.ts deliberately differs in the scope of its ownership predicate. The
@@ -29,11 +37,6 @@ const SRC = join(process.cwd(), "src");
 
 /** The `COPIED from` pairs, as their headers declare them. */
 const PAIRS = [
-  {
-    what: "push client",
-    a: "features/focus/lib/push.ts",
-    b: "features/filing/lib/push.ts",
-  },
   {
     what: "R2 presigner",
     a: "features/inventory/lib/r2.ts",

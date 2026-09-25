@@ -14,7 +14,7 @@ vi.mock("@/features/focus/lib/notify", () => ({
   notify: vi.fn(),
   requestNotificationPermission: vi.fn(),
 }));
-vi.mock("@/features/focus/lib/push", () => ({
+vi.mock("@/lib/push", () => ({
   schedulePush: vi.fn().mockResolvedValue("push-id"),
   cancelPush: vi.fn(),
 }));

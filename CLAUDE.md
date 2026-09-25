@@ -189,8 +189,9 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
     `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
     two sections below, and `MYSTUFF-DECOUPLING-READINESS.md` for the declared exceptions),
-    `src/lib/copiedModules.test.ts` (the two deliberately duplicated modules keep the
-    same exports), `src/lib/themeTokens.test.ts` (the theme map covers every palette
+    `src/lib/copiedModules.test.ts` (the deliberately duplicated `r2.ts` pair keeps the
+    same exports — `push.ts` was the second pair until it moved to `@/lib/push`),
+    `src/lib/themeTokens.test.ts` (the theme map covers every palette
     step the code uses — see **Theme** below), and `src/lib/storageKeys.test.ts` (the
     localStorage keys that are hardcoded in more than one file stay in agreement).
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
@@ -363,8 +364,8 @@ prematurely is no longer a silent mistake.
 
 A self-contained "focused-work hub" (see `FOCUS-INTEGRATION.md`), under
 `src/features/focus/` + the `/focus` route. It **imports no other feature** — but it is
-not removable cleanly, because **habits imports it** (4 files, 5 import statements:
-`useFocusSessions`, `FocusCorrelationCard`, `useHabitReminders`, `trackableSources`), so
+not removable cleanly, because **habits imports it** (3 files, 4 import statements:
+`useFocusSessions`, `FocusCorrelationCard`, `trackableSources`), so
 `rm -rf src/features/focus` breaks the habits build. Those edges are deliberate — habits
 correlating with focus sessions is a product feature — and are declared and enforced in
 `src/lib/featureBoundaries.test.ts`, with the reasoning in
@@ -528,17 +529,24 @@ Other invariants:
   created. One message a day, re-armed whenever you open `/filing`
   (`useFilingPush` + `lib/digest.ts`). Consequence, stated in the UI: stop
   opening the app and the digest pauses. The badge and panel stay current.
-- **`lib/push.ts` is COPIED from `features/focus/lib/push.ts`, not imported** —
-  a feature never imports another feature. The `/api/push/*` routes are shared
-  infrastructure, so calling those is fine.
-  **Choosing duplication means owning the drift**, and for a while nothing did:
-  this copy grew `pushSupported()` and focus's never got it, so habits — which
-  imports focus's copy — offered "Turn on reminders" on a deployment with no
-  VAPID key. The prompt was raised and granted; the reminder could never fire.
-  `src/lib/copiedModules.test.ts` now asserts both copied pairs export the same
-  names (pillar token normalised, so `isOwnedFilingPath` vs
-  `isOwnedInventoryPath` still reads as a match). Improve one copy and the test
-  fails until it is carried across.
+- **Push uses the SHARED `@/lib/push`** — it was two per-feature copies until the
+  `/api/push/*` routes' own client was recognised as the shared infrastructure
+  those routes already are. **Choosing duplication means owning the drift**, and
+  for a while nothing did: filing's copy grew `pushSupported()` and focus's never
+  got it, so habits — which imported focus's copy — offered "Turn on reminders"
+  on a deployment with no VAPID key. The prompt was raised and granted; the
+  reminder could never fire.
+  The copies bought nothing to offset that: they were code-identical but for one
+  default string. **`r2.ts` is the opposite case and stays copied** — baking the
+  prefix into `isOwnedFilingPath` makes it structurally incapable of authorising
+  an inventory object, where a shared `isOwnedPath(path, seg, prefix)` would
+  downgrade that to a runtime argument. `src/lib/copiedModules.test.ts` still
+  asserts that pair exports the same names (pillar token normalised, so
+  `isOwnedFilingPath` vs `isOwnedInventoryPath` reads as a match).
+  **A copy has to buy a property you can name.** `schedulePush` therefore takes a
+  **required** `url`: the per-pillar copies each defaulted it to their own route,
+  and a shared default would silently send one pillar's notification to another's
+  page.
 - **The `.ics` is a file to import, not a feed to subscribe to.** A live feed
   means a publicly-fetchable URL carrying someone's paperwork; deliberately not
   built. All-day `VALUE=DATE` events, so no timezone or DST question arises.

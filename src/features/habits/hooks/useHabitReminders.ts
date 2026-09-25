@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { cancelPush, pushSupported, schedulePush } from "@/features/focus/lib/push";
+import { cancelPush, pushSupported, schedulePush } from "@/lib/push";
 import { nextReminderAt, reminderBody } from "@/features/habits/lib/reminders";
 import type { Habit, HabitStats } from "@/features/habits/lib/types";
 

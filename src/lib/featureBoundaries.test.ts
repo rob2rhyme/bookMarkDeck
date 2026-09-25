@@ -17,6 +17,13 @@ import { join } from "node:path";
  * habits with focus sessions is a product feature, and severing it is an open
  * call), so they are DECLARED below rather than removed.
  *
+ * The ledger was 5 edges / 7 statements until push.ts moved to src/lib. That
+ * entry was the only one that was not a data dependency — it imported
+ * cancelPush/schedulePush, and the alternative to importing was a THIRD copy of
+ * an already-duplicated file. Promoting it to shared infrastructure dissolved
+ * the edge instead of declaring it; every edge that remains is habits reading
+ * another pillar's data, which is the product feature the doc describes.
+ *
  * What was missing is enforcement. A new cross-feature import — a first
  * `filing → inventory` one, say, quietly undoing the reason `r2.ts` was copied —
  * passes lint, typecheck, tests and build. Nothing fails; the rule survives only
@@ -78,14 +85,6 @@ const DECLARED: Record<string, { count: number; why: string }> = {
     count: 2,
     why: "subscribeSessions + FocusSessionRecord — the data behind that correlation (C4)",
   },
-  "src/features/habits/hooks/useHabitReminders.ts → focus": {
-    count: 1,
-    why:
-      "cancelPush/schedulePush — the odd one out: not a data dependency, and the " +
-      "stated convention (see features/filing/lib/push.ts) is to copy rather than " +
-      "import. Copying here would make a third copy, so whether to copy or promote " +
-      "push.ts to src/lib is an open owner call (C4)",
-  },
   "src/features/habits/lib/trackableSources.ts → focus": {
     count: 1,
     why: "six subscribe* fns — habits tracks focus signals as habit sources (C4)",
@@ -120,8 +119,8 @@ describe("features do not import each other", () => {
 
   it("keeps the edge count the docs quote honest", () => {
     const statements = Object.values(DECLARED).reduce((n, d) => n + d.count, 0);
-    expect(statements).toBe(7);
-    expect(Object.keys(DECLARED).length).toBe(5);
+    expect(statements).toBe(6);
+    expect(Object.keys(DECLARED).length).toBe(4);
   });
 });
 

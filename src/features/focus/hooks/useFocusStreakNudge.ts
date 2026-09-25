@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { cancelPush, schedulePush } from "@/features/focus/lib/push";
+import { cancelPush, schedulePush } from "@/lib/push";
 import {
   focusStreakBody,
   focusStreakNudgeAt,
