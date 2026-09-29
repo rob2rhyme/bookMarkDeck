@@ -131,11 +131,15 @@ export function ensureFirebaseGoogleAuth(emailHint?: string): Promise<User> {
         }
       })
       .then((user) => {
-        if (!user) {
-          authPromise = null;
-          throw new Error("Firebase Google auth failed");
-        }
+        if (!user) throw new Error("Firebase Google auth failed");
         return user;
+      })
+      // Any failure clears the cache — a blocked or closed popup throws from the
+      // step above. Left cached, every later call returned this same rejection
+      // without opening a popup, on every pillar, until a full reload.
+      .catch((err) => {
+        authPromise = null;
+        throw err;
       });
   }
   return authPromise;
