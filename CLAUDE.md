@@ -579,7 +579,12 @@ Other invariants:
   to the timer's for anything else. The worker's badge is `icons/badge-96.png`,
   white on transparent — Android draws a badge from alpha alone, and the opaque
   app icon rendered as a solid square. `src/lib/serviceWorker.test.ts` loads the
-  real `public/sw.js` into a `vm` sandbox, since nothing imports it.
+  real `public/sw.js` into a `vm` sandbox, since nothing imports it. It also pins
+  the static cache: **bounded at 250 entries**, oldest first, never the offline
+  page. The name sat at `v14` for 223 commits while every deploy's hashed chunks
+  piled up under it. The harness's `waitUntil` throws after dispatch, stricter
+  than a browser on purpose: a revalidation registered from inside the network
+  `.then` threw on a real `FetchEvent` and answered a cache miss with nothing.
   **Permission is asked only from a click** — `requestPushPermission()`, called by
   a click handler; `schedulePush` never prompts. It used to, whenever permission
   was `default`, and the filing digest's effect reached it on every `/filing`

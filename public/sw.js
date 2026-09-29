@@ -5,8 +5,12 @@
 // - Navigations: network-first, falling back to /offline.html when offline.
 // - Static assets (_next/static, icons, logo): stale-while-revalidate.
 
-const CACHE = "bmarkdeck-v14";
+// Bumped from v14 so activate drops the chunks that version piled up.
+const CACHE = "bmarkdeck-v15";
 const OFFLINE_URL = "/offline.html";
+// Every deploy ships new content-hashed chunks, and nothing else ever removes
+// the old ones. Evicting a current chunk costs one refetch.
+const MAX_ENTRIES = 250;
 
 const STATIC_PREFIXES = ["/_next/static/", "/icons/"];
 const STATIC_EXACT = ["/logo.png", "/favicon.ico"];
@@ -33,6 +37,18 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Oldest first: keys() is in insertion order, and a revalidating put() moves an
+// entry to the end, so what goes is what hasn't been fetched lately.
+async function trimCache(cache) {
+  const keys = await cache.keys();
+  const excess = keys.length - MAX_ENTRIES;
+  if (excess <= 0) return;
+  const victims = keys
+    .filter((r) => new URL(r.url).pathname !== OFFLINE_URL)
+    .slice(0, excess);
+  await Promise.all(victims.map((r) => cache.delete(r)));
+}
+
 function isStatic(url) {
   return (
     STATIC_PREFIXES.some((p) => url.pathname.startsWith(p)) ||
@@ -54,10 +70,9 @@ self.addEventListener("fetch", (event) => {
         try {
           return await fetch(request);
         } catch {
+          // Navigations are never cached, so the offline page is the only answer.
           const cache = await caches.open(CACHE);
-          return (
-            (await cache.match(request)) || (await cache.match(OFFLINE_URL))
-          );
+          return cache.match(OFFLINE_URL);
         }
       })()
     );
@@ -65,21 +80,32 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (isStatic(url)) {
+    const opened = caches.open(CACHE);
+    // Clone before the response is handed to the page, which may consume it.
+    // Never keep one that arrived via a redirect: when an asset is bounced to
+    // /login, `res.ok` is true for the login HTML, and storing it would serve
+    // that page as the asset from then on.
+    const network = fetch(request).then((res) => ({
+      res,
+      copy: res && res.ok && !res.redirected ? res.clone() : null,
+    }));
     event.respondWith(
       (async () => {
-        const cache = await caches.open(CACHE);
-        const cached = await cache.match(request);
-        const network = fetch(request)
-          .then((res) => {
-            // Never cache a response that arrived via a redirect: when an asset
-            // is bounced to /login, `res.ok` is true for the login HTML, and
-            // storing it would serve that page as the asset from then on.
-            if (res && res.ok && !res.redirected) cache.put(request, res.clone());
-            return res;
-          })
-          .catch(() => cached);
-        return cached || network;
+        const cached = await (await opened).match(request);
+        return cached || network.then(({ res }) => res).catch(() => cached);
       })()
+    );
+    // Registered now, during dispatch: a waitUntil called later — after a cache
+    // hit has already answered — throws, and the revalidation would be lost.
+    event.waitUntil(
+      network
+        .then(async ({ copy }) => {
+          if (!copy) return;
+          const cache = await opened;
+          await cache.put(request, copy);
+          await trimCache(cache);
+        })
+        .catch(() => {})
     );
   }
 });
