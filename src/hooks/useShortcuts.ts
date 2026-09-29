@@ -1,7 +1,7 @@
 //src/hooks/useShortcuts.ts
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ShortcutApp } from "@/types/shortcut";
 import {
   fetchShortcuts,
@@ -91,10 +91,35 @@ export function useShortcuts(userId?: string | null) {
     };
   }, [userId]);
 
+  // What was last adopted from another tab, so it isn't written straight back.
+  const adopted = useRef<ShortcutApp[] | null>(null);
+
   useEffect(() => {
     if (!hydrated) return;
+    if (adopted.current === shortcuts) return;
     saveToStorage(shortcuts, userId);
   }, [shortcuts, hydrated, userId]);
+
+  // Adopt another tab's write, or this tab's next change puts back its stale
+  // copy — see the same listener in useBookmarks for the full reasoning.
+  useEffect(() => {
+    if (!hydrated) return;
+    const key = storageKeyForUser(userId);
+    const onStorage = (event: StorageEvent) => {
+      if (event.storageArea !== window.localStorage || event.key !== key) return;
+      if (!event.newValue) return; // never wipe state from an event
+      let next: ShortcutApp[];
+      try {
+        next = normalizeShortcuts(JSON.parse(event.newValue));
+      } catch {
+        return;
+      }
+      adopted.current = next;
+      setShortcuts(next);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [hydrated, userId]);
 
   const addShortcut = (data: AddShortcutInput) => {
     const normalized = normalizeShortcut({ ...data, id: crypto.randomUUID() });

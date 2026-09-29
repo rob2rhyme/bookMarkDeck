@@ -101,6 +101,14 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
 - **Hydration-safe:** load from `localStorage` inside `useEffect` (after mount), then set a
   `hydrated` flag. No `localStorage` or `Date`/UA reads during initial render.
 - `localStorage` is a **per-user cache** (key suffixed with `userId`).
+- **That cache is shared by every open tab, so a hook that owns it adopts `storage`
+  events** (`useBookmarks`, `useShortcuts`). They read once on mount and wrote their
+  whole arrays after, so a stale tab — the moment you opened a bookmark in it, which
+  bumps `hits` — put back its old copy and erased what another tab had added. With
+  cloud sync manual, that cache is the only copy of anything not yet pushed. Adopted
+  arrays are held in a ref so they aren't written straight back, and an event never
+  wipes state. It is adoption, not a merge: two tabs writing in the same instant still
+  end with the last write.
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 
