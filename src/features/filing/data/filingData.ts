@@ -39,6 +39,7 @@ import {
   type DocType,
   type FilingActivity,
   type FilingActivityType,
+  type CompleteDocument,
   type FilingDocument,
   type FilingFolder,
   type FilingParty,
@@ -401,8 +402,13 @@ export async function fetchDocuments(emailHint: string): Promise<FilingDocument[
 
 export async function saveDocument(
   emailHint: string,
-  document: FilingDocument
+  document: CompleteDocument
 ): Promise<void> {
+  // The type already demands a complete record; this holds the line at runtime
+  // too, because the write below replaces the cloud document outright.
+  if (document.partial) {
+    throw new Error(`[filing] refusing to save partial document ${document.id}`);
+  }
   const uid = await uidFor(emailHint);
   await setDoc(doc(documentsCol(uid), document.id), documentPayload(document));
 }

@@ -9,30 +9,11 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { draftFor, EMPTY_DRAFT, type DocumentDraft } from "@/features/filing/lib/documentDraft";
 import { DOC_TYPES, type DocType, type FilingDocument, type FilingFolder,
          type FilingParty } from "@/features/filing/lib/types";
 
-export type DocumentDraft = {
-  title: string;
-  folderId: string | null;
-  partyId: string | null;
-  docType: DocType | "";
-  docDate: string;
-  reference: string;
-  aliases: string;
-  note: string;
-};
-
-const EMPTY: DocumentDraft = {
-  title: "",
-  folderId: null,
-  partyId: null,
-  docType: "",
-  docDate: "",
-  reference: "",
-  aliases: "",
-  note: "",
-};
+export type { DocumentDraft };
 
 export function DocumentFormModal({
   open,
@@ -51,26 +32,13 @@ export function DocumentFormModal({
   parties: FilingParty[];
   defaultFolderId?: string | null;
 }) {
-  const [draft, setDraft] = useState<DocumentDraft>(EMPTY);
+  const [draft, setDraft] = useState<DocumentDraft>(EMPTY_DRAFT);
   const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setShowMore(false);
-    setDraft(
-      editing
-        ? {
-            title: editing.title,
-            folderId: editing.folderId,
-            partyId: editing.partyId ?? null,
-            docType: editing.docType ?? "",
-            docDate: editing.docDate ?? "",
-            reference: editing.reference ?? "",
-            aliases: editing.aliases.join(", "),
-            note: editing.note ?? "",
-          }
-        : { ...EMPTY, folderId: defaultFolderId ?? null }
-    );
+    setDraft(editing ? draftFor(editing) : { ...EMPTY_DRAFT, folderId: defaultFolderId ?? null });
   }, [open, editing, defaultFolderId]);
 
   const set = <K extends keyof DocumentDraft>(k: K, v: DocumentDraft[K]) =>

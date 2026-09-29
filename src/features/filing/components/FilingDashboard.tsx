@@ -29,6 +29,7 @@ import { PlaceManager } from "@/features/filing/components/PlaceManager";
 import { PartyManager } from "@/features/filing/components/PartyManager";
 import { FolderFormModal, type FolderDraft } from "@/features/filing/components/FolderFormModal";
 import { DocumentFormModal, type DocumentDraft } from "@/features/filing/components/DocumentFormModal";
+import { changedFields, draftFor } from "@/features/filing/lib/documentDraft";
 import { WhereIsPaperModal } from "@/features/filing/components/WhereIsPaperModal";
 import { LabelPrintModal } from "@/features/filing/components/LabelPrintModal";
 import { UpcomingPanel } from "@/features/filing/components/UpcomingPanel";
@@ -319,8 +320,15 @@ export function FilingDashboard() {
         aliases: splitAliases(draft.aliases),
         note: draft.note.trim() || undefined,
       };
-      if (editingDocument) documents.updateDocument(editingDocument.id, payload);
-      else documents.addDocument(payload);
+      if (editingDocument) {
+        const changed = changedFields(draftFor(editingDocument), draft);
+        if (changed.length > 0) {
+          documents.updateDocument(
+            editingDocument.id,
+            Object.fromEntries(changed.map((k) => [k, payload[k]])) as Partial<typeof payload>
+          );
+        }
+      } else documents.addDocument(payload);
       setEditingDocument(null);
       setAddToFolderId(null);
     },
@@ -467,10 +475,20 @@ export function FilingDashboard() {
         </div>
       ) : (
         <div className="mx-3 rounded-xl border border-slate-800/70 bg-slate-900/80 px-4 py-3 sm:mx-0">
-          <p className="text-sm text-slate-400">
-            <span className="text-emerald-400">●</span> Synced to your account —
-            changes save automatically.
-          </p>
+          {documents.awaitingCloud ? (
+            // Papers rebuilt from the slim on-device cache are missing their
+            // notes and reminders until the snapshot lands, so edits to them
+            // wait for it rather than overwrite the full copy.
+            <p className="text-sm text-slate-400">
+              <span className="text-amber-400">●</span> Loading your papers from your
+              account — edits to them wait until they arrive.
+            </p>
+          ) : (
+            <p className="text-sm text-slate-400">
+              <span className="text-emerald-400">●</span> Synced to your account —
+              changes save automatically.
+            </p>
+          )}
         </div>
       )}
 

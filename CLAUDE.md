@@ -448,9 +448,25 @@ multi-user, which stays ruled out. Nobody else signs in.
   `filingPlaces`, `filingParties`, `filingFolders`, `filingDocuments`,
   `filingSettings/settings`, `filingDocs` (attachment pointers). Notes: `src/features/filing/FIRESTORE_RULES.md`.
 - **Scale:** places/parties/folders cache whole; documents are subscribed whole but
-  cached **slim** — only the fields the list, search, badge and queues need.
+  cached **slim** — only the fields the list, search, badge and queues need —
+  **and only once the cloud copy has loaded.** Slim is safe only while a fuller
+  copy exists elsewhere: it used to be unconditional, so an unsynced account lost
+  every obligation, note and reference on each reload, and a synced one editing
+  before the first snapshot wrote the stripped record over the full cloud copy
+  (`setDoc`, no merge). Before that point documents cache whole.
   `subscribeDocuments(folderId?)` exists so per-folder lazy loading is a one-line
   change past a documented threshold.
+- **A record rebuilt from the slim cache is `partial`, and a partial record is
+  never written to Firestore.** Its missing fields are *missing*, not empty.
+  `saveDocument` takes a `CompleteDocument` and also throws at runtime on one.
+  The marker clears only when the cloud copy replaces the record, or when the
+  connect-time seed finds the cloud holds no copy at all (then the local one is
+  the fullest that exists). While syncing, edits to a partial record wait for the
+  snapshot, and the sync banner says so. Unsynced, they apply and the marker
+  stays, so the record is cached whole without ever becoming eligible to
+  overwrite a cloud copy. An edit sends only the form fields the user changed
+  (`changedFields`), so a form seeded before the snapshot can't write its blanks
+  back.
 
 Four model decisions worth not re-litigating:
 
