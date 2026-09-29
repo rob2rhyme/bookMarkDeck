@@ -31,7 +31,38 @@ function windowAt(path: string, { controlled = true } = {}): FakeWindow {
   return win;
 }
 
-function loadWorker(windows: FakeWindow[] = []) {
+/** Cache Storage with the spec's ordering: keys() in insertion order, and put()
+ *  replacing an entry moves it to the end. */
+function fakeCaches() {
+  const entries = new Map<string, unknown>();
+  const keyOf = (r: string | { url: string }) =>
+    new URL(typeof r === "string" ? r : r.url, ORIGIN).href;
+  const cache = {
+    match: async (r: string | { url: string }) => entries.get(keyOf(r)),
+    put: async (r: string | { url: string }, res: unknown) => {
+      entries.delete(keyOf(r));
+      entries.set(keyOf(r), res);
+    },
+    add: async (r: string) => {
+      entries.set(keyOf(r), { ok: true });
+    },
+    delete: async (r: string | { url: string }) => entries.delete(keyOf(r)),
+    keys: async () => [...entries.keys()].map((url) => ({ url })),
+  };
+  return {
+    entries,
+    storage: {
+      open: async () => cache,
+      keys: async () => [] as string[],
+      delete: async () => true,
+    },
+  };
+}
+
+function loadWorker(
+  windows: FakeWindow[] = [],
+  { caches = fakeCaches().storage, fetch = vi.fn() }: { caches?: unknown; fetch?: unknown } = {}
+) {
   const handlers: Record<string, Handler> = {};
   const self = {
     location: { origin: ORIGIN },
@@ -46,12 +77,32 @@ function loadWorker(windows: FakeWindow[] = []) {
       openWindow: vi.fn(async () => null),
     },
   };
-  runInNewContext(SOURCE, { self, URL, console, Promise });
+  runInNewContext(SOURCE, { self, caches, fetch, URL, console, Promise });
 
   async function dispatch(type: string, event: object) {
     const pending: Promise<unknown>[] = [];
-    handlers[type]({ ...event, waitUntil: (p: Promise<unknown>) => pending.push(p) });
+    let response: Promise<unknown> | undefined;
+    let dispatching = true;
+    handlers[type]({
+      ...event,
+      // Stricter than a browser, on purpose: a real FetchEvent throws on a
+      // waitUntil made once its other promises have settled, which is exactly
+      // when a cache hit's revalidation runs. Only a call made during dispatch
+      // is always safe.
+      waitUntil: (p: Promise<unknown>) => {
+        if (!dispatching) throw new Error("InvalidStateError: waitUntil after dispatch");
+        pending.push(p);
+      },
+      respondWith: (p: Promise<unknown>) => {
+        response = p;
+        pending.push(p);
+      },
+    });
+    dispatching = false;
     await Promise.all(pending);
+    // A response's background revalidation settles after respondWith does.
+    await new Promise((r) => setTimeout(r, 0));
+    return response;
   }
   return { self, dispatch };
 }
@@ -129,5 +180,59 @@ describe("notificationclick", () => {
   it("opens a new window when none is open", async () => {
     const openWindow = await click("/focus", []);
     expect(openWindow).toHaveBeenCalledWith(`${ORIGIN}/focus`);
+  });
+});
+
+describe("static asset cache", () => {
+  const ok = () => ({ ok: true, redirected: false, clone: () => ({ ok: true }) });
+  const asset = (path: string) => ({ method: "GET", mode: "no-cors", url: `${ORIGIN}${path}` });
+
+  async function fetchAll(paths: string[], response: () => unknown = ok) {
+    const { entries, storage } = fakeCaches();
+    await storage.open().then((c) => c.add("/offline.html"));
+    const worker = loadWorker([], { caches: storage, fetch: vi.fn(async () => response()) });
+    for (const path of paths) await worker.dispatch("fetch", { request: asset(path) });
+    return [...entries.keys()].map((url) => new URL(url).pathname);
+  }
+
+  const chunks = Array.from({ length: 300 }, (_, i) => `/_next/static/chunks/${i}.js`);
+
+  // Every deploy ships new content-hashed chunks and nothing ever removed the
+  // old ones: tens of MB over months for a daily user, never read again.
+  it("stays bounded across many builds' chunks, dropping the oldest first", async () => {
+    const kept = await fetchAll(chunks);
+    expect(kept.length).toBeLessThanOrEqual(250);
+    expect(kept).toContain("/_next/static/chunks/299.js");
+    expect(kept).not.toContain("/_next/static/chunks/0.js");
+  });
+
+  it("answers a cache miss with the network response", async () => {
+    const fresh = { ok: true, redirected: false, clone: () => ({}) };
+    const worker = loadWorker([], { fetch: vi.fn(async () => fresh) });
+    const answered = await worker.dispatch("fetch", { request: asset("/icons/icon-512.png") });
+    expect(answered).toBe(fresh);
+  });
+
+  it("revalidates an asset it already holds", async () => {
+    const { entries, storage } = fakeCaches();
+    const url = `${ORIGIN}/icons/icon-192.png`;
+    entries.set(url, { stale: true });
+    const fresh = { ok: true, redirected: false, clone: () => ({ fresh: true }) };
+    const worker = loadWorker([], { caches: storage, fetch: vi.fn(async () => fresh) });
+    await worker.dispatch("fetch", { request: asset("/icons/icon-192.png") });
+    expect(entries.get(url)).toEqual({ fresh: true });
+  });
+
+  it("never evicts the offline page", async () => {
+    expect(await fetchAll(chunks)).toContain("/offline.html");
+  });
+
+  // An asset bounced to /login arrives ok:true with the login HTML; caching it
+  // would serve that page as the asset from then on (#316).
+  it("never caches a response that arrived via a redirect", async () => {
+    const redirected = () => ({ ok: true, redirected: true, clone: () => ({}) });
+    expect(await fetchAll(["/icons/icon-192.png"], redirected)).not.toContain(
+      "/icons/icon-192.png"
+    );
   });
 });
