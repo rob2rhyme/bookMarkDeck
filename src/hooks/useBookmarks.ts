@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
 import {
@@ -261,26 +261,29 @@ function backfillBookmarkFolderIds(
   });
 }
 
+/** A stored v2 payload, or null — no migration, no writes. */
+function parseStorageV2(raw: string): BookmarkDeckStorageV2 | null {
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (parsed.version !== 2) return null;
+    const bookmarks = normalizeBookmarks(parsed.bookmarks);
+    const folders = normalizeFolders(parsed.folders);
+    return {
+      version: 2,
+      bookmarks: backfillBookmarkFolderIds(bookmarks, folders),
+      folders,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function loadFromStorage(userId?: string | null): BookmarkDeckStorageV2 {
   if (typeof window === "undefined") return { version: 2, bookmarks: [], folders: [] };
 
-  try {
-    const rawV2 = window.localStorage.getItem(storageKeyV2ForUser(userId));
-    if (rawV2) {
-      const parsed = JSON.parse(rawV2) as Record<string, unknown>;
-      const bookmarks = normalizeBookmarks(parsed.bookmarks);
-      const folders = normalizeFolders(parsed.folders);
-      if (parsed.version === 2) {
-        return {
-          version: 2,
-          bookmarks: backfillBookmarkFolderIds(bookmarks, folders),
-          folders,
-        };
-      }
-    }
-  } catch {
-    // fall through to v1 migration
-  }
+  const rawV2 = window.localStorage.getItem(storageKeyV2ForUser(userId));
+  const storedV2 = rawV2 ? parseStorageV2(rawV2) : null;
+  if (storedV2) return storedV2;
 
   const bookmarksV1 = (() => {
     try {
@@ -366,10 +369,35 @@ export function useBookmarks(userId?: string | null) {
     };
   }, [userId]);
 
+  // What was last adopted from another tab, so it isn't written straight back.
+  const adopted = useRef<{ bookmarks: Bookmark[]; folders: Folder[] } | null>(null);
+
   useEffect(() => {
     if (!hydrated) return;
+    if (adopted.current?.bookmarks === bookmarks && adopted.current.folders === folders) return;
     saveToStorage(bookmarks, folders, userId);
   }, [bookmarks, folders, hydrated, userId]);
+
+  // Every open tab shares this cache. Without this, a stale tab's next write —
+  // even the hit count bumped by opening a bookmark — put back its old copy and
+  // erased what another tab had added; with cloud sync manual, that cache is
+  // the only copy of anything not yet pushed. This ADOPTS the other tab's
+  // write rather than merging: two tabs writing in the same instant still end
+  // with the last one. An event never wipes state (a removed key is ignored).
+  useEffect(() => {
+    if (!hydrated) return;
+    const key = storageKeyV2ForUser(userId);
+    const onStorage = (event: StorageEvent) => {
+      if (event.storageArea !== window.localStorage || event.key !== key) return;
+      const next = event.newValue ? parseStorageV2(event.newValue) : null;
+      if (!next) return;
+      adopted.current = { bookmarks: next.bookmarks, folders: next.folders };
+      setBookmarks(next.bookmarks);
+      setFolders(next.folders);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [hydrated, userId]);
 
   const refreshBackups = async (userIdHint: string | null | undefined) => {
     if (!userIdHint) {
