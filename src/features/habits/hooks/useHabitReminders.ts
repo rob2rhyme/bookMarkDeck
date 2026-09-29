@@ -118,6 +118,7 @@ export function useHabitReminders(
             title: `${h.emoji} ${h.name}`,
             body: reminderBody(h, statsByHabit.get(h.id)?.currentStreak ?? 0),
             url: "/habits",
+            tag: `habit:${h.id}`,
           });
           map[h.id] = { fireAt: desired, messageId };
         }

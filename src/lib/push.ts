@@ -76,12 +76,17 @@ async function getSubscription(): Promise<PushSubscriptionJSON | null> {
  * `url` is REQUIRED: the per-pillar copies each defaulted it to their own route,
  * and a shared default would silently send one pillar's notification to
  * another's page. Every caller states its own destination.
+ *
+ * `tag` is required for the same reason. A notification replaces any other
+ * showing with the same tag, and when every push shared one, two habits due at
+ * 07:00 showed as one and the next timer end erased an unread filing digest.
  */
 export async function schedulePush(opts: {
   endTime: number;
   title: string;
   body: string;
   url: string;
+  tag: string;
 }): Promise<string | null> {
   const subscription = await getSubscription();
   if (!subscription) return null;
@@ -96,6 +101,7 @@ export async function schedulePush(opts: {
         title: opts.title,
         body: opts.body,
         url: opts.url,
+        tag: opts.tag,
       }),
     });
     if (!res.ok) return null;

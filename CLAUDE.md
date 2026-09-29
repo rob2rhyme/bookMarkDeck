@@ -571,6 +571,15 @@ Other invariants:
   **required** `url`: the per-pillar copies each defaulted it to their own route,
   and a shared default would silently send one pillar's notification to another's
   page.
+  **And a required `tag`, for the same reason.** A notification replaces any other
+  showing with its tag, and until push actually arrived (#316) nobody could see
+  that every one shared `bmd-focus-timer`: two habits due at 07:00 showed as one,
+  and the next timer end erased an unread digest. Tags: `bmd-focus-timer`,
+  `focus-streak`, `filing-digest`, `habit:{id}`; `/api/push/schedule` falls back
+  to the timer's for anything else. The worker's badge is `icons/badge-96.png`,
+  white on transparent — Android draws a badge from alpha alone, and the opaque
+  app icon rendered as a solid square. `src/lib/serviceWorker.test.ts` loads the
+  real `public/sw.js` into a `vm` sandbox, since nothing imports it.
 - **The `.ics` is a file to import, not a feed to subscribe to.** A live feed
   means a publicly-fetchable URL carrying someone's paperwork; deliberately not
   built. All-day `VALUE=DATE` events, so no timezone or DST question arises.

@@ -83,6 +83,7 @@ export function useFocusStreakNudge(
           title: "🔥 Focus streak",
           body: focusStreakBody(streak),
           url: "/focus",
+          tag: "focus-streak",
         });
         if (!cancelled) {
           schedRef.current = { fireAt, messageId };

@@ -31,7 +31,7 @@ function published() {
   return publishJSON.mock.calls[0][0] as {
     url: string;
     delay: number;
-    body: { title: string; body: string; url: string; subscription: unknown };
+    body: { title: string; body: string; url: string; tag: string; subscription: unknown };
   };
 }
 
@@ -116,6 +116,21 @@ describe("push schedule route", () => {
   ])("rewrites %s", async (_label, url, expected) => {
     await POST(req({ subscription: SUB, url }));
     expect(published().body.url).toBe(expected);
+  });
+
+  // The tag decides which notifications replace which, so each pillar's survives
+  // to the worker; anything that isn't a short plain identifier falls back to
+  // the tag every push used to share.
+  it.each([
+    ["a pillar tag", "filing-digest", "filing-digest"],
+    ["a habit tag", "habit:3f2b-9c", "habit:3f2b-9c"],
+    ["a missing tag", undefined, "bmd-focus-timer"],
+    ["a non-string", 42, "bmd-focus-timer"],
+    ["markup", "<img src=x>", "bmd-focus-timer"],
+    ["an oversized tag", "t".repeat(65), "bmd-focus-timer"],
+  ])("passes %s through as the notification tag", async (_label, tag, expected) => {
+    await POST(req({ subscription: SUB, tag }));
+    expect(published().body.tag).toBe(expected);
   });
 
   it("caps title at 120 and body at 300 characters", async () => {

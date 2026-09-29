@@ -84,7 +84,7 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// --- Web Push (wired in the next phase; harmless to ship now) ---------------
+// --- Web Push ---------------------------------------------------------------
 
 self.addEventListener("push", (event) => {
   let data = {};
@@ -97,11 +97,15 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body || "",
     icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    // Android draws the badge from its alpha channel alone, so it must be a
+    // white-on-transparent glyph — the opaque icon renders as a solid square.
+    badge: "/icons/badge-96.png",
     // Stay on screen until dismissed, alert (sound + haptic), and collapse
     // repeats so a missed timer end is hard to overlook even with the app closed.
     requireInteraction: true,
     renotify: true,
+    // Each pillar sends its own tag, so a habit reminder can't replace the
+    // filing digest. The default only covers messages queued before tags existed.
     tag: data.tag || "bmd-focus-timer",
     silent: false, // never deliver quietly — let the OS sound/buzz
     // Android honours this pattern; iOS ignores it (no Web Vibration in push)
@@ -114,16 +118,30 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/";
+  const target = new URL(
+    (event.notification.data && event.notification.data.url) || "/",
+    self.location.origin
+  );
   event.waitUntil(
     (async () => {
       const all = await self.clients.matchAll({
         type: "window",
         includeUncontrolled: true,
       });
-      const existing = all.find((c) => c.url.includes(target));
-      if (existing) return existing.focus();
-      return self.clients.openWindow(target);
+      // Exact page, not a substring: "/habits" used to match a window sitting
+      // on /habits/guide, which was focused and left on the guide.
+      const exact = all.find((c) => new URL(c.url).pathname === target.pathname);
+      if (exact) return exact.focus();
+      const other = all.find((c) => new URL(c.url).origin === target.origin);
+      if (other) {
+        try {
+          const moved = await other.navigate(target.href);
+          if (moved) return moved.focus();
+        } catch {
+          // navigate() rejects for a window this worker doesn't control.
+        }
+      }
+      return self.clients.openWindow(target.href);
     })()
   );
 });

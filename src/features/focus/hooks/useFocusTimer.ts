@@ -260,6 +260,7 @@ export function useFocusTimer({
         title: alertTitle,
         body: alertBody,
         url: "/focus",
+        tag: "bmd-focus-timer",
       }).then((id) => {
         if (pushGenRef.current === gen) {
           pushIdRef.current = id;
