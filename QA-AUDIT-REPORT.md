@@ -35,7 +35,7 @@ public-surface suite.
 | ID | Layer | Sev | Location | Issue | Status |
 |----|-------|-----|----------|-------|--------|
 | B1 | Infra/DB | Critical | deployed Firestore rules | Cross-user isolation depends on the **console-deployed** ruleset; repo `firestore.rules` is correct but no CI deploys it | ⚠️🔎 verify console / add deploy step (CLAUDE.md now documents the caveat) |
-| B2 | API | Medium | `middleware.ts` | Matcher doesn't exclude `/api`; `/api/push/fire` (QStash) + `/api/push/health` may be blocked by `withAuth` | 🔎 verify at runtime, then exclude `/api/push/*` |
+| B2 | API | **High** | `middleware.ts` | Matcher didn't exclude the webhooks: cookieless `POST /api/push/fire` (QStash) **and** `/api/billing/webhook` (Lemon Squeezy) got a 307 to `/login` before their signature checks, so background push and billing never worked in production; the manifest, `sw.js`, `offline.html` and icons were redirected the same way | ✅ **Confirmed at runtime and fixed** — explicit allowlist in the matcher (not all of `/api`: the gate stays a backstop); `e2e/machine.spec.ts` asserts both webhooks reach their route, the PWA files are served, and neighbouring routes stay gated. `/api/push/health` deliberately stays gated — it is only called from a signed-in browser |
 | B3 | Frontend | Medium | bookmark add/open | Raw URL stored/opened → `javascript:` renders as link; bare host opens relative | ✅ `normalizeUrl()` |
 | B4 | Frontend/a11y | Medium | `HomePageClient` + folder pages | ~13 hand-rolled modals lack focus-trap (vs the shared `Modal`) | ⚠️ Phase 2a |
 | B5 | Frontend | Low | `login/page.tsx` | `hidden flex` conflict on dead Apple/MS buttons | ✅ removed `flex` |
@@ -56,7 +56,7 @@ public-surface suite.
 | S2 | Critical→resolved | next-auth ≤4.24.14 + tar/websocket-driver | Known CVEs | ✅ patched within 4.x by `npm audit fix` |
 | S3 | High | `next`/`sharp` | SSRF/DoS in Server Actions / image opt (several low-applicability to this app) | ⚠️ no stable fix (needs 16.3 stable); tracked |
 | S4 | Medium | `src/utils/crypto.ts` | Static shared PBKDF2 salt → precomputation | ✅ per-payload random salt |
-| S5 | Medium | `middleware.ts` | Push webhook possibly blocked (availability) | 🔎 verify + exclude `/api/push/*` |
+| S5 | High | `middleware.ts` | Push **and billing** webhooks blocked (availability) | ✅ Fixed with B2. Exempting a route from the session gate makes its own signature check the only gate, so both are pinned at route level (`push/fire`, `billing/webhook` route tests) |
 | S6 | Low | `ai-capture`/`insights` | Authenticated Anthropic cost abuse | ✅ per-user rate limit |
 | S7 | Low–Med | `next.config.ts` CSP | `script-src 'unsafe-inline'` + `https:` wildcards | ⚠️ documented nonce trade-off; `X-Frame-Options` + `Permissions-Policy` now added |
 | — | ✅ Verified strong | — | Server-only Google token never reaches browser; R2 keys server-derived + per-user prefix-isolated; QStash webhook signature-verified; inputs clamped; **no secrets committed** | — |

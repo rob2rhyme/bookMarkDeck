@@ -194,6 +194,14 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     `src/lib/themeTokens.test.ts` (the theme map covers every palette
     step the code uses — see **Theme** below), and `src/lib/storageKeys.test.ts` (the
     localStorage keys that are hardcoded in more than one file stay in agreement).
+- **The session gate is `middleware.ts`, and route-handler tests cannot see it** — they call
+  the handler directly. That blind spot let background push and billing ship dead: the
+  matcher sent QStash's and Lemon Squeezy's cookieless webhook POSTs to `/login` with a 307
+  before their signature checks ran, while 51 passing `push/*` route tests said nothing.
+  The matcher now names its exemptions explicitly (the two webhooks and the PWA files),
+  and `e2e/machine.spec.ts` asserts each is answered by its route **and** that neighbouring
+  routes stay gated. **Exempting a route makes its own gate the only gate**, so any route
+  added to that list needs a route test proving its check rejects a forged request.
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
   Covers the public surface *and* all five authed pillars — signing in needs no real
   credentials, because the gate is `getServerSession`, which only verifies a
