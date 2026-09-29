@@ -580,6 +580,17 @@ Other invariants:
   white on transparent — Android draws a badge from alpha alone, and the opaque
   app icon rendered as a solid square. `src/lib/serviceWorker.test.ts` loads the
   real `public/sw.js` into a `vm` sandbox, since nothing imports it.
+  **Permission is asked only from a click** — `requestPushPermission()`, called by
+  a click handler; `schedulePush` never prompts. It used to, whenever permission
+  was `default`, and the filing digest's effect reached it on every `/filing`
+  visit once `pushEnabled` synced from another device: Firefox and Safari refused
+  silently while settings said "on", and Chrome re-prompted until it could
+  auto-block the origin — taking Focus's and Habits' deliberate prompts with it.
+  A `schedulePush` made in the same click as the request waits for its answer, so
+  Focus's start button still alerts its first block. `usePushPermission()` is the
+  per-device state (`useSyncExternalStore`, so no effect-set warning); the digest
+  gates on it, and the filing settings say so when the synced setting is on but
+  this device hasn't granted.
 - **The `.ics` is a file to import, not a feed to subscribe to.** A live feed
   means a publicly-fetchable URL carrying someone's paperwork; deliberately not
   built. All-day `VALUE=DATE` events, so no timezone or DST question arises.

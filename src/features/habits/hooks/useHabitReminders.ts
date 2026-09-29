@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { cancelPush, pushSupported, schedulePush } from "@/lib/push";
+import { cancelPush, pushSupported, requestPushPermission, schedulePush } from "@/lib/push";
 import { nextReminderAt, reminderBody } from "@/features/habits/lib/reminders";
 import type { Habit, HabitStats } from "@/features/habits/lib/types";
 
@@ -138,8 +138,8 @@ export function useHabitReminders(
 
   const requestPermission = useCallback(async () => {
     if (!pushSupported()) return;
-    const p = await Notification.requestPermission();
-    setPermission(p);
+    const granted = await requestPushPermission();
+    setPermission(granted ? "granted" : Notification.permission);
   }, []);
 
   const hasReminders = habits.some((h) => Boolean(h.reminder));

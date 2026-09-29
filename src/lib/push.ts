@@ -19,6 +19,8 @@
 // unsupported, or permission is denied — so the foreground chime keeps working
 // regardless.
 
+import { useSyncExternalStore } from "react";
+
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
@@ -48,13 +50,65 @@ export function pushSupported(): boolean {
   );
 }
 
+export type PushPermission = NotificationPermission | "unsupported";
+
+let pendingPermission: Promise<NotificationPermission> | null = null;
+const permissionListeners = new Set<() => void>();
+
+/**
+ * Ask for notification permission — ONLY from a click handler. Asked from a
+ * page-load effect, Firefox and Safari refuse silently and Chrome shows an
+ * unexplained prompt on every visit until it auto-blocks the origin, which
+ * also kills the prompts other pillars ask for deliberately.
+ *
+ * The pending answer is remembered, so a schedulePush made in the same click
+ * (the Focus start button) waits for it instead of giving up.
+ */
+export function requestPushPermission(): Promise<boolean> {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return Promise.resolve(false);
+  }
+  if (Notification.permission !== "default") {
+    return Promise.resolve(Notification.permission === "granted");
+  }
+  if (!pendingPermission) {
+    pendingPermission = Promise.resolve(Notification.requestPermission())
+      .catch(() => Notification.permission)
+      .finally(() => {
+        pendingPermission = null;
+        permissionListeners.forEach((notify) => notify());
+      });
+  }
+  return pendingPermission.then((p) => p === "granted");
+}
+
+function readPermission(): PushPermission {
+  return pushSupported() ? Notification.permission : "unsupported";
+}
+
+function subscribePermission(onChange: () => void): () => void {
+  permissionListeners.add(onChange);
+  // A change made in the browser's site settings has no event of its own.
+  document.addEventListener("visibilitychange", onChange);
+  return () => {
+    permissionListeners.delete(onChange);
+    document.removeEventListener("visibilitychange", onChange);
+  };
+}
+
+/** This device's permission, hydration-safe ("unsupported" on the server). */
+export function usePushPermission(): PushPermission {
+  return useSyncExternalStore(subscribePermission, readPermission, () => "unsupported");
+}
+
+/** Never prompts — see requestPushPermission. */
 async function getSubscription(): Promise<PushSubscriptionJSON | null> {
   if (!pushSupported()) return null;
   try {
-    if (Notification.permission !== "granted") {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") return null;
+    if (Notification.permission === "default" && pendingPermission) {
+      await pendingPermission;
     }
+    if (Notification.permission !== "granted") return null;
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
