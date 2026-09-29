@@ -14,7 +14,7 @@ import { ShortcutIcon } from "@/components/ShortcutIcon";
 import { Modal } from "@/components/Modal";
 import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
 import { useToast } from "@/components/toast/ToastProvider";
-import { useBookmarks } from "@/hooks/useBookmarks";
+import { planBookmarkImport, useBookmarks } from "@/hooks/useBookmarks";
 import { useRediscoverBookmark } from "@/hooks/useRediscoverBookmark";
 import { RediscoverBookmarkCard } from "@/components/RediscoverBookmarkCard";
 import { useShortcuts } from "@/hooks/useShortcuts";
@@ -94,6 +94,7 @@ export function HomePageClient() {
     updateBookmark,
     deleteBookmark,
     clearAll,
+    importBookmarks,
     restoreFromSnapshot,
     syncFromCloud,
     syncToCloud,
@@ -126,7 +127,7 @@ export function HomePageClient() {
     newBookmarks: number;
     duplicateBookmarks: number;
     newShortcuts: number;
-    mergedBookmarks: Bookmark[] | null;
+    bookmarkAdditions: Bookmark[] | null;
     mergedShortcuts: ShortcutApp[] | null;
   } | null>(null);
 
@@ -173,7 +174,7 @@ const [editUrl, setEditUrl] = useState("");
   const [editIconValue, setEditIconValue] = useState("");
   const [editIconTouched, setEditIconTouched] = useState(false);
   const [undoState, setUndoState] = useState<{
-    type: "delete" | "bulkDelete" | "clearAll";
+    type: "delete" | "bulkDelete" | "clearAll" | "import";
     snapshot: Bookmark[];
   } | null>(null);
 const [shortcutUndoState, setShortcutUndoState] = useState<{
@@ -1010,17 +1011,11 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setShowBulkDeleteBookmarksConfirm(false);
   };
 
-  // Build a non-destructive merge (existing kept, new appended by URL) plus the
+  // What an import would add (existing bookmarks are never touched) plus the
   // counts the preview modal needs. Nothing is applied until the user confirms.
   const buildBookmarkMerge = (imported: Bookmark[]) => {
-    const existingByUrl = new Map(bookmarks.map((b) => [b.url, b]));
-    const merged: Bookmark[] = [...bookmarks];
-    let duplicate = 0;
-    imported.forEach((imp) => {
-      if (existingByUrl.has(imp.url)) duplicate++;
-      else merged.push(imp);
-    });
-    return { merged, added: imported.length - duplicate, duplicate };
+    const { additions, duplicate } = planBookmarkImport(bookmarks, imported);
+    return { additions, added: additions.length, duplicate };
   };
 
   const buildShortcutMerge = (imported: ShortcutApp[]) => {
@@ -1080,7 +1075,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           newBookmarks: bm?.added ?? 0,
           duplicateBookmarks: bm?.duplicate ?? 0,
           newShortcuts: sc?.added ?? 0,
-          mergedBookmarks: bm ? bm.merged : null,
+          bookmarkAdditions: bm ? bm.additions : null,
           mergedShortcuts: sc ? sc.merged : null,
         });
         return;
@@ -1101,26 +1096,18 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       newBookmarks: bm.added,
       duplicateBookmarks: bm.duplicate,
       newShortcuts: 0,
-      mergedBookmarks: bm.merged,
+      bookmarkAdditions: bm.additions,
       mergedShortcuts: null,
     });
   };
 
-  // Apply the previewed merge: replace local state with the merged result.
+  // Apply the previewed import: append what's new, leave everything else alone.
   const applyImport = () => {
     if (!importPreview) return;
-    if (importPreview.mergedBookmarks) {
-      clearAll();
-      importPreview.mergedBookmarks.forEach((b) =>
-        addBookmark({
-          title: b.title,
-          url: b.url,
-          note: b.note,
-          folderId: b.folderId ?? null,
-          folder: b.folder,
-          tags: b.tags ?? [],
-        })
-      );
+    const additions = importPreview.bookmarkAdditions ?? [];
+    if (additions.length > 0) {
+      setUndoState({ type: "import", snapshot: bookmarks });
+      importBookmarks(additions);
     }
     if (importPreview.mergedShortcuts) {
       restoreShortcuts(importPreview.mergedShortcuts);
@@ -2085,6 +2072,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   ? "Bookmark deleted"
                   : undoState.type === "bulkDelete"
                     ? "Bookmarks deleted"
+                  : undoState.type === "import"
+                    ? "Bookmarks imported"
                   : "All bookmarks cleared"}
               </span>
               <button type="button"

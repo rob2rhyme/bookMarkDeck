@@ -15,7 +15,8 @@ vi.mock("@/utils/pendingDeletes", () => ({
   unqueueDelete: vi.fn(),
 }));
 
-import { useBookmarks } from "./useBookmarks";
+import { planBookmarkImport, useBookmarks } from "./useBookmarks";
+import { queueDelete, unqueueDelete } from "@/utils/pendingDeletes";
 
 beforeEach(() => localStorage.clear());
 
@@ -130,5 +131,144 @@ describe("useBookmarks across tabs", () => {
     const { result } = mountWith([X]);
     otherTabWrites([Y], "bookmarkdeck:v2:someone-else");
     expect(result.current.bookmarks.map((b) => b.id)).toEqual(["x"]);
+  });
+});
+
+// Import used to clearAll() — queueing a pending delete for every existing id —
+// and re-add the whole merged list through addBookmark: every bookmark got a new
+// id and createdAt, lost its pin, icon and usage, and the order reversed. Even
+// when the preview said "Already up to date". Focus and filing links pointed at
+// ids that no longer existed, and after a push another device kept its old ids
+// beside the new ones, duplicating everything.
+describe("bookmark import", () => {
+  const KEY = "bookmarkdeck:v2:test-user";
+  const PINNED: Bookmark = {
+    id: "keep-me",
+    title: "Pinned",
+    url: "https://pinned.example",
+    icon: "https://pinned.example/icon.png",
+    note: "",
+    tags: ["work"],
+    pinned: true,
+    hits: 12,
+    lastUsedAt: "2026-09-01T00:00:00.000Z",
+    folderId: null,
+    createdAt: "2025-01-01T00:00:00.000Z",
+  };
+
+  function mountWith(bookmarks: Bookmark[]) {
+    localStorage.setItem(KEY, JSON.stringify({ version: 2, bookmarks, folders: [] }));
+    return renderHook(() => useBookmarks("test-user"));
+  }
+
+  describe("planBookmarkImport", () => {
+    it("adds only URLs it doesn't already have, counting the rest as duplicates", () => {
+      const plan = planBookmarkImport([PINNED], [
+        { title: "Again", url: PINNED.url },
+        { title: "New", url: "https://new.example" },
+      ]);
+      expect(plan.additions.map((b) => b.url)).toEqual(["https://new.example"]);
+      expect(plan.duplicate).toBe(1);
+    });
+
+    it("dedupes within the file too", () => {
+      const plan = planBookmarkImport([], [
+        { title: "One", url: "https://same.example" },
+        { title: "Two", url: "https://same.example" },
+      ]);
+      expect(plan.additions).toHaveLength(1);
+      expect(plan.duplicate).toBe(1);
+    });
+
+    it("keeps an imported record's own id, pin, icon, dates and usage", () => {
+      const own = { ...PINNED, id: "from-backup", url: "https://backup.example" };
+      const [added] = planBookmarkImport([], [own]).additions;
+      expect(added).toMatchObject({
+        id: "from-backup",
+        pinned: true,
+        icon: own.icon,
+        createdAt: own.createdAt,
+        hits: 12,
+        tags: ["work"],
+      });
+    });
+
+    it("re-ids only a record whose id is already taken", () => {
+      const clash = { ...PINNED, url: "https://other.example" };
+      const [added] = planBookmarkImport([PINNED], [clash]).additions;
+      expect(added.id).not.toBe(PINNED.id);
+      expect(added.url).toBe("https://other.example");
+    });
+
+    it("drops records with no URL", () => {
+      expect(planBookmarkImport([], [{ title: "No link" }, null, 7]).additions).toEqual([]);
+    });
+  });
+
+  describe("importBookmarks", () => {
+    it("leaves every existing bookmark exactly as it was", () => {
+      const { result } = mountWith([PINNED]);
+      const before = result.current.bookmarks[0];
+      const { additions } = planBookmarkImport(result.current.bookmarks, [
+        { title: "New", url: "https://new.example" },
+      ]);
+      act(() => result.current.importBookmarks(additions));
+      expect(result.current.bookmarks[0]).toBe(before); // the same object
+      expect(result.current.bookmarks[0]).toMatchObject({
+        id: "keep-me",
+        pinned: true,
+        icon: PINNED.icon,
+        hits: 12,
+        createdAt: PINNED.createdAt,
+      });
+    });
+
+    it("appends in the file's order", () => {
+      const { result } = mountWith([PINNED]);
+      const { additions } = planBookmarkImport(result.current.bookmarks, [
+        { title: "First", url: "https://first.example" },
+        { title: "Second", url: "https://second.example" },
+      ]);
+      act(() => result.current.importBookmarks(additions));
+      expect(result.current.bookmarks.map((b) => b.title)).toEqual(["Pinned", "First", "Second"]);
+    });
+
+    it("queues no deletes, and un-queues an id it brings back", () => {
+      vi.mocked(queueDelete).mockClear();
+      vi.mocked(unqueueDelete).mockClear();
+      const { result } = mountWith([PINNED]);
+      const { additions } = planBookmarkImport(result.current.bookmarks, [
+        { ...PINNED, id: "was-deleted", url: "https://back.example" },
+      ]);
+      act(() => result.current.importBookmarks(additions));
+      expect(queueDelete).not.toHaveBeenCalled();
+      expect(unqueueDelete).toHaveBeenCalledWith("bookmarks", "test-user", "was-deleted");
+    });
+
+    it("changes nothing when everything is already there", () => {
+      const { result } = mountWith([PINNED]);
+      const before = result.current.bookmarks;
+      const { additions } = planBookmarkImport(before, [{ title: "x", url: PINNED.url }]);
+      act(() => result.current.importBookmarks(additions));
+      expect(result.current.bookmarks).toBe(before);
+    });
+
+    it("files an imported bookmark into the existing folder its label names", () => {
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({
+          version: 2,
+          bookmarks: [],
+          folders: [{ id: "f-work", name: "Work", parentId: null }],
+        })
+      );
+      const { result } = renderHook(() => useBookmarks("test-user"));
+      // What the HTML importer produces: a folder label, no id.
+      const { additions } = planBookmarkImport([], [
+        { title: "Wiki", url: "https://wiki.example", folder: "Work" },
+      ]);
+      act(() => result.current.importBookmarks(additions));
+      expect(result.current.bookmarks[0].folderId).toBe("f-work");
+    });
   });
 });

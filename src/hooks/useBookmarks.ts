@@ -322,6 +322,37 @@ function saveToStorage(
   window.localStorage.setItem(storageKeyV2ForUser(userId), JSON.stringify(payload));
 }
 
+/**
+ * What an import would add, without touching anything. Existing bookmarks are
+ * never part of the result: an import only appends.
+ *
+ * Each imported record keeps its own id, pin, icon, dates and usage — so
+ * re-importing your own backup keeps the ids focus and filing links point at.
+ * An id already taken gets a fresh one. URLs dedupe against what you have and
+ * within the file.
+ */
+function planBookmarkImport(
+  existing: Bookmark[],
+  imported: unknown
+): { additions: Bookmark[]; duplicate: number } {
+  const urls = new Set(existing.map((b) => b.url));
+  const ids = new Set(existing.map((b) => b.id));
+  const additions: Bookmark[] = [];
+  let duplicate = 0;
+  for (const bookmark of normalizeBookmarks(imported)) {
+    if (!bookmark.url.trim()) continue;
+    if (urls.has(bookmark.url)) {
+      duplicate++;
+      continue;
+    }
+    urls.add(bookmark.url);
+    const id = ids.has(bookmark.id) ? crypto.randomUUID() : bookmark.id;
+    ids.add(id);
+    additions.push({ ...bookmark, id });
+  }
+  return { additions, duplicate };
+}
+
 function wouldCreateCycle(
   folders: Folder[],
   folderId: string,
@@ -476,6 +507,24 @@ export function useBookmarks(userId?: string | null) {
   const clearAll = () => {
     bookmarks.forEach((bookmark) => queueDelete("bookmarks", userId, bookmark.id));
     setBookmarks([]);
+  };
+
+  /**
+   * Append an import's new bookmarks (see planBookmarkImport). Existing records
+   * are never touched. The old path cleared everything and re-added it, which
+   * re-id'd, unpinned and stripped every bookmark on every import.
+   */
+  const importBookmarks = (additions: Bookmark[]) => {
+    const ids = new Set(bookmarks.map((b) => b.id));
+    const urls = new Set(bookmarks.map((b) => b.url));
+    const fresh = additions.filter((b) => !ids.has(b.id) && !urls.has(b.url));
+    if (fresh.length === 0) return;
+    // Bringing back a bookmark deleted here but not yet pushed: without this the
+    // next pull would drop it again.
+    fresh.forEach((b) => unqueueDelete("bookmarks", userId, b.id));
+    // The HTML importer sets only a folder label; map it to a folder you have.
+    const filed = backfillBookmarkFolderIds(fresh, folders);
+    setBookmarks((prev) => [...prev, ...filed]);
   };
 
   const addFolder = ({ name, parentId = null }: AddFolderInput): Folder | null => {
@@ -706,6 +755,7 @@ export function useBookmarks(userId?: string | null) {
     updateBookmark,
     deleteBookmark,
     clearAll,
+    importBookmarks,
     restoreFromSnapshot,
     addFolder,
     updateFolder,
@@ -723,4 +773,4 @@ export function useBookmarks(userId?: string | null) {
   };
 }
 
-export { folderNameKey, normalizeFolderName, migrateLegacyData };
+export { folderNameKey, normalizeFolderName, migrateLegacyData, planBookmarkImport };
