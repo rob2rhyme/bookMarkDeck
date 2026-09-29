@@ -104,6 +104,14 @@ describe("push fire route", () => {
     });
   });
 
+  // sw.js shows the tag, and a notification replaces any other with the same
+  // one — so dropping it here collapsed every pillar onto the timer's.
+  it("forwards the tag to the service worker", async () => {
+    await POST(req({ ...BODY, tag: "filing-digest" }));
+    const [, payload] = vi.mocked(webpush.sendNotification).mock.calls[0];
+    expect(JSON.parse(String(payload)).tag).toBe("filing-digest");
+  });
+
   it("defaults title, body and url when the payload omits them", async () => {
     await POST(req({ subscription: BODY.subscription }));
     const [, payload] = vi.mocked(webpush.sendNotification).mock.calls[0];

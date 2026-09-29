@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     title?: string;
     body?: string;
     url?: string;
+    tag?: string;
   };
   try {
     payload = await req.json();
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
-  const { subscription, delaySec, title, body, url } = payload;
+  const { subscription, delaySec, title, body, url, tag } = payload;
 
   // A valid Web Push subscription is an object with an https endpoint string.
   if (!isValidSubscription(subscription)) {
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
   const safeTitle = clampText(title, 120) || "Time's up";
   const safeBody = clampText(body, 300);
   const safeUrl = safeRelativeUrl(url);
+  const safeTag = safeNotificationTag(tag);
 
   const origin = new URL(req.url).origin;
   if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
@@ -72,6 +74,7 @@ export async function POST(req: Request) {
         title: safeTitle,
         body: safeBody,
         url: safeUrl,
+        tag: safeTag,
       },
       delay,
     });
@@ -91,6 +94,14 @@ function isValidSubscription(value: unknown): boolean {
 /** Trim to a string and hard-cap its length; non-strings become "". */
 function clampText(value: unknown, max: number): string {
   return typeof value === "string" ? value.slice(0, max) : "";
+}
+
+/** A short, plain identifier, or the timer's tag — the one every push used to
+ *  share, so an old client that sends none behaves exactly as before. */
+function safeNotificationTag(value: unknown): string {
+  return typeof value === "string" && /^[\w:.-]{1,64}$/.test(value)
+    ? value
+    : "bmd-focus-timer";
 }
 
 /** Keep click-through targets to same-site relative paths; default to /focus. */

@@ -50,6 +50,7 @@ test.describe("cookieless machine requests reach their route", () => {
     ["/sw.js", "javascript"],
     ["/offline.html", "text/html"],
     ["/icons/icon-192.png", "image/png"],
+    ["/icons/badge-96.png", "image/png"],
   ] as const) {
     test(`GET ${path} is served without a session`, async ({ playwright, baseURL }) => {
       const ctx = await playwright.request.newContext({ baseURL });

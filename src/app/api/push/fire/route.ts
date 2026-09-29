@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     title?: string;
     body?: string;
     url?: string;
+    tag?: string;
   };
   try {
     data = JSON.parse(bodyText);
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
         title: data.title ?? "Bookmark Deck",
         body: data.body ?? "",
         url: data.url ?? "/focus",
+        tag: data.tag,
       })
     );
   } catch {

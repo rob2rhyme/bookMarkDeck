@@ -112,6 +112,7 @@ export function useFilingPush({
         title: digest.title,
         body: digest.body,
         url: "/filing",
+        tag: "filing-digest",
       });
       if (cancelled) {
         // The effect re-ran mid-flight; don't leave an orphan queued.
