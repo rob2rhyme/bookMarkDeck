@@ -109,6 +109,13 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   arrays are held in a ref so they aren't written straight back, and an event never
   wipes state. It is adoption, not a merge: two tabs writing in the same instant still
   end with the last write.
+- **Bookmark import only appends** (`planBookmarkImport` + `importBookmarks`), as
+  filing's does. It used to `clearAll()` and re-add everything through `addBookmark`:
+  every bookmark got a new id and `createdAt`, lost its pin, icon and usage, and a
+  pending delete was queued for every original id — so focus and filing links broke,
+  and after a push another device kept its old ids beside the new ones, duplicating
+  everything. An imported record keeps its own id unless that id is taken, so
+  re-importing your own backup keeps those links. Undo restores the pre-import list.
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 
