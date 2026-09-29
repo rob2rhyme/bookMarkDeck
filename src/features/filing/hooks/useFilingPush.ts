@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-import { cancelPush, schedulePush } from "@/lib/push";
+import { cancelPush, schedulePush, usePushPermission } from "@/lib/push";
 import { buildDigest, msUntilHour } from "@/features/filing/lib/digest";
 import type { CustodyItem } from "@/features/filing/lib/custody";
 import type { DueItem } from "@/features/filing/lib/obligations";
@@ -50,6 +50,10 @@ function writeMessageId(email: string | null | undefined, id: string | null) {
  * degrades to a no-op when push isn't configured or permission is refused — the
  * in-app panel and the nav badge are the reliable surface, this is a convenience
  * on top.
+ *
+ * It schedules only once THIS device has granted permission. `enabled` syncs
+ * across devices, and this effect runs on every visit, so it must never be what
+ * asks: the settings checkbox and its "Allow notifications" button do that.
  */
 export function useFilingPush({
   email,
@@ -71,6 +75,7 @@ export function useFilingPush({
 }) {
   // What we last scheduled, so an unchanged dashboard doesn't reschedule.
   const lastFingerprint = useRef<string | null>(null);
+  const permission = usePushPermission();
 
   const clear = useCallback(async () => {
     const id = readMessageId(email);
@@ -88,6 +93,7 @@ export function useFilingPush({
       void clear();
       return;
     }
+    if (permission !== "granted") return;
 
     const digest = buildDigest(due, shred, custody);
     // Nothing to say: cancel rather than send "0 things need attention".
@@ -126,7 +132,7 @@ export function useFilingPush({
     return () => {
       cancelled = true;
     };
-  }, [ready, enabled, hour, due, shred, custody, email, clear]);
+  }, [ready, enabled, permission, hour, due, shred, custody, email, clear]);
 
   return { clear };
 }

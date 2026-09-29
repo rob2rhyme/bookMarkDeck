@@ -22,6 +22,10 @@ vi.mock("@/lib/push", () => ({
   pushSupported: () => pushSupported(),
   schedulePush: vi.fn().mockResolvedValue("push-id"),
   cancelPush: vi.fn().mockResolvedValue(undefined),
+  // The real one prompts once via Notification.requestPermission; delegating to
+  // the stub below keeps "prompted exactly once" an assertion about the hook.
+  requestPushPermission: async () =>
+    (await Notification.requestPermission()) === "granted",
 }));
 
 import { useHabitReminders } from "./useHabitReminders";

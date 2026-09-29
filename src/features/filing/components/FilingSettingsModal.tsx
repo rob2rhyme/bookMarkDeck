@@ -8,7 +8,7 @@ import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { buildIcs, filingEvents } from "@/features/filing/lib/ics";
-import { pushSupported } from "@/lib/push";
+import { pushSupported, requestPushPermission, usePushPermission } from "@/lib/push";
 import {
   buildBackup,
   documentsToCsv,
@@ -63,6 +63,7 @@ export function FilingSettingsModal({
     { kind: "idle" } | { kind: "done"; summary: ImportSummary } | { kind: "error"; message: string }
   >({ kind: "idle" });
   const canPush = pushSupported();
+  const permission = usePushPermission();
 
   const events = filingEvents(documents, folders, {
     includeRetention: settings.icsIncludeRetention,
@@ -156,7 +157,12 @@ export function FilingSettingsModal({
               type="checkbox"
               checked={settings.pushEnabled}
               disabled={!canPush}
-              onChange={(e) => onChange({ pushEnabled: e.target.checked })}
+              onChange={async (e) => {
+                const on = e.target.checked;
+                // Ask here, in the click — never from the digest's page-load effect.
+                if (on) await requestPushPermission();
+                onChange({ pushEnabled: on });
+              }}
               className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500"
             />
             <span className="min-w-0">
@@ -171,6 +177,23 @@ export function FilingSettingsModal({
 
           {settings.pushEnabled && canPush && (
             <div className="mt-3 pl-7">
+              {/* The setting syncs across devices; permission is per device. Say
+                  so, rather than show "on" for a digest that can never send. */}
+              {permission === "default" && (
+                <button
+                  type="button"
+                  onClick={() => void requestPushPermission()}
+                  className="mb-3 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                >
+                  Allow notifications on this device
+                </button>
+              )}
+              {permission === "denied" && (
+                <p className="mb-3 text-[12px] text-amber-300/90">
+                  Notifications are blocked for this site on this device. Allow them in
+                  your browser&rsquo;s site settings to get the summary here.
+                </p>
+              )}
               <SectionLabel>Send it around</SectionLabel>
               <Select
                 value={String(settings.pushHour)}

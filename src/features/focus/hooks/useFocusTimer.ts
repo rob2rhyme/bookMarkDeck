@@ -9,11 +9,8 @@ import {
   updateSessionMeta,
 } from "@/features/focus/data/focusData";
 import { initAudio } from "@/features/focus/lib/sound";
-import {
-  notify,
-  requestNotificationPermission,
-} from "@/features/focus/lib/notify";
-import { cancelPush, schedulePush } from "@/lib/push";
+import { notify } from "@/features/focus/lib/notify";
+import { cancelPush, requestPushPermission, schedulePush } from "@/lib/push";
 import {
   cancelNativeTimerAlert,
   ensureNativeNotifPermission,
@@ -293,7 +290,7 @@ export function useFocusTimer({
 
   const start = useCallback(() => {
     initAudio(); // unlock audio from this user gesture
-    requestNotificationPermission();
+    void requestPushPermission(); // tracked, so the push scheduled below waits for it
     ensureNativeNotifPermission(); // native iOS app; no-op on the web
     startWithRef.current(secondsLeftRef.current);
   }, []);
