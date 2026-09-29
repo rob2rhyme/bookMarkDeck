@@ -65,13 +65,14 @@ export function ExpiryPanel({
             is where you&rsquo;ll see how long each one has left.
           </EmptyState>
         ) : (
-          // The on-device cache keeps only what the list, badge and queues need
-          // (ANALYSIS-FILING-LOG.md §7); the dates themselves come from the cloud
-          // copy. Saying so beats an empty list that looks like lost data.
+          // A synced account's on-device cache keeps only what the list, badge
+          // and queues need (ANALYSIS-FILING-LOG.md §7); the dates themselves
+          // come from the cloud copy. Saying so beats an empty list that looks
+          // like lost data.
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[12px] text-amber-300/90">
             Expiry dates aren&rsquo;t loaded on this device yet — they live in your
             account rather than the local cache. Sign in to sync and they&rsquo;ll
-            appear here. Anything you add now is kept and pushed up when you do.
+            appear here. Papers you add now are kept and pushed up when you do.
           </p>
         )
       ) : (

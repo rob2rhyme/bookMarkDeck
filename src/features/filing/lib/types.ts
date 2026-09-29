@@ -301,7 +301,17 @@ export type FilingDocument = {
   archived?: boolean;
   createdAt: string | null;
   updatedAt: string | null;
+  /** Set on a record rebuilt from the slim on-device cache: its notes, reference,
+   *  aliases, obligations and history were not cached, so they are MISSING here,
+   *  not empty. `saveDocument` refuses one — written to Firestore (no merge) it
+   *  would replace the full cloud copy. Cleared only by the cloud copy arriving,
+   *  or by the cloud turning out to have no copy at all. */
+  partial?: true;
 };
+
+/** A document known to hold every field — the only kind that may be written to
+ *  Firestore. Narrow with `isComplete` in useFilingDocuments. */
+export type CompleteDocument = FilingDocument & { partial?: undefined };
 
 export type FilingView = "folders" | "documents";
 

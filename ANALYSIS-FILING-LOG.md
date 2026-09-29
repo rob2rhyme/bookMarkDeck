@@ -370,6 +370,13 @@ is in there specifically so the badge and Upcoming panel work offline without
 loading full obligation arrays. Notes, references, obligations and activity load
 from Firestore on open.
 
+**Correction (2026-09-29):** as built, they come back with the whole-collection
+snapshot, not on open — and the slim cache was applied unconditionally, which
+lost data for any account that had not synced (every reload) and let a pre-
+snapshot edit overwrite the full cloud copy. The slim projection now applies
+only once the cloud copy has loaded, and a record rebuilt from it is marked
+`partial` and never written. See CLAUDE.md → Filing → Scale.
+
 `data/filingData.ts` ships `subscribeDocuments(folderId?)` **from day one**, so
 switching to per-folder lazy loading past a documented threshold is a one-line
 change — following the bounded listener Habits already uses

@@ -10,6 +10,7 @@ import {
 } from "@/features/filing/data/filingData";
 import { complete, nextDueOn, nudgeDates } from "@/features/filing/lib/obligations";
 import type {
+  CompleteDocument,
   FilingActivity,
   FilingActivityType,
   FilingDocument,
@@ -25,9 +26,13 @@ const keyFor = (email?: string | null) => (email ? `${BASE_KEY}:${email}` : BASE
  * The slim localStorage projection (ANALYSIS-FILING-LOG.md §7).
  *
  * Documents are the one collection that reaches thousands of records, and the
- * whole set would crowd the ~5 MB quota. Only the fields the list, the search
- * and the nav badge need are cached; notes, references, obligations and activity
- * come back from Firestore when a document is opened.
+ * whole set would crowd the ~5 MB quota. Once the cloud copy has loaded, only
+ * the fields the list, the search and the nav badge need are cached; notes,
+ * references, obligations and activity come back with the next snapshot.
+ *
+ * Slim is only safe while a fuller copy exists elsewhere. Until the cloud copy
+ * has loaded — including for an account that never syncs — documents are cached
+ * whole, or every reload would drop every obligation, note and reference.
  *
  * `nextDueOn` is in here on purpose — it is what lets the badge and the Upcoming
  * panel render offline without loading every obligation array. The three
@@ -78,8 +83,8 @@ const slim = (d: FilingDocument): SlimDocument => ({
   archived: d.archived,
 });
 
-/** Rehydrate a slim record into a usable document. Absent fields stay absent
- *  rather than being invented — the cloud copy fills them in. */
+/** Rehydrate a slim record into a usable document, marked `partial`: the fields
+ *  the cache dropped are missing, not empty, and only the cloud copy has them. */
 const rehydrate = (s: SlimDocument): FilingDocument => ({
   ...s,
   aliases: [],
@@ -87,7 +92,20 @@ const rehydrate = (s: SlimDocument): FilingDocument => ({
   obligations: [],
   createdAt: null,
   updatedAt: null,
+  partial: true,
 });
+
+/** A whole entry carries its obligations array; a slim one never does. */
+const fromCache = (d: SlimDocument | FilingDocument): FilingDocument =>
+  Array.isArray((d as FilingDocument).obligations)
+    ? { ...(d as FilingDocument), aliases: (d as FilingDocument).aliases ?? [], tags: d.tags ?? [] }
+    : rehydrate(d);
+
+const isComplete = (d: FilingDocument): d is CompleteDocument => !d.partial;
+
+/** Only for a record the cloud is known not to hold: then this copy, partial or
+ *  not, is the fullest one that exists anywhere. */
+const promote = (d: FilingDocument): CompleteDocument => ({ ...d, partial: undefined });
 
 function loadLocal(email?: string | null): FilingDocument[] {
   if (typeof window === "undefined") return [];
@@ -97,10 +115,10 @@ function loadLocal(email?: string | null): FilingDocument[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter(
-        (d): d is SlimDocument =>
+        (d): d is SlimDocument | FilingDocument =>
           d && typeof d.id === "string" && typeof d.title === "string"
       )
-      .map(rehydrate);
+      .map(fromCache);
   } catch {
     return [];
   }
@@ -115,7 +133,7 @@ function loadLocal(email?: string | null): FilingDocument[] {
  * pure function of `obligations`, and a derived value in two places is a
  * derived value that eventually drifts.
  */
-const withDerived = (d: FilingDocument): FilingDocument => ({
+const withDerived = <T extends FilingDocument>(d: T): T => ({
   ...d,
   nextDueOn: nextDueOn(d.obligations),
   ...nudgeDates(d.obligations),
@@ -136,6 +154,10 @@ export function useFilingDocuments(email?: string | null, connected = false) {
   const [documents, setDocuments] = useState<FilingDocument[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const canSync = connected && Boolean(email);
+  // Which account's snapshot has arrived. Derived rather than a boolean so a
+  // switch of account or a disconnect reads as "not loaded" with no reset.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const cloudLoaded = canSync && loadedFor === email;
 
   const ref = useRef(documents);
   useEffect(() => {
@@ -150,11 +172,12 @@ export function useFilingDocuments(email?: string | null, connected = false) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(keyFor(email), JSON.stringify(documents.map(slim)));
+      const cached = cloudLoaded ? documents.map(slim) : documents;
+      window.localStorage.setItem(keyFor(email), JSON.stringify(cached));
     } catch {
       /* quota — the cloud copy is still authoritative */
     }
-  }, [documents, hydrated, email]);
+  }, [documents, hydrated, email, cloudLoaded]);
 
   useEffect(() => {
     if (!canSync || !email) return;
@@ -163,23 +186,27 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     (async () => {
       const cloud = await fetchDocuments(email);
       const cloudIds = new Set(cloud.map((d) => d.id));
+      // Papers the cloud has never seen go up as they are — `promote` is safe
+      // here and nowhere else, because there is no fuller copy to overwrite.
       await Promise.all(
         ref.current
           .filter((d) => !cloudIds.has(d.id))
-          .map((d) => saveDocument(email, d).catch(() => {}))
+          .map((d) => saveDocument(email, promote(d)).catch(() => {}))
       );
     })()
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          unsub = subscribeDocuments(email, (cloud) =>
-            setDocuments(cloud.map(withDerived))
-          );
+          unsub = subscribeDocuments(email, (cloud) => {
+            setDocuments(cloud.map(withDerived));
+            setLoadedFor(email);
+          });
         }
       });
     return () => {
       cancelled = true;
       unsub();
+      setLoadedFor(null);
     };
   }, [canSync, email]);
 
@@ -192,7 +219,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       const title = input.title.trim();
       if (!title) return null;
       const now = new Date().toISOString();
-      const document: FilingDocument = {
+      const document: CompleteDocument = {
         id: crypto.randomUUID(),
         title,
         folderId: input.folderId ?? null,
@@ -221,17 +248,25 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     [canSync, email, onSaveError]
   );
 
+  /**
+   * While syncing, a partial record is left alone until its cloud copy lands —
+   * seconds after load. Editing it would either write a stripped record over the
+   * full one or, unsaved, be replaced by the snapshot a moment later.
+   * `awaitingCloud` is what the dashboard shows meanwhile.
+   *
+   * Unsynced, edits apply and the record stays marked, so it is cached whole
+   * from now on without ever becoming eligible to overwrite a cloud copy.
+   */
   const patch = useCallback(
     (id: string, fn: (d: FilingDocument) => FilingDocument) => {
       setDocuments((prev) => {
-        const next = prev.map((d) =>
-          d.id === id
-            ? withDerived({ ...fn(d), updatedAt: new Date().toISOString() })
-            : d
-        );
-        const updated = next.find((d) => d.id === id);
-        if (canSync && email && updated) saveDocument(email, updated).catch(onSaveError);
-        return next;
+        const target = prev.find((d) => d.id === id);
+        if (!target || (canSync && target.partial)) return prev;
+        const updated = withDerived({ ...fn(target), updatedAt: new Date().toISOString() });
+        if (canSync && email && isComplete(updated)) {
+          saveDocument(email, updated).catch(onSaveError);
+        }
+        return prev.map((d) => (d.id === id ? updated : d));
       });
     },
     [canSync, email, onSaveError]
@@ -386,6 +421,10 @@ export function useFilingDocuments(email?: string | null, connected = false) {
   /**
    * Restore from a backup: merge by id, restamp the derived cache, then push to
    * the cloud so an import isn't stranded on this device. Never deletes.
+   *
+   * A backup taken before the cloud copy loaded can hold partial records. Those
+   * contribute only what they actually hold, so an empty obligations array in
+   * the file can't erase the real one here.
    */
   const importMany = useCallback(
     (incoming: FilingDocument[]) => {
@@ -393,17 +432,28 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       setDocuments((prev) => {
         const byId = new Map(prev.map((d) => [d.id, d]));
         for (const item of incoming) {
-          const merged = withDerived({ ...(byId.get(item.id) ?? {}), ...item } as FilingDocument);
+          const existing = byId.get(item.id);
+          if (canSync && existing?.partial) continue; // as in `patch`
+          let merged = withDerived(
+            (existing
+              ? { ...existing, ...(item.partial ? slim(item) : item) }
+              : item) as FilingDocument
+          );
+          // Loaded and still absent: the cloud has no copy of this one.
+          if (!existing && cloudLoaded) merged = promote(merged);
           byId.set(item.id, merged);
-          if (canSync && email) saveDocument(email, merged).catch(onSaveError);
+          if (canSync && email && isComplete(merged)) {
+            saveDocument(email, merged).catch(onSaveError);
+          }
         }
         return [...byId.values()];
       });
     },
-    [canSync, email, onSaveError]
+    [canSync, cloudLoaded, email, onSaveError]
   );
 
   const active = useMemo(() => documents.filter((d) => !d.archived), [documents]);
+  const awaitingCloud = canSync && !cloudLoaded && documents.some((d) => d.partial);
   const countByFolder = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const d of active) {
@@ -418,6 +468,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     active,
     countByFolder,
     hydrated,
+    awaitingCloud,
     importMany,
     addDocument,
     updateDocument,
