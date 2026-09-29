@@ -71,7 +71,10 @@ self.addEventListener("fetch", (event) => {
         const cached = await cache.match(request);
         const network = fetch(request)
           .then((res) => {
-            if (res && res.ok) cache.put(request, res.clone());
+            // Never cache a response that arrived via a redirect: when an asset
+            // is bounced to /login, `res.ok` is true for the login HTML, and
+            // storing it would serve that page as the asset from then on.
+            if (res && res.ok && !res.redirected) cache.put(request, res.clone());
             return res;
           })
           .catch(() => cached);
