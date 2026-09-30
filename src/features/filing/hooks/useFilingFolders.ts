@@ -8,6 +8,8 @@ import {
   saveFolder,
   subscribeFolders,
 } from "@/features/filing/data/filingData";
+import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
+import { newHere, recordSyncedIds } from "@/utils/syncedIds";
 import { isCheckedOut } from "@/features/filing/lib/breadcrumb";
 import { todayKey } from "@/lib/dayKey";
 import { checkOutPatch, returnPatch } from "@/features/filing/lib/custody";
@@ -75,17 +77,27 @@ export function useFilingFolders(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
+      // Replay deletes made while disconnected first, then upload only what the
+      // cloud NEVER had. A record it had at the last snapshot and lacks now was
+      // deleted on another device — uploading "everything the cloud lacks"
+      // recreated it for everyone.
+      await flushPendingDeletes("filingFolders", email, (id) => deleteFolder(email, id));
       const cloud = await fetchFolders(email);
       const cloudIds = new Set(cloud.map((f) => f.id));
       await Promise.all(
-        ref.current
-          .filter((f) => !cloudIds.has(f.id))
-          .map((f) => saveFolder(email, f).catch(() => {}))
+        newHere(ref.current, cloudIds, "filingFolders", email).map((f) =>
+          saveFolder(email, f).catch(() => {})
+        )
       );
     })()
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) unsub = subscribeFolders(email, setFolders);
+        if (!cancelled) {
+          unsub = subscribeFolders(email, (cloud) => {
+            recordSyncedIds("filingFolders", email, cloud.map((f) => f.id));
+            setFolders(cloud);
+          });
+        }
       });
     return () => {
       cancelled = true;
@@ -210,6 +222,7 @@ export function useFilingFolders(email?: string | null, connected = false) {
     (id: string) => {
       setFolders((prev) => prev.filter((f) => f.id !== id));
       if (canSync && email) deleteFolder(email, id).catch(onSaveError);
+      else queueDelete("filingFolders", email, id); // replayed on connect
     },
     [canSync, email, onSaveError]
   );

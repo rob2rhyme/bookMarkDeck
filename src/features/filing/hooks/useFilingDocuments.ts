@@ -17,6 +17,8 @@ import type {
   Obligation,
 } from "@/features/filing/lib/types";
 import { todayKey } from "@/lib/dayKey";
+import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
+import { newHere, recordSyncedIds } from "@/utils/syncedIds";
 
 const BASE_KEY = "bookmarkdeck:filing:documents:v1";
 const MAX_ACTIVITY = 300;
@@ -185,20 +187,24 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
+      // Replay deletes made while disconnected, then upload only papers the
+      // cloud NEVER had: one it held at the last snapshot and lacks now was
+      // deleted on another device. `promote` is safe here and nowhere else,
+      // because there is no fuller copy to overwrite.
+      await flushPendingDeletes("filingDocuments", email, (id) => deleteDocument(email, id));
       const cloud = await fetchDocuments(email);
       const cloudIds = new Set(cloud.map((d) => d.id));
-      // Papers the cloud has never seen go up as they are — `promote` is safe
-      // here and nowhere else, because there is no fuller copy to overwrite.
       await Promise.all(
-        ref.current
-          .filter((d) => !cloudIds.has(d.id))
-          .map((d) => saveDocument(email, promote(d)).catch(() => {}))
+        newHere(ref.current, cloudIds, "filingDocuments", email).map((d) =>
+          saveDocument(email, promote(d)).catch(() => {})
+        )
       );
     })()
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
           unsub = subscribeDocuments(email, (cloud) => {
+            recordSyncedIds("filingDocuments", email, cloud.map((d) => d.id));
             setDocuments(cloud.map(withDerived));
             setLoadedFor(email);
           });
@@ -415,6 +421,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     (id: string) => {
       setDocuments((prev) => prev.filter((d) => d.id !== id));
       if (canSync && email) deleteDocument(email, id).catch(onSaveError);
+      else queueDelete("filingDocuments", email, id); // replayed on connect
     },
     [canSync, email, onSaveError]
   );
