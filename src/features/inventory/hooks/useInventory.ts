@@ -9,6 +9,8 @@ import {
   subscribeItems,
   todayKey,
 } from "@/features/inventory/data/inventoryData";
+import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
+import { newHere, recordSyncedIds } from "@/utils/syncedIds";
 import type {
   InventoryItem,
   ItemActivity,
@@ -133,17 +135,27 @@ export function useInventory(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
+      // Replay deletes made while disconnected first, then upload only what the
+      // cloud NEVER had. A record it had at the last snapshot and lacks now was
+      // deleted on another device — uploading "everything the cloud lacks"
+      // recreated it for everyone (an item pointing at photos already purged).
+      await flushPendingDeletes("inventoryItems", email, (id) => deleteItem(email, id));
       const cloud = await fetchItems(email);
       const cloudIds = new Set(cloud.map((i) => i.id));
       await Promise.all(
-        itemsRef.current
-          .filter((i) => !cloudIds.has(i.id))
-          .map((i) => saveItem(email, i).catch(() => {}))
+        newHere(itemsRef.current, cloudIds, "inventoryItems", email).map((i) =>
+          saveItem(email, i).catch(() => {})
+        )
       );
     })()
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) unsub = subscribeItems(email, setItems);
+        if (!cancelled) {
+          unsub = subscribeItems(email, (cloud) => {
+            recordSyncedIds("inventoryItems", email, cloud.map((i) => i.id));
+            setItems(cloud);
+          });
+        }
       });
     return () => {
       cancelled = true;
@@ -171,6 +183,7 @@ export function useInventory(email?: string | null, connected = false) {
     (id: string) => {
       setItems((prev) => prev.filter((i) => i.id !== id));
       if (canSync && email) deleteItem(email, id).catch(() => {});
+      else queueDelete("inventoryItems", email, id); // replayed on connect
     },
     [canSync, email]
   );

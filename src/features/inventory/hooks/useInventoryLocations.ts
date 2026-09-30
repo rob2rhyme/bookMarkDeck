@@ -8,6 +8,8 @@ import {
   saveLocation,
   subscribeLocations,
 } from "@/features/inventory/data/inventoryData";
+import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
+import { newHere, recordSyncedIds } from "@/utils/syncedIds";
 import type { InventoryLocation } from "@/features/inventory/lib/types";
 
 const BASE_KEY = "bookmarkdeck:inventory:locations:v1";
@@ -85,17 +87,27 @@ export function useInventoryLocations(email?: string | null, connected = false) 
     let cancelled = false;
     let unsub = () => {};
     (async () => {
+      // Replay deletes made while disconnected first, then upload only what the
+      // cloud NEVER had. A record it had at the last snapshot and lacks now was
+      // deleted on another device — uploading "everything the cloud lacks"
+      // recreated it for everyone (an item pointing at photos already purged).
+      await flushPendingDeletes("inventoryLocations", email, (id) => deleteLocation(email, id));
       const cloud = await fetchLocations(email);
       const cloudIds = new Set(cloud.map((l) => l.id));
       await Promise.all(
-        ref.current
-          .filter((l) => !cloudIds.has(l.id))
-          .map((l) => saveLocation(email, l).catch(() => {}))
+        newHere(ref.current, cloudIds, "inventoryLocations", email).map((l) =>
+          saveLocation(email, l).catch(() => {})
+        )
       );
     })()
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) unsub = subscribeLocations(email, setLocations);
+        if (!cancelled) {
+          unsub = subscribeLocations(email, (cloud) => {
+            recordSyncedIds("inventoryLocations", email, cloud.map((l) => l.id));
+            setLocations(cloud);
+          });
+        }
       });
     return () => {
       cancelled = true;
@@ -150,6 +162,8 @@ export function useInventoryLocations(email?: string | null, connected = false) 
           reparented
             .filter((l) => l.parentId === null && prev.find((p) => p.id === l.id)?.parentId === id)
             .forEach((l) => saveLocation(email, l).catch(() => {}));
+        } else {
+          queueDelete("inventoryLocations", email, id); // replayed on connect
         }
         return next;
       });
