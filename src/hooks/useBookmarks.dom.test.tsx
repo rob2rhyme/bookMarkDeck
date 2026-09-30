@@ -15,7 +15,8 @@ vi.mock("@/utils/pendingDeletes", () => ({
   unqueueDelete: vi.fn(),
 }));
 
-import { planBookmarkImport, useBookmarks } from "./useBookmarks";
+import { planBackupImport, planBookmarkImport, planFolderImport, useBookmarks } from "./useBookmarks";
+import type { Folder } from "@/types/folder";
 import { queueDelete, unqueueDelete } from "@/utils/pendingDeletes";
 
 beforeEach(() => localStorage.clear());
@@ -269,6 +270,109 @@ describe("bookmark import", () => {
       ]);
       act(() => result.current.importBookmarks(additions));
       expect(result.current.bookmarks[0].folderId).toBe("f-work");
+    });
+  });
+});
+
+// Backups store the folder tree, but a restore put back only the bookmarks:
+// they kept pointing at folder ids that no longer existed, so they vanished
+// from the grid AND from Unstaged until a reload, then all landed in Unstaged —
+// and syncing pushed that flattened state over the cloud copy.
+describe("backups keep the folder tree", () => {
+  const KEY = "bookmarkdeck:v2:test-user";
+  const folder = (id: string, name: string, parentId: string | null = null): Folder => ({
+    id,
+    name,
+    parentId,
+    parentFolderKey: parentId,
+  });
+  const inFolder = (id: string, url: string, folderId: string | null): Bookmark => ({
+    id,
+    title: id,
+    url,
+    note: "",
+    tags: [],
+    pinned: false,
+    hits: 0,
+    folderId,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  const WORK = folder("f-work", "Work");
+  const CLIENTS = folder("f-clients", "Clients", "f-work");
+  const WIKI = inFolder("b-wiki", "https://wiki.example", "f-clients");
+
+  function mountWith(bookmarks: Bookmark[], folders: Folder[]) {
+    localStorage.setItem(KEY, JSON.stringify({ version: 2, bookmarks, folders }));
+    return renderHook(() => useBookmarks("test-user"));
+  }
+
+  describe("restoreBackup", () => {
+    it("puts the tree back, with every bookmark in its folder", () => {
+      const { result } = mountWith([], []);
+      act(() => result.current.restoreBackup([WIKI], [WORK, CLIENTS]));
+      expect(result.current.folders.map((f) => f.id).sort()).toEqual(["f-clients", "f-work"]);
+      expect(result.current.bookmarks[0].folderId).toBe("f-clients");
+    });
+
+    it("keeps today's folders for an old backup that has none, and never hides a bookmark", () => {
+      const { result } = mountWith([], [WORK]);
+      act(() => result.current.restoreBackup([WIKI], undefined));
+      expect(result.current.folders.map((f) => f.id)).toEqual(["f-work"]);
+      // Its folder isn't here: it shows in Unstaged now, not after a reload.
+      expect(result.current.bookmarks[0].folderId).toBeNull();
+    });
+  });
+
+  describe("planFolderImport", () => {
+    it("reuses a folder with the same id", () => {
+      const plan = planFolderImport([WORK], [{ ...WORK, name: "Work (renamed)" }]);
+      expect(plan.additions).toEqual([]);
+      expect(plan.idMap.get("f-work")).toBe("f-work");
+    });
+
+    it("reuses a same-named sibling rather than duplicating it", () => {
+      const plan = planFolderImport([WORK], [folder("other-id", "work")]);
+      expect(plan.additions).toEqual([]);
+      expect(plan.idMap.get("other-id")).toBe("f-work");
+    });
+
+    it("adds new folders under their resolved parent, whatever order they come in", () => {
+      const plan = planFolderImport([], [folder("c", "Child", "p"), folder("p", "Parent")]);
+      expect(plan.additions.map((f) => [f.id, f.parentId])).toEqual([
+        ["p", null],
+        ["c", "p"],
+      ]);
+    });
+
+    it("nests under an existing match, never merging into an unrelated top-level folder", () => {
+      const TOP_CLIENTS = folder("f-top-clients", "Clients");
+      const plan = planFolderImport(
+        [WORK, TOP_CLIENTS],
+        [folder("x-work", "Work"), folder("x-clients", "Clients", "x-work")]
+      );
+      expect(plan.idMap.get("x-work")).toBe("f-work");
+      const child = plan.additions.find((f) => f.name === "Clients")!;
+      expect(child.parentId).toBe("f-work");
+      expect(plan.idMap.get("x-clients")).toBe(child.id);
+    });
+
+    it("puts a folder whose parent is unknown at the root", () => {
+      const plan = planFolderImport([], [folder("o", "Orphan", "missing")]);
+      expect(plan.additions[0].parentId).toBeNull();
+    });
+  });
+
+  describe("planBackupImport + importBookmarks", () => {
+    it("imports a backup file's folders and files its bookmarks into them", () => {
+      const { result } = mountWith([], [WORK]);
+      const plan = planBackupImport(result.current.bookmarks, result.current.folders, {
+        bookmarks: [WIKI],
+        folders: [folder("x-work", "Work"), folder("f-clients", "Clients", "x-work")],
+      });
+      act(() => result.current.importBookmarks(plan.additions, plan.folderAdditions));
+      const clients = result.current.folders.find((f) => f.name === "Clients")!;
+      expect(clients.parentId).toBe("f-work"); // under the Work you already have
+      expect(result.current.bookmarks[0].folderId).toBe(clients.id);
     });
   });
 });

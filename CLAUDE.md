@@ -116,6 +116,14 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   and after a push another device kept its old ids beside the new ones, duplicating
   everything. An imported record keeps its own id unless that id is taken, so
   re-importing your own backup keeps those links. Undo restores the pre-import list.
+- **The folder tree travels with every backup.** Restore used to put back only the
+  bookmarks, which then pointed at folders that no longer existed — hidden from the
+  grid *and* Unstaged until a reload — and "Download backup" left folders out of the
+  file. `restoreBackup(bookmarks, folders)` restores both (a backup from before
+  folders were stored keeps today's tree and unstages anything orphaned);
+  `src/utils/bookmarkBackupFile.ts` owns the file format. Any imported tree merges
+  through **`planFolderImport`**: by id, or by (parent, name) — never by name alone,
+  so a nested "Clients" can't be pulled into an unrelated top-level one.
 - **Day keys are LOCAL `YYYY-MM-DD`.** Never slice a UTC instant into one
   (`iso.slice(0, 10)`, `toISOString().slice(0, 10)`) or compare one with a local day;
   map the instant through a local-getter helper — **`@/lib/dayKey`** (`dayKeyFor`,
