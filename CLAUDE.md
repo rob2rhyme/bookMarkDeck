@@ -123,7 +123,12 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   folders were stored keeps today's tree and unstages anything orphaned);
   `src/utils/bookmarkBackupFile.ts` owns the file format. Any imported tree merges
   through **`planFolderImport`**: by id, or by (parent, name) — never by name alone,
-  so a nested "Clients" can't be pulled into an unrelated top-level one.
+  so a nested "Clients" can't be pulled into an unrelated top-level one. A browser
+  HTML file goes through **`planFolderPaths`** by the same rule: `parseBookmarkHtml`
+  returns each link's full `folderPath` (the headings of the `<DL>`s it sits in —
+  taking the first `<H3>` in each ancestor credited a list's direct links to its
+  first subfolder) plus its `<DD>` note, `TAGS` and `ADD_DATE`, and import recreates
+  the tree instead of dropping everything into Unstaged.
 - **Day keys are LOCAL `YYYY-MM-DD`.** Never slice a UTC instant into one
   (`iso.slice(0, 10)`, `toISOString().slice(0, 10)`) or compare one with a local day;
   map the instant through a local-getter helper — **`@/lib/dayKey`** (`dayKeyFor`,

@@ -435,6 +435,87 @@ function planBackupImport(
   return { ...planBookmarkImport(existingBookmarks, remapped), folderAdditions };
 }
 
+/**
+ * The folders for a list of paths (outermost name first), found or created.
+ * Each step matches a same-named child of the folder before it — reusing what
+ * you have, case-insensitively — and creates what's missing, once. Matching by
+ * (parent, name) rather than by name alone is what keeps a nested "Clients"
+ * out of an unrelated top-level "Clients". `folderIds[i]` is where paths[i]
+ * ends (null for an empty path).
+ */
+function planFolderPaths(
+  existing: Folder[],
+  paths: string[][]
+): { additions: Folder[]; folderIds: (string | null)[] } {
+  const pool = [...existing];
+  const additions: Folder[] = [];
+  const folderIds = paths.map((path) => {
+    let parentId: string | null = null;
+    for (const segment of path) {
+      const name = normalizeFolderName(segment);
+      if (!name) continue;
+      const match = pool.find(
+        (f) => f.parentId === parentId && folderNameKey(f.name) === folderNameKey(name)
+      );
+      if (match) {
+        parentId = match.id;
+        continue;
+      }
+      const now = new Date().toISOString();
+      const created: Folder = {
+        id: crypto.randomUUID(),
+        name,
+        parentId,
+        parentFolderKey: parentId,
+        createdAt: now,
+        updatedAt: now,
+      };
+      pool.push(created);
+      additions.push(created);
+      parentId = created.id;
+    }
+    return parentId;
+  });
+  return { additions, folderIds };
+}
+
+/**
+ * A browser bookmarks file, planned against what you have: links you already
+ * have (by URL) are skipped first, so no folder is created just for them; the
+ * rest get their folder path found or created and are filed in it.
+ */
+function planHtmlImport(
+  existingBookmarks: Bookmark[],
+  existingFolders: Folder[],
+  parsed: { title: string; url: string; note: string; tags: string[]; createdAt: string; folderPath: string[] }[]
+): { additions: Bookmark[]; duplicate: number; folderAdditions: Folder[] } {
+  const seen = new Set(existingBookmarks.map((b) => b.url));
+  const fresh = parsed.filter((p) => {
+    if (!p.url.trim() || seen.has(p.url)) return false;
+    seen.add(p.url);
+    return true;
+  });
+  const { additions: folderAdditions, folderIds } = planFolderPaths(
+    existingFolders,
+    fresh.map((p) => p.folderPath)
+  );
+  const records = fresh.map((p, i) => ({
+    title: p.title,
+    url: p.url,
+    note: p.note,
+    tags: p.tags,
+    createdAt: p.createdAt,
+    folderId: folderIds[i],
+    folder: p.folderPath[p.folderPath.length - 1],
+  }));
+  const planned = planBookmarkImport(existingBookmarks, records);
+  return {
+    additions: planned.additions,
+    duplicate: parsed.filter((p) => p.url.trim()).length - planned.additions.length,
+    folderAdditions,
+  };
+}
+
 function wouldCreateCycle(
   folders: Folder[],
   folderId: string,
@@ -892,4 +973,6 @@ export {
   planBackupImport,
   planBookmarkImport,
   planFolderImport,
+  planFolderPaths,
+  planHtmlImport,
 };

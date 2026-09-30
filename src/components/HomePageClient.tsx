@@ -14,7 +14,11 @@ import { ShortcutIcon } from "@/components/ShortcutIcon";
 import { Modal } from "@/components/Modal";
 import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
 import { useToast } from "@/components/toast/ToastProvider";
-import { planBackupImport, planBookmarkImport, useBookmarks } from "@/hooks/useBookmarks";
+import {
+  planBackupImport,
+  planHtmlImport,
+  useBookmarks,
+} from "@/hooks/useBookmarks";
 import { useRediscoverBookmark } from "@/hooks/useRediscoverBookmark";
 import { RediscoverBookmarkCard } from "@/components/RediscoverBookmarkCard";
 import { useShortcuts } from "@/hooks/useShortcuts";
@@ -1017,13 +1021,6 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setShowBulkDeleteBookmarksConfirm(false);
   };
 
-  // What an import would add (existing bookmarks are never touched) plus the
-  // counts the preview modal needs. Nothing is applied until the user confirms.
-  const buildBookmarkMerge = (imported: Bookmark[]) => {
-    const { additions, duplicate } = planBookmarkImport(bookmarks, imported);
-    return { additions, added: additions.length, duplicate };
-  };
-
   const buildShortcutMerge = (imported: ShortcutApp[]) => {
     const shortcutKey = (s: ShortcutApp) => {
       const url = s.url?.trim();
@@ -1086,14 +1083,16 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       toast("No bookmarks found in that file.", { variant: "error" });
       return;
     }
-    const bm = buildBookmarkMerge(imported);
+    // The file's folder tree is recreated (or matched to yours) and every link
+    // filed in it — it used to land in Unstaged.
+    const bm = planHtmlImport(bookmarks, folderEntities, imported);
     setImportPreview({
       source: file.name,
-      newBookmarks: bm.added,
+      newBookmarks: bm.additions.length,
       duplicateBookmarks: bm.duplicate,
       newShortcuts: 0,
       bookmarkAdditions: bm.additions,
-      folderAdditions: [],
+      folderAdditions: bm.folderAdditions,
       mergedShortcuts: null,
     });
   };
