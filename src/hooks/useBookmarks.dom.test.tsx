@@ -15,7 +15,14 @@ vi.mock("@/utils/pendingDeletes", () => ({
   unqueueDelete: vi.fn(),
 }));
 
-import { planBackupImport, planBookmarkImport, planFolderImport, useBookmarks } from "./useBookmarks";
+import {
+  planBackupImport,
+  planBookmarkImport,
+  planFolderImport,
+  planFolderPaths,
+  planHtmlImport,
+  useBookmarks,
+} from "./useBookmarks";
 import type { Folder } from "@/types/folder";
 import { queueDelete, unqueueDelete } from "@/utils/pendingDeletes";
 
@@ -373,6 +380,81 @@ describe("backups keep the folder tree", () => {
       const clients = result.current.folders.find((f) => f.name === "Clients")!;
       expect(clients.parentId).toBe("f-work"); // under the Work you already have
       expect(result.current.bookmarks[0].folderId).toBe(clients.id);
+    });
+  });
+});
+
+// HTML import returned only a leaf folder NAME and never created a folder: a new
+// user's whole browser tree landed in Unstaged, and a nested "Clients" was later
+// pulled into any unrelated top-level "Clients".
+describe("HTML import builds the folder tree", () => {
+  const folder = (id: string, name: string, parentId: string | null = null): Folder => ({
+    id,
+    name,
+    parentId,
+    parentFolderKey: parentId,
+  });
+  const parsed = (title: string, folderPath: string[]) => ({
+    title,
+    url: `https://${title.toLowerCase()}.example/`,
+    note: "",
+    tags: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    folderPath,
+  });
+
+  describe("planFolderPaths", () => {
+    it("creates each missing folder once, nested", () => {
+      const plan = planFolderPaths([], [["Bar", "Work"], ["Bar", "Work", "Clients"], ["Bar"]]);
+      expect(plan.additions.map((f) => f.name)).toEqual(["Bar", "Work", "Clients"]);
+      const [bar, work, clients] = plan.additions;
+      expect([work.parentId, clients.parentId]).toEqual([bar.id, work.id]);
+      expect(plan.folderIds).toEqual([work.id, clients.id, bar.id]);
+    });
+
+    it("reuses what you already have, matching names case-insensitively", () => {
+      const WORK = folder("f-work", "Work");
+      const plan = planFolderPaths([WORK], [["work"]]);
+      expect(plan.additions).toEqual([]);
+      expect(plan.folderIds).toEqual(["f-work"]);
+    });
+
+    it("never files a nested folder into an unrelated top-level one of the same name", () => {
+      const TOP_CLIENTS = folder("f-clients", "Clients");
+      const plan = planFolderPaths([TOP_CLIENTS], [["Work", "Clients"]]);
+      expect(plan.folderIds[0]).not.toBe("f-clients");
+      expect(plan.additions.map((f) => f.name)).toEqual(["Work", "Clients"]);
+    });
+
+    it("leaves a link with no path unfiled", () => {
+      expect(planFolderPaths([], [[]]).folderIds).toEqual([null]);
+    });
+  });
+
+  describe("planHtmlImport + importBookmarks", () => {
+    it("recreates the tree and files every link in it", () => {
+      localStorage.setItem("bookmarkdeck:v2:test-user", JSON.stringify({ version: 2, bookmarks: [], folders: [] }));
+      const { result } = renderHook(() => useBookmarks("test-user"));
+      const plan = planHtmlImport(result.current.bookmarks, result.current.folders, [
+        parsed("Jira", ["Bar", "Work"]),
+        parsed("News", ["Bar"]),
+        parsed("Loose", []),
+      ]);
+      act(() => result.current.importBookmarks(plan.additions, plan.folderAdditions));
+      const nameOf = (id: string | null | undefined) =>
+        result.current.folders.find((f) => f.id === id)?.name ?? null;
+      const where = Object.fromEntries(
+        result.current.bookmarks.map((b) => [b.title, nameOf(b.folderId)])
+      );
+      expect(where).toEqual({ Jira: "Work", News: "Bar", Loose: null });
+    });
+
+    it("creates no folder for links it skips as duplicates", () => {
+      const existing = [{ ...parsed("Jira", []), id: "j", folderId: null }];
+      const plan = planHtmlImport(existing, [], [parsed("Jira", ["Bar", "Work"])]);
+      expect(plan.additions).toEqual([]);
+      expect(plan.folderAdditions).toEqual([]);
+      expect(plan.duplicate).toBe(1);
     });
   });
 });
