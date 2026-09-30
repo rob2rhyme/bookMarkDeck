@@ -24,7 +24,8 @@ import {
   useBookmarks,
 } from "./useBookmarks";
 import type { Folder } from "@/types/folder";
-import { queueDelete, unqueueDelete } from "@/utils/pendingDeletes";
+import { pendingDeleteIds, queueDelete, unqueueDelete } from "@/utils/pendingDeletes";
+import { fetchBookmarks, saveBookmarks } from "@/utils/firestoreBookmarks";
 
 beforeEach(() => localStorage.clear());
 
@@ -456,5 +457,70 @@ describe("HTML import builds the folder tree", () => {
       expect(plan.folderAdditions).toEqual([]);
       expect(plan.duplicate).toBe(1);
     });
+  });
+});
+
+// A pull kept every local item the cloud lacked unless THIS device had queued
+// its deletion. So a bookmark deleted on another device survived the pull here,
+// went back up on this device's next push, and reappeared on the other one.
+describe("deletions made on another device", () => {
+  const KEY = "bookmarkdeck:v2:test-user";
+  const bm = (id: string): Bookmark => ({
+    id,
+    title: id,
+    url: `https://${id}.example/`,
+    note: "",
+    tags: [],
+    pinned: false,
+    hits: 0,
+    folderId: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  const cloud = (bookmarks: Bookmark[], folders: Folder[] = []) =>
+    vi.mocked(fetchBookmarks).mockResolvedValue({ bookmarks, folders } as never);
+
+  function mountWith(bookmarks: Bookmark[], folders: Folder[] = []) {
+    vi.mocked(pendingDeleteIds).mockReturnValue(new Set());
+    localStorage.setItem(KEY, JSON.stringify({ version: 2, bookmarks, folders }));
+    return renderHook(() => useBookmarks("test-user"));
+  }
+  const ids = (list: { id: string }[]) => list.map((x) => x.id).sort();
+
+  it("a pull drops what was deleted elsewhere, and keeps what's new here", async () => {
+    const { result } = mountWith([bm("A"), bm("B")]);
+    cloud([bm("A"), bm("B")]);
+    await act(() => result.current.syncFromCloud("test-user"));
+    // Elsewhere, B is deleted and pushed; here, C is added.
+    act(() => result.current.addBookmark({ title: "C", url: "https://c.example/" }));
+    cloud([bm("A")]);
+    await act(() => result.current.syncFromCloud("test-user"));
+    expect(result.current.bookmarks.map((b) => b.title).sort()).toEqual(["A", "C"]);
+  });
+
+  it("the same for folders", async () => {
+    const f = (id: string): Folder => ({ id, name: id, parentId: null });
+    const { result } = mountWith([], [f("F1"), f("F2")]);
+    cloud([], [f("F1"), f("F2")]);
+    await act(() => result.current.syncFromCloud("test-user"));
+    cloud([], [f("F1")]);
+    await act(() => result.current.syncFromCloud("test-user"));
+    expect(ids(result.current.folders)).toEqual(["F1"]);
+  });
+
+  it("a push counts as a sync: what it sent and is later deleted elsewhere goes", async () => {
+    const { result } = mountWith([bm("A"), bm("B")]);
+    vi.mocked(saveBookmarks).mockResolvedValue(undefined as never);
+    await act(() => result.current.syncToCloud("test-user"));
+    cloud([bm("A")]);
+    await act(() => result.current.syncFromCloud("test-user"));
+    expect(ids(result.current.bookmarks)).toEqual(["A"]);
+  });
+
+  // The guarantee: a device that has never synced loses nothing on its first pull.
+  it("keeps everything on a device that has never synced", async () => {
+    const { result } = mountWith([bm("A"), bm("B")]);
+    cloud([]);
+    await act(() => result.current.syncFromCloud("test-user"));
+    expect(ids(result.current.bookmarks)).toEqual(["A", "B"]);
   });
 });

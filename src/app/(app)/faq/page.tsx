@@ -108,7 +108,9 @@ export default function FaqPage() {
             <li>
               <strong>Cloud:</strong> delete locally, then sync — the cloud
               copy follows. Bookmarks: press <em>Sync to cloud</em> after
-              deleting.
+              deleting. Your other devices drop it the next time they sync
+              <em> from</em> the cloud — do that before uploading from them,
+              since an upload makes the cloud match that device.
             </li>
             <li>
               <strong>Account access:</strong> revoke Bookmark Deck at{" "}

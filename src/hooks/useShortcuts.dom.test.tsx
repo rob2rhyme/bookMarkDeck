@@ -16,6 +16,7 @@ vi.mock("@/utils/pendingDeletes", () => ({
 }));
 
 import { useShortcuts } from "./useShortcuts";
+import { fetchShortcuts } from "@/utils/firestoreShortcuts";
 
 const KEY = "bookmarkdeck:shortcuts:v1:test-user";
 const A: ShortcutApp = { id: "a", name: "Mail", url: "https://mail.example" };
@@ -64,5 +65,38 @@ describe("useShortcuts across tabs", () => {
     const { result } = mountWith([A]);
     otherTabWrites([B], "bookmarkdeck:shortcuts:v1:someone-else");
     expect(result.current.shortcuts.map((s) => s.id)).toEqual(["a"]);
+  });
+});
+
+describe("useShortcuts — deletions made on another device", () => {
+  const cloud = (shortcuts: ShortcutApp[]) =>
+    vi.mocked(fetchShortcuts).mockResolvedValue({ shortcuts } as never);
+  const ids = () => stored().map((s) => s.id).sort();
+
+  it("a pull drops what was deleted elsewhere", async () => {
+    const { result } = mountWith([A, B]);
+    cloud([A, B]);
+    await act(() => result.current.syncFromCloudShortcuts("test-user"));
+    cloud([A]);
+    await act(() => result.current.syncFromCloudShortcuts("test-user"));
+    expect(ids()).toEqual(["a"]);
+  });
+
+  // An empty cloud list used to be ignored outright, so deleting every
+  // shortcut on one device never reached another.
+  it("a pull empties them when every one was deleted elsewhere", async () => {
+    const { result } = mountWith([A, B]);
+    cloud([A, B]);
+    await act(() => result.current.syncFromCloudShortcuts("test-user"));
+    cloud([]);
+    await act(() => result.current.syncFromCloudShortcuts("test-user"));
+    expect(result.current.shortcuts).toEqual([]);
+  });
+
+  it("keeps everything on a device that has never synced, even against an empty cloud", async () => {
+    const { result } = mountWith([A, B]);
+    cloud([]);
+    await act(() => result.current.syncFromCloudShortcuts("test-user"));
+    expect(result.current.shortcuts.map((s) => s.id).sort()).toEqual(["a", "b"]);
   });
 });
