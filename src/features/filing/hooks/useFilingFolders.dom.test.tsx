@@ -8,6 +8,9 @@ vi.mock("@/features/filing/data/filingData", () => ({
   subscribeFolders: vi.fn(() => () => {}),
 }));
 
+import { deleteFolder, fetchFolders, saveFolder, subscribeFolders } from "@/features/filing/data/filingData";
+import type { FilingFolder } from "@/features/filing/lib/types";
+import { recordSyncedIds, syncedIds } from "@/utils/syncedIds";
 import { useFilingFolders } from "./useFilingFolders";
 
 // takenAt is a local day (custody's "out N days" counts from it), but it was
@@ -34,5 +37,67 @@ describe("useFilingFolders — check-out day", () => {
     });
     act(() => result.current.checkOut(id, { toPlaceId: null, heldBy: "Accountant" }));
     expect(result.current.folders.find((f) => f.id === id)!.takenAt).toBe("2026-09-30");
+  });
+});
+
+// On connect, each filing hook uploaded every cached record the cloud lacked.
+// A folder deleted on another device is exactly such a record, so a laptop with
+// a stale cache recreated it for everyone. And a delete made while disconnected
+// was never replayed, so the first snapshot brought it back.
+describe("useFilingFolders — deletions stay deleted", () => {
+  const EMAIL = "a@example.com";
+  const KEY = `bookmarkdeck:filing:folders:v1:${EMAIL}`;
+  const f = (id: string) => ({ id, name: id, homePlaceId: null, currentPlaceId: null, parentId: null, aliases: [] }) as unknown as FilingFolder;
+  const savedIds = () => vi.mocked(saveFolder).mock.calls.map(([, x]) => x.id).sort();
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(saveFolder).mockClear();
+    vi.mocked(deleteFolder).mockReset().mockResolvedValue(undefined as never);
+    vi.mocked(subscribeFolders).mockReset().mockReturnValue(() => {});
+  });
+
+  function connectWith(cache: FilingFolder[], cloud: FilingFolder[]) {
+    localStorage.setItem(KEY, JSON.stringify(cache));
+    vi.mocked(fetchFolders).mockResolvedValue(cloud);
+    return renderHook(({ on }) => useFilingFolders(EMAIL, on), { initialProps: { on: true } });
+  }
+
+  it("doesn't re-upload a folder deleted on another device", async () => {
+    recordSyncedIds("filingFolders", EMAIL, ["F1", "F2"]); // the last snapshot had both
+    connectWith([f("F1"), f("F2"), f("F3")], [f("F1")]); // F2 since deleted; F3 new here
+    await waitFor(() => expect(subscribeFolders).toHaveBeenCalled());
+    expect(savedIds()).toEqual(["F3"]);
+  });
+
+  // The guarantee: an account that has never synced loses nothing.
+  it("uploads everything from a cache that has never synced", async () => {
+    connectWith([f("F1"), f("F2")], []);
+    await waitFor(() => expect(subscribeFolders).toHaveBeenCalled());
+    expect(savedIds()).toEqual(["F1", "F2"]);
+  });
+
+  it("remembers what each snapshot held", async () => {
+    vi.mocked(subscribeFolders).mockImplementation((_e, cb) => {
+      cb([f("F1"), f("F9")]);
+      return () => {};
+    });
+    connectWith([], []);
+    await waitFor(() => expect(subscribeFolders).toHaveBeenCalled());
+    expect([...syncedIds("filingFolders", EMAIL)].sort()).toEqual(["F1", "F9"]);
+  });
+
+  it("replays a delete made while disconnected, before anything else", async () => {
+    localStorage.setItem(KEY, JSON.stringify([f("F1")]));
+    vi.mocked(fetchFolders).mockResolvedValue([f("F1")]);
+    const { result, rerender } = renderHook(({ on }) => useFilingFolders(EMAIL, on), {
+      initialProps: { on: false },
+    });
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    act(() => result.current.removeFolder("F1"));
+    rerender({ on: true });
+    await waitFor(() => expect(subscribeFolders).toHaveBeenCalled());
+    expect(deleteFolder).toHaveBeenCalledWith(EMAIL, "F1");
+    expect(savedIds()).toEqual([]);
   });
 });

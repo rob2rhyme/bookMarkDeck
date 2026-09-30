@@ -16,10 +16,12 @@ vi.mock("@/features/filing/data/filingData", () => ({
 }));
 
 import {
+  deleteDocument,
   fetchDocuments,
   saveDocument,
   subscribeDocuments,
 } from "@/features/filing/data/filingData";
+import { recordSyncedIds } from "@/utils/syncedIds";
 import { useFilingDocuments } from "./useFilingDocuments";
 
 const EMAIL = "a@example.com";
@@ -200,5 +202,29 @@ describe("fileInto — filed day", () => {
     });
     act(() => result.current.fileInto(id, "folder-1"));
     expect(result.current.documents.find((d) => d.id === id)!.filedAt).toBe("2026-09-30");
+  });
+});
+
+describe("deletions stay deleted", () => {
+  it("doesn't re-upload a paper deleted on another device", async () => {
+    recordSyncedIds("filingDocuments", EMAIL, [FULL.id]); // the last snapshot had it
+    window.localStorage.setItem(KEY, JSON.stringify([SLIM]));
+    vi.mocked(fetchDocuments).mockResolvedValue([]); // since deleted elsewhere
+    mount(true);
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
+    expect(saveDocument).not.toHaveBeenCalled();
+  });
+
+  it("replays a delete made while disconnected", async () => {
+    vi.mocked(deleteDocument).mockReset().mockResolvedValue(undefined as never);
+    window.localStorage.setItem(KEY, JSON.stringify([{ ...FULL }]));
+    const { result, rerender } = renderHook(({ on }) => useFilingDocuments(EMAIL, on), {
+      initialProps: { on: false },
+    });
+    await waitFor(() => expect(result.current.documents).toHaveLength(1));
+    act(() => result.current.removeDocument(FULL.id));
+    rerender({ on: true });
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
+    expect(deleteDocument).toHaveBeenCalledWith(EMAIL, FULL.id);
   });
 });

@@ -8,6 +8,8 @@ import {
   saveParty,
   subscribeParties,
 } from "@/features/filing/data/filingData";
+import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
+import { newHere, recordSyncedIds } from "@/utils/syncedIds";
 import type { FilingParty, PartyKind, TabColor } from "@/features/filing/lib/types";
 
 const BASE_KEY = "bookmarkdeck:filing:parties:v1";
@@ -58,17 +60,27 @@ export function useFilingParties(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
+      // Replay deletes made while disconnected first, then upload only what the
+      // cloud NEVER had. A record it had at the last snapshot and lacks now was
+      // deleted on another device — uploading "everything the cloud lacks"
+      // recreated it for everyone.
+      await flushPendingDeletes("filingParties", email, (id) => deleteParty(email, id));
       const cloud = await fetchParties(email);
       const cloudIds = new Set(cloud.map((p) => p.id));
       await Promise.all(
-        ref.current
-          .filter((p) => !cloudIds.has(p.id))
-          .map((p) => saveParty(email, p).catch(() => {}))
+        newHere(ref.current, cloudIds, "filingParties", email).map((p) =>
+          saveParty(email, p).catch(() => {})
+        )
       );
     })()
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) unsub = subscribeParties(email, setParties);
+        if (!cancelled) {
+          unsub = subscribeParties(email, (cloud) => {
+            recordSyncedIds("filingParties", email, cloud.map((p) => p.id));
+            setParties(cloud);
+          });
+        }
       });
     return () => {
       cancelled = true;
@@ -120,6 +132,7 @@ export function useFilingParties(email?: string | null, connected = false) {
     (id: string) => {
       setParties((prev) => prev.filter((p) => p.id !== id));
       if (canSync && email) deleteParty(email, id).catch(onSaveError);
+      else queueDelete("filingParties", email, id); // replayed on connect
     },
     [canSync, email, onSaveError]
   );

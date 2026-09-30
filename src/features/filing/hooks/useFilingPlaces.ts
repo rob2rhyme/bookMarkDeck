@@ -8,6 +8,8 @@ import {
   savePlace,
   subscribePlaces,
 } from "@/features/filing/data/filingData";
+import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
+import { newHere, recordSyncedIds } from "@/utils/syncedIds";
 import { alphabetSplit } from "@/features/filing/lib/drawers";
 import { buildTree, subtreeIds } from "@/features/filing/lib/tree";
 import { placePathsById } from "@/features/filing/lib/breadcrumb";
@@ -64,17 +66,27 @@ export function useFilingPlaces(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
+      // Replay deletes made while disconnected first, then upload only what the
+      // cloud NEVER had. A record it had at the last snapshot and lacks now was
+      // deleted on another device — uploading "everything the cloud lacks"
+      // recreated it for everyone.
+      await flushPendingDeletes("filingPlaces", email, (id) => deletePlace(email, id));
       const cloud = await fetchPlaces(email);
       const cloudIds = new Set(cloud.map((p) => p.id));
       await Promise.all(
-        ref.current
-          .filter((p) => !cloudIds.has(p.id))
-          .map((p) => savePlace(email, p).catch(() => {}))
+        newHere(ref.current, cloudIds, "filingPlaces", email).map((p) =>
+          savePlace(email, p).catch(() => {})
+        )
       );
     })()
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) unsub = subscribePlaces(email, setPlaces);
+        if (!cancelled) {
+          unsub = subscribePlaces(email, (cloud) => {
+            recordSyncedIds("filingPlaces", email, cloud.map((p) => p.id));
+            setPlaces(cloud);
+          });
+        }
       });
     return () => {
       cancelled = true;
@@ -209,6 +221,8 @@ export function useFilingPlaces(email?: string | null, connected = false) {
           orphans.forEach((p) =>
             savePlace(email, { ...p, parentId: null }).catch(onSaveError)
           );
+        } else {
+          queueDelete("filingPlaces", email, id); // replayed on connect
         }
         return next;
       });
