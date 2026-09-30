@@ -147,6 +147,16 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   after): CI runs in UTC, where a UTC date *is* the local date, so this whole class
   of bug passes every unpinned test. That is how a habit's first evening went
   missing and a young habit's 30-day rate read 13% for months.
+- **A record the cloud lacks is uploaded (or kept on a pull) only if the cloud never
+  had it** — `src/utils/syncedIds.ts` remembers the ids the cloud held at each
+  device's last sync. "Everything the cloud lacks" treated *deleted on another
+  device* as *new here*, so a stale device kept resurrecting deletions. Focus's
+  upsert-only queue (1e4dc90) was not reused: a never-synced account has an empty
+  queue, so its first connect would upload nothing and lose everything. With
+  `syncedIds` a never-synced device has an empty record and uploads all of it, as
+  before. Deletes made while disconnected go through `pendingDeletes` and are
+  replayed on connect. Upload still makes the cloud match the device, so a stale
+  device should download first — the FAQ says so.
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 

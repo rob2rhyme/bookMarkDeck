@@ -16,6 +16,7 @@ import {
   unqueueDelete,
 } from "@/utils/pendingDeletes";
 import { ShortcutApp } from "@/types/shortcut";
+import { newHere, recordSyncedIds } from "@/utils/syncedIds";
 
 const BASE_STORAGE_KEY_V1 = "bookmarkdeck:v1";
 const BASE_STORAGE_KEY_V2 = "bookmarkdeck:v2";
@@ -849,23 +850,27 @@ export function useBookmarks(userId?: string | null) {
           : migrateLegacyData(normalizedBookmarks);
 
       // Remote is authoritative, but: drop anything deleted locally and not yet
-      // pushed (so the pull can't resurrect it), and keep local-only items not
-      // present remotely (so an un-synced local addition isn't lost).
+      // pushed (so the pull can't resurrect it), and keep a local-only item only
+      // if the cloud NEVER had it (new here, not yet pushed). One the cloud had
+      // at the last sync and lacks now was deleted on another device — keeping
+      // it put it back on the next push.
       const pendingB = pendingDeleteIds("bookmarks", userId);
       const pendingF = pendingDeleteIds("folders", userId);
+      const remoteB = new Set(nextState.bookmarks.map((b) => b.id));
+      const remoteF = new Set(nextState.folders.map((f) => f.id));
 
       const mergedBookmarks = nextState.bookmarks.filter((b) => !pendingB.has(b.id));
-      const seenB = new Set(mergedBookmarks.map((b) => b.id));
-      bookmarks.forEach((b) => {
-        if (!seenB.has(b.id) && !pendingB.has(b.id)) mergedBookmarks.push(b);
+      newHere(bookmarks, remoteB, "bookmarks", userId).forEach((b) => {
+        if (!pendingB.has(b.id)) mergedBookmarks.push(b);
       });
 
       const mergedFolders = nextState.folders.filter((f) => !pendingF.has(f.id));
-      const seenF = new Set(mergedFolders.map((f) => f.id));
-      folders.forEach((f) => {
-        if (!seenF.has(f.id) && !pendingF.has(f.id)) mergedFolders.push(f);
+      newHere(folders, remoteF, "folders", userId).forEach((f) => {
+        if (!pendingF.has(f.id)) mergedFolders.push(f);
       });
 
+      recordSyncedIds("bookmarks", userId, remoteB);
+      recordSyncedIds("folders", userId, remoteF);
       setBookmarks(mergedBookmarks);
       setFolders(mergedFolders);
       saveToStorage(mergedBookmarks, mergedFolders, userIdHint);
@@ -895,6 +900,8 @@ export function useBookmarks(userId?: string | null) {
       // The pushed arrays already omit deleted items — cloud matches local now.
       clearPendingDeletes("bookmarks", userId);
       clearPendingDeletes("folders", userId);
+      recordSyncedIds("bookmarks", userId, bookmarks.map((b) => b.id));
+      recordSyncedIds("folders", userId, folders.map((f) => f.id));
       setLastSyncedAt(new Date().toISOString());
     } catch (err) {
       setSyncError(
