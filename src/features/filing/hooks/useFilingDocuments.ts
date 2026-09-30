@@ -16,6 +16,7 @@ import type {
   FilingDocument,
   Obligation,
 } from "@/features/filing/lib/types";
+import { todayKey } from "@/lib/dayKey";
 
 const BASE_KEY = "bookmarkdeck:filing:documents:v1";
 const MAX_ACTIVITY = 300;
@@ -284,7 +285,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       patch(id, (d) => ({
         ...d,
         folderId,
-        filedAt: folderId ? new Date().toISOString().slice(0, 10) : d.filedAt,
+        filedAt: folderId ? todayKey() : d.filedAt, // a local day, like every reader of it
         activity: [
           ...(d.activity ?? []),
           { id: crypto.randomUUID(), type: "moved" as FilingActivityType, at: new Date().toISOString() },

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   activityByMonth,
@@ -238,5 +238,28 @@ describe("papersByFolder", () => {
   it("does not add an 'other' bucket when everything fits", () => {
     const out = papersByFolder([doc({ id: "1" })], folders, 6);
     expect(out.some((s) => s.key === "__other__")).toBe(false);
+  });
+});
+
+// Timeline stamps are UTC instants; the insights compare them with a LOCAL
+// "today". Slicing the UTC date put a US evening on the next day, so papers
+// filed on a month's last evening dropped out of "this month" and the chart.
+// CI runs in UTC, where the two agree — so these pin a zone.
+describe("allActivity — local days", () => {
+  const saved = process.env.TZ;
+  afterEach(() => {
+    process.env.TZ = saved;
+  });
+
+  it("puts a US evening on its own day", () => {
+    process.env.TZ = "America/Los_Angeles";
+    const d = doc({ activity: [act("filed", "2026-10-01T03:00:00.000Z")] }); // 8pm Sep 30
+    expect(allActivity([d], [])).toEqual([{ type: "filed", day: "2026-09-30" }]);
+  });
+
+  it("puts an Asia-Pacific morning on its own day", () => {
+    process.env.TZ = "Pacific/Auckland";
+    const d = doc({ activity: [act("filed", "2026-09-30T20:00:00.000Z")] }); // 9am Oct 1
+    expect(allActivity([d], [])).toEqual([{ type: "filed", day: "2026-10-01" }]);
   });
 });

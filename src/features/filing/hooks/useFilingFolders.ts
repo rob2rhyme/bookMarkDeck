@@ -9,6 +9,7 @@ import {
   subscribeFolders,
 } from "@/features/filing/data/filingData";
 import { isCheckedOut } from "@/features/filing/lib/breadcrumb";
+import { todayKey } from "@/lib/dayKey";
 import { checkOutPatch, returnPatch } from "@/features/filing/lib/custody";
 import type {
   FilingActivity,
@@ -19,7 +20,6 @@ import type {
 const BASE_KEY = "bookmarkdeck:filing:folders:v1";
 const MAX_ACTIVITY = 300;
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 const keyFor = (email?: string | null) => (email ? `${BASE_KEY}:${email}` : BASE_KEY);
 
@@ -172,7 +172,7 @@ export function useFilingFolders(email?: string | null, connected = false) {
     ) =>
       patch(id, (f) => ({
         ...f,
-        ...checkOutPatch({ ...input, on: today() }),
+        ...checkOutPatch({ ...input, on: todayKey() }), // local: "out N days" counts from it
         activity: withActivity(f, "taken", {
           to: input.heldBy?.trim() || undefined,
           fromPlace: placeName?.(f.currentPlaceId ?? f.homePlaceId),

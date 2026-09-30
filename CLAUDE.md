@@ -118,8 +118,10 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   re-importing your own backup keeps those links. Undo restores the pre-import list.
 - **Day keys are LOCAL `YYYY-MM-DD`.** Never slice a UTC instant into one
   (`iso.slice(0, 10)`, `toISOString().slice(0, 10)`) or compare one with a local day;
-  map the instant through a local-getter helper (habits' `dayKeyFor`,
-  `habitStartDay`). **A test of day logic pins a zone** (`process.env.TZ`, restored
+  map the instant through a local-getter helper — **`@/lib/dayKey`** (`dayKeyFor`,
+  `todayKey`, and `dayKeyOf`, which returns a bare `YYYY-MM-DD` as-is rather than
+  letting `new Date()` read it as UTC midnight), or habits' own `lib/day.ts` /
+  `habitStartDay`. **A test of day logic pins a zone** (`process.env.TZ`, restored
   after): CI runs in UTC, where a UTC date *is* the local date, so this whole class
   of bug passes every unpinned test. That is how a habit's first evening went
   missing and a young habit's 30-day rate read 13% for months.

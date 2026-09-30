@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FilingDocument } from "@/features/filing/lib/types";
 
@@ -173,5 +173,32 @@ describe("importMany", () => {
     expect(written.title).toBe("Passport (renewed)");
     expect(written.obligations).toEqual(FULL.obligations);
     expect(written.note).toBe(FULL.note);
+  });
+});
+
+// filedAt is a local day (retention and "filed" labels read it as one), but it
+// was stamped with the UTC date. CI runs in UTC, where they agree, so this pins
+// a zone and a clock.
+describe("fileInto — filed day", () => {
+  const savedTz = process.env.TZ;
+  beforeEach(() => {
+    process.env.TZ = "America/Los_Angeles";
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T03:00:00.000Z")); // 8pm, Sep 30
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    process.env.TZ = savedTz;
+  });
+
+  it("stamps filedAt with today's LOCAL date", async () => {
+    const { result } = mount(false);
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    let id = "";
+    act(() => {
+      id = result.current.addDocument({ title: "W-2" })!.id;
+    });
+    act(() => result.current.fileInto(id, "folder-1"));
+    expect(result.current.documents.find((d) => d.id === id)!.filedAt).toBe("2026-09-30");
   });
 });
