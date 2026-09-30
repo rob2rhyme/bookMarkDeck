@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { computeStats, isDueOn } from "@/features/habits/lib/streak";
 import type { Habit, HabitEntry } from "@/features/habits/lib/types";
@@ -162,3 +162,35 @@ function addBack(day: string, n: number): string {
   const dd = String(dt.getDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
 }
+
+// Day keys are local, but CI runs in UTC — where a UTC date and a local date are
+// the same thing, so every test above passes whether or not the code confuses
+// them. These pin a zone where they differ.
+describe("computeStats — a habit's first day is its LOCAL creation day", () => {
+  const saved = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "America/Los_Angeles";
+  });
+  afterAll(() => {
+    process.env.TZ = saved;
+  });
+
+  // 03:00Z on the 17th is 8pm on the 16th in Los Angeles: created and ticked
+  // that evening, the 16th is the habit's first day. Slicing the UTC date made
+  // it the 17th, and the evening's tick was lost from every figure.
+  it("counts the evening it was created, west of UTC", () => {
+    const habit = mk({ createdAt: "2026-06-17T03:00:00.000Z" });
+    const s = computeStats(habit, [e("2026-06-16"), e("2026-06-17"), e("2026-06-18")], TODAY);
+    expect(s.totalDone).toBe(3);
+    expect(s.currentStreak).toBe(3);
+    expect(s.longestStreak).toBe(3);
+  });
+
+  // The 30-day rate never looked at the creation day at all: four perfect days
+  // over thirty read as 13%.
+  it("rates a young habit over the days it has existed", () => {
+    const habit = mk({ createdAt: "2026-06-16T15:00:00.000Z" }); // 8am on the 16th
+    const days = ["2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19"];
+    expect(computeStats(habit, days.map((d) => e(d)), TODAY).rate).toBe(100);
+  });
+});
