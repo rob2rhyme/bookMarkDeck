@@ -353,6 +353,88 @@ function planBookmarkImport(
   return { additions, duplicate };
 }
 
+/**
+ * Merge an imported folder tree into the one you have, without duplicating it.
+ * Parents are placed first. An imported folder REUSES an existing one with the
+ * same id, or else a same-named sibling under the same (resolved) parent — never
+ * a same-named folder somewhere else, so a nested "Clients" can't be pulled into
+ * an unrelated top-level one. Otherwise it is added, keeping its id. A parent
+ * that is neither in the file nor here puts the folder at the root.
+ * `idMap` sends every imported id to the id it ends up with.
+ */
+function planFolderImport(
+  existing: Folder[],
+  imported: unknown
+): { additions: Folder[]; idMap: Map<string, string> } {
+  const incoming = normalizeFolders(imported);
+  const incomingIds = new Set(incoming.map((f) => f.id));
+  const pool = [...existing];
+  const additions: Folder[] = [];
+  const idMap = new Map<string, string>();
+
+  const place = (f: Folder) => {
+    const parentId =
+      f.parentId === null
+        ? null
+        : (idMap.get(f.parentId) ??
+          (pool.some((p) => p.id === f.parentId) ? f.parentId : null));
+    if (pool.some((p) => p.id === f.id)) {
+      idMap.set(f.id, f.id);
+      return;
+    }
+    const sibling = pool.find(
+      (p) => p.parentId === parentId && folderNameKey(p.name) === folderNameKey(f.name)
+    );
+    if (sibling) {
+      idMap.set(f.id, sibling.id);
+      return;
+    }
+    const now = new Date().toISOString();
+    const added: Folder = {
+      ...f,
+      parentId,
+      parentFolderKey: parentId,
+      createdAt: f.createdAt ?? now,
+      updatedAt: f.updatedAt ?? now,
+    };
+    pool.push(added);
+    additions.push(added);
+    idMap.set(f.id, f.id);
+  };
+
+  // Parents first; whatever can't be ordered (a cycle) is placed as-is.
+  let pending = incoming;
+  while (pending.length > 0) {
+    const ready = pending.filter(
+      (f) => f.parentId === null || !incomingIds.has(f.parentId) || idMap.has(f.parentId)
+    );
+    const batch = ready.length > 0 ? ready : pending.slice(0, 1);
+    batch.forEach(place);
+    pending = pending.filter((f) => !batch.includes(f));
+  }
+  return { additions, idMap };
+}
+
+/**
+ * A backup file's contents, planned against what you have: its folder tree is
+ * merged (planFolderImport) and each bookmark's folderId follows its folder to
+ * wherever that landed, before the bookmarks themselves are planned.
+ */
+function planBackupImport(
+  existingBookmarks: Bookmark[],
+  existingFolders: Folder[],
+  file: { bookmarks: unknown[]; folders: unknown[] }
+): { additions: Bookmark[]; duplicate: number; folderAdditions: Folder[] } {
+  const { additions: folderAdditions, idMap } = planFolderImport(existingFolders, file.folders);
+  const remapped = file.bookmarks.map((b) => {
+    const folderId = (b as { folderId?: unknown } | null)?.folderId;
+    return typeof folderId === "string" && idMap.has(folderId)
+      ? { ...(b as object), folderId: idMap.get(folderId) }
+      : b;
+  });
+  return { ...planBookmarkImport(existingBookmarks, remapped), folderAdditions };
+}
+
 function wouldCreateCycle(
   folders: Folder[],
   folderId: string,
@@ -514,17 +596,23 @@ export function useBookmarks(userId?: string | null) {
    * are never touched. The old path cleared everything and re-added it, which
    * re-id'd, unpinned and stripped every bookmark on every import.
    */
-  const importBookmarks = (additions: Bookmark[]) => {
+  const importBookmarks = (additions: Bookmark[], folderAdditions: Folder[] = []) => {
+    const folderIds = new Set(folders.map((f) => f.id));
+    const newFolders = folderAdditions.filter((f) => !folderIds.has(f.id));
     const ids = new Set(bookmarks.map((b) => b.id));
     const urls = new Set(bookmarks.map((b) => b.url));
     const fresh = additions.filter((b) => !ids.has(b.id) && !urls.has(b.url));
-    if (fresh.length === 0) return;
-    // Bringing back a bookmark deleted here but not yet pushed: without this the
+    if (fresh.length === 0 && newFolders.length === 0) return;
+    // Bringing back something deleted here but not yet pushed: without this the
     // next pull would drop it again.
+    newFolders.forEach((f) => unqueueDelete("folders", userId, f.id));
     fresh.forEach((b) => unqueueDelete("bookmarks", userId, b.id));
-    // The HTML importer sets only a folder label; map it to a folder you have.
-    const filed = backfillBookmarkFolderIds(fresh, folders);
-    setBookmarks((prev) => [...prev, ...filed]);
+    if (newFolders.length > 0) setFolders((prev) => [...prev, ...newFolders]);
+    if (fresh.length > 0) {
+      // A label with no folderId (the HTML importer's) maps to a folder you have.
+      const filed = backfillBookmarkFolderIds(fresh, [...folders, ...newFolders]);
+      setBookmarks((prev) => [...prev, ...filed]);
+    }
   };
 
   const addFolder = ({ name, parentId = null }: AddFolderInput): Folder | null => {
@@ -748,6 +836,29 @@ export function useBookmarks(userId?: string | null) {
     setBookmarks(restored);
   };
 
+  /**
+   * Put a backup back as it was, folder tree included. Restoring bookmarks alone
+   * left them pointing at folders that no longer existed — hidden from the grid
+   * and from Unstaged until a reload. `folders` undefined (a backup from before
+   * backups carried folders) keeps today's tree, and any bookmark whose folder
+   * isn't in it shows in Unstaged at once.
+   */
+  const restoreBackup = (snapshot: Bookmark[], snapshotFolders?: Folder[]) => {
+    const tree = snapshotFolders ? normalizeFolders(snapshotFolders) : folders;
+    const restored = backfillBookmarkFolderIds(
+      normalizeBookmarks(
+        snapshot.map((b) => ({ ...b, pinned: typeof b.pinned === "boolean" ? b.pinned : false }))
+      ),
+      tree
+    );
+    restored.forEach((b) => unqueueDelete("bookmarks", userId, b.id));
+    if (snapshotFolders) {
+      tree.forEach((f) => unqueueDelete("folders", userId, f.id));
+      setFolders(tree);
+    }
+    setBookmarks(restored);
+  };
+
   return {
     bookmarks,
     folders,
@@ -756,6 +867,7 @@ export function useBookmarks(userId?: string | null) {
     deleteBookmark,
     clearAll,
     importBookmarks,
+    restoreBackup,
     restoreFromSnapshot,
     addFolder,
     updateFolder,
@@ -773,4 +885,11 @@ export function useBookmarks(userId?: string | null) {
   };
 }
 
-export { folderNameKey, normalizeFolderName, migrateLegacyData, planBookmarkImport };
+export {
+  folderNameKey,
+  normalizeFolderName,
+  migrateLegacyData,
+  planBackupImport,
+  planBookmarkImport,
+  planFolderImport,
+};

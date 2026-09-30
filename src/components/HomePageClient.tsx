@@ -14,7 +14,7 @@ import { ShortcutIcon } from "@/components/ShortcutIcon";
 import { Modal } from "@/components/Modal";
 import { SectionNav, type SectionNavItem } from "@/components/SectionNav";
 import { useToast } from "@/components/toast/ToastProvider";
-import { planBookmarkImport, useBookmarks } from "@/hooks/useBookmarks";
+import { planBackupImport, planBookmarkImport, useBookmarks } from "@/hooks/useBookmarks";
 import { useRediscoverBookmark } from "@/hooks/useRediscoverBookmark";
 import { RediscoverBookmarkCard } from "@/components/RediscoverBookmarkCard";
 import { useShortcuts } from "@/hooks/useShortcuts";
@@ -26,6 +26,7 @@ import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import { normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
+import { buildBackupFile, parseBackupJson } from "@/utils/bookmarkBackupFile";
 import { FIELD_CLASS } from "@/components/ui/Field";
 
 function getHostname(rawUrl: string) {
@@ -95,6 +96,7 @@ export function HomePageClient() {
     deleteBookmark,
     clearAll,
     importBookmarks,
+    restoreBackup,
     restoreFromSnapshot,
     syncFromCloud,
     syncToCloud,
@@ -128,6 +130,7 @@ export function HomePageClient() {
     duplicateBookmarks: number;
     newShortcuts: number;
     bookmarkAdditions: Bookmark[] | null;
+    folderAdditions: Folder[];
     mergedShortcuts: ShortcutApp[] | null;
   } | null>(null);
 
@@ -176,6 +179,8 @@ const [editUrl, setEditUrl] = useState("");
   const [undoState, setUndoState] = useState<{
     type: "delete" | "bulkDelete" | "clearAll" | "import";
     snapshot: Bookmark[];
+    /** Set by an import, which can add folders too: undo restores both. */
+    folders?: Folder[];
   } | null>(null);
 const [shortcutUndoState, setShortcutUndoState] = useState<{
   snapshot: ShortcutApp[];
@@ -861,7 +866,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
   const handleUndo = () => {
     if (!undoState) return;
-    restoreFromSnapshot(undoState.snapshot);
+    if (undoState.folders) restoreBackup(undoState.snapshot, undoState.folders);
+    else restoreFromSnapshot(undoState.snapshot);
     setUndoState(null);
   };
 
@@ -1045,44 +1051,34 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     // Attempt JSON first (supports cross-account backups with shortcuts).
     const isLikelyJson =
       file.name.toLowerCase().endsWith(".json") || text.trim().startsWith("{");
-    if (isLikelyJson) {
-      try {
-        const parsed = JSON.parse(text);
-        const importedBookmarks: Bookmark[] = Array.isArray(parsed)
-          ? parsed
-          : Array.isArray(parsed.bookmarks)
-            ? parsed.bookmarks
-            : [];
-        const importedShortcuts: ShortcutApp[] = Array.isArray(parsed.shortcuts)
-          ? parsed.shortcuts
-          : [];
+    const parsed = isLikelyJson ? parseBackupJson(text) : null;
+    if (parsed) {
+      // The file's folder tree comes too, merged into yours, and each bookmark
+      // follows its folder — it used to be dropped, leaving every one unstaged.
+      const bm =
+        parsed.bookmarks.length > 0 || parsed.folders.length > 0
+          ? planBackupImport(bookmarks, folderEntities, parsed)
+          : null;
+      const importedShortcuts = parsed.shortcuts as ShortcutApp[];
+      const sc =
+        importedShortcuts.length > 0 ? buildShortcutMerge(importedShortcuts) : null;
 
-        const bm =
-          importedBookmarks.length > 0
-            ? buildBookmarkMerge(importedBookmarks)
-            : null;
-        const sc =
-          importedShortcuts.length > 0
-            ? buildShortcutMerge(importedShortcuts)
-            : null;
-
-        if (!bm && !sc) {
-          toast("Nothing to import from that file.", { variant: "error" });
-          return;
-        }
-        setImportPreview({
-          source: file.name,
-          newBookmarks: bm?.added ?? 0,
-          duplicateBookmarks: bm?.duplicate ?? 0,
-          newShortcuts: sc?.added ?? 0,
-          bookmarkAdditions: bm ? bm.additions : null,
-          mergedShortcuts: sc ? sc.merged : null,
-        });
+      if (!bm && !sc) {
+        toast("Nothing to import from that file.", { variant: "error" });
         return;
-      } catch (err) {
-        console.error("JSON import failed, trying HTML instead", err);
       }
+      setImportPreview({
+        source: file.name,
+        newBookmarks: bm?.additions.length ?? 0,
+        duplicateBookmarks: bm?.duplicate ?? 0,
+        newShortcuts: sc?.added ?? 0,
+        bookmarkAdditions: bm ? bm.additions : null,
+        folderAdditions: bm?.folderAdditions ?? [],
+        mergedShortcuts: sc ? sc.merged : null,
+      });
+      return;
     }
+    if (isLikelyJson) console.error("JSON import failed, trying HTML instead");
 
     // Fallback to Netscape HTML import (bookmarks only).
     const imported = parseBookmarkHtml(text);
@@ -1097,6 +1093,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       duplicateBookmarks: bm.duplicate,
       newShortcuts: 0,
       bookmarkAdditions: bm.additions,
+      folderAdditions: [],
       mergedShortcuts: null,
     });
   };
@@ -1105,15 +1102,16 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
   const applyImport = () => {
     if (!importPreview) return;
     const additions = importPreview.bookmarkAdditions ?? [];
-    if (additions.length > 0) {
-      setUndoState({ type: "import", snapshot: bookmarks });
-      importBookmarks(additions);
+    const folderAdditions = importPreview.folderAdditions;
+    if (additions.length > 0 || folderAdditions.length > 0) {
+      setUndoState({ type: "import", snapshot: bookmarks, folders: folderEntities });
+      importBookmarks(additions, folderAdditions);
     }
     if (importPreview.mergedShortcuts) {
       restoreShortcuts(importPreview.mergedShortcuts);
     }
     const added =
-      importPreview.newBookmarks + importPreview.newShortcuts;
+      importPreview.newBookmarks + importPreview.newShortcuts + folderAdditions.length;
     setImportPreview(null);
     toast(
       added > 0
@@ -1144,14 +1142,9 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       return date.toISOString().replace(/[:.]/g, "-");
     })();
 
-    // Export full-fidelity JSON so bookmarks + shortcuts roundtrip across accounts.
-    const payload = {
-      createdAt: backup.createdAt,
-      bookmarks: backup.bookmarks,
-      shortcuts: backup.shortcuts ?? [],
-      type: "bookmarkdeck-backup",
-      version: 1,
-    };
+    // Full-fidelity JSON — bookmarks, folder tree and shortcuts — so a backup
+    // round-trips across accounts.
+    const payload = buildBackupFile(backup);
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
@@ -1172,7 +1165,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
   // Replace current bookmarks + shortcuts with a backup snapshot (local state;
   // the user can then Sync to cloud to persist). Destructive — hence confirm.
   const handleRestoreBackup = (backup: FirestoreBookmarkBackup) => {
-    restoreFromSnapshot(backup.bookmarks);
+    // With its folder tree: bookmarks alone pointed at folders that were gone.
+    restoreBackup(backup.bookmarks, backup.folders);
     if (backup.shortcuts && backup.shortcuts.length > 0) {
       restoreShortcuts(backup.shortcuts);
     }
@@ -1728,6 +1722,14 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     +{importPreview.newBookmarks}
                   </span>
                 </li>
+                {importPreview.folderAdditions.length > 0 && (
+                  <li className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2">
+                    <span className="text-slate-300">New folders</span>
+                    <span className="font-semibold tabular-nums text-emerald-300">
+                      +{importPreview.folderAdditions.length}
+                    </span>
+                  </li>
+                )}
                 {importPreview.newShortcuts > 0 && (
                   <li className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2">
                     <span className="text-slate-300">New shortcuts</span>
