@@ -8,8 +8,14 @@ import {
   savePlace,
   subscribePlaces,
 } from "@/features/filing/data/filingData";
-import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
-import { newHere, recordSyncedIds } from "@/utils/syncedIds";
+import {
+  clearPendingUpserts,
+  flushPendingDeletes,
+  queueDelete,
+  queueUpsert,
+  unqueueUpsert,
+} from "@/utils/pendingDeletes";
+import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
 import { alphabetSplit } from "@/features/filing/lib/drawers";
 import { buildTree, subtreeIds } from "@/features/filing/lib/tree";
 import { placePathsById } from "@/features/filing/lib/breadcrumb";
@@ -66,18 +72,19 @@ export function useFilingPlaces(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
-      // Replay deletes made while disconnected first, then upload only what the
-      // cloud NEVER had. A record it had at the last snapshot and lacks now was
-      // deleted on another device — uploading "everything the cloud lacks"
-      // recreated it for everyone.
+      // Replay deletes made while disconnected first, then upload what the cloud
+      // NEVER had plus what was edited while disconnected (toUpload). A record
+      // it had at the last snapshot and lacks now was deleted on another device
+      // — uploading "everything the cloud lacks" recreated it for everyone.
       await flushPendingDeletes("filingPlaces", email, (id) => deletePlace(email, id));
       const cloud = await fetchPlaces(email);
       const cloudIds = new Set(cloud.map((p) => p.id));
       await Promise.all(
-        newHere(ref.current, cloudIds, "filingPlaces", email).map((p) =>
+        toUpload(ref.current, cloudIds, "filingPlaces", email).map((p) =>
           savePlace(email, p).catch(() => {})
         )
       );
+      clearPendingUpserts("filingPlaces", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -122,6 +129,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
       };
       setPlaces((prev) => [...prev, place]);
       if (canSync && email) savePlace(email, place).catch(onSaveError);
+      else queueUpsert("filingPlaces", email, place.id);
       return place;
     },
     [canSync, email, onSaveError]
@@ -173,6 +181,8 @@ export function useFilingPlaces(email?: string | null, connected = false) {
       setPlaces((prev) => [...prev, ...batch]);
       if (canSync && email) {
         batch.forEach((p) => savePlace(email, p).catch(onSaveError));
+      } else {
+        batch.forEach((p) => queueUpsert("filingPlaces", email, p.id));
       }
       return cabinet;
     },
@@ -187,6 +197,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
         );
         const updated = next.find((p) => p.id === id);
         if (canSync && email && updated) savePlace(email, updated).catch(onSaveError);
+        else if (updated) queueUpsert("filingPlaces", email, updated.id);
         return next;
       });
     },
@@ -216,6 +227,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
         const next = prev
           .map((p) => (p.parentId === id ? { ...p, parentId: null } : p))
           .filter((p) => p.id !== id);
+        unqueueUpsert("filingPlaces", email, id); // an edit to it must not be pushed back
         if (canSync && email) {
           deletePlace(email, id).catch(onSaveError);
           orphans.forEach((p) =>
@@ -223,6 +235,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
           );
         } else {
           queueDelete("filingPlaces", email, id); // replayed on connect
+          orphans.forEach((p) => queueUpsert("filingPlaces", email, p.id));
         }
         return next;
       });
@@ -243,6 +256,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
           const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingPlace;
           byId.set(item.id, merged);
           if (canSync && email) savePlace(email, merged).catch(onSaveError);
+          else queueUpsert("filingPlaces", email, merged.id);
         }
         return [...byId.values()];
       });

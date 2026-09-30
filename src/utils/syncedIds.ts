@@ -20,6 +20,8 @@
 // `scope` is the owner key (email/userId); `domain` namespaces the record per
 // data type, as in pendingDeletes.ts.
 
+import { pendingUpsertIds } from "@/utils/pendingDeletes";
+
 function key(domain: string, scope?: string | null): string {
   return `bookmarkdeck:synced-ids:${domain}:${scope ?? ""}`;
 }
@@ -62,4 +64,24 @@ export function newHere<T extends { id: string }>(
 ): T[] {
   const known = syncedIds(domain, scope);
   return local.filter((r) => !cloudIds.has(r.id) && !known.has(r.id));
+}
+
+/**
+ * What to upload on connect: records the cloud never had, plus records edited
+ * while disconnected (`queueUpsert`) that the cloud still holds — without the
+ * second half, the first snapshot silently reverted every offline edit. A queued
+ * record the cloud has since lost was deleted on another device, and that
+ * delete wins.
+ */
+export function toUpload<T extends { id: string }>(
+  local: T[],
+  cloudIds: Set<string>,
+  domain: string,
+  scope?: string | null
+): T[] {
+  const known = syncedIds(domain, scope);
+  const edited = pendingUpsertIds(domain, scope);
+  return local.filter((r) =>
+    cloudIds.has(r.id) ? edited.has(r.id) : !known.has(r.id)
+  );
 }
