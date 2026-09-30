@@ -8,8 +8,14 @@ import {
   saveLocation,
   subscribeLocations,
 } from "@/features/inventory/data/inventoryData";
-import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
-import { newHere, recordSyncedIds } from "@/utils/syncedIds";
+import {
+  clearPendingUpserts,
+  flushPendingDeletes,
+  queueDelete,
+  queueUpsert,
+  unqueueUpsert,
+} from "@/utils/pendingDeletes";
+import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
 import type { InventoryLocation } from "@/features/inventory/lib/types";
 
 const BASE_KEY = "bookmarkdeck:inventory:locations:v1";
@@ -87,18 +93,20 @@ export function useInventoryLocations(email?: string | null, connected = false) 
     let cancelled = false;
     let unsub = () => {};
     (async () => {
-      // Replay deletes made while disconnected first, then upload only what the
-      // cloud NEVER had. A record it had at the last snapshot and lacks now was
-      // deleted on another device — uploading "everything the cloud lacks"
-      // recreated it for everyone (an item pointing at photos already purged).
+      // Replay deletes made while disconnected first, then upload what the cloud
+      // NEVER had plus what was edited while disconnected (toUpload). A record
+      // it had at the last snapshot and lacks now was deleted on another device
+      // — uploading "everything the cloud lacks" recreated it for everyone (an
+      // item pointing at photos already purged).
       await flushPendingDeletes("inventoryLocations", email, (id) => deleteLocation(email, id));
       const cloud = await fetchLocations(email);
       const cloudIds = new Set(cloud.map((l) => l.id));
       await Promise.all(
-        newHere(ref.current, cloudIds, "inventoryLocations", email).map((l) =>
+        toUpload(ref.current, cloudIds, "inventoryLocations", email).map((l) =>
           saveLocation(email, l).catch(() => {})
         )
       );
+      clearPendingUpserts("inventoryLocations", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -129,6 +137,7 @@ export function useInventoryLocations(email?: string | null, connected = false) 
       };
       setLocations((prev) => [...prev, loc]);
       if (canSync && email) saveLocation(email, loc).catch(() => {});
+      else queueUpsert("inventoryLocations", email, loc.id);
       return loc;
     },
     [canSync, email]
@@ -142,6 +151,7 @@ export function useInventoryLocations(email?: string | null, connected = false) 
         const next = prev.map((l) => (l.id === id ? { ...l, name: trimmed } : l));
         const updated = next.find((l) => l.id === id);
         if (canSync && email && updated) saveLocation(email, updated).catch(() => {});
+        else if (updated) queueUpsert("inventoryLocations", email, updated.id);
         return next;
       });
     },
@@ -157,13 +167,16 @@ export function useInventoryLocations(email?: string | null, connected = false) 
           l.parentId === id ? { ...l, parentId: null } : l
         );
         const next = reparented.filter((l) => l.id !== id);
+        const orphans = reparented.filter(
+          (l) => l.parentId === null && prev.find((p) => p.id === l.id)?.parentId === id
+        );
+        unqueueUpsert("inventoryLocations", email, id); // an edit to it must not be pushed back
         if (canSync && email) {
           deleteLocation(email, id).catch(() => {});
-          reparented
-            .filter((l) => l.parentId === null && prev.find((p) => p.id === l.id)?.parentId === id)
-            .forEach((l) => saveLocation(email, l).catch(() => {}));
+          orphans.forEach((l) => saveLocation(email, l).catch(() => {}));
         } else {
           queueDelete("inventoryLocations", email, id); // replayed on connect
+          orphans.forEach((l) => queueUpsert("inventoryLocations", email, l.id));
         }
         return next;
       });

@@ -8,8 +8,14 @@ import {
   saveWishlist,
   subscribeWishlist,
 } from "@/features/inventory/data/inventoryData";
-import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
-import { newHere, recordSyncedIds } from "@/utils/syncedIds";
+import {
+  clearPendingUpserts,
+  flushPendingDeletes,
+  queueDelete,
+  queueUpsert,
+  unqueueUpsert,
+} from "@/utils/pendingDeletes";
+import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
 import type { WishlistItem } from "@/features/inventory/lib/types";
 
 const BASE_KEY = "bookmarkdeck:inventory:wishlist:v1";
@@ -59,18 +65,20 @@ export function useWishlist(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
-      // Replay deletes made while disconnected first, then upload only what the
-      // cloud NEVER had. A record it had at the last snapshot and lacks now was
-      // deleted on another device — uploading "everything the cloud lacks"
-      // recreated it for everyone (an item pointing at photos already purged).
+      // Replay deletes made while disconnected first, then upload what the cloud
+      // NEVER had plus what was edited while disconnected (toUpload). A record
+      // it had at the last snapshot and lacks now was deleted on another device
+      // — uploading "everything the cloud lacks" recreated it for everyone (an
+      // item pointing at photos already purged).
       await flushPendingDeletes("inventoryWishlist", email, (id) => deleteWishlist(email, id));
       const cloud = await fetchWishlist(email);
       const cloudIds = new Set(cloud.map((w) => w.id));
       await Promise.all(
-        newHere(ref.current, cloudIds, "inventoryWishlist", email).map((w) =>
+        toUpload(ref.current, cloudIds, "inventoryWishlist", email).map((w) =>
           saveWishlist(email, w).catch(() => {})
         )
       );
+      clearPendingUpserts("inventoryWishlist", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -97,6 +105,7 @@ export function useWishlist(email?: string | null, connected = false) {
           : [clean, ...prev]
       );
       if (canSync && email) saveWishlist(email, clean).catch(() => {});
+      else queueUpsert("inventoryWishlist", email, clean.id);
     },
     [canSync, email]
   );
@@ -104,6 +113,7 @@ export function useWishlist(email?: string | null, connected = false) {
   const remove = useCallback(
     (id: string) => {
       setItems((prev) => prev.filter((w) => w.id !== id));
+      unqueueUpsert("inventoryWishlist", email, id); // an edit to it must not be pushed back
       if (canSync && email) deleteWishlist(email, id).catch(() => {});
       else queueDelete("inventoryWishlist", email, id); // replayed on connect
     },
