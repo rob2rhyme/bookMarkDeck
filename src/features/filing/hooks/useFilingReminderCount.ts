@@ -9,6 +9,9 @@ import { overdueBackCount } from "@/features/filing/lib/custody";
 import { addDays } from "@/features/filing/lib/obligations";
 import { shredItems } from "@/features/filing/lib/retention";
 import type { FilingDocument, FilingFolder } from "@/features/filing/lib/types";
+// Dependency-free, so the shared shell still never pulls the firebase-heavy
+// data module into its bundle — the constraint useInventoryReminderCount follows.
+import { todayKey } from "@/lib/dayKey";
 
 // Must match the cache keys useFilingDocuments / useFilingFolders write.
 const DOCUMENTS_KEY = "bookmarkdeck:filing:documents:v1";
@@ -16,18 +19,6 @@ const FOLDERS_KEY = "bookmarkdeck:filing:folders:v1";
 const SETTINGS_KEY = "bookmarkdeck:filing:settings:v1";
 const DEFAULT_LEAD_DAYS = 30;
 
-/**
- * Local YYYY-MM-DD, inlined rather than imported so the shared shell never
- * pulls the firebase-heavy data module into its bundle — the same constraint
- * useInventoryReminderCount follows.
- */
-function todayLocal(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = (now.getMonth() + 1).toString().padStart(2, "0");
-  const d = now.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
 
 function leadDaysFor(email?: string | null): number {
   if (typeof window === "undefined") return DEFAULT_LEAD_DAYS;
@@ -72,7 +63,7 @@ function readCount(email?: string | null): number {
   try {
     const documents = readArray<FilingDocument>(`${DOCUMENTS_KEY}:${email}`);
     const folders = readArray<FilingFolder>(`${FOLDERS_KEY}:${email}`);
-    const today = todayLocal();
+    const today = todayKey();
     const lead = leadDaysFor(email);
     const cutoff = addDays(today, lead);
 

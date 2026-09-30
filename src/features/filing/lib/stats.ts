@@ -16,6 +16,7 @@ import type {
   FilingDocument,
   FilingFolder,
 } from "@/features/filing/lib/types";
+import { dayKeyOf } from "@/lib/dayKey";
 
 /** The activity kinds worth charting, in the order a legend should read. */
 export const TRACKED_ACTIVITY: FilingActivityType[] = [
@@ -54,9 +55,11 @@ export function allActivity(
   const out: DatedActivity[] = [];
   const take = (list: FilingActivity[] | undefined) => {
     for (const a of list ?? []) {
-      if (typeof a?.at !== "string" || a.at.length < 10) continue;
-      const day = a.at.slice(0, 10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+      if (typeof a?.at !== "string") continue;
+      // The LOCAL day: `today` is local, and slicing the UTC date moved a US
+      // evening onto the next day — out of its month, and off the chart.
+      const day = dayKeyOf(a.at);
+      if (!day) continue;
       out.push({ type: a.type, day });
     }
   };
