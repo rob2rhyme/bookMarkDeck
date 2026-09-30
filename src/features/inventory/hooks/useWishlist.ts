@@ -8,6 +8,8 @@ import {
   saveWishlist,
   subscribeWishlist,
 } from "@/features/inventory/data/inventoryData";
+import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
+import { newHere, recordSyncedIds } from "@/utils/syncedIds";
 import type { WishlistItem } from "@/features/inventory/lib/types";
 
 const BASE_KEY = "bookmarkdeck:inventory:wishlist:v1";
@@ -57,17 +59,27 @@ export function useWishlist(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
+      // Replay deletes made while disconnected first, then upload only what the
+      // cloud NEVER had. A record it had at the last snapshot and lacks now was
+      // deleted on another device — uploading "everything the cloud lacks"
+      // recreated it for everyone (an item pointing at photos already purged).
+      await flushPendingDeletes("inventoryWishlist", email, (id) => deleteWishlist(email, id));
       const cloud = await fetchWishlist(email);
       const cloudIds = new Set(cloud.map((w) => w.id));
       await Promise.all(
-        ref.current
-          .filter((w) => !cloudIds.has(w.id))
-          .map((w) => saveWishlist(email, w).catch(() => {}))
+        newHere(ref.current, cloudIds, "inventoryWishlist", email).map((w) =>
+          saveWishlist(email, w).catch(() => {})
+        )
       );
     })()
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) unsub = subscribeWishlist(email, setItems);
+        if (!cancelled) {
+          unsub = subscribeWishlist(email, (cloud) => {
+            recordSyncedIds("inventoryWishlist", email, cloud.map((w) => w.id));
+            setItems(cloud);
+          });
+        }
       });
     return () => {
       cancelled = true;
@@ -93,6 +105,7 @@ export function useWishlist(email?: string | null, connected = false) {
     (id: string) => {
       setItems((prev) => prev.filter((w) => w.id !== id));
       if (canSync && email) deleteWishlist(email, id).catch(() => {});
+      else queueDelete("inventoryWishlist", email, id); // replayed on connect
     },
     [canSync, email]
   );
