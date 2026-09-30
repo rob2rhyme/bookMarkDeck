@@ -8,8 +8,14 @@ import {
   saveParty,
   subscribeParties,
 } from "@/features/filing/data/filingData";
-import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
-import { newHere, recordSyncedIds } from "@/utils/syncedIds";
+import {
+  clearPendingUpserts,
+  flushPendingDeletes,
+  queueDelete,
+  queueUpsert,
+  unqueueUpsert,
+} from "@/utils/pendingDeletes";
+import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
 import type { FilingParty, PartyKind, TabColor } from "@/features/filing/lib/types";
 
 const BASE_KEY = "bookmarkdeck:filing:parties:v1";
@@ -60,18 +66,19 @@ export function useFilingParties(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
-      // Replay deletes made while disconnected first, then upload only what the
-      // cloud NEVER had. A record it had at the last snapshot and lacks now was
-      // deleted on another device — uploading "everything the cloud lacks"
-      // recreated it for everyone.
+      // Replay deletes made while disconnected first, then upload what the cloud
+      // NEVER had plus what was edited while disconnected (toUpload). A record
+      // it had at the last snapshot and lacks now was deleted on another device
+      // — uploading "everything the cloud lacks" recreated it for everyone.
       await flushPendingDeletes("filingParties", email, (id) => deleteParty(email, id));
       const cloud = await fetchParties(email);
       const cloudIds = new Set(cloud.map((p) => p.id));
       await Promise.all(
-        newHere(ref.current, cloudIds, "filingParties", email).map((p) =>
+        toUpload(ref.current, cloudIds, "filingParties", email).map((p) =>
           saveParty(email, p).catch(() => {})
         )
       );
+      clearPendingUpserts("filingParties", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -109,6 +116,7 @@ export function useFilingParties(email?: string | null, connected = false) {
       };
       setParties((prev) => [...prev, party]);
       if (canSync && email) saveParty(email, party).catch(onSaveError);
+      else queueUpsert("filingParties", email, party.id);
       return party;
     },
     [canSync, email, onSaveError]
@@ -122,6 +130,7 @@ export function useFilingParties(email?: string | null, connected = false) {
         );
         const updated = next.find((p) => p.id === id);
         if (canSync && email && updated) saveParty(email, updated).catch(onSaveError);
+        else if (updated) queueUpsert("filingParties", email, updated.id);
         return next;
       });
     },
@@ -131,6 +140,7 @@ export function useFilingParties(email?: string | null, connected = false) {
   const removeParty = useCallback(
     (id: string) => {
       setParties((prev) => prev.filter((p) => p.id !== id));
+      unqueueUpsert("filingParties", email, id); // an edit to it must not be pushed back
       if (canSync && email) deleteParty(email, id).catch(onSaveError);
       else queueDelete("filingParties", email, id); // replayed on connect
     },
@@ -156,6 +166,7 @@ export function useFilingParties(email?: string | null, connected = false) {
           const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingParty;
           byId.set(item.id, merged);
           if (canSync && email) saveParty(email, merged).catch(onSaveError);
+          else queueUpsert("filingParties", email, merged.id);
         }
         return [...byId.values()];
       });

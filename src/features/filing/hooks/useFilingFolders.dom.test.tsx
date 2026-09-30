@@ -10,6 +10,7 @@ vi.mock("@/features/filing/data/filingData", () => ({
 
 import { deleteFolder, fetchFolders, saveFolder, subscribeFolders } from "@/features/filing/data/filingData";
 import type { FilingFolder } from "@/features/filing/lib/types";
+import { pendingUpsertIds } from "@/utils/pendingDeletes";
 import { recordSyncedIds, syncedIds } from "@/utils/syncedIds";
 import { useFilingFolders } from "./useFilingFolders";
 
@@ -99,5 +100,60 @@ describe("useFilingFolders — deletions stay deleted", () => {
     await waitFor(() => expect(subscribeFolders).toHaveBeenCalled());
     expect(deleteFolder).toHaveBeenCalledWith(EMAIL, "F1");
     expect(savedIds()).toEqual([]);
+  });
+});
+
+// An edit made while disconnected to a folder the cloud already held was
+// applied here and then undone: the connect-time seed uploads only what the
+// cloud never had, and the first snapshot put the cloud copy back.
+describe("useFilingFolders — offline edits", () => {
+  const EMAIL = "a@example.com";
+  const KEY = `bookmarkdeck:filing:folders:v1:${EMAIL}`;
+  const f = (id: string) => ({ id, name: id, homePlaceId: null, currentPlaceId: null, parentId: null, aliases: [] }) as unknown as FilingFolder;
+  const saves = () => vi.mocked(saveFolder).mock.calls.map(([, x]) => x);
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(saveFolder).mockClear();
+    vi.mocked(deleteFolder).mockReset().mockResolvedValue(undefined as never);
+    vi.mocked(subscribeFolders).mockReset().mockReturnValue(() => {});
+  });
+
+  /** A synced device holding F1, disconnected, about to reconnect to `cloud`. */
+  async function offline(cloud: FilingFolder[]) {
+    recordSyncedIds("filingFolders", EMAIL, ["F1"]);
+    localStorage.setItem(KEY, JSON.stringify([f("F1")]));
+    vi.mocked(fetchFolders).mockResolvedValue(cloud);
+    const hook = renderHook(({ on }) => useFilingFolders(EMAIL, on), { initialProps: { on: false } });
+    await waitFor(() => expect(hook.result.current.folders).toHaveLength(1));
+    const reconnect = async () => {
+      hook.rerender({ on: true });
+      await waitFor(() => expect(subscribeFolders).toHaveBeenCalled());
+    };
+    return { ...hook, reconnect };
+  }
+
+  it("pushes an edit made while disconnected on connect", async () => {
+    const { result, reconnect } = await offline([f("F1")]);
+    act(() => result.current.updateFolder("F1", { name: "Taxes 2025" }));
+    await reconnect();
+    expect(saves().map((x) => [x.id, x.name])).toEqual([["F1", "Taxes 2025"]]);
+    expect(pendingUpsertIds("filingFolders", EMAIL).size).toBe(0);
+  });
+
+  it("lets a delete made on another device win over the edit", async () => {
+    const { result, reconnect } = await offline([]);
+    act(() => result.current.updateFolder("F1", { name: "Taxes 2025" }));
+    await reconnect();
+    expect(saveFolder).not.toHaveBeenCalled();
+  });
+
+  it("doesn't push back a folder edited and then deleted while disconnected", async () => {
+    const { result, reconnect } = await offline([f("F1")]);
+    act(() => result.current.updateFolder("F1", { name: "Taxes 2025" }));
+    act(() => result.current.removeFolder("F1"));
+    await reconnect();
+    expect(deleteFolder).toHaveBeenCalledWith(EMAIL, "F1");
+    expect(saveFolder).not.toHaveBeenCalled();
   });
 });

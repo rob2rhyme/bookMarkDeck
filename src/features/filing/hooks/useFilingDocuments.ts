@@ -17,8 +17,14 @@ import type {
   Obligation,
 } from "@/features/filing/lib/types";
 import { todayKey } from "@/lib/dayKey";
-import { flushPendingDeletes, queueDelete } from "@/utils/pendingDeletes";
-import { newHere, recordSyncedIds } from "@/utils/syncedIds";
+import {
+  clearPendingUpserts,
+  flushPendingDeletes,
+  queueDelete,
+  queueUpsert,
+  unqueueUpsert,
+} from "@/utils/pendingDeletes";
+import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
 
 const BASE_KEY = "bookmarkdeck:filing:documents:v1";
 const MAX_ACTIVITY = 300;
@@ -187,18 +193,22 @@ export function useFilingDocuments(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
-      // Replay deletes made while disconnected, then upload only papers the
-      // cloud NEVER had: one it held at the last snapshot and lacks now was
+      // Replay deletes made while disconnected, then upload papers the cloud
+      // NEVER had, plus complete ones edited while disconnected (toUpload). One
+      // it held at the last snapshot and lacks now was
       // deleted on another device. `promote` is safe here and nowhere else,
       // because there is no fuller copy to overwrite.
       await flushPendingDeletes("filingDocuments", email, (id) => deleteDocument(email, id));
       const cloud = await fetchDocuments(email);
       const cloudIds = new Set(cloud.map((d) => d.id));
       await Promise.all(
-        newHere(ref.current, cloudIds, "filingDocuments", email).map((d) =>
-          saveDocument(email, promote(d)).catch(() => {})
-        )
+        toUpload(ref.current, cloudIds, "filingDocuments", email)
+          // An offline edit to a paper the cloud holds goes up only if complete:
+          // a partial one would write its missing fields over the full copy.
+          .flatMap((d) => (!cloudIds.has(d.id) ? [promote(d)] : isComplete(d) ? [d] : []))
+          .map((d) => saveDocument(email, d).catch(() => {}))
       );
+      clearPendingUpserts("filingDocuments", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -250,6 +260,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       const stamped = withDerived(document);
       setDocuments((prev) => [...prev, stamped]);
       if (canSync && email) saveDocument(email, stamped).catch(onSaveError);
+      else queueUpsert("filingDocuments", email, stamped.id);
       return stamped;
     },
     [canSync, email, onSaveError]
@@ -272,7 +283,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
         const updated = withDerived({ ...fn(target), updatedAt: new Date().toISOString() });
         if (canSync && email && isComplete(updated)) {
           saveDocument(email, updated).catch(onSaveError);
-        }
+        } else if (!canSync) queueUpsert("filingDocuments", email, id);
         return prev.map((d) => (d.id === id ? updated : d));
       });
     },
@@ -420,6 +431,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
   const removeDocument = useCallback(
     (id: string) => {
       setDocuments((prev) => prev.filter((d) => d.id !== id));
+      unqueueUpsert("filingDocuments", email, id); // an edit to it must not be pushed back
       if (canSync && email) deleteDocument(email, id).catch(onSaveError);
       else queueDelete("filingDocuments", email, id); // replayed on connect
     },
@@ -452,7 +464,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
           byId.set(item.id, merged);
           if (canSync && email && isComplete(merged)) {
             saveDocument(email, merged).catch(onSaveError);
-          }
+          } else if (!canSync) queueUpsert("filingDocuments", email, merged.id);
         }
         return [...byId.values()];
       });

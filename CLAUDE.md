@@ -157,6 +157,16 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   before. Deletes made while disconnected go through `pendingDeletes` and are
   replayed on connect. Upload still makes the cloud match the device, so a stale
   device should download first — the FAQ says so.
+- **In the live-subscription pillars (filing, inventory), an edit made while
+  disconnected is queued (`queueUpsert`) and pushed on connect** — `toUpload` in
+  `syncedIds.ts` is `newHere` plus queued ids the cloud still holds. The seed used
+  to upload only what the cloud never had, so an offline rename, check-out or
+  re-parent was applied and then silently undone by the first snapshot. A delete
+  made on another device wins over an offline edit (the queued id is dropped, not
+  resurrected), and a **partial** filing paper is never pushed, so an offline edit
+  to one is still replaced by the cloud copy — PR C's rule, unchanged. It is
+  last-writer-wins per record: the push overwrites any newer edit to the same
+  record made elsewhere meanwhile, exactly as focus's queue does.
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 

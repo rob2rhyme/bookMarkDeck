@@ -228,3 +228,32 @@ describe("deletions stay deleted", () => {
     expect(deleteDocument).toHaveBeenCalledWith(EMAIL, FULL.id);
   });
 });
+
+// An edit made while disconnected to a paper the cloud holds was undone by the
+// first snapshot. It is pushed now — unless the paper is partial (rebuilt from
+// the slim cache), whose missing fields would overwrite the full cloud copy.
+describe("offline edits", () => {
+  async function editOffline(cached: object) {
+    recordSyncedIds("filingDocuments", EMAIL, [FULL.id]);
+    window.localStorage.setItem(KEY, JSON.stringify([cached]));
+    const { result, rerender } = renderHook(({ on }) => useFilingDocuments(EMAIL, on), {
+      initialProps: { on: false },
+    });
+    await waitFor(() => expect(result.current.documents).toHaveLength(1));
+    act(() => result.current.setArchived(FULL.id, true));
+    rerender({ on: true });
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
+  }
+
+  it("pushes an edit to a complete paper on connect", async () => {
+    await editOffline(FULL);
+    expect(saved()).toHaveLength(1);
+    expect(saved()[0].archived).toBe(true);
+    expect(saved()[0].obligations).toEqual(FULL.obligations);
+  });
+
+  it("never pushes an edit to a partial paper over the cloud copy", async () => {
+    await editOffline(SLIM);
+    expect(saveDocument).not.toHaveBeenCalled();
+  });
+});
