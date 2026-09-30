@@ -1123,7 +1123,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
   const handleExport = () => {
     if (bookmarks.length === 0) return;
 
-    const html = bookmarksToNetscapeHtml(bookmarks);
+    const html = bookmarksToNetscapeHtml(bookmarks, folderEntities);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
