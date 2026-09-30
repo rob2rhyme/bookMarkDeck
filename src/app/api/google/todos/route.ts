@@ -43,8 +43,9 @@ export async function POST(req: NextRequest) {
   }
 
   let todo: TodoIn;
+  let dueDate: unknown;
   try {
-    ({ todo } = await req.json());
+    ({ todo, dueDate } = await req.json());
   } catch {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
@@ -58,7 +59,16 @@ export async function POST(req: NextRequest) {
     status: todo.done ? "completed" : "needsAction",
   };
   if (todo.note) taskBody.notes = todo.note;
-  if (todo.dueAt) taskBody.due = new Date(todo.dueAt).toISOString();
+  // Google Tasks keeps only the DATE of `due`, and this server can't know the
+  // user's zone — the instant put a US-evening to-do on tomorrow. So the client
+  // names its local day, sent as that date at UTC midnight (Google's convention
+  // for a date-only due). An older client without it keeps the old behaviour.
+  if (todo.dueAt) {
+    taskBody.due =
+      typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)
+        ? `${dueDate}T00:00:00.000Z`
+        : new Date(todo.dueAt).toISOString();
+  }
 
   let googleTaskId = todo.googleTaskId ?? null;
   try {
