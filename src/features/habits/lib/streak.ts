@@ -5,7 +5,7 @@
 // so backfilling/editing/importing can't make a stored counter drift. No React,
 // no Firebase — fully unit-testable.
 
-import { addDays, weekKeyOf, weekdayOf } from "@/features/habits/lib/day";
+import { addDays, dayKeyFor, weekKeyOf, weekdayOf } from "@/features/habits/lib/day";
 import {
   type Habit,
   type HabitDirection,
@@ -42,6 +42,15 @@ const MAX_LOOKBACK = 800; // hard bound so a sparse log can't loop forever
 const DAILY_DECAY = Math.pow(0.5, 1 / 15);
 const WEEKLY_DECAY = Math.pow(0.5, 1 / 6);
 
+/**
+ * The LOCAL day a habit was created, or null when unknown. `createdAt` is a UTC
+ * instant; slicing its date made a habit created on a US evening start the next
+ * day, losing that evening's tick from every figure. Nothing is due before it.
+ */
+export function habitStartDay(habit: Habit): string | null {
+  return habit.createdAt ? dayKeyFor(new Date(habit.createdAt)) : null;
+}
+
 /** Compute the full stat block for one habit as of `today` (a day key). */
 export function computeStats(
   habit: Habit,
@@ -55,10 +64,8 @@ export function computeStats(
   const todayEntry = byDay.get(today);
   const countToday = todayEntry?.status === "done" ? todayEntry.count : 0;
   const doneToday = isSuccess(todayEntry, target, habit.direction);
-  const earliest =
-    habit.createdAt && habit.createdAt.slice(0, 10) <= today
-      ? habit.createdAt.slice(0, 10)
-      : null;
+  const start = habitStartDay(habit);
+  const earliest = start && start <= today ? start : null;
 
   if (habit.schedule.type === "timesPerWeek") {
     return weeklyStats(habit, byDay, target, today, doneToday, countToday);
@@ -128,11 +135,13 @@ function dailyStats(
     cur = addDays(cur, 1);
   }
 
-  // 30-day completion rate over scheduled, non-skipped days.
+  // 30-day completion rate over scheduled, non-skipped days — only those since
+  // the habit existed, or four perfect days on a new habit read as 13%.
   let due = 0;
   let hit = 0;
   for (let i = 0; i < 30; i++) {
     const d = addDays(today, -i);
+    if (earliest && d < earliest) break;
     if (!isDueOn(habit, d)) continue;
     const e = byDay.get(d);
     if (e?.status === "skipped") continue;

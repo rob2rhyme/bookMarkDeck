@@ -116,6 +116,13 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   and after a push another device kept its old ids beside the new ones, duplicating
   everything. An imported record keeps its own id unless that id is taken, so
   re-importing your own backup keeps those links. Undo restores the pre-import list.
+- **Day keys are LOCAL `YYYY-MM-DD`.** Never slice a UTC instant into one
+  (`iso.slice(0, 10)`, `toISOString().slice(0, 10)`) or compare one with a local day;
+  map the instant through a local-getter helper (habits' `dayKeyFor`,
+  `habitStartDay`). **A test of day logic pins a zone** (`process.env.TZ`, restored
+  after): CI runs in UTC, where a UTC date *is* the local date, so this whole class
+  of bug passes every unpinned test. That is how a habit's first evening went
+  missing and a young habit's 30-day rate read 13% for months.
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 

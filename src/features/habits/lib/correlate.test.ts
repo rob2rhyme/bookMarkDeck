@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { correlateHabit, focusMinutesByDay } from "@/features/habits/lib/correlate";
 import { addDays } from "@/features/habits/lib/day";
@@ -60,5 +60,33 @@ describe("correlateHabit", () => {
     ];
     const c = correlateHabit(habit(), entries, new Map(), TODAY);
     expect(c).toBeNull();
+  });
+});
+
+describe("correlateHabit — days before the habit existed", () => {
+  const saved = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "America/Los_Angeles";
+  });
+  afterAll(() => {
+    process.env.TZ = saved;
+  });
+
+  // A habit ten days old was compared against fifty days on which it could not
+  // have been done, each counted as a miss.
+  it("aren't counted as misses", () => {
+    const created = habit({ createdAt: "2026-06-10T15:00:00.000Z" }); // 8am on the 10th
+    const entries: HabitEntry[] = [];
+    const focus: { day: string; focusMin: number }[] = [];
+    for (let i = 0; i < 60; i++) {
+      const day = addDays(TODAY, -i);
+      focus.push({ day, focusMin: 30 });
+      if (day >= "2026-06-10" && i % 2 === 0) {
+        entries.push({ id: day, habitId: "h", day, status: "done", count: 1, createdAt: null });
+      }
+    }
+    const c = correlateHabit(created, entries, focusMinutesByDay(focus), TODAY);
+    expect(c?.doneDays).toBe(5);
+    expect(c?.missDays).toBe(5);
   });
 });

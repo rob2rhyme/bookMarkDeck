@@ -3,8 +3,8 @@
 // Pure aggregations for the habit analysis dashboard. Derived from the entry log
 // + schedules so the charts can't drift from reality. No React, no Firebase.
 
-import { WEEKDAY_LABELS, addDays, dayKeyFor, parseDay, weekKeyOf, weekdayOf } from "@/features/habits/lib/day";
-import { isDueOn, isSuccess } from "@/features/habits/lib/streak";
+import { WEEKDAY_LABELS, addDays, parseDay, weekKeyOf, weekdayOf } from "@/features/habits/lib/day";
+import { habitStartDay, isDueOn, isSuccess } from "@/features/habits/lib/streak";
 import { type Habit, type HabitEntry, habitTarget } from "@/features/habits/lib/types";
 
 function successIndex(habits: Habit[], entries: HabitEntry[]) {
@@ -38,9 +38,7 @@ export type WeekBar = {
  * completion rates for new trackers.
  */
 function createdDayIndex(habits: Habit[]): Map<string, string | null> {
-  return new Map(
-    habits.map((h) => [h.id, h.createdAt ? dayKeyFor(new Date(h.createdAt)) : null])
-  );
+  return new Map(habits.map((h) => [h.id, habitStartDay(h)]));
 }
 
 /** The 7 days of the week containing `today + weekOffset*7` (Sun-anchored). */
