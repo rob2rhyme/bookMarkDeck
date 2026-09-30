@@ -129,6 +129,15 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   taking the first `<H3>` in each ancestor credited a list's direct links to its
   first subfolder) plus its `<DD>` note, `TAGS` and `ADD_DATE`, and import recreates
   the tree instead of dropping everything into Unstaged.
+- **HTML export walks the real tree, by `folderId`** (`bookmarksToNetscapeHtml(bookmarks,
+  folders)`): nested `<H3>`/`<DL>` blocks, current names, empty folders included. It
+  used to group by the denormalised `bookmark.folder` name, which renames and
+  auto-organize never update — renamed folders kept old names, nesting flattened,
+  auto-organized links exported unfiled. That label is now read only for records with
+  no usable `folderId`. `src/utils/bookmarkRoundTrip.dom.test.ts` pins export → import:
+  every link comes back with its folder path, note, tags and date. Empty folders are
+  written for the browser but not recreated on import (import makes only the folders
+  its links need); the JSON backup carries the whole tree.
 - **Day keys are LOCAL `YYYY-MM-DD`.** Never slice a UTC instant into one
   (`iso.slice(0, 10)`, `toISOString().slice(0, 10)`) or compare one with a local day;
   map the instant through a local-getter helper — **`@/lib/dayKey`** (`dayKeyFor`,
