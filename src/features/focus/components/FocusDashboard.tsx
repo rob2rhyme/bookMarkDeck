@@ -47,6 +47,7 @@ import { useGoogleTodoSync } from "@/features/focus/hooks/useGoogleTodoSync";
 import { useTodos } from "@/features/focus/hooks/useTodos";
 import { useUndo } from "@/features/focus/hooks/useUndo";
 import { restoreFocusBackup, todayKey } from "@/features/focus/data/focusData";
+import { dayKeyOf } from "@/lib/dayKey";
 import {
   backupCount,
   focusFromJson,
@@ -310,12 +311,9 @@ export function FocusDashboard() {
 
   const todayCalendarEvents = useMemo(() => {
     const today = todayKey();
-    return gevents.events.filter((e) => {
-      if (!e.start) return false;
-      const d = new Date(e.start);
-      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      return k === today;
-    });
+    // Same rule as AgendaCard, so the two can't disagree about which day an
+    // all-day event is on.
+    return gevents.events.filter((e) => Boolean(e.start) && dayKeyOf(e.start!) === today);
   }, [gevents.events]);
 
   // Reusable project-name suggestions for the Project to-do tab: names already

@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 
 import type { Todo } from "@/features/focus/lib/types";
+import { dayKeyOf } from "@/lib/dayKey";
 
 type SetIds = (
   id: string,
@@ -23,7 +24,8 @@ export function useGoogleTodoSync(enabled: boolean, setIds: SetIds) {
         const res = await fetch("/api/google/todos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ todo }),
+          // The day it's due HERE: the server can't know this device's zone.
+          body: JSON.stringify({ todo, dueDate: todo.dueAt ? dayKeyOf(todo.dueAt) : null }),
         });
         if (!res.ok) return;
         const data = (await res.json()) as {

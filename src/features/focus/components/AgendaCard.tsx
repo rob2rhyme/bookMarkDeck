@@ -1,6 +1,7 @@
 "use client";
 
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
+import { dayKeyFor as dayKey, dayKeyOf } from "@/lib/dayKey";
 
 type AgendaCardProps = {
   enabled: boolean;
@@ -28,12 +29,6 @@ const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-function dayKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 function dayLabel(key: string): string {
   const today = new Date();
   if (key === dayKey(today)) return "Today";
@@ -47,10 +42,6 @@ function dayLabel(key: string): string {
 function timeLabel(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-function startDayKey(iso: string): string {
-  // All-day events use a date string (no time); both parse fine.
-  return dayKey(new Date(iso));
 }
 
 export function AgendaCard({
@@ -68,8 +59,10 @@ export function AgendaCard({
   const grouped = (() => {
     const map = new Map<string, AgendaEvent[]>();
     for (const e of events) {
-      if (!e.start) continue;
-      const k = startDayKey(e.start);
+      // An all-day start is a bare date and already IS the day; new Date() would
+      // read it as UTC midnight and file it a day early west of UTC.
+      const k = e.start ? dayKeyOf(e.start) : null;
+      if (!k) continue;
       const bucket = map.get(k);
       if (bucket) bucket.push(e);
       else map.set(k, [e]);
