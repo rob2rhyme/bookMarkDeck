@@ -246,3 +246,31 @@ describe("useHydration — across midnight", () => {
     expect(cloud.days.get("2026-10-11")).toBe(2);
   });
 });
+
+// The time of the last drink is part of the record: a reload keeps it, so a
+// reminder due in 10 minutes doesn't restart at 60.
+describe("useHydration — the reminder clock", () => {
+  const savedTz = process.env.TZ;
+  beforeEach(() => {
+    process.env.TZ = "America/New_York";
+    vi.useFakeTimers();
+    localStorage.clear();
+    cloud.reset();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    process.env.TZ = savedTz;
+  });
+
+  it("survives a reload", () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 14, 0));
+    const fiftyMinutesAgo = Date.now() - 50 * 60_000;
+    seed({ day: "2026-10-11", cups: 3, lastDrink: fiftyMinutesAgo });
+    const { result } = renderHook(() =>
+      useHydration({ ...ARGS, enabled: true, intervalMin: 60 })
+    );
+    expect(stored().lastDrink).toBe(fiftyMinutesAgo);
+    act(() => void vi.advanceTimersByTime(11 * 60_000)); // 61 minutes since that drink
+    expect(result.current.reminding).toBe(true);
+  });
+});

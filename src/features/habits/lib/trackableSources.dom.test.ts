@@ -33,7 +33,7 @@ describe("hydration source — the day it is given", () => {
     vi.setSystemTime(new Date(2026, 2, 15, 0, 5)); // 00:05, Sun Mar 15
     localStorage.clear();
     vi.mocked(saveHydration).mockClear();
-    // Focus's record for today, in the format today's code writes.
+    // Focus's record for today in the pre-upgrade format, as an old bundle writes it.
     localStorage.setItem(KEY, JSON.stringify({ date: "Sun Mar 15 2026", cups: 2, lastDrink: 111 }));
   });
   afterEach(() => {
@@ -57,11 +57,9 @@ describe("hydration source — the day it is given", () => {
     expect(stored()).toMatchObject({ day: "2026-03-15", cups: 3 });
   });
 
-  // A habits-side decrement or clear is not a drink: it must not reset Focus's
-  // reminder clock. An increase is, so it does.
-  it("moves Focus's last-drink time only when the count rises", () => {
-    hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: false }, 1);
-    expect(stored().lastDrink).toBe(111);
+  // As before the cache moved: a habits-side write counts as a drink for
+  // Focus's reminder clock.
+  it("resets Focus's reminder clock when habits logs water", () => {
     hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: false }, 4);
     expect(stored().lastDrink).toBe(Date.now());
   });

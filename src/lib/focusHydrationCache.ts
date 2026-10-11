@@ -70,8 +70,9 @@ export function readHydrationCache(
  * a writer still on yesterday — a habits tab that hasn't noticed midnight —
  * would otherwise put yesterday's count in today's record.
  *
- * `lastDrink` drives Focus's reminder clock. Omitted, it moves to now only when
- * the count rises; lowering or clearing the count is not a drink.
+ * `lastDrink` drives Focus's reminder clock; omitted, it is now. (Inferring
+ * "was this a drink?" from the cached count doesn't work: habits adopts counts
+ * from other devices without writing them here, so the cache can be stale.)
  */
 export function writeHydrationCache(
   email: string | null | undefined,
@@ -81,15 +82,10 @@ export function writeHydrationCache(
 ): boolean {
   if (typeof window === "undefined" || day !== todayKey()) return false;
   const count = Math.max(0, Math.round(cups));
-  let drank = lastDrink;
-  if (drank === undefined) {
-    const prev = readHydrationCache(email, day);
-    drank = count > (prev?.cups ?? 0) ? Date.now() : (prev?.lastDrink ?? Date.now());
-  }
   try {
     window.localStorage.setItem(
       hydrationCacheKey(email),
-      JSON.stringify({ day, date: legacyStamp(day), cups: count, lastDrink: drank })
+      JSON.stringify({ day, date: legacyStamp(day), cups: count, lastDrink: lastDrink ?? Date.now() })
     );
     return true;
   } catch {

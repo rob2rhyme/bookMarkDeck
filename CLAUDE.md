@@ -327,10 +327,11 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   updater or an early-return guard, so none can loop or fight user input — but that is a
   finding with an expiry, not a permanent property.
   **The count has moved once, and back, without a fix either way**: `useHydration`'s
-  mount read went quiet (84 → 83) when its day began flowing through `dayRef.current` —
-  the rule exempts state set from a ref read — and warned again once the read moved
-  into a `loadDay` callback beside `setHydrated`. Same mount-only read throughout. A drop
-  is as worth explaining as a rise: the rule can go quiet without the code improving.
+  per-account cache load (an "other storage-backed reload", deps `[email]`) went quiet
+  (84 → 83) when its day began flowing through `dayRef.current` — the rule exempts state
+  set from a ref read — and warned again once the read moved into a `loadDay` callback
+  beside `setHydrated`. The same load throughout. A drop is as worth explaining as a
+  rise: the rule can go quiet without the code improving.
   **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
   load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
   fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
@@ -532,8 +533,7 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   count survives) **and still written beside it** — a tab on the previous bundle
   compares that stamp, and without it would read "no record today" and zero the
   count. Keep the dual write until no pre-upgrade tab can be alive. Only today's
-  count is cached (a write for another day is dropped), and a habits-side
-  decrement doesn't move Focus's reminder clock.
+  count is cached (a write for another day is dropped).
   **Focus's day rolls over on its own clock** (a 15 s check plus focus/visibility,
   and at the start of every action) — it used to live inside the reminder loop, so
   with reminders off a tab left open overnight carried yesterday's count into

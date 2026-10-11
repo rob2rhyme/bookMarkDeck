@@ -80,20 +80,19 @@ describe("writeHydrationCache", () => {
     expect(stored().cups).toBe(2);
   });
 
-  it("moves the last drink only when the count rises", () => {
+  it("stamps the last drink it is given, or now", () => {
     at("America/New_York", "2026-03-15");
-    store({ day: "2026-03-15", cups: 3, lastDrink: 111 });
-    writeHydrationCache(EMAIL, "2026-03-15", 2);
+    writeHydrationCache(EMAIL, "2026-03-15", 2, 111);
     expect(stored().lastDrink).toBe(111);
-    writeHydrationCache(EMAIL, "2026-03-15", 0);
-    expect(stored().lastDrink).toBe(111);
-    writeHydrationCache(EMAIL, "2026-03-15", 1);
+    writeHydrationCache(EMAIL, "2026-03-15", 3);
     expect(stored().lastDrink).toBe(Date.now());
   });
 
-  // The old stamp is built from the day's parts. On these days local midnight
-  // does not exist (the clocks jump 00:00 → 01:00), so the build must not land
-  // on the previous day — or the old bundle would miss today's record.
+  // The old stamp is built from the day's parts, and must name the right day:
+  // the old bundle compares it. Santiago and Havana are days with no local
+  // midnight (the clocks jump 00:00 → 01:00), so building "midnight" must not
+  // land on the previous day. Kiritimati (UTC+14) and Pago Pago (UTC-11) are
+  // the extreme offsets, where the UTC date and the local one part most.
   it.each([
     ["America/Santiago", "2026-09-06"],
     ["America/Havana", "2026-03-08"],
