@@ -11,6 +11,7 @@ vi.mock("firebase/firestore", () => ({
   doc: vi.fn(() => ({})),
   getDoc: vi.fn(),
   getDocs: vi.fn(),
+  increment: vi.fn((n: number) => ({ increment: n })),
   onSnapshot: vi.fn(() => () => {}),
   query: vi.fn(),
   serverTimestamp: vi.fn(() => "ts"),
@@ -22,8 +23,8 @@ vi.mock("@/lib/firebase", () => ({
   ensureFirebaseGoogleAuth: vi.fn(async () => ({ uid: "u1" })),
 }));
 
-import { onSnapshot } from "firebase/firestore";
-import { subscribeHydration } from "@/features/focus/data/focusData";
+import { onSnapshot, setDoc } from "firebase/firestore";
+import { addHydration, subscribeHydration } from "@/features/focus/data/focusData";
 
 type Snap = { exists: () => boolean; data: () => { cups: number }; metadata: { fromCache: boolean } };
 const snap = (cups: number | null, fromCache: boolean): Snap => ({
@@ -76,3 +77,23 @@ describe("subscribeHydration — serverFirst", () => {
     expect(cb).toHaveBeenCalledWith(null);
   });
 });
+
+// A change owed to a day whose record was never read goes up as an increment:
+// unlike an absolute count, it composes with what another device wrote.
+describe("addHydration", () => {
+  it("writes an increment, merged into the record", async () => {
+    await addHydration("a@example.com", "2026-10-10", 2);
+    expect(setDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      { cups: { increment: 2 }, updatedAt: "ts" },
+      { merge: true }
+    );
+  });
+
+  it("reads a record an increment took below 0 as 0", async () => {
+    const { cb, feed } = await attach();
+    feed(snap(-1, false));
+    expect(cb).toHaveBeenCalledWith(0);
+  });
+});
+

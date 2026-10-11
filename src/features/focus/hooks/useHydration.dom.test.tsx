@@ -7,19 +7,37 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const cloud = vi.hoisted(() => {
   const days = new Map<string, number>();
   const listeners = new Map<string, Set<(v: number | null) => void>>();
-  const emit = (day: string) =>
+  let silent = false;
+  const emit = (day: string) => {
+    if (silent) return;
     listeners.get(day)?.forEach((cb) => cb(days.has(day) ? days.get(day)! : null));
+  };
   return {
     days,
     subscribedDays: [] as string[],
     reset() {
       days.clear();
       listeners.clear();
+      silent = false;
       this.subscribedDays.length = 0;
+    },
+    /** This device can't reach the server: writes land, nothing is heard back. */
+    goSilent() {
+      silent = true;
+    },
+    /** Back online: the server answers every listener with what it holds. */
+    reconnect() {
+      silent = false;
+      listeners.forEach((_, day) => emit(day));
     },
     /** Another device writes `day`'s count. */
     write(day: string, cups: number) {
       days.set(day, cups);
+      emit(day);
+    },
+    /** A server-side increment. */
+    add(day: string, delta: number) {
+      days.set(day, (days.get(day) ?? 0) + delta);
       emit(day);
     },
     /** A snapshot of `day` arriving, whatever the store holds. */
@@ -32,7 +50,7 @@ const cloud = vi.hoisted(() => {
       listeners.get(day)!.add(cb);
       // Firestore delivers the first snapshot asynchronously.
       Promise.resolve().then(() => {
-        if (listeners.get(day)?.has(cb)) cb(days.has(day) ? days.get(day)! : null);
+        if (!silent && listeners.get(day)?.has(cb)) cb(days.has(day) ? days.get(day)! : null);
       });
       return () => listeners.get(day)?.delete(cb);
     },
@@ -40,6 +58,7 @@ const cloud = vi.hoisted(() => {
 });
 
 vi.mock("@/features/focus/data/focusData", () => ({
+  addHydration: vi.fn(async (_e: string, day: string, delta: number) => cloud.add(day, delta)),
   fetchHydration: vi.fn(async (_e: string, day: string) => cloud.days.get(day) ?? null),
   saveHydration: vi.fn(async (_e: string, day: string, cups: number) => cloud.write(day, cups)),
   subscribeHydration: vi.fn((_e: string, day: string, cb: (v: number | null) => void) =>
@@ -49,7 +68,12 @@ vi.mock("@/features/focus/data/focusData", () => ({
 vi.mock("@/features/focus/lib/sound", () => ({ playChime: vi.fn() }));
 vi.mock("@/features/focus/lib/notify", () => ({ notify: vi.fn() }));
 
-import { saveHydration, subscribeHydration } from "@/features/focus/data/focusData";
+import {
+  addHydration,
+  fetchHydration,
+  saveHydration,
+  subscribeHydration,
+} from "@/features/focus/data/focusData";
 import { useHydration } from "./useHydration";
 
 const EMAIL = "a@example.com";
@@ -387,6 +411,81 @@ describe("useHydration — across midnight", () => {
     await flush();
     act(() => result.current.drink());
     expect(onLog).toHaveBeenLastCalledWith("hydration", "Drank a cup of water (7 cups today)");
+  });
+
+  it("doesn't count an upload made before the first read twice", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    seed({ day: "2026-10-11", cups: 2 });
+    cloud.goSilent();
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    act(() => result.current.drink()); // 3, held back: the record hasn't been read
+    await act(() => result.current.pushToCloud()); // the user uploads 3
+    act(() => cloud.reconnect()); // the server answers: 3
+    await flush();
+    expect(result.current.cups).toBe(3);
+    expect(cloud.days.get("2026-10-11")).toBe(3);
+  });
+
+  it("doesn't re-add cups after a Download when the connection comes back", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    cloud.write("2026-10-11", 4);
+    const { result, rerender } = renderHook(
+      ({ connected }: { connected: boolean }) => useHydration({ ...ARGS, connected }),
+      { initialProps: { connected: true } }
+    );
+    await flush();
+    await act(() => result.current.pullFromCloud());
+    act(() => result.current.drink());
+    expect(cloud.days.get("2026-10-11")).toBe(5);
+    rerender({ connected: false });
+    rerender({ connected: true });
+    await flush();
+    expect(result.current.cups).toBe(5);
+    expect(cloud.days.get("2026-10-11")).toBe(5);
+  });
+
+  // Offline across midnight, cups taken before the server ever answered still
+  // belong to the day they were taken on. They go up as an increment, so the
+  // phone's cups that evening survive too.
+  it("delivers a day's unread cups to it as an increment when the day ends", async () => {
+    vi.setSystemTime(new Date(2026, 9, 10, 23, 50));
+    seed({ day: "2026-10-10", cups: 2 });
+    cloud.write("2026-10-10", 2);
+    cloud.goSilent();
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    act(() => result.current.drink());
+    act(() => result.current.drink()); // 4 here; the record owes +2
+    cloud.days.set("2026-10-10", 5); // the phone, meanwhile: 3 more
+    tick(15 * 60_000); // midnight passes
+    expect(addHydration).toHaveBeenCalledWith(EMAIL, "2026-10-10", 2);
+    expect(cloud.days.get("2026-10-10")).toBe(7);
+  });
+
+  it("drops a Download that lands after switching accounts", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    let land: (v: number) => void = () => {};
+    vi.mocked(fetchHydration).mockImplementationOnce(
+      () => new Promise<number | null>((r) => (land = r))
+    );
+    const { result, rerender } = renderHook(
+      ({ email }: { email: string }) => useHydration({ ...synced, email }),
+      { initialProps: { email: EMAIL } }
+    );
+    await flush();
+    let download: Promise<void> = Promise.resolve();
+    act(() => void (download = result.current.pullFromCloud()));
+    rerender({ email: "b@example.com" });
+    await flush();
+    await act(async () => {
+      land(9); // account A's count
+      await download;
+    });
+    expect(result.current.cups).toBe(0);
+    expect(localStorage.getItem("bookmarkdeck:focus:hydration:v1:b@example.com")).not.toContain(
+      '"cups":9'
+    );
   });
 
   // Unchanged behaviour, pinned: an offline count reaches an empty cloud record.

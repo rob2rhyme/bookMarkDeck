@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   type ActivityType,
+  addHydration,
   fetchHydration,
   saveHydration,
   subscribeHydration,
@@ -67,11 +68,25 @@ export function useHydration({
   // The base the record now being followed will merge against. A Download
   // resets it: adopting the cloud's count is not a change of this device's.
   const mergeBaseRef = useRef(0);
+  // The day whose record is being followed right now (null when none), and the
+  // account the hook is on — so a base lands on the right gap, and a Download
+  // that resolves after an account switch is dropped.
+  const followingRef = useRef<string | null>(null);
+  const emailRef = useRef(email);
   const canSync = connected && Boolean(email);
 
   useEffect(() => {
     cupsRef.current = cups;
   }, [cups]);
+  useEffect(() => {
+    emailRef.current = email;
+  }, [email]);
+
+  /** `d`'s count is now known to be `v`: merge against it from here on. */
+  const rebase = useCallback((d: string, v: number) => {
+    if (followingRef.current === d) mergeBaseRef.current = v;
+    else baseRef.current = { day: d, cups: v };
+  }, []);
 
   const persistRemote = useCallback(
     (value: number) => {
@@ -96,18 +111,28 @@ export function useHydration({
   );
 
   /**
-   * Move to the new day if the date has changed. Writes nothing remote: an
-   * absent record already reads as 0, and the new day's record may hold cups
+   * Move to the new day if the date has changed. Writes nothing to the new day:
+   * an absent record already reads as 0, and the new day's record may hold cups
    * another device logged while this tab slept — it used to write 0 over them.
+   *
+   * The day being left may still owe its record a change: cups added or removed
+   * before the server answered (offline across midnight). Its count can't be
+   * merged without that answer, so the change goes up as an increment, which
+   * composes with whatever another device wrote.
    */
   const rollIfNewDay = useCallback((): boolean => {
     const today = todayKey();
-    if (today === dayRef.current) return false;
+    const leaving = dayRef.current;
+    if (today === leaving) return false;
+    if (canSync && email && !remoteReadyRef.current && followingRef.current === leaving) {
+      const owed = cupsRef.current - mergeBaseRef.current;
+      if (owed !== 0) addHydration(email, leaving, owed).catch(() => {});
+    }
     remoteReadyRef.current = false;
     loadDay(today);
     setReminding(false);
     return true;
-  }, [loadDay]);
+  }, [canSync, email, loadDay]);
 
   // Load today's progress after mount (the cache is shared with habits).
   useEffect(() => {
@@ -154,8 +179,9 @@ export function useHydration({
     mergeBaseRef.current =
       baseRef.current?.day === day ? baseRef.current.cups : cupsRef.current;
     baseRef.current = null;
+    followingRef.current = day;
     let first = true;
-    return subscribeHydration(
+    const unsubscribe = subscribeHydration(
       email,
       day,
       (remote) => {
@@ -174,6 +200,10 @@ export function useHydration({
       },
       { serverFirst: true }
     );
+    return () => {
+      unsubscribe();
+      if (followingRef.current === day) followingRef.current = null;
+    };
   }, [canSync, email, day]);
 
   // Reminder loop.
@@ -238,18 +268,21 @@ export function useHydration({
     rollIfNewDay();
     const d = dayRef.current;
     const remote = await fetchHydration(email, d);
-    if (d !== dayRef.current) return;
-    // Whether or not the day's record is being followed yet.
-    baseRef.current = { day: d, cups: remote ?? 0 };
-    mergeBaseRef.current = remote ?? 0;
+    // Dropped if the day or the account changed while it was in flight.
+    if (d !== dayRef.current || email !== emailRef.current) return;
+    rebase(d, remote ?? 0); // adopting the cloud's count is not a local change
     setCups(remote ?? 0);
-  }, [canSync, email, rollIfNewDay]);
+  }, [canSync, email, rebase, rollIfNewDay]);
 
-  // An explicit upload: the day and the count it writes are a pair.
+  // An explicit upload: the day and the count it writes are a pair. The count
+  // it uploads becomes the base, or the merge would add it a second time.
   const pushToCloud = useCallback(async () => {
     if (!canSync || !email) return;
-    await saveHydration(email, dayRef.current, cupsRef.current);
-  }, [canSync, email]);
+    const d = dayRef.current;
+    const v = cupsRef.current;
+    rebase(d, v);
+    await saveHydration(email, d, v);
+  }, [canSync, email, rebase]);
 
   return {
     hydrated,

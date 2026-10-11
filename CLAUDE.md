@@ -545,15 +545,28 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   read** — at mount, on (re)connect and after a rollover. That answer merges:
   `max(this device's base, the cloud's count) + what this device added or removed
   since`, so a cup taken in the gap is kept rather than swallowed by the max, and
-  can't overwrite a higher count from another device. **Cache-only answers don't
-  count** (`subscribeHydration(…, { serverFirst: true })`, used by Focus and by the
-  habits link): offline, Firestore answers at once from the device's cache, where a
-  record another device wrote reads as *missing* — merging against that queued a
-  write that replaced the other device's count on reconnect. Reproduced against the
-  real SDK and the emulator; the in-memory fake in `useHydration.dom.test.tsx`
-  can't show it, so `focusData.test.ts` pins the rule on `onSnapshot` itself. What
-  the merge still can't know: two devices that each counted the same day without
-  ever seeing the other's end on the higher of the two, not the sum.
+  can't overwrite a higher count from another device. Upload and Download reset
+  the base (an uploaded or adopted count is not a local change, and counting it
+  again doubled it). **Cache-only answers don't count**
+  (`subscribeHydration(…, { serverFirst: true })`): offline, Firestore answers at
+  once from the device's cache, where a record another device wrote reads as
+  *missing* — merging against that queued a write that replaced the other device's
+  count on reconnect. Reproduced against the real SDK and the emulator; the
+  in-memory fake in `useHydration.dom.test.tsx` can't show it, so
+  `focusData.test.ts` pins the rule on `onSnapshot` itself. **A day that ends before
+  its record was ever read** (offline across midnight) sends what this device
+  owes it as `addHydration` — a Firestore `increment`, which composes with other
+  devices' writes instead of replacing them.
+  **Known limits — older than all of this, verified on `a4d8908`, not fixed:** every
+  other write is an *absolute* count, so once a listener is attached the last
+  writer wins. A laptop that loses its network on the same day keeps its listener
+  (nothing re-subscribes), and a drink there replaces the phone's newer count on
+  reconnect. Habits' water taps write the same way, before any server answer
+  (only habits' *subscription* is server-first). Opening Focus with a stale device
+  cache can undo a removal made elsewhere (the max keeps the stale higher count),
+  and two tabs on one device each merge only their own changes. The structural
+  fix is to write every drink as an increment, as the rollover already does; it
+  changes both pillars' write model, so it is an owner decision.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 
