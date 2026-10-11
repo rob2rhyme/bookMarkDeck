@@ -26,16 +26,13 @@ import {
 } from "@/features/focus/data/focusData";
 import { subscribeItems } from "@/features/inventory/data/inventoryData";
 import { releasedOn } from "@/features/inventory/lib/declutter";
-import {
-  getFocusHydrationCache,
-  isWaterHabit,
-  setFocusHydrationCache,
-} from "@/features/habits/lib/water";
+import { isWaterHabit } from "@/features/habits/lib/water";
 import {
   focusHasJournalNote,
   isJournalHabit,
 } from "@/features/habits/lib/journal";
 import type { Habit, HabitType } from "@/features/habits/lib/types";
+import { readHydrationCache, writeHydrationCache } from "@/lib/focusHydrationCache";
 
 type Unsub = () => void;
 
@@ -81,9 +78,9 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
     policy: "bidirectional",
     match: isWaterHabit,
     subscribe: (email, day, cb) => subscribeHydration(email, day, cb),
-    readCache: (email) => getFocusHydrationCache(email),
+    readCache: (email, day) => readHydrationCache(email, day)?.cups ?? null,
     mirror: ({ email, day, canSync }, value) => {
-      setFocusHydrationCache(email, value);
+      writeHydrationCache(email, day, value); // dropped unless `day` is today
       if (canSync && email) saveHydration(email, day, value).catch(() => {});
     },
   },

@@ -49,7 +49,8 @@ writes, and a live `onSnapshot` (entries windowed to ~13 months) through
 the Simple view auto-connects once when the user is already signed in.
 
 Water habits (measurable, cup/glass unit, water-y name) mirror 1:1 with the
-focus hydration tracker — see `lib/water.ts`.
+focus hydration tracker — the hydration entry in `lib/trackableSources.ts`, with
+Focus's on-device cache reached through `@/lib/focusHydrationCache`.
 
 Pure helpers: `serialize.ts`, `insights.ts`, `templates.ts`, `format.ts`.
 

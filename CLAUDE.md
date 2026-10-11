@@ -152,7 +152,9 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   as UTC midnight, shifted in UTC, formatted back with `toISOString` (filing
   `obligations`/`ics`/`expiry`/`stats`, inventory `value.shiftYears`). That is
   self-consistent because no instant enters, and local getters there would land a day
-  early west of UTC. **A test of day logic pins a zone** (`process.env.TZ`, restored
+  early west of UTC. The one other-format row is `@/lib/focusHydrationCache`'s
+  legacy `toDateString` stamp (see **Focus feature** → Hydration), built from the
+  day's parts and never parsed. **A test of day logic pins a zone** (`process.env.TZ`, restored
   after): CI runs in UTC, where a UTC date *is* the local date, so this whole class
   of bug passes every unpinned test. That is how a habit's first evening went
   missing and a young habit's 30-day rate read 13% for months. For the same reason
@@ -299,7 +301,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   + `test` + `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds
   previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
   backlog was cleared. It carries real weight, because `npm run lint` is only
-  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 84
+  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 83
   remaining *warnings* are **all one rule** — `react-hooks/set-state-in-effect`; only
   errors fail the build. That the set is homogeneous is the useful part: a warning from
   any other rule is new, and worth reading rather than assuming it is backlog.
@@ -309,12 +311,12 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   | Shape | Count |
   |---|---|
   | cloud subscribe / fetch (`[canSync, email]`, `[connected, email]`) | 28 |
-  | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 15 |
+  | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 14 |
   | modal / panel reset on open (`[open, …]`) | 14 |
   | other storage-backed reload | 14 |
   | **derived-state reset** | **13** |
 
-  Hydration-shaped effects are about **29 of 84**; the biggest group is Firestore
+  Hydration-shaped effects are about **28 of 83**; the biggest group is Firestore
   subscriptions, which have nothing to do with hydration. The distinction earns its
   place because the blanket version of it is how #292's regression stayed in `main` for
   months — a deleted button whose orphaned state warned for exactly this rule, waved off
@@ -324,6 +326,10 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   effect. All 13 were inspected on the date above and are sound — each uses a functional
   updater or an early-return guard, so none can loop or fight user input — but that is a
   finding with an expiry, not a permanent property.
+  **The one move since (84 → 83) was not a fix**: `useHydration`'s mount read stopped
+  warning when its day began flowing through `dayRef.current`, because the rule exempts
+  state set from a ref read. The effect is the same mount-only read it was. A drop is
+  as worth explaining as a rise — the rule can go quiet without the code improving.
   **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
   load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
   fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
@@ -516,6 +522,17 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   for code-leaning interests. Empty interests = original coding/general behaviour.
 - Hydration (`useHydration`): cups/day (oz derived), localStorage cache +
   Firestore sync (`focusHydration/{day}`, load-on-connect max-merge) + `QuoteBox`.
+  **The cache is shared with habits** (a linked water habit reads and mirrors it)
+  **through `@/lib/focusHydrationCache`**, which owns the key, the shape and the
+  day rules. It was two hand-written copies, and they drifted: habits ignored the
+  day it was given, so a habits tab still on yesterday just after midnight wrote
+  yesterday's count into Focus's cache as today's. Records are keyed by a local
+  `YYYY-MM-DD`; the old `toDateString` stamp is still matched (a pre-upgrade
+  count survives) **and still written beside it** — a tab on the previous bundle
+  compares that stamp, and without it would read "no record today" and zero the
+  count. Keep the dual write until no pre-upgrade tab can be alive. Only today's
+  count is cached (a write for another day is dropped), and a habits-side
+  decrement doesn't move Focus's reminder clock.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 
@@ -700,7 +717,7 @@ Other invariants:
   `storageKeyV2ForUser` — and note it is **four** files, not two: `useBookmarks`
   owns it, and filing's `lib/bookmarks.ts`, inventory's `useBookmarkLibrary` and
   `CommandPalette` all hardcode it to read the same cache.
-  `src/lib/storageKeys.test.ts` pins that set, along with the ten other keys
+  `src/lib/storageKeys.test.ts` pins that set, along with the nine other keys
   hardcoded in more than one file — bump one copy and the reader silently reads
   nothing, which no other check can see.
 - **Import merges by id and NEVER deletes** (`lib/exportFiling.ts`), so

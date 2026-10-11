@@ -3,9 +3,11 @@
 // The Focus page tracks water as "cups" in focusHydration/{day}; the Habits page
 // can track a "Drink water" habit measured in cups. When such a habit exists we
 // keep the two in lock-step (1 cup = 1 count). These two surfaces never mount
-// together, so the link is maintained through Firestore (when synced) plus a
-// best-effort write to Focus's own localStorage cache (so the Focus page shows
-// the latest value on its next load, even offline).
+// together, so the link is maintained through Firestore (when synced) plus
+// Focus's own on-device cache, which both pillars reach through
+// @/lib/focusHydrationCache (so the Focus page shows the latest value on its
+// next load, even offline). The wiring is the hydration entry in
+// trackableSources.ts.
 
 import type { Habit } from "@/features/habits/lib/types";
 
@@ -23,54 +25,6 @@ export function isWaterHabit(habit: Habit): boolean {
   if (!WATER_UNITS.includes(unit)) return false;
   const text = `${habit.name} ${habit.identity ?? ""}`.toLowerCase();
   return /water|hydrat|h2o/.test(text);
-}
-
-// Mirrors the shape written by features/focus/hooks/useHydration.ts. Kept here
-// (rather than importing Focus internals) so the dependency points one way and
-// Focus stays removable.
-const FOCUS_HYDRATION_KEY = "bookmarkdeck:focus:hydration:v1";
-
-function cacheKey(email: string | null | undefined): string {
-  return email ? `${FOCUS_HYDRATION_KEY}:${email}` : FOCUS_HYDRATION_KEY;
-}
-
-/** Best-effort: reflect the water count into Focus's hydration cache for today. */
-export function setFocusHydrationCache(
-  email: string | null | undefined,
-  cups: number
-): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(
-      cacheKey(email),
-      JSON.stringify({
-        date: new Date().toDateString(),
-        cups: Math.max(0, Math.round(cups)),
-        lastDrink: Date.now(),
-      })
-    );
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Today's cups from Focus's hydration cache, or null. Lets the Habits page
- *  reflect Focus drinks even before/without cloud sync. */
-export function getFocusHydrationCache(
-  email: string | null | undefined
-): number | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(cacheKey(email));
-    if (!raw) return null;
-    const d = JSON.parse(raw);
-    if (d && d.date === new Date().toDateString() && typeof d.cups === "number") {
-      return Math.max(0, Math.round(d.cups));
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 // Mirrors useFocusSettings' localStorage key/shape. The focus hydration goal is

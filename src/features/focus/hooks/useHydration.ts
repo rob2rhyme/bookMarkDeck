@@ -11,6 +11,7 @@ import {
 import { playChime } from "@/features/focus/lib/sound";
 import { notify } from "@/features/focus/lib/notify";
 import { todayKey } from "@/lib/dayKey";
+import { readHydrationCache, writeHydrationCache } from "@/lib/focusHydrationCache";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
 
@@ -26,12 +27,6 @@ type HydrationArgs = {
 
 /** Ounces in one cup of water. */
 export const OZ_PER_CUP = 8;
-
-const BASE_KEY = "bookmarkdeck:focus:hydration:v1";
-
-function todayStr(): string {
-  return new Date().toDateString();
-}
 
 /**
  * Per-day hydration tracker. Counts whole cups; ounces are derived (1 cup =
@@ -55,7 +50,6 @@ export function useHydration({
   const lastDrinkRef = useRef<number>(0);
   const dayRef = useRef<string>("");
   const cupsRef = useRef(0);
-  const key = email ? `${BASE_KEY}:${email}` : BASE_KEY;
   const canSync = connected && Boolean(email);
 
   useEffect(() => {
@@ -69,47 +63,20 @@ export function useHydration({
     [canSync, email]
   );
 
-  // Load today's progress after mount.
+  // Load today's progress after mount (the cache is shared with habits).
   useEffect(() => {
-    dayRef.current = todayStr();
-    lastDrinkRef.current = Date.now();
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (raw) {
-        const d = JSON.parse(raw);
-        if (d.date === todayStr()) {
-          // `cups` is the current field; `glasses` is the legacy field name.
-          const stored =
-            typeof d.cups === "number"
-              ? d.cups
-              : typeof d.glasses === "number"
-                ? d.glasses
-                : 0;
-          setCups(stored);
-          lastDrinkRef.current =
-            typeof d.lastDrink === "number" ? d.lastDrink : Date.now();
-        } else {
-          setCups(0);
-        }
-      }
-    } catch {}
+    dayRef.current = todayKey();
+    const cached = readHydrationCache(email, dayRef.current);
+    setCups(cached?.cups ?? 0);
+    lastDrinkRef.current = cached?.lastDrink ?? Date.now();
     setHydrated(true);
-  }, [key]);
+  }, [email]);
 
   // Persist locally.
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      window.localStorage.setItem(
-        key,
-        JSON.stringify({
-          date: todayStr(),
-          cups,
-          lastDrink: lastDrinkRef.current,
-        })
-      );
-    } catch {}
-  }, [cups, hydrated, key]);
+    writeHydrationCache(email, todayKey(), cups, lastDrinkRef.current);
+  }, [cups, hydrated, email]);
 
   // Subscribe to today's count for live cross-browser updates. The first
   // snapshot reconciles via max-merge (so neither a cross-device nor an offline
@@ -144,7 +111,7 @@ export function useHydration({
       return;
     }
     const id = setInterval(() => {
-      const t = todayStr();
+      const t = todayKey();
       if (t !== dayRef.current) {
         dayRef.current = t;
         setCups(0);
