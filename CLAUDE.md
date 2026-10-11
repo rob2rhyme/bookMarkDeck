@@ -333,7 +333,19 @@ dedupes the tree onto one copy: `next` pins postcss *exactly*, so if an advisory
 that pinned version only the override can raise it.
 
 Prefer bumping the real dependency over adding an override: `next >=16.3` is what carries
-patched `sharp` and `postcss`, so it holds the fix for those two.
+patched `sharp` and `postcss`, so it holds the fix for those two. When an advisory lands inside
+a range the tree already allows (`next` asks for `sharp ^0.35.4`), `npm update <pkg>` is the
+whole fix — a lockfile change, no override.
+
+**`npm audit` is not 0, and the residual is known: `braces` (GHSA-vfj7-8cjw-p6xm, high).** It
+covers every release (`<=3.0.3`, the latest, from 2024), so there is no version to move to.
+One path only, dev-only: `eslint-config-next` → `@next/eslint-plugin-next` (pins
+`fast-glob 3.3.1`, unchanged through 16.3.8) → `micromatch` → `braces`. The DoS needs a
+deeply nested glob *pattern*; the only patterns it sees are the plugin's own, at lint time,
+over this repo — nothing user-supplied, nothing shipped. The 5 "high" lines `npm audit`
+prints are that one advisory counted once per package on the chain. Re-check when `braces`
+publishes a fix (`npm update braces` then clears it) or the plugin drops `fast-glob`; any
+*other* audit line is new and real.
 
 `@capacitor/cli` is pinned with a **tilde** (`~8.4.3`), not a caret, and that is
 load-bearing: 8.5+ adds `xcode`, which pulls `uuid@7` (GHSA-w5hq-g745-h8pq, moderate).
