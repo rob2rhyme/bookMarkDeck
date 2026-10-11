@@ -43,6 +43,7 @@ import {
   uploadInventoryPhoto,
 } from "@/features/inventory/lib/uploadPhoto";
 import { runLabelOcr, runReceiptOcr } from "@/features/inventory/lib/ocrEngine";
+import { todayKey } from "@/lib/dayKey";
 
 type ItemFormModalProps = {
   open: boolean;
@@ -314,8 +315,7 @@ export function ItemFormModal({
   // falling back to today) — and re-derives it when the purchase date moves.
   const withDerivedExpiry = (d: Draft, purchaseDate: string, years: string): Draft => {
     const n = Number(years);
-    const start =
-      purchaseDate || today || new Date().toISOString().slice(0, 10);
+    const start = purchaseDate || today || todayKey();
     const expiry =
       years.trim() && Number.isFinite(n) ? shiftYears(start, n) : null;
     return expiry ? { ...d, warrantyExpiry: expiry } : d;
@@ -603,8 +603,6 @@ export function ItemFormModal({
   const hasLending = !isConsumable && !isDigital;
 
   const canSave = draft.name.trim().length > 0;
-  // `today` is set post-mount; guard the lend-date stamp in the unlikely early case.
-  const stamp = today || new Date().toISOString().slice(0, 10);
 
   // "Do I already own this?" — a gentle nudge while naming a NEW item.
   const lookalikes = isNew ? similarItems(existingItems, draft.name) : [];
@@ -692,7 +690,8 @@ export function ItemFormModal({
       photos,
       lentTo,
       // Stamp a lend-out date the first time something is marked lent.
-      lentDate: lentTo ? item.lentDate ?? stamp : null,
+      // `today` is set post-mount; fall back to the clock in the unlikely early case.
+      lentDate: lentTo ? item.lentDate ?? (today || todayKey()) : null,
       dueDate: lentTo ? trimmedOrUndef(draft.dueDate) ?? null : null,
       projectName: trimmedOrUndef(draft.projectName),
       collection: trimmedOrUndef(draft.collection),

@@ -85,33 +85,6 @@ const ALLOWED: Record<string, { count: number; why: string }> = {
     count: 2,
     why: "reads and writes the focus hydration cache in its format",
   },
-
-  // KNOWN BUGS — an instant cut to its UTC day. Each is fixed in the next PR,
-  // which deletes these rows.
-  "src/features/inventory/components/ItemFormModal.tsx [utc-slice]": {
-    count: 2,
-    why: "KNOWN BUG: today fallback and lend stamp use the UTC day",
-  },
-  "src/features/inventory/components/ItemDetailModal.tsx [utc-slice]": {
-    count: 2,
-    why: "KNOWN BUG: lent/returned labels show the UTC day",
-  },
-  "src/features/inventory/components/BorrowedLedgerModal.tsx [utc-slice]": {
-    count: 1,
-    why: "KNOWN BUG: returned label shows the UTC day",
-  },
-  "src/features/inventory/lib/insights.ts [utc-slice]": {
-    count: 1,
-    why: "KNOWN BUG: acquiredDay buckets createdAt by its UTC day",
-  },
-  "src/features/filing/components/AttachmentsModal.tsx [utc-slice]": {
-    count: 1,
-    why: "KNOWN BUG: added label shows the UTC day",
-  },
-  "src/features/filing/components/FilingSettingsModal.tsx [utc-slice]": {
-    count: 2,
-    why: "KNOWN BUG: export filenames use the UTC day",
-  },
 };
 
 type Match = { file: string; kind: Kind; line: number; snippet: string };
