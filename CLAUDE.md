@@ -152,7 +152,9 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   as UTC midnight, shifted in UTC, formatted back with `toISOString` (filing
   `obligations`/`ics`/`expiry`/`stats`, inventory `value.shiftYears`). That is
   self-consistent because no instant enters, and local getters there would land a day
-  early west of UTC. **A test of day logic pins a zone** (`process.env.TZ`, restored
+  early west of UTC. The one other-format row is `@/lib/focusHydrationCache`'s
+  legacy `toDateString` stamp (see **Focus feature** → Hydration), built from the
+  day's parts and never parsed. **A test of day logic pins a zone** (`process.env.TZ`, restored
   after): CI runs in UTC, where a UTC date *is* the local date, so this whole class
   of bug passes every unpinned test. That is how a habit's first evening went
   missing and a young habit's 30-day rate read 13% for months. For the same reason
@@ -324,6 +326,12 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   effect. All 13 were inspected on the date above and are sound — each uses a functional
   updater or an early-return guard, so none can loop or fight user input — but that is a
   finding with an expiry, not a permanent property.
+  **The count has moved once, and back, without a fix either way**: `useHydration`'s
+  per-account cache load (an "other storage-backed reload", deps `[email]`) went quiet
+  (84 → 83) when its day began flowing through `dayRef.current` — the rule exempts state
+  set from a ref read — and warned again once the read moved into a `loadDay` callback
+  beside `setHydrated`. The same load throughout. A drop is as worth explaining as a
+  rise: the rule can go quiet without the code improving.
   **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
   load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
   fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
@@ -516,6 +524,49 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   for code-leaning interests. Empty interests = original coding/general behaviour.
 - Hydration (`useHydration`): cups/day (oz derived), localStorage cache +
   Firestore sync (`focusHydration/{day}`, load-on-connect max-merge) + `QuoteBox`.
+  **The cache is shared with habits** (a linked water habit reads and mirrors it)
+  **through `@/lib/focusHydrationCache`**, which owns the key, the shape and the
+  day rules. It was two hand-written copies, and they drifted: habits ignored the
+  day it was given, so a habits tab still on yesterday just after midnight wrote
+  yesterday's count into Focus's cache as today's. Records are keyed by a local
+  `YYYY-MM-DD`; the old `toDateString` stamp is still matched (a pre-upgrade
+  count survives) **and still written beside it** — a tab on the previous bundle
+  compares that stamp, and without it would read "no record today" and zero the
+  count. Keep the dual write until no pre-upgrade tab can be alive. Only today's
+  count is cached (a write for another day is dropped).
+  **Focus's day rolls over on its own clock** (a 15 s check plus focus/visibility,
+  and at the start of every action but the explicit Upload, which writes the count
+  on screen to the day it belongs to) — it used to live inside the reminder loop, so
+  with reminders off a tab left open overnight carried yesterday's count into today.
+  **A rollover writes nothing remote** (it wrote 0 to the new day's record, over
+  cups a phone had logged while the laptop slept), and **the live record follows
+  the current day** (it stayed on the day the hook mounted).
+  **Nothing is written to a day's record before the server's first answer is
+  read** — at mount, on (re)connect and after a rollover. That answer merges:
+  `max(this device's base, the cloud's count) + what this device added or removed
+  since`, so a cup taken in the gap is kept rather than swallowed by the max, and
+  can't overwrite a higher count from another device. Upload and Download reset
+  the base (an uploaded or adopted count is not a local change, and counting it
+  again doubled it). **Cache-only answers don't count**
+  (`subscribeHydration(…, { serverFirst: true })`): offline, Firestore answers at
+  once from the device's cache, where a record another device wrote reads as
+  *missing* — merging against that queued a write that replaced the other device's
+  count on reconnect. Reproduced against the real SDK and the emulator; the
+  in-memory fake in `useHydration.dom.test.tsx` can't show it, so
+  `focusData.test.ts` pins the rule on `onSnapshot` itself. **A day that ends before
+  its record was ever read** (offline across midnight) sends what this device
+  owes it as `addHydration` — a Firestore `increment`, which composes with other
+  devices' writes instead of replacing them.
+  **Known limits — older than all of this, verified on `a4d8908`, not fixed:** every
+  other write is an *absolute* count, so once a listener is attached the last
+  writer wins. A laptop that loses its network on the same day keeps its listener
+  (nothing re-subscribes), and a drink there replaces the phone's newer count on
+  reconnect. Habits' water taps write the same way, before any server answer
+  (only habits' *subscription* is server-first). Opening Focus with a stale device
+  cache can undo a removal made elsewhere (the max keeps the stale higher count),
+  and two tabs on one device each merge only their own changes. The structural
+  fix is to write every drink as an increment, as the rollover already does; it
+  changes both pillars' write model, so it is an owner decision.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 
@@ -700,7 +751,7 @@ Other invariants:
   `storageKeyV2ForUser` — and note it is **four** files, not two: `useBookmarks`
   owns it, and filing's `lib/bookmarks.ts`, inventory's `useBookmarkLibrary` and
   `CommandPalette` all hardcode it to read the same cache.
-  `src/lib/storageKeys.test.ts` pins that set, along with the ten other keys
+  `src/lib/storageKeys.test.ts` pins that set, along with the nine other keys
   hardcoded in more than one file — bump one copy and the reader silently reads
   nothing, which no other check can see.
 - **Import merges by id and NEVER deletes** (`lib/exportFiling.ts`), so

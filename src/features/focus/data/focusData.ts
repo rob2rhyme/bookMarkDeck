@@ -15,6 +15,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   query,
   serverTimestamp,
@@ -406,7 +407,7 @@ export async function fetchHydration(
   const snap = await getDoc(doc(hydrationCol(uid), day));
   if (!snap.exists()) return null;
   const cups = snap.data().cups;
-  return typeof cups === "number" ? cups : null;
+  return typeof cups === "number" ? Math.max(0, cups) : null;
 }
 
 export async function saveHydration(
@@ -418,6 +419,24 @@ export async function saveHydration(
   await setDoc(
     doc(hydrationCol(uid), day),
     { cups, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+/**
+ * Add `delta` cups (may be negative) to a day's count on the server. Unlike
+ * saveHydration it composes with other devices' writes instead of replacing
+ * them, so it is safe to queue offline. Reads clamp at 0.
+ */
+export async function addHydration(
+  emailHint: string,
+  day: string,
+  delta: number
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(hydrationCol(uid), day),
+    { cups: increment(delta), updatedAt: serverTimestamp() },
     { merge: true }
   );
 }
@@ -864,21 +883,38 @@ export function subscribeScores(
   );
 }
 
+/**
+ * One day's cup count, live.
+ *
+ * `serverFirst` holds every snapshot back until one comes from the server.
+ * Offline, Firestore answers a listener at once from this device's cache, where
+ * a record another device wrote reads as missing — and merging against that
+ * "missing" queued a write that, on reconnect, replaced the other device's
+ * count. Metadata changes are listened for so the server's confirmation still
+ * arrives when the data itself hasn't changed.
+ */
 export function subscribeHydration(
   emailHint: string,
   day: string,
-  cb: (cups: number | null) => void
+  cb: (cups: number | null) => void,
+  { serverFirst = false }: { serverFirst?: boolean } = {}
 ): Unsub {
-  return listen(emailHint, (uid) =>
-    onSnapshot(
+  return listen(emailHint, (uid) => {
+    let confirmed = !serverFirst;
+    return onSnapshot(
       doc(hydrationCol(uid), day),
+      { includeMetadataChanges: serverFirst },
       (snap) => {
+        if (!confirmed) {
+          if (snap.metadata.fromCache) return;
+          confirmed = true;
+        }
         const cups = snap.exists() ? snap.data().cups : null;
-        cb(typeof cups === "number" ? cups : null);
+        cb(typeof cups === "number" ? Math.max(0, cups) : null); // addHydration can undershoot
       },
       onListenError("hydration")
-    )
-  );
+    );
+  });
 }
 
 /** Live full hydration history — every day's cup total, for the history chart. */

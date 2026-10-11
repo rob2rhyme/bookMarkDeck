@@ -74,16 +74,13 @@ const ALLOWED: Record<string, { count: number; why: string }> = {
     why: "shiftYears — regex-gated bare labels only",
   },
 
-  // The focus hydration cache stamps its day as toDateString (local, just
-  // spelled differently), and habits reads that cache by hand. Both sides have
-  // to move together, with a read of the old format, or today's cups reset.
-  "src/features/focus/hooks/useHydration.ts [other-format]": {
+  // The focus hydration cache is keyed by a day key now, but its records used to
+  // carry a toDateString stamp. That stamp is still matched, so a count saved
+  // before the upgrade survives, and still written beside the day key, so a tab
+  // on the previous bundle reads it. Built from y/m/d, never parsed.
+  "src/lib/focusHydrationCache.ts [other-format]": {
     count: 1,
-    why: "hydration cache day — migrates together with habits/lib/water.ts",
-  },
-  "src/features/habits/lib/water.ts [other-format]": {
-    count: 2,
-    why: "reads and writes the focus hydration cache in its format",
+    why: "legacyStamp — the cache's pre-day-key stamp, matched and dual-written for old bundles",
   },
 };
 

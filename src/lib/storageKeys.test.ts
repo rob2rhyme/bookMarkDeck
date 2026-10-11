@@ -27,7 +27,9 @@ import { join } from "node:path";
  *
  * The real fix for any single row is to export the key from one module and import
  * it — then there is nothing to keep in sync. This test does not force that; it
- * makes the drift loud so the choice stays open.
+ * makes the drift loud so the choice stays open. The focus hydration cache's row
+ * went that way: the two hand-written copies had drifted, so the key now lives in
+ * @/lib/focusHydrationCache alone and its row is gone.
  */
 
 const SRC = join(process.cwd(), "src");
@@ -111,10 +113,6 @@ const REGISTRY: Record<string, string[]> = {
   // Read-only inbound reads of another pillar's cache — no code import and no
   // writes, which is why featureBoundaries.test.ts does not see them. They are
   // real coupling all the same, just spelled as a string instead of an import.
-  "bookmarkdeck:focus:hydration:v1": [
-    "src/features/focus/hooks/useHydration.ts",
-    "src/features/habits/lib/water.ts",
-  ],
   "bookmarkdeck:focus:notes:v1": [
     "src/features/focus/hooks/useFocusJournal.ts",
     "src/features/habits/lib/journal.ts",
