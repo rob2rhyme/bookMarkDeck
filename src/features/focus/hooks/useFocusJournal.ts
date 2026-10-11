@@ -12,7 +12,6 @@ import {
   setJournalNote,
   subscribeJournal,
   subscribeNotes,
-  todayKey,
 } from "@/features/focus/data/focusData";
 import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood";
 import {
@@ -31,6 +30,7 @@ import {
   type JournalNote,
   type JournalNoteKind,
 } from "@/features/focus/lib/types";
+import { todayKey } from "@/lib/dayKey";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
 

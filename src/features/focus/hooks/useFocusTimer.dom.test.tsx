@@ -7,7 +7,6 @@ vi.mock("@/features/focus/data/focusData", () => ({
   countSessionsForDay: vi.fn().mockResolvedValue(0),
   recordFocusSession: vi.fn().mockResolvedValue("session-id"),
   updateSessionMeta: vi.fn().mockResolvedValue(undefined),
-  todayKey: () => "2026-01-01",
 }));
 vi.mock("@/features/focus/lib/sound", () => ({ initAudio: vi.fn() }));
 vi.mock("@/features/focus/lib/notify", () => ({
@@ -24,6 +23,7 @@ vi.mock("@/features/focus/lib/nativeNotify", () => ({
   cancelNativeTimerAlert: vi.fn(),
 }));
 
+import { countSessionsForDay } from "@/features/focus/data/focusData";
 import { DEFAULT_SETTINGS } from "@/features/focus/lib/settings";
 import { useFocusTimer } from "./useFocusTimer";
 
@@ -138,5 +138,24 @@ describe("useFocusTimer — restoring a persisted block", () => {
     const { result } = render();
     expect(result.current.mode).toBe("focus");
     expect(result.current.running).toBe(false);
+  });
+});
+
+// Sessions are stored under their LOCAL day. The day is no longer mocked: it
+// used to be pinned here through focusData's own copy of todayKey, a pin no test
+// actually reached. This reads the real one, in a zone where the UTC date and the
+// local date differ — CI runs in UTC, where they never do.
+describe("useFocusTimer — today's count", () => {
+  const savedTz = process.env.TZ;
+  afterEach(() => {
+    process.env.TZ = savedTz;
+  });
+
+  it("reads the completed-block count for the LOCAL day", () => {
+    process.env.TZ = "Pacific/Kiritimati"; // UTC+14: NOW is 02:00 on Jan 2 here
+    renderHook(() =>
+      useFocusTimer({ settings: DEFAULT_SETTINGS, email: "me@example.com", connected: true })
+    );
+    expect(countSessionsForDay).toHaveBeenCalledWith("me@example.com", "2026-01-02");
   });
 });

@@ -30,7 +30,6 @@ import {
   inventoryToJson,
   itemsToCsv,
 } from "@/features/inventory/lib/exportInventory";
-import { todayKey } from "@/features/inventory/data/inventoryData";
 import { logActivity, type ActivityType } from "@/lib/activityLog";
 import { deleteInventoryObjects } from "@/features/inventory/lib/uploadPhoto";
 import type {
@@ -77,6 +76,7 @@ import {
   buildInsuranceReport,
   insuranceReportHtml,
 } from "@/features/inventory/lib/insuranceReport";
+import { todayKey } from "@/lib/dayKey";
 
 /** How long a deleted item can be restored before its photos/attachments are
  *  actually purged. Matches the undo toast's on-screen lifetime. */

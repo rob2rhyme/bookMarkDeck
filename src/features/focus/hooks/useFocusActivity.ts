@@ -9,8 +9,8 @@ import {
   logActivity,
   restoreActivity,
   subscribeActivity,
-  todayKey,
 } from "@/features/focus/data/focusData";
+import { todayKey } from "@/lib/dayKey";
 
 /**
  * Synced activity log: task/journal/hydration events that aren't focus

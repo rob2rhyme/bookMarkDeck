@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   countSessionsForDay,
   recordFocusSession,
-  todayKey,
   updateSessionMeta,
 } from "@/features/focus/data/focusData";
 import { initAudio } from "@/features/focus/lib/sound";
@@ -17,6 +16,7 @@ import {
   scheduleNativeTimerAlert,
 } from "@/features/focus/lib/nativeNotify";
 import type { FocusSettings } from "@/features/focus/lib/settings";
+import { todayKey } from "@/lib/dayKey";
 
 export type FocusMode = "focus" | "short" | "long";
 

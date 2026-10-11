@@ -99,15 +99,6 @@ async function uidFor(emailHint: string): Promise<string> {
   return user.uid;
 }
 
-/** Local YYYY-MM-DD for "today" — computed client-side, never during render. */
-export function todayKey(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = (now.getMonth() + 1).toString().padStart(2, "0");
-  const d = now.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
 /* ---------------------------------------------------------------- tasks --- */
 
 export async function fetchTasks(emailHint: string): Promise<FocusTask[]> {

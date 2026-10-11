@@ -142,11 +142,23 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   (`iso.slice(0, 10)`, `toISOString().slice(0, 10)`) or compare one with a local day;
   map the instant through a local-getter helper — **`@/lib/dayKey`** (`dayKeyFor`,
   `todayKey`, and `dayKeyOf`, which returns a bare `YYYY-MM-DD` as-is rather than
-  letting `new Date()` read it as UTC midnight), or habits' own `lib/day.ts` /
-  `habitStartDay`. **A test of day logic pins a zone** (`process.env.TZ`, restored
+  letting `new Date()` read it as UTC midnight). It is the **only** formatter:
+  habits' `lib/day.ts` re-exports `dayKeyFor`/`todayKey` beside its arithmetic, and
+  `habitStartDay` maps a habit's creation instant through it. There were seventeen
+  hand-rolled copies — all correct, which is the trap, because a copy is right only
+  until it is edited — and **`src/lib/dayKeyFormatters.test.ts` now fails on any new
+  one** (a `getMonth() + 1)`, a `.slice(0, 10)`, a `toDateString`). Its allowlist is
+  short and every row says why. Most rows are UTC *label* arithmetic: a bare day parsed
+  as UTC midnight, shifted in UTC, formatted back with `toISOString` (filing
+  `obligations`/`ics`/`expiry`/`stats`, inventory `value.shiftYears`). That is
+  self-consistent because no instant enters, and local getters there would land a day
+  early west of UTC. **A test of day logic pins a zone** (`process.env.TZ`, restored
   after): CI runs in UTC, where a UTC date *is* the local date, so this whole class
   of bug passes every unpinned test. That is how a habit's first evening went
-  missing and a young habit's 30-day rate read 13% for months.
+  missing and a young habit's 30-day rate read 13% for months. For the same reason
+  a test should not *mock* the day: `useFocusTimer`'s test pinned it through
+  focusData's own `todayKey`, a pin no test reached; it now reads the real one in
+  `Pacific/Kiritimati`.
 - **A record the cloud lacks is uploaded (or kept on a pull) only if the cloud never
   had it** — `src/utils/syncedIds.ts` remembers the ids the cloud held at each
   device's last sync. "Everything the cloud lacks" treated *deleted on another
@@ -250,7 +262,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     **A hook whose bug would survive a pure-logic test belongs here** — e.g.
     `useFocusTimer.dom.test.tsx` covers the restore-from-localStorage paths, which depend on
     effect *ordering* and so are invisible to any unit test of the maths.
-  - Five **source-scanning** tests sit in that node project and assert properties of how
+  - Six **source-scanning** tests sit in that node project and assert properties of how
     the code is written rather than what it returns, so nothing else could catch them:
     `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
     `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
@@ -258,8 +270,10 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     `src/lib/copiedModules.test.ts` (the deliberately duplicated `r2.ts` pair keeps the
     same exports — `push.ts` was the second pair until it moved to `@/lib/push`),
     `src/lib/themeTokens.test.ts` (the theme map covers every palette
-    step the code uses — see **Theme** below), and `src/lib/storageKeys.test.ts` (the
-    localStorage keys that are hardcoded in more than one file stay in agreement).
+    step the code uses — see **Theme** below), `src/lib/storageKeys.test.ts` (the
+    localStorage keys that are hardcoded in more than one file stay in agreement), and
+    `src/lib/dayKeyFormatters.test.ts` (no day key is formatted outside `@/lib/dayKey` —
+    see **Day keys are LOCAL** above).
 - **The session gate is `middleware.ts`, and route-handler tests cannot see it** — they call
   the handler directly. That blind spot let background push and billing ship dead: the
   matcher sent QStash's and Lemon Squeezy's cookieless webhook POSTs to `/login` with a 307

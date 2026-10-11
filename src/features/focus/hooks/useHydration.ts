@@ -7,10 +7,10 @@ import {
   fetchHydration,
   saveHydration,
   subscribeHydration,
-  todayKey,
 } from "@/features/focus/data/focusData";
 import { playChime } from "@/features/focus/lib/sound";
 import { notify } from "@/features/focus/lib/notify";
+import { todayKey } from "@/lib/dayKey";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
 

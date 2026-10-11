@@ -7,7 +7,6 @@ import {
   fetchItems,
   saveItem,
   subscribeItems,
-  todayKey,
 } from "@/features/inventory/data/inventoryData";
 import {
   clearPendingUpserts,
@@ -22,6 +21,7 @@ import type {
   ItemActivity,
   ItemStatus,
 } from "@/features/inventory/lib/types";
+import { todayKey } from "@/lib/dayKey";
 
 const MAX_ACTIVITY = 300;
 

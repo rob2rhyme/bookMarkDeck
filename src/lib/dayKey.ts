@@ -1,8 +1,11 @@
 // Local-day keys, shared. Every day key in the app is a LOCAL `YYYY-MM-DD` —
 // never a UTC date, which puts a US evening on tomorrow and an Asia-Pacific
 // morning on yesterday. Pure and dependency-free, so the shared shell can import
-// it without pulling anything else into its bundle. Habits keeps its own copy in
-// features/habits/lib/day.ts (with the day arithmetic around it).
+// it without pulling anything else into its bundle.
+//
+// This is the only formatter: habits' lib/day.ts re-exports dayKeyFor/todayKey
+// beside its day arithmetic, and src/lib/dayKeyFormatters.test.ts fails on any
+// other hand-built day key — or on an import added here.
 
 export function dayKeyFor(d: Date): string {
   const y = d.getFullYear();

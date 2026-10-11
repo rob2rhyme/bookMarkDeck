@@ -8,19 +8,13 @@ import {
   subscribeSessions,
 } from "@/features/focus/data/focusData";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
+import { dayKeyFor as dayKey } from "@/lib/dayKey";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
-
-function dayKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function shortDate(d: Date): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;

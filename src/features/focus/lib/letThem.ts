@@ -3,6 +3,8 @@
 // then refocus on what you can) is a plain-language take on a dichotomy-of-control
 // reframe; the wording here is original.
 
+import { dayKeyFor } from "@/lib/dayKey";
+
 export type ResetTrigger = {
   id: string;
   label: string;
@@ -37,13 +39,6 @@ export function getReframe(trigger: string): string {
 
 /* ------------------------------------------------------------- streak --- */
 
-function localDayKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function parseDayKey(key: string): Date {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d);
@@ -69,12 +64,12 @@ export function resetStreak(
   const days = new Set(resets.map((r) => r.day).filter(Boolean));
   if (days.size === 0) return 0;
   let cur = parseDayKey(todayKey);
-  if (!days.has(localDayKey(cur))) {
+  if (!days.has(dayKeyFor(cur))) {
     cur = new Date(cur);
     cur.setDate(cur.getDate() - 1);
   }
   let streak = 0;
-  while (days.has(localDayKey(cur))) {
+  while (days.has(dayKeyFor(cur))) {
     streak += 1;
     cur.setDate(cur.getDate() - 1);
   }

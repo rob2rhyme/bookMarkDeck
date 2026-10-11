@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { dayKeyFor } from "@/lib/dayKey";
 
 // GitHub-style contributions heatmap. Renders ~12 months of daily activity as a
 // 7-row × ~53-column grid, coloured by how many things happened that day. Each
@@ -27,13 +28,6 @@ export function levelFor(count: number): number {
   if (count <= 4) return 2;
   if (count <= 7) return 3;
   return 4;
-}
-
-function keyOf(d: Date): string {
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 function prettyDate(key: string): string {
@@ -69,7 +63,7 @@ export function ContributionsCalendar({
   const { weeks, total } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayKey = keyOf(today);
+    const todayKey = dayKeyFor(today);
 
     // Start ~52 weeks back, then rewind to that week's Sunday for a clean grid.
     const start = new Date(today);
@@ -86,7 +80,7 @@ export function ContributionsCalendar({
     while (cursor <= end) {
       const cells: Cell[] = [];
       for (let i = 0; i < 7; i++) {
-        const key = keyOf(cursor);
+        const key = dayKeyFor(cursor);
         const future = key > todayKey;
         const count = future ? 0 : counts.get(key) ?? 0;
         sum += count;

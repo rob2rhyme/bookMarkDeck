@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   logScore,
   subscribeScores,
-  todayKey,
 } from "@/features/focus/data/focusData";
 import type { ScoreRecord } from "@/features/focus/lib/types";
+import { todayKey } from "@/lib/dayKey";
 
 export type QuizResult = {
   topic: string;

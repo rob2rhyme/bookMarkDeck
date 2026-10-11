@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { DateInput, TimeInput } from "@/components/DateTimeField";
+import { dayKeyFor } from "@/lib/dayKey";
 
 type DueFieldProps = {
   value: string | null; // ISO datetime or null
@@ -36,8 +37,7 @@ function pad(n: number) {
   return n.toString().padStart(2, "0");
 }
 function toDateInput(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return dayKeyFor(new Date(iso));
 }
 function toTimeInput(iso: string) {
   const d = new Date(iso);
