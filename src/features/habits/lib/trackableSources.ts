@@ -77,7 +77,9 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
     habitType: "measurable",
     policy: "bidirectional",
     match: isWaterHabit,
-    subscribe: (email, day, cb) => subscribeHydration(email, day, cb),
+    // Server-first, as Focus does: offline, a cache-only "missing" answer made
+    // the first merge push this habit's count over another device's.
+    subscribe: (email, day, cb) => subscribeHydration(email, day, cb, { serverFirst: true }),
     readCache: (email, day) => readHydrationCache(email, day)?.cups ?? null,
     mirror: ({ email, day, canSync }, value) => {
       writeHydrationCache(email, day, value); // dropped unless `day` is today

@@ -53,10 +53,20 @@ export function useHydration({
   const lastDrinkRef = useRef<number>(0);
   const dayRef = useRef<string>("");
   const cupsRef = useRef(0);
-  // False from the moment a day's record starts being followed until its first
-  // snapshot is read. Writing before that could put this device's count over a
-  // higher one another device already logged; the first snapshot max-merges.
+  // False from the moment a day's record starts being followed until the
+  // server's first answer is read. Writing before that could put this device's
+  // count over a higher one another device already logged; that first answer
+  // merges instead (see the subscription below).
   const remoteReadyRef = useRef(false);
+  // The count a day's record merges against: what this device had for the day
+  // when it started following it. Cups added or removed after that, before the
+  // first answer, are this device's own changes and are kept on top of the
+  // merge. `loadDay` sets it, so a drink that itself rolls the day over is
+  // counted as a change, not as part of the base.
+  const baseRef = useRef<{ day: string; cups: number } | null>(null);
+  // The base the record now being followed will merge against. A Download
+  // resets it: adopting the cloud's count is not a change of this device's.
+  const mergeBaseRef = useRef(0);
   const canSync = connected && Boolean(email);
 
   useEffect(() => {
@@ -77,6 +87,7 @@ export function useHydration({
     (d: string) => {
       dayRef.current = d;
       const cached = readHydrationCache(email, d);
+      baseRef.current = { day: d, cups: cached?.cups ?? 0 };
       setCups(cached?.cups ?? 0);
       lastDrinkRef.current = cached?.lastDrink ?? Date.now();
       setDay(d);
@@ -106,11 +117,13 @@ export function useHydration({
 
   // Persist locally, under the day the count belongs to. The cache drops a write
   // for a day that is no longer today, so a tab that hasn't rolled yet can't
-  // stamp yesterday's count as today's.
+  // stamp yesterday's count as today's. `day` is a dependency too: a drink that
+  // rolls the day over can land on yesterday's number, and the new day's count
+  // still has to be written.
   useEffect(() => {
     if (!hydrated) return;
     writeHydrationCache(email, dayRef.current, cups, lastDrinkRef.current);
-  }, [cups, hydrated, email]);
+  }, [cups, hydrated, email, day]);
 
   // The day rolls over on its own clock. It used to live in the reminder loop,
   // so with reminders off nothing noticed midnight; focus and visibility catch
@@ -128,25 +141,39 @@ export function useHydration({
     };
   }, [hydrated, rollIfNewDay]);
 
-  // Follow the current day's count for live cross-browser updates. The first
-  // snapshot reconciles via max-merge (so neither a cross-device nor an offline
-  // bump is lost); later snapshots adopt the remote value.
+  // Follow the current day's count for live cross-browser updates. The server's
+  // first answer merges: the higher of this device's base and the cloud's count
+  // (so neither an offline bump nor another device's is lost), plus whatever
+  // this device added or removed since it started following the day. Later
+  // snapshots adopt the remote value. Cache-only answers are held back until
+  // the server has answered (serverFirst): offline, a record another device
+  // wrote reads as missing from the cache.
   useEffect(() => {
     if (!canSync || !email || !day) return;
     remoteReadyRef.current = false;
+    mergeBaseRef.current =
+      baseRef.current?.day === day ? baseRef.current.cups : cupsRef.current;
+    baseRef.current = null;
     let first = true;
-    return subscribeHydration(email, day, (remote) => {
-      if (day !== dayRef.current) return; // a late snapshot of a day already left
-      if (first) {
-        first = false;
-        remoteReadyRef.current = true;
-        const resolved = Math.max(cupsRef.current, remote ?? 0);
-        if (remote != null) setCups(resolved);
-        if (resolved !== (remote ?? 0)) saveHydration(email, day, resolved).catch(() => {});
-        return;
-      }
-      if (remote != null) setCups(remote);
-    });
+    return subscribeHydration(
+      email,
+      day,
+      (remote) => {
+        if (day !== dayRef.current) return; // a late snapshot of a day already left
+        if (first) {
+          first = false;
+          remoteReadyRef.current = true;
+          const base = mergeBaseRef.current;
+          const changed = cupsRef.current - base;
+          const resolved = Math.max(0, Math.max(base, remote ?? 0) + changed);
+          if (resolved !== cupsRef.current) setCups(resolved);
+          if (resolved !== (remote ?? 0)) saveHydration(email, day, resolved).catch(() => {});
+          return;
+        }
+        if (remote != null) setCups(remote);
+      },
+      { serverFirst: true }
+    );
   }, [canSync, email, day]);
 
   // Reminder loop.
@@ -177,15 +204,20 @@ export function useHydration({
     setCups((c) => {
       const next = c + 1;
       persistRemote(next);
+      // Before the day's record has been read the total isn't known yet — the
+      // merge may raise it — so the log doesn't claim one.
+      const settled = !canSync || remoteReadyRef.current;
       onLog?.(
         "hydration",
-        `Drank a cup of water (${next} ${next === 1 ? "cup" : "cups"} today)`
+        settled
+          ? `Drank a cup of water (${next} ${next === 1 ? "cup" : "cups"} today)`
+          : "Drank a cup of water"
       );
       return next;
     });
     lastDrinkRef.current = Date.now();
     setReminding(false);
-  }, [onLog, persistRemote, rollIfNewDay]);
+  }, [canSync, onLog, persistRemote, rollIfNewDay]);
 
   const removeCup = useCallback(() => {
     rollIfNewDay();
@@ -206,7 +238,11 @@ export function useHydration({
     rollIfNewDay();
     const d = dayRef.current;
     const remote = await fetchHydration(email, d);
-    if (d === dayRef.current) setCups(remote ?? 0);
+    if (d !== dayRef.current) return;
+    // Whether or not the day's record is being followed yet.
+    baseRef.current = { day: d, cups: remote ?? 0 };
+    mergeBaseRef.current = remote ?? 0;
+    setCups(remote ?? 0);
   }, [canSync, email, rollIfNewDay]);
 
   // An explicit upload: the day and the count it writes are a pair.

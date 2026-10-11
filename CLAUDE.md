@@ -535,15 +535,25 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   count. Keep the dual write until no pre-upgrade tab can be alive. Only today's
   count is cached (a write for another day is dropped).
   **Focus's day rolls over on its own clock** (a 15 s check plus focus/visibility,
-  and at the start of every action) — it used to live inside the reminder loop, so
-  with reminders off a tab left open overnight carried yesterday's count into
-  today. **A rollover writes nothing remote** (it wrote 0 to the new day's record,
-  over cups a phone had logged while the laptop slept), **the live record follows
-  the current day** (it stayed on the day the hook mounted), and **nothing is
-  written to a day's record before its first snapshot is read** — that snapshot
-  max-merges, so a drink in the gap can't overwrite a higher count from another
-  device. The cost, as before: two devices adding a cup in that same gap end on the
-  max, not the sum.
+  and at the start of every action but the explicit Upload, which writes the count
+  on screen to the day it belongs to) — it used to live inside the reminder loop, so
+  with reminders off a tab left open overnight carried yesterday's count into today.
+  **A rollover writes nothing remote** (it wrote 0 to the new day's record, over
+  cups a phone had logged while the laptop slept), and **the live record follows
+  the current day** (it stayed on the day the hook mounted).
+  **Nothing is written to a day's record before the server's first answer is
+  read** — at mount, on (re)connect and after a rollover. That answer merges:
+  `max(this device's base, the cloud's count) + what this device added or removed
+  since`, so a cup taken in the gap is kept rather than swallowed by the max, and
+  can't overwrite a higher count from another device. **Cache-only answers don't
+  count** (`subscribeHydration(…, { serverFirst: true })`, used by Focus and by the
+  habits link): offline, Firestore answers at once from the device's cache, where a
+  record another device wrote reads as *missing* — merging against that queued a
+  write that replaced the other device's count on reconnect. Reproduced against the
+  real SDK and the emulator; the in-memory fake in `useHydration.dom.test.tsx`
+  can't show it, so `focusData.test.ts` pins the rule on `onSnapshot` itself. What
+  the merge still can't know: two devices that each counted the same day without
+  ever seeing the other's end on the higher of the two, not the sum.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 

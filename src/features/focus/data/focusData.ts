@@ -864,21 +864,38 @@ export function subscribeScores(
   );
 }
 
+/**
+ * One day's cup count, live.
+ *
+ * `serverFirst` holds every snapshot back until one comes from the server.
+ * Offline, Firestore answers a listener at once from this device's cache, where
+ * a record another device wrote reads as missing — and merging against that
+ * "missing" queued a write that, on reconnect, replaced the other device's
+ * count. Metadata changes are listened for so the server's confirmation still
+ * arrives when the data itself hasn't changed.
+ */
 export function subscribeHydration(
   emailHint: string,
   day: string,
-  cb: (cups: number | null) => void
+  cb: (cups: number | null) => void,
+  { serverFirst = false }: { serverFirst?: boolean } = {}
 ): Unsub {
-  return listen(emailHint, (uid) =>
-    onSnapshot(
+  return listen(emailHint, (uid) => {
+    let confirmed = !serverFirst;
+    return onSnapshot(
       doc(hydrationCol(uid), day),
+      { includeMetadataChanges: serverFirst },
       (snap) => {
+        if (!confirmed) {
+          if (snap.metadata.fromCache) return;
+          confirmed = true;
+        }
         const cups = snap.exists() ? snap.data().cups : null;
         cb(typeof cups === "number" ? cups : null);
       },
       onListenError("hydration")
-    )
-  );
+    );
+  });
 }
 
 /** Live full hydration history — every day's cup total, for the history chart. */

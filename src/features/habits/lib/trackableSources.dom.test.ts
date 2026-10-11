@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // wrote yesterday's water count into Focus's cache as today's, and read today's
 // count back as yesterday's. CI runs in UTC; this pins a zone and a clock.
 vi.mock("@/features/focus/data/focusData", () => ({
-  subscribeHydration: () => () => {},
+  subscribeHydration: vi.fn(() => () => {}),
   subscribeNotes: () => () => {},
   subscribeMeditationSessions: () => () => {},
   subscribeSessions: () => () => {},
@@ -17,7 +17,7 @@ vi.mock("@/features/inventory/data/inventoryData", () => ({
   subscribeItems: () => () => {},
 }));
 
-import { saveHydration } from "@/features/focus/data/focusData";
+import { saveHydration, subscribeHydration } from "@/features/focus/data/focusData";
 import { sourceById } from "@/features/habits/lib/trackableSources";
 
 const EMAIL = "a@example.com";
@@ -62,5 +62,17 @@ describe("hydration source — the day it is given", () => {
   it("resets Focus's reminder clock when habits logs water", () => {
     hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: false }, 4);
     expect(stored().lastDrink).toBe(Date.now());
+  });
+});
+
+// Offline, a cache-only "missing" answer made the link's first merge push the
+// habit's count over another device's on reconnect — as it did in Focus.
+describe("hydration source — subscription", () => {
+  it("waits for the server's answer, not a cache-only one", () => {
+    const cb = vi.fn();
+    hydration.subscribe(EMAIL, "2026-03-15", cb);
+    expect(subscribeHydration).toHaveBeenCalledWith(EMAIL, "2026-03-15", cb, {
+      serverFirst: true,
+    });
   });
 });

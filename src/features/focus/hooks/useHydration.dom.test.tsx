@@ -49,7 +49,7 @@ vi.mock("@/features/focus/data/focusData", () => ({
 vi.mock("@/features/focus/lib/sound", () => ({ playChime: vi.fn() }));
 vi.mock("@/features/focus/lib/notify", () => ({ notify: vi.fn() }));
 
-import { saveHydration } from "@/features/focus/data/focusData";
+import { saveHydration, subscribeHydration } from "@/features/focus/data/focusData";
 import { useHydration } from "./useHydration";
 
 const EMAIL = "a@example.com";
@@ -204,9 +204,11 @@ describe("useHydration — across midnight", () => {
     act(() => result.current.drink()); // before today's record has been read
     expect(cloud.days.get("2026-10-11")).toBe(5);
     await flush();
-    expect(result.current.cups).toBe(5); // max(1, 5) — the existing first-snapshot merge
-    act(() => result.current.drink());
+    // The phone's 5, plus this cup: kept, not swallowed by the merge.
+    expect(result.current.cups).toBe(6);
     expect(cloud.days.get("2026-10-11")).toBe(6);
+    act(() => result.current.drink());
+    expect(cloud.days.get("2026-10-11")).toBe(7);
   });
 
   it("doesn't write over a higher count with a drink made before the first read", async () => {
@@ -217,7 +219,8 @@ describe("useHydration — across midnight", () => {
     act(() => result.current.drink());
     expect(cloud.days.get("2026-10-11")).toBe(5);
     await flush();
-    expect(result.current.cups).toBe(5);
+    expect(result.current.cups).toBe(6); // max(2, 5) + this cup
+    expect(cloud.days.get("2026-10-11")).toBe(6);
   });
 
   it("turning reminders on after midnight doesn't zero today's record", async () => {
@@ -235,6 +238,155 @@ describe("useHydration — across midnight", () => {
     await flush();
     expect(saveHydration).not.toHaveBeenCalledWith(EMAIL, "2026-10-11", 0);
     expect(cloud.days.get("2026-10-11")).toBe(3);
+  });
+
+  it("keeps a cup removed before the first read, instead of merging it back", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    seed({ day: "2026-10-11", cups: 3 });
+    cloud.write("2026-10-11", 3);
+    const { result } = renderHook(() => useHydration(synced));
+    act(() => result.current.removeCup());
+    await flush();
+    expect(result.current.cups).toBe(2);
+    expect(cloud.days.get("2026-10-11")).toBe(2);
+  });
+
+  it("writes a gap drink back when the cloud's count is lower", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    seed({ day: "2026-10-11", cups: 2 }); // logged offline earlier
+    cloud.write("2026-10-11", 1);
+    const { result } = renderHook(() => useHydration(synced));
+    act(() => result.current.drink());
+    await flush();
+    expect(result.current.cups).toBe(3); // max(2, 1) + this cup
+    expect(cloud.days.get("2026-10-11")).toBe(3);
+  });
+
+  it("waits for the record again after reconnecting", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    const { result, rerender } = renderHook(
+      ({ connected }: { connected: boolean }) => useHydration({ ...ARGS, connected }),
+      { initialProps: { connected: true } }
+    );
+    await flush();
+    rerender({ connected: false });
+    act(() => cloud.write("2026-10-11", 4)); // the phone, while this one was offline
+    rerender({ connected: true });
+    act(() => result.current.drink()); // before the reconnected record is read
+    expect(cloud.days.get("2026-10-11")).toBe(4);
+    await flush();
+    expect(cloud.days.get("2026-10-11")).toBe(5);
+  });
+
+  it("asks for the server's answer, not a cache-only one", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    renderHook(() => useHydration(synced));
+    await flush();
+    expect(subscribeHydration).toHaveBeenCalledWith(
+      EMAIL,
+      "2026-10-11",
+      expect.any(Function),
+      { serverFirst: true }
+    );
+  });
+
+  it("caches the new day's count when a drink lands on yesterday's number", () => {
+    vi.setSystemTime(new Date(2026, 2, 10, 23, 59, 50));
+    seed({ day: "2026-03-10", cups: 1 });
+    const { result, unmount } = mount();
+    vi.setSystemTime(new Date(2026, 2, 11, 0, 0, 5)); // before the clock has ticked
+    act(() => result.current.drink()); // the new day's first cup: 1, as yesterday
+    expect(stored()).toMatchObject({ day: "2026-03-11", cups: 1 });
+    unmount();
+    expect(mount().result.current.cups).toBe(1);
+  });
+
+  it("rolls over when the window regains focus", () => {
+    vi.setSystemTime(new Date(2026, 2, 10, 23, 50));
+    seed({ day: "2026-03-10", cups: 5 });
+    const { result } = mount();
+    vi.setSystemTime(new Date(2026, 2, 11, 7, 0));
+    act(() => void window.dispatchEvent(new Event("focus")));
+    expect(result.current.cups).toBe(0);
+  });
+
+  it("rolls over when the tab becomes visible", () => {
+    vi.setSystemTime(new Date(2026, 2, 10, 23, 50));
+    seed({ day: "2026-03-10", cups: 5 });
+    const { result } = mount();
+    vi.setSystemTime(new Date(2026, 2, 11, 7, 0));
+    act(() => void document.dispatchEvent(new Event("visibilitychange")));
+    expect(result.current.cups).toBe(0);
+  });
+
+  // The roll and a snapshot of yesterday can arrive in the same tick, before the
+  // old listener is torn down; the snapshot must not land on the new day.
+  it("drops a snapshot of yesterday that arrives with the rollover", async () => {
+    vi.setSystemTime(new Date(2026, 9, 10, 23, 59, 30));
+    cloud.write("2026-10-10", 5);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    vi.setSystemTime(new Date(2026, 9, 11, 0, 0, 5));
+    act(() => {
+      window.dispatchEvent(new Event("focus")); // rolls: today is Oct 11
+      cloud.snapshot("2026-10-10", 6); // yesterday's listener is still attached
+    });
+    expect(result.current.cups).toBe(0);
+  });
+
+  // Before the roll, the count on screen is still yesterday's; a change to it
+  // must stay yesterday's, not be cached as today's.
+  it("doesn't cache a late change to yesterday as today's count", async () => {
+    vi.setSystemTime(new Date(2026, 9, 10, 23, 59, 50));
+    cloud.write("2026-10-10", 5);
+    renderHook(() => useHydration(synced));
+    await flush();
+    vi.setSystemTime(new Date(2026, 9, 11, 0, 0, 5)); // midnight, not yet noticed
+    act(() => cloud.write("2026-10-10", 6));
+    expect(stored().day).not.toBe("2026-10-11");
+  });
+
+  it("removes a cup from today's record after midnight, not yesterday's", async () => {
+    vi.setSystemTime(new Date(2026, 9, 10, 22, 0));
+    cloud.write("2026-10-10", 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    vi.setSystemTime(new Date(2026, 9, 11, 8, 0));
+    act(() => result.current.removeCup());
+    expect(cloud.days.get("2026-10-10")).toBe(3);
+  });
+
+  it("downloads today's record after midnight", async () => {
+    vi.setSystemTime(new Date(2026, 9, 10, 22, 0));
+    cloud.write("2026-10-10", 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    vi.setSystemTime(new Date(2026, 9, 11, 8, 0));
+    cloud.days.set("2026-10-11", 4); // there, but not yet heard by any listener
+    await act(() => result.current.pullFromCloud());
+    expect(result.current.cups).toBe(4);
+  });
+
+  // An explicit upload writes the count on screen to the day it belongs to — a
+  // pair — even before the record has been read; that is what the button is for.
+  it("uploads the count on screen to its own day", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    seed({ day: "2026-10-11", cups: 2 });
+    const { result } = renderHook(() => useHydration(synced));
+    await act(() => result.current.pushToCloud());
+    expect(saveHydration).toHaveBeenCalledWith(EMAIL, "2026-10-11", 2);
+  });
+
+  it("doesn't log a total before the day's record has been read", async () => {
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    cloud.write("2026-10-11", 5);
+    const onLog = vi.fn();
+    const { result } = renderHook(() => useHydration({ ...synced, onLog }));
+    act(() => result.current.drink()); // the merge will make this 6, not 1
+    expect(onLog).toHaveBeenLastCalledWith("hydration", "Drank a cup of water");
+    await flush();
+    act(() => result.current.drink());
+    expect(onLog).toHaveBeenLastCalledWith("hydration", "Drank a cup of water (7 cups today)");
   });
 
   // Unchanged behaviour, pinned: an offline count reaches an empty cloud record.
