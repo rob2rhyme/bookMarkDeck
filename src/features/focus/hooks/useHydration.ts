@@ -46,10 +46,17 @@ export function useHydration({
   const [cups, setCups] = useState(0);
   const [reminding, setReminding] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  // The day the count belongs to: state as well as a ref, so the live record
+  // follows it past midnight.
+  const [day, setDay] = useState("");
 
   const lastDrinkRef = useRef<number>(0);
   const dayRef = useRef<string>("");
   const cupsRef = useRef(0);
+  // False from the moment a day's record starts being followed until its first
+  // snapshot is read. Writing before that could put this device's count over a
+  // higher one another device already logged; the first snapshot max-merges.
+  const remoteReadyRef = useRef(false);
   const canSync = connected && Boolean(email);
 
   useEffect(() => {
@@ -58,51 +65,89 @@ export function useHydration({
 
   const persistRemote = useCallback(
     (value: number) => {
-      if (canSync && email) saveHydration(email, todayKey(), value).catch(() => {});
+      if (canSync && email && remoteReadyRef.current) {
+        saveHydration(email, dayRef.current, value).catch(() => {});
+      }
     },
     [canSync, email]
   );
 
+  /** Make `d` the current day, starting from what this device cached for it. */
+  const loadDay = useCallback(
+    (d: string) => {
+      dayRef.current = d;
+      const cached = readHydrationCache(email, d);
+      setCups(cached?.cups ?? 0);
+      lastDrinkRef.current = cached?.lastDrink ?? Date.now();
+      setDay(d);
+    },
+    [email]
+  );
+
+  /**
+   * Move to the new day if the date has changed. Writes nothing remote: an
+   * absent record already reads as 0, and the new day's record may hold cups
+   * another device logged while this tab slept — it used to write 0 over them.
+   */
+  const rollIfNewDay = useCallback((): boolean => {
+    const today = todayKey();
+    if (today === dayRef.current) return false;
+    remoteReadyRef.current = false;
+    loadDay(today);
+    setReminding(false);
+    return true;
+  }, [loadDay]);
+
   // Load today's progress after mount (the cache is shared with habits).
   useEffect(() => {
-    dayRef.current = todayKey();
-    const cached = readHydrationCache(email, dayRef.current);
-    setCups(cached?.cups ?? 0);
-    lastDrinkRef.current = cached?.lastDrink ?? Date.now();
+    loadDay(todayKey());
     setHydrated(true);
-  }, [email]);
+  }, [loadDay]);
 
-  // Persist locally.
+  // Persist locally, under the day the count belongs to. The cache drops a write
+  // for a day that is no longer today, so a tab that hasn't rolled yet can't
+  // stamp yesterday's count as today's.
   useEffect(() => {
     if (!hydrated) return;
-    writeHydrationCache(email, todayKey(), cups, lastDrinkRef.current);
+    writeHydrationCache(email, dayRef.current, cups, lastDrinkRef.current);
   }, [cups, hydrated, email]);
 
-  // Subscribe to today's count for live cross-browser updates. The first
+  // The day rolls over on its own clock. It used to live in the reminder loop,
+  // so with reminders off nothing noticed midnight; focus and visibility catch
+  // a tab whose timers slept.
+  useEffect(() => {
+    if (!hydrated) return;
+    const roll = () => void rollIfNewDay();
+    const id = setInterval(roll, 15000);
+    window.addEventListener("focus", roll);
+    document.addEventListener("visibilitychange", roll);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", roll);
+      document.removeEventListener("visibilitychange", roll);
+    };
+  }, [hydrated, rollIfNewDay]);
+
+  // Follow the current day's count for live cross-browser updates. The first
   // snapshot reconciles via max-merge (so neither a cross-device nor an offline
   // bump is lost); later snapshots adopt the remote value.
   useEffect(() => {
-    if (!canSync || !email) return;
-    const day = todayKey();
+    if (!canSync || !email || !day) return;
+    remoteReadyRef.current = false;
     let first = true;
     return subscribeHydration(email, day, (remote) => {
-      if (remote == null) {
-        if (first && cupsRef.current > 0) {
-          saveHydration(email, day, cupsRef.current).catch(() => {});
-        }
+      if (day !== dayRef.current) return; // a late snapshot of a day already left
+      if (first) {
         first = false;
+        remoteReadyRef.current = true;
+        const resolved = Math.max(cupsRef.current, remote ?? 0);
+        if (remote != null) setCups(resolved);
+        if (resolved !== (remote ?? 0)) saveHydration(email, day, resolved).catch(() => {});
         return;
       }
-      if (first) {
-        const resolved = Math.max(cupsRef.current, remote);
-        setCups(resolved);
-        if (resolved !== remote) saveHydration(email, day, resolved).catch(() => {});
-        first = false;
-      } else {
-        setCups(remote);
-      }
+      if (remote != null) setCups(remote);
     });
-  }, [canSync, email]);
+  }, [canSync, email, day]);
 
   // Reminder loop.
   useEffect(() => {
@@ -111,21 +156,13 @@ export function useHydration({
       return;
     }
     const id = setInterval(() => {
-      const t = todayKey();
-      if (t !== dayRef.current) {
-        dayRef.current = t;
-        setCups(0);
-        persistRemote(0);
-        lastDrinkRef.current = Date.now();
-        setReminding(false);
-        return;
-      }
+      if (rollIfNewDay()) return;
       if (Date.now() - lastDrinkRef.current >= intervalMin * 60 * 1000) {
         setReminding(true);
       }
     }, 15000);
     return () => clearInterval(id);
-  }, [enabled, intervalMin, persistRemote]);
+  }, [enabled, intervalMin, rollIfNewDay]);
 
   // Fire a notification/chime when a reminder appears.
   useEffect(() => {
@@ -136,6 +173,7 @@ export function useHydration({
   }, [reminding, enabled, soundEnabled]);
 
   const drink = useCallback(() => {
+    rollIfNewDay();
     setCups((c) => {
       const next = c + 1;
       persistRemote(next);
@@ -147,15 +185,16 @@ export function useHydration({
     });
     lastDrinkRef.current = Date.now();
     setReminding(false);
-  }, [onLog, persistRemote]);
+  }, [onLog, persistRemote, rollIfNewDay]);
 
   const removeCup = useCallback(() => {
+    rollIfNewDay();
     setCups((c) => {
       const next = Math.max(0, c - 1);
       persistRemote(next);
       return next;
     });
-  }, [persistRemote]);
+  }, [persistRemote, rollIfNewDay]);
 
   const dismiss = useCallback(() => {
     lastDrinkRef.current = Date.now();
@@ -164,13 +203,16 @@ export function useHydration({
 
   const pullFromCloud = useCallback(async () => {
     if (!canSync || !email) return;
-    const remote = await fetchHydration(email, todayKey());
-    setCups(remote ?? 0);
-  }, [canSync, email]);
+    rollIfNewDay();
+    const d = dayRef.current;
+    const remote = await fetchHydration(email, d);
+    if (d === dayRef.current) setCups(remote ?? 0);
+  }, [canSync, email, rollIfNewDay]);
 
+  // An explicit upload: the day and the count it writes are a pair.
   const pushToCloud = useCallback(async () => {
     if (!canSync || !email) return;
-    await saveHydration(email, todayKey(), cupsRef.current);
+    await saveHydration(email, dayRef.current, cupsRef.current);
   }, [canSync, email]);
 
   return {

@@ -301,7 +301,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   + `test` + `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds
   previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
   backlog was cleared. It carries real weight, because `npm run lint` is only
-  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 83
+  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 84
   remaining *warnings* are **all one rule** — `react-hooks/set-state-in-effect`; only
   errors fail the build. That the set is homogeneous is the useful part: a warning from
   any other rule is new, and worth reading rather than assuming it is backlog.
@@ -311,12 +311,12 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   | Shape | Count |
   |---|---|
   | cloud subscribe / fetch (`[canSync, email]`, `[connected, email]`) | 28 |
-  | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 14 |
+  | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 15 |
   | modal / panel reset on open (`[open, …]`) | 14 |
   | other storage-backed reload | 14 |
   | **derived-state reset** | **13** |
 
-  Hydration-shaped effects are about **28 of 83**; the biggest group is Firestore
+  Hydration-shaped effects are about **29 of 84**; the biggest group is Firestore
   subscriptions, which have nothing to do with hydration. The distinction earns its
   place because the blanket version of it is how #292's regression stayed in `main` for
   months — a deleted button whose orphaned state warned for exactly this rule, waved off
@@ -326,10 +326,11 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   effect. All 13 were inspected on the date above and are sound — each uses a functional
   updater or an early-return guard, so none can loop or fight user input — but that is a
   finding with an expiry, not a permanent property.
-  **The one move since (84 → 83) was not a fix**: `useHydration`'s mount read stopped
-  warning when its day began flowing through `dayRef.current`, because the rule exempts
-  state set from a ref read. The effect is the same mount-only read it was. A drop is
-  as worth explaining as a rise — the rule can go quiet without the code improving.
+  **The count has moved once, and back, without a fix either way**: `useHydration`'s
+  mount read went quiet (84 → 83) when its day began flowing through `dayRef.current` —
+  the rule exempts state set from a ref read — and warned again once the read moved
+  into a `loadDay` callback beside `setHydrated`. Same mount-only read throughout. A drop
+  is as worth explaining as a rise: the rule can go quiet without the code improving.
   **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
   load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
   fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
@@ -533,6 +534,16 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   count. Keep the dual write until no pre-upgrade tab can be alive. Only today's
   count is cached (a write for another day is dropped), and a habits-side
   decrement doesn't move Focus's reminder clock.
+  **Focus's day rolls over on its own clock** (a 15 s check plus focus/visibility,
+  and at the start of every action) — it used to live inside the reminder loop, so
+  with reminders off a tab left open overnight carried yesterday's count into
+  today. **A rollover writes nothing remote** (it wrote 0 to the new day's record,
+  over cups a phone had logged while the laptop slept), **the live record follows
+  the current day** (it stayed on the day the hook mounted), and **nothing is
+  written to a day's record before its first snapshot is read** — that snapshot
+  max-merges, so a drink in the gap can't overwrite a higher count from another
+  device. The cost, as before: two devices adding a cup in that same gap end on the
+  max, not the sum.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 
