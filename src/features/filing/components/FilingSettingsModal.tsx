@@ -23,6 +23,7 @@ import type {
   FilingPlace,
   FilingSettings,
 } from "@/features/filing/lib/types";
+import { dayKeyFor, todayKey } from "@/lib/dayKey";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
@@ -81,14 +82,15 @@ export function FilingSettingsModal({
   }
 
   function downloadJson() {
-    const now = new Date().toISOString();
+    const at = new Date();
+    const now = at.toISOString(); // exportedAt stays an instant
     const backup = buildBackup(
       { places, parties, folders, documents, settings },
       now
     );
     save(
       JSON.stringify(backup, null, 2),
-      `bookmark-deck-filing-${now.slice(0, 10)}.json`,
+      `bookmark-deck-filing-${dayKeyFor(at)}.json`,
       "application/json"
     );
   }
@@ -96,7 +98,7 @@ export function FilingSettingsModal({
   function downloadCsv() {
     save(
       documentsToCsv(documents, folders, parties, trailFor),
-      `bookmark-deck-filing-${new Date().toISOString().slice(0, 10)}.csv`,
+      `bookmark-deck-filing-${todayKey()}.csv`,
       "text/csv;charset=utf-8"
     );
   }

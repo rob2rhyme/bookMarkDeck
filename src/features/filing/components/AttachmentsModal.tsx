@@ -22,6 +22,13 @@ import {
   type UploadFailure,
 } from "@/features/filing/lib/attachments";
 import type { FilingAttachment, FilingDocument } from "@/features/filing/lib/types";
+import { dayKeyOf } from "@/lib/dayKey";
+
+/** " · 2026-09-30" — the LOCAL day it was added (addedAt is an instant). */
+function addedLabel(addedAt?: string | null): string {
+  const day = addedAt ? dayKeyOf(addedAt) : null;
+  return day ? ` · ${day}` : "";
+}
 
 export function AttachmentsModal({
   open,
@@ -123,7 +130,7 @@ export function AttachmentsModal({
                     <span className="block truncate text-sm text-slate-200">{a.name}</span>
                     <span className="block text-[11px] text-slate-500">
                       {formatBytes(a.size)}
-                      {a.addedAt ? ` · ${a.addedAt.slice(0, 10)}` : ""}
+                      {addedLabel(a.addedAt)}
                     </span>
                   </a>
                   <button

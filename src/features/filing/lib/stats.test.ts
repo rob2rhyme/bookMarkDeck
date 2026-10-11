@@ -47,9 +47,12 @@ const TODAY = "2026-08-29";
 
 describe("allActivity", () => {
   it("flattens document and folder timelines together", () => {
+    // Local noon, so each instant falls on the named day in every zone. A fixed
+    // 10:00Z is already the next day at UTC+14 — and only CI's UTC hid that.
+    const noon = (m: number, d: number) => new Date(2026, m - 1, d, 12).toISOString();
     const out = allActivity(
-      [doc({ activity: [act("filed", "2026-08-01T10:00:00.000Z")] })],
-      [folder({ activity: [act("taken", "2026-08-02T10:00:00.000Z")] })]
+      [doc({ activity: [act("filed", noon(8, 1))] })],
+      [folder({ activity: [act("taken", noon(8, 2))] })]
     );
     expect(out).toEqual([
       { type: "filed", day: "2026-08-01" },

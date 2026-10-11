@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { InventoryItem } from "./types";
 import {
@@ -27,7 +27,7 @@ function item(overrides: Partial<InventoryItem>): InventoryItem {
     lentTo: null,
     lentDate: null,
     dueDate: null,
-    createdAt: "2026-01-01T00:00:00.000Z",
+    createdAt: new Date(2026, 0, 1, 12).toISOString(), // local noon: Jan 1 in any zone
     updatedAt: null,
     ...overrides,
   };
@@ -154,5 +154,39 @@ describe("localFacts / insightsSummary", () => {
     );
     expect(summary).not.toContain("SECRET");
     expect(summary).toContain("Books");
+  });
+});
+
+// createdAt is an instant; the day it was acquired is its LOCAL day. It was cut
+// to its UTC date, so a US evening's purchase landed on tomorrow — and on the
+// last evening of a quarter, in the next quarter. CI runs in UTC, where the two
+// agree, so these pin a zone.
+describe("acquiredDay — the local day of an instant", () => {
+  const savedTz = process.env.TZ;
+  afterEach(() => {
+    process.env.TZ = savedTz;
+  });
+
+  it("puts a US evening on its own day", () => {
+    process.env.TZ = "America/Los_Angeles";
+    expect(acquiredDay(item({ createdAt: "2026-04-01T03:00:00.000Z" }))).toBe("2026-03-31");
+  });
+
+  it("puts a New Zealand morning on its own day", () => {
+    process.env.TZ = "Pacific/Auckland";
+    expect(acquiredDay(item({ createdAt: "2026-03-31T20:00:00.000Z" }))).toBe("2026-04-01");
+  });
+
+  it("buckets the last evening of a quarter in that quarter", () => {
+    process.env.TZ = "America/Los_Angeles";
+    const t = interestTrend([item({ category: "Books", createdAt: "2026-04-01T03:00:00.000Z" })]);
+    expect(t.quarters).toEqual(["2026-Q1"]);
+  });
+
+  it("keeps a bare day as it is, and refuses what isn't a day", () => {
+    process.env.TZ = "America/Los_Angeles";
+    expect(acquiredDay(item({ createdAt: "2026-04-01" }))).toBe("2026-04-01");
+    expect(acquiredDay(item({ createdAt: "2026-04" }))).toBeNull();
+    expect(acquiredDay(item({ createdAt: "not-a-date-at-all" }))).toBeNull();
   });
 });

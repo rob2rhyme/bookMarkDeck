@@ -5,6 +5,7 @@ import { X } from "@/components/icons";
 import type { InventoryItem } from "@/features/inventory/lib/types";
 import { borrowedLedger, type BorrowEntry } from "@/features/inventory/lib/borrowed";
 import { formatMoney, taxAmount } from "@/features/inventory/lib/value";
+import { dayKeyOf } from "@/lib/dayKey";
 
 type BorrowedLedgerModalProps = {
   open: boolean;
@@ -31,6 +32,7 @@ function Row({
 }) {
   const i = e.item;
   const cur = i.currency ?? currency;
+  const returnedDay = e.returnedAt ? dayKeyOf(e.returnedAt) : null;
   return (
     <li
       className={`rounded-lg border bg-slate-950/40 px-3 py-2 ${
@@ -74,7 +76,7 @@ function Row({
               ) : null
             ) : (
               <span>
-                returned{e.returnedAt ? ` ${e.returnedAt.slice(0, 10)}` : ""}
+                returned{returnedDay ? ` ${returnedDay}` : ""}
               </span>
             )}
           </span>

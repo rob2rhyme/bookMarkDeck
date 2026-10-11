@@ -5,6 +5,7 @@
 
 import type { InventoryItem } from "@/features/inventory/lib/types";
 import { daysUntil } from "@/features/inventory/lib/value";
+import { dayKeyOf } from "@/lib/dayKey";
 
 export type Slice = { label: string; count: number };
 
@@ -120,11 +121,12 @@ export function warrantyBuckets(
 
 // ── Interest over time ──────────────────────────────────────────────────────
 
-/** When an item entered your life: purchase date first, else created day. */
+/** When an item entered your life: purchase date first, else the LOCAL day it
+ *  was created (createdAt is an instant — its UTC date is tomorrow on a US evening). */
 export function acquiredDay(item: InventoryItem): string | null {
   if (item.purchaseDate) return item.purchaseDate;
   const c = item.createdAt;
-  return typeof c === "string" && c.length >= 10 ? c.slice(0, 10) : null;
+  return typeof c === "string" && c.length >= 10 ? dayKeyOf(c) : null;
 }
 
 const quarterOf = (day: string): string => {

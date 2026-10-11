@@ -41,6 +41,7 @@ import {
   taxAmount,
   warrantyState,
 } from "@/features/inventory/lib/value";
+import { dayKeyOf } from "@/lib/dayKey";
 
 type ItemDetailModalProps = {
   open: boolean;
@@ -705,8 +706,8 @@ export function ItemDetailModal({
                   </span>
                 </div>
                 <div className="mt-0.5 text-[11px] text-slate-500">
-                  {l.lentAt.slice(0, 10)} →{" "}
-                  {l.returnedAt ? l.returnedAt.slice(0, 10) : "not returned"}
+                  {dayKeyOf(l.lentAt) ?? "—"} →{" "}
+                  {l.returnedAt ? dayKeyOf(l.returnedAt) ?? "—" : "not returned"}
                   {(l.conditionOut || l.conditionIn) &&
                     ` · ${conditionLabel(l.conditionOut) ?? "—"} → ${
                       conditionLabel(l.conditionIn) ?? "—"
