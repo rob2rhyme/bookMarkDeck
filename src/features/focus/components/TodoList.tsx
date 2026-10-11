@@ -16,11 +16,11 @@ import {
   toChecklistBlocks,
 } from "@/utils/noteFormat";
 import { DueField } from "@/features/focus/components/DueField";
-import { todayKey } from "@/features/focus/data/focusData";
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
 import { filterTodos } from "@/features/focus/lib/todoSearch";
 import type { Todo, TodoList as TodoListKey } from "@/features/focus/lib/types";
 import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
+import { todayKey } from "@/lib/dayKey";
 
 type TodoListProps = {
   active: Todo[];

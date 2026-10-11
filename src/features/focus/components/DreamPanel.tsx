@@ -7,9 +7,9 @@ import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { ExpandToggle } from "@/components/ExpandToggle";
 import { ChevronUp } from "@/components/icons";
 import { NoteText } from "@/components/NoteText";
-import { todayKey } from "@/features/focus/data/focusData";
 import type { JournalNote } from "@/features/focus/lib/types";
 import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
+import { dayKeyFor, todayKey } from "@/lib/dayKey";
 
 // A self-contained dream-tracking surface: recall stats, a recall heatmap, and a
 // searchable dreams-only timeline. All derived from the journal notes already in
@@ -31,10 +31,7 @@ function shiftKey(key: string, deltaDays: number): string {
   const [y, m, d] = key.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   dt.setDate(dt.getDate() + deltaDays);
-  const yy = dt.getFullYear();
-  const mm = (dt.getMonth() + 1).toString().padStart(2, "0");
-  const dd = dt.getDate().toString().padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
+  return dayKeyFor(dt);
 }
 
 function dayLabel(key: string, today: string): string {

@@ -8,7 +8,6 @@ import {
   fetchTodos,
   saveTodo,
   subscribeTodos,
-  todayKey,
 } from "@/features/focus/data/focusData";
 import {
   clearPendingUpserts,
@@ -20,6 +19,7 @@ import {
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
 import type { Todo, TodoList } from "@/features/focus/lib/types";
+import { todayKey } from "@/lib/dayKey";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
 

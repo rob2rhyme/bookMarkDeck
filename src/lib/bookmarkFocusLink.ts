@@ -7,6 +7,8 @@
 // focusLink.ts). The title is stored so the summary survives a later edit/delete
 // of the bookmark.
 
+import { todayKey } from "@/lib/dayKey"; // the same local day focus stores as session.day
+
 const KEY = "bd:bookmark-focus-link:v1";
 
 export type BookmarkFocusLink = {
@@ -15,15 +17,6 @@ export type BookmarkFocusLink = {
   at: string; // ISO timestamp of launch
   day: string; // local YYYY-MM-DD of launch
 };
-
-/** Local YYYY-MM-DD — the same shape focus stores as session.day. */
-export function todayKey(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 export function setBookmarkFocusLink(bookmarkId: string, title: string): void {
   if (typeof window === "undefined") return;

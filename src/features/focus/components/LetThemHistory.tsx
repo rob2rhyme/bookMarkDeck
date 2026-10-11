@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { ResetRecord } from "@/features/focus/data/focusData";
 import { resetStreak } from "@/features/focus/lib/letThem";
 import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
+import { dayKeyFor as dayKey } from "@/lib/dayKey";
 
 type RangeKey = "week" | "month" | "all";
 
@@ -25,12 +26,6 @@ const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-function dayKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 function shortDate(key: string): string {
   const [y, m, d] = key.split("-").map(Number);
   return `${MONTHS[new Date(y, m - 1, d).getMonth()]} ${d}`;

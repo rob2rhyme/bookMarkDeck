@@ -28,10 +28,10 @@ import {
 import {
   logMeditationSession,
   subscribeMeditationSessions,
-  todayKey,
   type ActivityType,
   type MeditationKind,
 } from "@/features/focus/data/focusData";
+import { todayKey } from "@/lib/dayKey";
 
 type UseMeditationArgs = {
   email?: string | null;

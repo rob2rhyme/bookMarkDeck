@@ -9,13 +9,13 @@ import { NoteText } from "@/components/NoteText";
 import { appendBullet, appendNumber } from "@/utils/noteFormat";
 import { DreamBadges } from "@/features/focus/components/DreamBadges";
 import { MoodIcon } from "@/features/focus/components/MoodIcon";
-import { todayKey } from "@/features/focus/data/focusData";
 import { MOODS, type MoodKey } from "@/features/focus/lib/mood";
 import type {
   DreamDetails,
   JournalNote,
   JournalNoteKind,
 } from "@/features/focus/lib/types";
+import { todayKey } from "@/lib/dayKey";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [

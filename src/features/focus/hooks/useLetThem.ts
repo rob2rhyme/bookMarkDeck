@@ -7,9 +7,9 @@ import {
   logReset as persistReset,
   type ResetRecord,
   subscribeResets,
-  todayKey,
 } from "@/features/focus/data/focusData";
 import { countOnDay, resetStreak } from "@/features/focus/lib/letThem";
+import { todayKey } from "@/lib/dayKey";
 
 type LogActivity = (type: ActivityType, summary: string, day?: string) => void;
 

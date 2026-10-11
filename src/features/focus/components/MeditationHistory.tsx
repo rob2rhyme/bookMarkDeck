@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import type { MeditationSessionRecord } from "@/features/focus/data/focusData";
 import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
+import { dayKeyFor as dayKey } from "@/lib/dayKey";
 
 type RangeKey = "day" | "week" | "month" | "all";
 
@@ -24,13 +25,6 @@ const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
-
-function dayKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function dayShort(key: string): string {
   const [y, m, d] = key.split("-").map(Number);

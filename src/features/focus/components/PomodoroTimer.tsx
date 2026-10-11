@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { TimeUpModal } from "@/features/focus/components/TimeUpModal";
-import { recordFocusSession, todayKey } from "@/features/focus/data/focusData";
+import { recordFocusSession } from "@/features/focus/data/focusData";
 import {
   FocusMode,
   MODE_LABELS,
@@ -11,6 +11,7 @@ import {
 } from "@/features/focus/hooks/useFocusTimer";
 import { useStopwatch } from "@/features/focus/hooks/useStopwatch";
 import type { FocusSettings } from "@/features/focus/lib/settings";
+import { todayKey } from "@/lib/dayKey";
 
 const MODES: FocusMode[] = ["focus", "short", "long"];
 

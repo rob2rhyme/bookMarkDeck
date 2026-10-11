@@ -6,7 +6,6 @@ vi.mock("@/features/inventory/data/inventoryData", () => ({
   fetchItems: vi.fn(async () => []),
   saveItem: vi.fn(async () => {}),
   subscribeItems: vi.fn(() => () => {}),
-  todayKey: () => "2026-09-30",
   deleteLocation: vi.fn(async () => {}),
   fetchLocations: vi.fn(async () => []),
   saveLocation: vi.fn(async () => {}),

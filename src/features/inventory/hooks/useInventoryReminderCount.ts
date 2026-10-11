@@ -5,19 +5,12 @@ import { usePathname } from "next/navigation";
 
 import { reminderCountFor } from "@/features/inventory/lib/value";
 import type { InventoryItem } from "@/features/inventory/lib/types";
+// Dependency-free, so the app shell doesn't pull the firebase-heavy data
+// module into its bundle.
+import { todayKey } from "@/lib/dayKey";
 
 // Must match the cache key useInventory writes.
 const ITEMS_KEY = "bookmarkdeck:inventory:items:v1";
-
-/** Local YYYY-MM-DD (mirrors data/inventoryData.todayKey) — inlined so the app
- *  shell doesn't pull the firebase-heavy data module into its bundle. */
-function todayLocal(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = (now.getMonth() + 1).toString().padStart(2, "0");
-  const d = now.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
 
 function readCount(email?: string | null): number {
   if (typeof window === "undefined" || !email) return 0;
@@ -25,7 +18,7 @@ function readCount(email?: string | null): number {
     const raw = window.localStorage.getItem(`${ITEMS_KEY}:${email}`);
     const items = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(items)) return 0;
-    return reminderCountFor(items as InventoryItem[], todayLocal());
+    return reminderCountFor(items as InventoryItem[], todayKey());
   } catch {
     return 0;
   }

@@ -10,6 +10,7 @@ import type { ActivityEvent, ActivityType } from "@/features/focus/data/focusDat
 import { type MoodKey } from "@/features/focus/lib/mood";
 import type { FocusSessionRecord } from "@/features/focus/lib/types";
 import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
+import { dayKeyFor as dayKey } from "@/lib/dayKey";
 
 // A handle to the underlying record so a deleted item can be removed/restored.
 export type ActivityRef =
@@ -66,13 +67,6 @@ type TimelineItem = {
   focusMin: number;
   ref: ActivityRef;
 };
-
-function dayKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function dayLabel(key: string): string {
   const today = new Date();

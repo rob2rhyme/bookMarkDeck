@@ -3,17 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { pickRediscoverBookmark } from "@/utils/rediscoverBookmark";
 import type { Bookmark } from "@/types/bookmark";
+import { todayKey } from "@/lib/dayKey";
 
 const BASE_KEY = "bookmarkdeck:rediscover:v1";
 const keyFor = (userId?: string | null) =>
   userId ? `${BASE_KEY}:${userId}` : BASE_KEY;
-
-function localDayKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 /**
  * The daily "rediscover a bookmark" pick + a per-day dismiss. Hydration-safe:
@@ -31,7 +25,7 @@ export function useRediscoverBookmark(
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setToday(localDayKey(new Date()));
+    setToday(todayKey());
     try {
       setDismissedDay(window.localStorage.getItem(keyFor(userId)));
     } catch {

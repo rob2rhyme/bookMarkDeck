@@ -2,21 +2,14 @@
 //
 // Local-day helpers. Day keys are local `YYYY-MM-DD` strings (never UTC — that
 // mis-buckets evening logs) and arithmetic goes through Date objects built at
-// local midday so DST 23/25h days never skip or double-count.
+// local midday so DST 23/25h days never skip or double-count. The formatter
+// itself is the app's one, re-exported so habits' importers keep one module.
+
+import { dayKeyFor, todayKey } from "@/lib/dayKey";
+
+export { dayKeyFor, todayKey };
 
 export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-export function dayKeyFor(d: Date): string {
-  const y = d.getFullYear();
-  const m = (d.getMonth() + 1).toString().padStart(2, "0");
-  const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** Local YYYY-MM-DD for "today" — call inside an effect, never during render. */
-export function todayKey(): string {
-  return dayKeyFor(new Date());
-}
 
 /** Parse a day key to a local Date at midday (DST-safe for day arithmetic). */
 export function parseDay(key: string): Date {

@@ -49,6 +49,7 @@ import { useFilingPush } from "@/features/filing/hooks/useFilingPush";
 import { dueItems } from "@/features/filing/lib/obligations";
 import { shredItems } from "@/features/filing/lib/retention";
 import { custodyItems } from "@/features/filing/lib/custody";
+import { todayKey } from "@/lib/dayKey";
 import { consumeFilingIntent, FILING_INTENT_NUDGE } from "@/lib/filingIntent";
 import type { FilingDocument, FilingFolder } from "@/features/filing/lib/types";
 
@@ -93,14 +94,7 @@ export function FilingDashboard() {
   // an interval so a tab left open overnight rolls over instead of going stale.
   const [today, setToday] = useState("");
   useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      setToday(
-        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-          now.getDate()
-        ).padStart(2, "0")}`
-      );
-    };
+    const tick = () => setToday(todayKey());
     tick();
     const id = window.setInterval(tick, 60_000);
     return () => window.clearInterval(id);
