@@ -698,6 +698,30 @@ describe("useHydration — every change is an increment", () => {
     expect(outbox()).toEqual([]);
   });
 
+  // A removal sent ahead of the cup it removes reaches 0 and is clamped there,
+  // and the cup then lands: the day ends one high. Within one page, a change
+  // waits behind its day's undelivered changes instead.
+  it("delivers a removal after the queued cup it removes", async () => {
+    const { result, rerender } = renderHook(
+      ({ connected }: { connected: boolean }) => useHydration({ ...ARGS, connected }),
+      { initialProps: { connected: false } }
+    );
+    await flush();
+    act(() => result.current.drink()); // stored, waiting for a flush
+    await flush();
+    cloud.goSilent(); // no first answer yet
+    rerender({ connected: true });
+    await flush();
+    act(() => result.current.removeCup());
+    await flush();
+    act(() => cloud.reconnect());
+    act(() => void window.dispatchEvent(new Event("online")));
+    await flush();
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(0);
+    expect(outbox()).toEqual([]);
+  });
+
   // A count in the cache alone can't say which of its cups the cloud already
   // has, so it is never uploaded; the record's count is taken instead.
   it("doesn't upload a cached count no change in the outbox accounts for", async () => {

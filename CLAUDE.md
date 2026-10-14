@@ -561,7 +561,10 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   A removal is clamped (`maximum(0)`) in the batch, so one reaching an empty
   record leaves no debt to eat the next cup. A change that can't be stored (storage
   full or blocked, a lock request refused, no Web Locks) is kept in the page's
-  memory and delivered by its next flush.
+  memory and delivered by its next flush. **Order within a day is kept**: a
+  change made while its day has changes waiting for a flush waits behind them,
+  and a page runs one flush at a time per account — a removal sent ahead of the
+  cup it removes reaches 0, is clamped there, and the day ends one high.
   **The outbox is handed over** on the day's first server answer, on `online`
   (`connected` is sign-in state and stays true offline, so "on connect" never fires
   when the network comes back), on focus/visibility, and by *Sync to cloud* — which
@@ -591,10 +594,18 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   outbox the habit's count already held them, so the outbox then added them a
   second time (review measured 7 for 5, and 8 for 6 after a tap). An increment
   isn't idempotent; a count pushed back never is. "Set" actions (a toggle to the
-  target, a logged count) are relative to the count the habit shows, and cups
-  logged before a habit was linked aren't seeded. `useHabits` updates
-  `entriesRef` as it writes, because an outbox flush lands one snapshot per change,
-  several to a render, and a merge against a stale count dropped the last of them.
+  target, a logged count) are relative to the count the habit shows. **Undo**
+  takes back only the tap's change: restoring the count from before the tap
+  erased cups adopted from other devices since. **Linking a habit** (turning sync
+  back on, or a rename that makes it match) makes today's count Focus's: cups
+  logged on the habit while it was unlinked are replaced, not added — the habit
+  can't tell them from cups already on their way through the outbox, and adding
+  those is the double count above. Past days are untouched. In `useHabits` every
+  entries write goes through `commitEntries`, which moves `entriesRef` with the
+  state: snapshots land several to a render (one per recovered change), even
+  between a render and its effects, and an effect copying the rendered entries
+  into the ref put an older count back over a newer one. Actions read the
+  current entry from the ref too, so two taps in one batch count from each other.
   **Focus's day rolls over on its own clock** (a 15 s check plus focus/visibility,
   and at the start of every action) — it used to live inside the reminder loop, so
   with reminders off a tab left open overnight carried yesterday's count into
@@ -617,13 +628,14 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
     recovered it. Only a rule on `ops` in `firestore.rules` could close those.
   - *Back/forward cache.* A restored page with a send unacknowledged reloads
     (`pageshow`, only where Web Locks exist), in case its locks lapsed while it was
-    frozen. A reload isn't an instant teardown, and how each engine treats locks
-    there is assumed, not tested.
+    frozen. A reload isn't an instant teardown, it loses any change the page held
+    only in memory, and how each engine treats locks there is assumed, not tested.
   - *The previous bundle.* Its tabs write absolute counts until they reload, and cups
     that exist only in an old-format cache, from a tab that closed before its merge
     ran, are not recovered.
-  - *Clamp order.* A removal that reaches the server at 0 before the cup it removes
-    (still held by a closed or another tab) leaves the day one high.
+  - *Clamp order between pages.* A removal that reaches the server at 0 before the
+    cup it removes, still held by another page (or one that closed), leaves the day
+    one high. Within a page the order is kept.
   - *Display.* Offline, a tab doesn't see another tab's cups until they land, and a
     change recovered from the outbox shows only once acknowledged.
   - *Kept in memory* (no Web Locks — an insecure context, Safari before 15.4 — or

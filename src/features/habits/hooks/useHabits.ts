@@ -94,25 +94,35 @@ export function useHabits(
   const canSync = connected && Boolean(email);
 
   // Latest entries, readable from callbacks/subscriptions without re-binding.
+  // Every write goes through commitEntries, which moves the ref with the state:
+  // snapshots arrive several to a render (an outbox flush lands one per
+  // change), even between a render and its effects, and a merge reading a stale
+  // count took a real change for "no change". An effect copying the rendered
+  // entries into the ref put an older count back over a newer one.
   const entriesRef = useRef(entries);
-  useEffect(() => {
-    entriesRef.current = entries;
-  }, [entries]);
+  const commitEntries = useCallback(
+    (next: HabitEntry[] | ((prev: HabitEntry[]) => HabitEntry[])) => {
+      entriesRef.current = typeof next === "function" ? next(entriesRef.current) : next;
+      setEntries(entriesRef.current);
+    },
+    []
+  );
 
   // Per-habit single-step undo: the today-entry that existed just before the
-  // most recent tap (null = there was none). Set on every logging action,
-  // consumed by undoToday, and reset when the day rolls over.
-  const [undoByHabit, setUndoByHabit] = useState<Map<string, HabitEntry | null>>(
-    () => new Map()
-  );
+  // most recent tap (null = there was none), and the done-count the tap left.
+  // Set on every logging action, consumed by undoToday, and reset when the day
+  // rolls over.
+  const [undoByHabit, setUndoByHabit] = useState<
+    Map<string, { before: HabitEntry | null; after: number }>
+  >(() => new Map());
 
   // Hydration-safe load (after mount only).
   useEffect(() => {
     setHabits(loadHabits(email));
-    setEntries(loadEntries(email));
+    commitEntries(loadEntries(email));
     setToday(todayKey());
     setHydrated(true);
-  }, [email]);
+  }, [email, commitEntries]);
 
   // Keep "today" fresh when the tab regains focus (covers crossing midnight).
   useEffect(() => {
@@ -190,7 +200,7 @@ export function useHabits(
           setHabits(h);
           setCloudLoaded(true);
         });
-        unsubE = subscribeEntries(email, setEntries);
+        unsubE = subscribeEntries(email, commitEntries);
       });
     return () => {
       cancelled = true;
@@ -204,40 +214,30 @@ export function useHabits(
     if (!canSync || !email) return;
     const [h, e] = await Promise.all([fetchHabits(email), fetchEntries(email)]);
     setHabits(h);
-    setEntries(e);
-  }, [canSync, email]);
+    commitEntries(e);
+  }, [canSync, email, commitEntries]);
 
   /* ---------------------------------------------------------- entries --- */
 
-  // Each also brings entriesRef up to date at once: snapshots can arrive
-  // several to a render (an outbox flush lands one per change), and a merge
-  // reading a stale count took the last of 3, 4, 5 for "no change" and stayed
-  // on 4.
   const upsertEntry = useCallback(
     (entry: HabitEntry) => {
-      entriesRef.current = [...entriesRef.current.filter((e) => e.id !== entry.id), entry];
-      setEntries((prev) => {
-        const next = prev.filter((e) => e.id !== entry.id);
-        next.push(entry);
-        return next;
-      });
+      commitEntries((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
       if (canSync && email) saveEntry(email, entry).catch(() => {});
       else queueUpsert("habitEntries", email, entry.id);
     },
-    [canSync, email]
+    [canSync, email, commitEntries]
   );
 
   const removeEntry = useCallback(
     (id: string) => {
-      entriesRef.current = entriesRef.current.filter((e) => e.id !== id);
-      setEntries((prev) => prev.filter((e) => e.id !== id));
+      commitEntries((prev) => prev.filter((e) => e.id !== id));
       if (canSync && email) deleteEntry(email, id).catch(() => {});
       else {
         queueDelete("habitEntries", email, id);
         unqueueUpsert("habitEntries", email, id);
       }
     },
-    [canSync, email]
+    [canSync, email, commitEntries]
   );
 
   const entryId = (habitId: string, day: string) => `${habitId}_${day}`;
@@ -246,25 +246,31 @@ export function useHabits(
       entries.find((e) => e.id === entryId(habitId, today)) ?? null,
     [entries, today]
   );
+  // The same, as of the latest write rather than the last render — what an
+  // action changes from.
+  const currentEntry = useCallback(
+    (habitId: string) =>
+      entriesRef.current.find((e) => e.id === entryId(habitId, today)) ?? null,
+    [today]
+  );
 
   // Forget pending undos when the day changes (yesterday's snapshot is moot).
   useEffect(() => {
     setUndoByHabit(new Map());
   }, [today]);
 
-  // Snapshot today's entry (or null) right before mutating it, so a single tap
-  // can be reverted exactly.
+  // Snapshot today's entry (or null) right before a tap mutates it, with the
+  // done-count the tap leaves, so the tap can be reverted.
   const recordUndo = useCallback(
-    (habitId: string) => {
-      const prev =
-        entriesRef.current.find((e) => e.id === entryId(habitId, today)) ?? null;
+    (habitId: string, after: number) => {
+      const before = currentEntry(habitId);
       setUndoByHabit((m) => {
         const next = new Map(m);
-        next.set(habitId, prev);
+        next.set(habitId, { before, after });
         return next;
       });
     },
-    [today]
+    [currentEntry]
   );
 
   // Forward-mirror a tap on a linked habit — today's count going from
@@ -286,10 +292,10 @@ export function useHabits(
   const toggleToday = useCallback(
     (habit: Habit) => {
       if (!today) return;
-      recordUndo(habit.id);
-      const existing = todayEntry(habit.id);
+      const existing = currentEntry(habit.id);
       const target = habitTarget(habit);
       const isDone = existing?.status === "done" && existing.count >= target;
+      recordUndo(habit.id, isDone ? 0 : target);
       if (isDone) {
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, doneCount(existing));
@@ -307,20 +313,20 @@ export function useHabits(
       mirrorLinked(habit, target, doneCount(existing));
       onLog?.("habit_done", `Completed habit: ${habit.name}`);
     },
-    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
+    [today, currentEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
   );
 
   /** Measurable +/- by a delta. Clears the entry at 0; logs when target met. */
   const adjustToday = useCallback(
     (habit: Habit, delta: number) => {
       if (!today) return;
-      recordUndo(habit.id);
-      const existing = todayEntry(habit.id);
+      const existing = currentEntry(habit.id);
       const target = habitTarget(habit);
       const prevCount =
         existing && existing.status === "done" ? existing.count : 0;
       const wasDone = prevCount >= target;
       const count = Math.max(0, prevCount + delta);
+      recordUndo(habit.id, count);
       if (count === 0) {
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, prevCount);
@@ -338,14 +344,14 @@ export function useHabits(
       if (!wasDone && count >= target)
         onLog?.("habit_done", `Completed habit: ${habit.name}`);
     },
-    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
+    [today, currentEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
   );
 
   const skipToday = useCallback(
     (habit: Habit) => {
       if (!today) return;
-      recordUndo(habit.id);
-      const previous = doneCount(todayEntry(habit.id));
+      const previous = doneCount(currentEntry(habit.id));
+      recordUndo(habit.id, 0);
       upsertEntry({
         id: entryId(habit.id, today),
         habitId: habit.id,
@@ -357,28 +363,28 @@ export function useHabits(
       mirrorLinked(habit, 0, previous);
       onLog?.("habit_skipped", `Skipped habit: ${habit.name}`);
     },
-    [today, todayEntry, upsertEntry, onLog, recordUndo, mirrorLinked]
+    [today, currentEntry, upsertEntry, onLog, recordUndo, mirrorLinked]
   );
 
   const clearToday = useCallback(
     (habit: Habit) => {
       if (!today) return;
-      const previous = doneCount(todayEntry(habit.id));
+      const previous = doneCount(currentEntry(habit.id));
       removeEntry(entryId(habit.id, today));
       mirrorLinked(habit, 0, previous);
     },
-    [today, todayEntry, removeEntry, mirrorLinked]
+    [today, currentEntry, removeEntry, mirrorLinked]
   );
 
   /** Remove a habit's entry for any day (e.g. an accidental log in history). */
   const clearEntryFor = useCallback(
     (habit: Habit, day: string) => {
       if (!day) return;
-      const previous = doneCount(todayEntry(habit.id));
+      const previous = doneCount(currentEntry(habit.id));
       removeEntry(entryId(habit.id, day));
       if (day === today) mirrorLinked(habit, 0, previous);
     },
-    [today, todayEntry, removeEntry, mirrorLinked]
+    [today, currentEntry, removeEntry, mirrorLinked]
   );
 
   /**
@@ -427,23 +433,35 @@ export function useHabits(
     [today, upsertEntry, removeEntry, mirrorLinked]
   );
 
-  /** Revert the most recent tap on a habit to the snapshot taken before it. */
+  /**
+   * Revert the most recent tap on a habit to the snapshot taken before it. A
+   * habit linked both ways (water) takes back only the tap's change instead:
+   * its count may have taken in cups from other devices since, and restoring
+   * the count from before the tap erased them.
+   */
   const undoToday = useCallback(
     (habit: Habit) => {
       if (!today) return;
-      const prev = undoByHabit.get(habit.id);
-      if (prev === undefined) return; // nothing recorded
-      const previous = doneCount(todayEntry(habit.id));
-      if (prev === null) removeEntry(entryId(habit.id, today));
-      else upsertEntry(prev);
-      mirrorLinked(habit, doneCount(prev), previous);
+      const rec = undoByHabit.get(habit.id);
+      if (rec === undefined) return; // nothing recorded
+      const current = currentEntry(habit.id);
+      let restored = rec.before;
+      if (resolveSource(habit)?.policy === "bidirectional") {
+        const count = doneCount(current) - (rec.after - doneCount(rec.before));
+        const base = current ?? rec.before;
+        if (count > 0 && base) restored = { ...base, status: "done", count };
+        else if (count <= 0 && rec.before?.status === "done") restored = null;
+      }
+      if (restored === null) removeEntry(entryId(habit.id, today));
+      else upsertEntry(restored);
+      mirrorLinked(habit, doneCount(restored), doneCount(current));
       setUndoByHabit((m) => {
         const next = new Map(m);
         next.delete(habit.id);
         return next;
       });
     },
-    [today, todayEntry, undoByHabit, removeEntry, upsertEntry, mirrorLinked]
+    [today, currentEntry, undoByHabit, removeEntry, upsertEntry, mirrorLinked]
   );
 
   /** Full "log today" editor: set status/count + optional note & clock time. */
@@ -458,9 +476,9 @@ export function useHabits(
       }
     ) => {
       if (!today) return;
-      recordUndo(habit.id);
-      const prev = todayEntry(habit.id);
+      const prev = currentEntry(habit.id);
       if (detail.status === "clear") {
+        recordUndo(habit.id, 0);
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, doneCount(prev));
         return;
@@ -471,6 +489,7 @@ export function useHabits(
         detail.status === "skipped"
           ? 0
           : Math.max(1, Math.round(detail.count ?? prev?.count ?? target));
+      recordUndo(habit.id, detail.status === "done" ? count : 0);
       const note = detail.note?.trim();
       upsertEntry({
         id: entryId(habit.id, today),
@@ -488,7 +507,7 @@ export function useHabits(
       if (detail.status === "skipped" && prev?.status !== "skipped")
         onLog?.("habit_skipped", `Skipped habit: ${habit.name}`);
     },
-    [today, todayEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
+    [today, currentEntry, upsertEntry, removeEntry, onLog, recordUndo, mirrorLinked]
   );
 
   /* ----------------------------------------------------------- habits --- */
@@ -521,7 +540,7 @@ export function useHabits(
           return [...prev, ...newH.filter((h) => !ids.has(h.id))];
         });
       if (newE.length)
-        setEntries((prev) => {
+        commitEntries((prev) => {
           const ids = new Set(prev.map((e) => e.id));
           return [...prev, ...newE.filter((e) => !ids.has(e.id))];
         });
@@ -539,7 +558,7 @@ export function useHabits(
           inHabits.length - newH.length + (inEntries.length - newE.length),
       };
     },
-    [habits, entries, canSync, email]
+    [habits, entries, canSync, email, commitEntries]
   );
 
   const updateHabit = useCallback(
@@ -653,6 +672,7 @@ export function useHabits(
         if (r.remove) removeEntry(id);
         else if (r.set != null)
           upsertEntry({
+            ...e, // a note or time logged on the entry stays
             id,
             habitId: habit.id,
             day,
@@ -685,6 +705,7 @@ export function useHabits(
       });
       if (r.set != null)
         upsertEntry({
+          ...e,
           id,
           habitId: habit.id,
           day: today,

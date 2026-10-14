@@ -130,6 +130,8 @@ function forget(email: string, id: string) {
 
 let inFlight = 0;
 let restoreGuarded = false;
+// Changes this page has sent and the server hasn't acknowledged.
+const sendingIds = new Set<string>();
 
 /** Whether this page has sent a change the server hasn't acknowledged yet. */
 export function hydrationInFlight(): boolean {
@@ -158,6 +160,7 @@ async function sendNow(
   guarded: boolean
 ): Promise<boolean> {
   inFlight++;
+  sendingIds.add(id);
   if (guarded) guardRestore();
   try {
     await transport.send(email, entry.day, entry.delta, id);
@@ -166,17 +169,27 @@ async function sendNow(
     return false;
   } finally {
     inFlight--;
+    sendingIds.delete(id);
   }
 }
 
 // Changes this page couldn't store, for its next flush.
 const unsent: { email: string; id: string; entry: Entry }[] = [];
 
+/** Whether `day` has changes waiting for a flush: stored, and not being sent by this page. */
+function waiting(email: string, day: string): boolean {
+  if (unsent.some((u) => u.email === email && u.entry.day === day)) return true;
+  return stored(email).some((s) => s.entry.day === day && !sendingIds.has(s.id));
+}
+
 /**
  * Record a change of `delta` cups to `day`. With `send`, it goes to the server
- * at once, so this page's changes land in the order they were made; without
- * (not connected), it waits for a flush. Either way it is stored until
- * acknowledged, so a page that closes first doesn't lose it.
+ * at once, so this page's changes land in the order they were made — unless
+ * the day has changes still waiting for a flush, when it waits behind them: a
+ * removal sent ahead of the cup it removes reaches 0, is clamped there, and
+ * the day ends one high. Without `send` (not connected) it waits for a flush.
+ * Either way it is stored until acknowledged, so a page that closes first
+ * doesn't lose it.
  */
 export function recordHydration(
   email: string,
@@ -189,7 +202,8 @@ export function recordHydration(
   const id = newId();
   const entry: Entry = { day, delta, at: Date.now() };
   const locks = lockManager();
-  const sending = send ? sendNow(email, id, entry, transport, locks !== null) : null;
+  const behind = send && waiting(email, day);
+  const sending = send && !behind ? sendNow(email, id, entry, transport, locks !== null) : null;
   const keepHere = () => {
     if (!sending) unsent.push({ email, id, entry });
     else
@@ -197,20 +211,33 @@ export function recordHydration(
         if (!ok) unsent.push({ email, id, entry });
       });
   };
-  if (!locks) return keepHere();
+  // Once it is stored (or kept here) and its lock released, so a flush can take it.
+  const followOn = () => {
+    if (behind) void flushHydration(email, transport);
+  };
+  if (!locks) {
+    keepHere();
+    return followOn();
+  }
   let ran = false;
-  // Stored only once its lock is held: until then no other page can find it,
-  // so none can find it unclaimed.
-  locks
-    .request(lockName(id), async () => {
-      ran = true;
-      if (!store(email, id, entry)) return keepHere();
-      if (sending && (await sending)) forget(email, id);
-      // Refused, or not sent: it stays stored, for a flush to recover.
-    })
-    .catch(() => {
-      if (!ran) keepHere();
-    });
+  try {
+    // Stored only once its lock is held: until then no other page can find
+    // it, so none can find it unclaimed.
+    locks
+      .request(lockName(id), async () => {
+        ran = true;
+        if (!store(email, id, entry)) return keepHere();
+        if (sending && (await sending)) forget(email, id);
+        // Refused, or not sent: it stays stored, for a flush to recover.
+      })
+      .catch(() => {
+        if (!ran) keepHere();
+      })
+      .finally(followOn);
+  } catch {
+    keepHere();
+    followOn();
+  }
 }
 
 /** Claim a change's lock if no page holds it. */
@@ -247,13 +274,36 @@ async function recoverDay(email: string, held: Held[], transport: HydrationTrans
   }
 }
 
+// One flush at a time per account in this page, so a day's changes go out in
+// the order they were made: two at once could each hold some of a day's
+// changes. A flush asked for while one runs becomes one that starts after it,
+// and any asked for while that one waits share it.
+const flushes = new Map<string, { last: Promise<void>; waiting: boolean }>();
+
 /**
  * Deliver every change no live page is sending: those stored by any page, and
  * those only this page holds. Safe to call any number of times, from any
  * number of pages — each stored change is recovered by whichever page holds
  * its lock, and recovery writes nothing the server already has.
  */
-export async function flushHydration(email: string, transport: HydrationTransport): Promise<void> {
+export function flushHydration(email: string, transport: HydrationTransport): Promise<void> {
+  const slot = flushes.get(email);
+  if (slot?.waiting) return slot.last;
+  const mine = { last: Promise.resolve(), waiting: Boolean(slot) };
+  mine.last = slot
+    ? slot.last.then(() => {
+        mine.waiting = false;
+        return flushOnce(email, transport);
+      })
+    : flushOnce(email, transport);
+  flushes.set(email, mine);
+  void mine.last.finally(() => {
+    if (flushes.get(email) === mine) flushes.delete(email);
+  });
+  return mine.last;
+}
+
+async function flushOnce(email: string, transport: HydrationTransport): Promise<void> {
   const held: Held[] = [];
   for (let i = unsent.length - 1; i >= 0; i--) {
     if (unsent[i].email !== email) continue;

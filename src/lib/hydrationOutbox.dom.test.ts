@@ -95,6 +95,31 @@ describe("recordHydration", () => {
     expect(s.transport.send).toHaveBeenCalledOnce();
   });
 
+  // A removal sent ahead of the cup it removes would clamp at 0, and the day
+  // would end one high.
+  it("waits behind the day's queued changes, and delivers them all in order", async () => {
+    const s = server();
+    localStorage.setItem(`${PREFIX}earlier`, JSON.stringify({ day: DAY, delta: 1, at: 1 }));
+    recordHydration(EMAIL, DAY, -1, { send: true }, s.transport);
+    await settle();
+    await settle();
+    expect(s.transport.send).not.toHaveBeenCalled();
+    expect(s.sent.map((x) => x.delta)).toEqual([1, -1]);
+    expect(entries()).toEqual([]);
+  });
+
+  it("doesn't wait behind its own changes still on their way", async () => {
+    const s = server();
+    s.set("hold");
+    recordHydration(EMAIL, DAY, 1, { send: true }, s.transport);
+    await settle();
+    recordHydration(EMAIL, DAY, 1, { send: true }, s.transport);
+    expect(s.transport.send).toHaveBeenCalledTimes(2);
+    s.release();
+    await settle();
+    expect(s.total()).toBe(2);
+  });
+
   it("sends the change with its own id, and settles it once acknowledged", async () => {
     const s = server();
     recordHydration(EMAIL, DAY, 1, { send: true }, s.transport);
@@ -198,6 +223,29 @@ describe("recordHydration", () => {
       vi.restoreAllMocks();
       localStorage.clear();
       await flushHydration(EMAIL, s.transport); // this page still holds it
+      expect(s.total()).toBe(1);
+    });
+
+    it("holds a later change behind one this page holds", async () => {
+      const s = server();
+      full();
+      recordHydration(EMAIL, DAY, 1, { send: false }, s.transport);
+      await settle();
+      recordHydration(EMAIL, DAY, -1, { send: true }, s.transport);
+      await settle();
+      expect(s.transport.send).not.toHaveBeenCalled();
+      expect(s.sent.map((x) => x.delta)).toEqual([1, -1]);
+    });
+
+    it("keeps the change in this page when asking for its lock throws", async () => {
+      const s = server();
+      locks.use({
+        request: () => {
+          throw new DOMException("blocked", "SecurityError");
+        },
+      } as unknown as LockManagerLike);
+      expect(() => recordHydration(EMAIL, DAY, 1, { send: false }, s.transport)).not.toThrow();
+      await flushHydration(EMAIL, s.transport);
       expect(s.total()).toBe(1);
     });
 
@@ -360,6 +408,40 @@ describe("flushHydration", () => {
     });
     await flushHydration(EMAIL, s.transport);
     expect(s.sent.map((x) => x.id).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  // Two flushes at once could each hold some of a day's changes and deliver them
+  // out of order; one asked for meanwhile runs after, and sees what's new.
+  it("runs one flush at a time, and a later one sees changes made meanwhile", async () => {
+    const s = server();
+    const gates: (() => void)[] = [];
+    const recover = s.transport.recover;
+    s.transport.recover = vi.fn(async (...args: Parameters<typeof recover>) => {
+      await new Promise<void>((r) => gates.push(r));
+      return recover(...args);
+    });
+    const open = async () => {
+      await settle();
+      gates.shift()?.();
+    };
+    orphan("a", 1, 1);
+    const first = flushHydration(EMAIL, s.transport);
+    await settle();
+    const second = flushHydration(EMAIL, s.transport); // waits for the first…
+    expect(flushHydration(EMAIL, s.transport)).toBe(second); // …and this one shares it
+    orphan("b", 1, 2);
+    await open(); // a lands; the second starts, and holds b
+    await first;
+    await settle();
+    expect(s.transport.recover).toHaveBeenCalledTimes(2);
+    orphan("c", 1, 3); // made while the second runs: it has already looked
+    const third = flushHydration(EMAIL, s.transport);
+    expect(third).not.toBe(second);
+    await open(); // b
+    await second;
+    await open(); // c
+    await third;
+    expect(s.sent.map((x) => x.id)).toEqual(["a", "b", "c"]);
   });
 
   it("stops a day at the first change it can't recover, so none overtakes it", async () => {

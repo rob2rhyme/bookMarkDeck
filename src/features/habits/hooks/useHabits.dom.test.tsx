@@ -123,6 +123,84 @@ describe("useHabits — the water link", () => {
     expect(sent()).toEqual([2, 3, -5]);
   });
 
+  // Undo takes back the tap, not the cups adopted from elsewhere since: it
+  // used to write the count from before the tap, erasing them.
+  it("undoes only the tap when cups were added elsewhere since", async () => {
+    cloud.write(DAY, 3);
+    const { hook, habit, count } = await openHabits();
+    act(() => hook.result.current.adjustToday(habit(), 1));
+    await flush();
+    act(() => cloud.add(DAY, 2)); // the phone
+    await flush();
+    expect(count()).toBe(6);
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(5);
+    expect(count()).toBe(5);
+  });
+
+  it("undoes only the tap when cups were removed elsewhere since", async () => {
+    cloud.write(DAY, 5);
+    const { hook, habit } = await openHabits();
+    act(() => hook.result.current.adjustToday(habit(), 1));
+    await flush();
+    act(() => cloud.add(DAY, -3)); // the phone
+    await flush();
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(2);
+  });
+
+  it("undoes a toggle by taking back the cups it added", async () => {
+    const { hook, habit, count } = await openHabits();
+    act(() => hook.result.current.adjustToday(habit(), 2));
+    act(() => hook.result.current.toggleToday(habit()));
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(sent()).toEqual([2, 6, -6]);
+    expect(count()).toBe(2);
+  });
+
+  it("undoes a tap whose cups are already gone as nothing", async () => {
+    cloud.write(DAY, 3);
+    const { hook, habit, count } = await openHabits();
+    act(() => hook.result.current.adjustToday(habit(), 1));
+    await flush();
+    act(() => cloud.add(DAY, -4)); // the phone takes everything off
+    await flush();
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(sent()).toEqual([1]);
+    expect(cloud.days.get(DAY)).toBe(0);
+    expect(count()).toBe(0);
+  });
+
+  it("keeps a logged note and time when it adopts a cup from elsewhere", async () => {
+    cloud.write(DAY, 3);
+    const { hook, habit, count } = await openHabits();
+    act(() =>
+      hook.result.current.logDetail(habit(), { status: "done", count: 4, note: "with lemon", at: "08:30" })
+    );
+    await flush();
+    act(() => cloud.add(DAY, 1));
+    await flush();
+    expect(count()).toBe(5);
+    expect(hook.result.current.todayEntry("w")).toMatchObject({ note: "with lemon", at: "08:30" });
+  });
+
+  it("counts two taps in one batch from each other", async () => {
+    cloud.write(DAY, 3);
+    const { hook, habit, count } = await openHabits();
+    act(() => {
+      hook.result.current.adjustToday(habit(), 1);
+      hook.result.current.adjustToday(habit(), 1);
+    });
+    expect(count()).toBe(5);
+    await flush();
+    expect(sent()).toEqual([1, 1]);
+    expect(cloud.days.get(DAY)).toBe(5);
+  });
+
   it("sends the cups a step down to 0 removes", async () => {
     const { hook, habit, count } = await openHabits();
     act(() => hook.result.current.adjustToday(habit(), 2));
@@ -258,5 +336,38 @@ describe("useHabits — the water link", () => {
     act(() => void window.dispatchEvent(new Event("online")));
     await flush();
     expect(cloud.days.get(DAY)).toBe(1); // unsubscribed: no longer listening
+  });
+});
+
+// Outside act, on React's own scheduler: a snapshot can land after a render has
+// committed but before its effects ran. Those effects used to copy the
+// rendered entries into entriesRef, over the newer count the snapshot had just
+// written there — so the next snapshot was merged against a stale count.
+describe("useHabits — snapshots between a render and its effects", () => {
+  it("ends on the record's count", async () => {
+    cloud.write(DAY, 3);
+    const { count } = await openHabits();
+    vi.useRealTimers();
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    env.IS_REACT_ACT_ENVIRONMENT = false;
+    try {
+      const tick = () => new Promise<void>((r) => setImmediate(r));
+      const settle = async () => {
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+      };
+      cloud.write(DAY, 4); // a cup elsewhere: React schedules a render
+      await settle();
+      setImmediate(async () => {
+        cloud.write(DAY, 5); // between that render's commit and its effects
+        await settle();
+        setImmediate(() => cloud.write(DAY, 4)); // and taken back
+      });
+      for (let i = 0; i < 20; i++) await tick();
+    } finally {
+      env.IS_REACT_ACT_ENVIRONMENT = true;
+    }
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(count()).toBe(4);
   });
 });
