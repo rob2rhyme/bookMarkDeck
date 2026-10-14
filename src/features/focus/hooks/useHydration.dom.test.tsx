@@ -2,141 +2,12 @@ import { act, renderHook } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { cloud } from "@/test/hydrationCloud";
 import { webLocksMock, type LockManagerLike, type WebLocksMock } from "@/test/webLocksMock";
 
-// An in-memory focusHydration collection seen from one page. The server holds
-// a count and the receipts of the changes it applied, per day. While the page
-// is offline its own writes queue, and nothing another device writes is heard.
-// A closed page's queued writes die with it; a write can also land without its
-// acknowledgement ever coming back. Listeners hear what subscribeHydration
-// passes on with serverFirst: the server's count, and nothing while this page
-// has a write to that day unacknowledged.
-const cloud = vi.hoisted(() => {
-  type Write = { day: string; apply: (v: number) => number; id?: string; done: () => void };
-  type Listener = (v: number | null) => void;
-  const days = new Map<string, number>();
-  const receipts = new Map<string, Set<string>>();
-  const listeners = new Map<string, Set<Listener>>();
-  let queue: Write[] = []; // written offline, not yet landed
-  let unacked: Write[] = []; // landed, acknowledgement lost
-  let silent = false;
-  let losingAcks = false;
-  const server = (day: string) => (days.has(day) ? days.get(day)! : null);
-  const pending = (day: string) => [...queue, ...unacked].some((w) => w.day === day);
-  const land = (w: Write) => {
-    days.set(w.day, w.apply(days.get(w.day) ?? 0));
-    if (w.id) receipts.set(w.day, new Set([...(receipts.get(w.day) ?? []), w.id]));
-  };
-  /** The server answers `day`'s listeners. */
-  const answer = (day: string) => {
-    if (silent || pending(day)) return;
-    listeners.get(day)?.forEach((cb) => cb(server(day)));
-  };
-  const commit = (w: Omit<Write, "done">) =>
-    new Promise<void>((resolve) => {
-      const write = { ...w, done: resolve };
-      if (silent) {
-        queue.push(write);
-        return;
-      }
-      land(write);
-      if (losingAcks) unacked.push(write);
-      else resolve();
-      answer(w.day);
-    });
-  return {
-    days,
-    subscribedDays: [] as string[],
-    reset() {
-      days.clear();
-      receipts.clear();
-      listeners.clear();
-      queue = [];
-      unacked = [];
-      silent = false;
-      losingAcks = false;
-      this.subscribedDays.length = 0;
-    },
-    /** This page loses the network. */
-    goSilent() {
-      silent = true;
-    },
-    /** Back online: the queued writes land in order, and every listener hears the server. */
-    reconnect() {
-      silent = false;
-      const sent = queue;
-      queue = [];
-      sent.forEach((w) => {
-        land(w);
-        if (losingAcks) unacked.push(w);
-        else w.done();
-      });
-      listeners.forEach((_, day) => answer(day));
-    },
-    /** From now on a write lands, but its acknowledgement never comes back. */
-    loseAcks() {
-      losingAcks = true;
-    },
-    /** The page closes: its queued writes die unsent, and none is pending any more. */
-    killTab() {
-      queue = [];
-      unacked = [];
-      losingAcks = false;
-    },
-    /** Another device writes `day`'s count. */
-    write(day: string, cups: number) {
-      days.set(day, cups);
-      answer(day);
-    },
-    /** Another device adds to `day`'s count. */
-    add(day: string, delta: number) {
-      days.set(day, Math.max(0, (days.get(day) ?? 0) + delta));
-      answer(day);
-    },
-    /** A snapshot of `day` arriving, whatever the store holds. */
-    snapshot(day: string, cups: number | null) {
-      listeners.get(day)?.forEach((cb) => cb(cups));
-    },
-    listen(day: string, cb: Listener) {
-      this.subscribedDays.push(day);
-      if (!listeners.has(day)) listeners.set(day, new Set());
-      const set = listeners.get(day)!;
-      set.add(cb);
-      // Firestore delivers the first snapshot asynchronously.
-      Promise.resolve().then(() => {
-        if (!silent && !pending(day) && set.has(cb)) cb(server(day));
-      });
-      return () => set.delete(cb);
-    },
-    /** This page's increment, with its receipt when it carries one. */
-    increment: (day: string, delta: number, id?: string) =>
-      commit({ day, id, apply: (v) => Math.max(0, v + delta) }),
-    /** This page writing a count outright. */
-    set: (day: string, cups: number) => commit({ day, apply: () => cups }),
-    async receiptsFor(day: string) {
-      if (silent) throw new Error("offline");
-      return [...(receipts.get(day) ?? [])];
-    },
-  };
-});
-
-vi.mock("@/features/focus/data/focusData", () => {
-  const send = vi.fn((_e: string, day: string, delta: number, id?: string) =>
-    cloud.increment(day, delta, id)
-  );
-  return {
-    addHydration: send,
-    hydrationTransport: {
-      send,
-      receipts: vi.fn((_e: string, day: string) => cloud.receiptsFor(day)),
-    },
-    fetchHydration: vi.fn(async (_e: string, day: string) => cloud.days.get(day) ?? null),
-    saveHydration: vi.fn((_e: string, day: string, cups: number) => cloud.set(day, cups)),
-    subscribeHydration: vi.fn((_e: string, day: string, cb: (v: number | null) => void) =>
-      cloud.listen(day, cb)
-    ),
-  };
-});
+vi.mock("@/features/focus/data/focusData", async () =>
+  (await import("@/test/hydrationCloud")).hydrationData()
+);
 vi.mock("@/features/focus/lib/sound", () => ({ playChime: vi.fn() }));
 vi.mock("@/features/focus/lib/notify", () => ({ notify: vi.fn() }));
 
@@ -594,7 +465,7 @@ describe("useHydration — every change is an increment", () => {
     localStorage.clear();
     cloud.reset();
     vi.mocked(hydrationTransport.send).mockClear();
-    vi.mocked(hydrationTransport.receipts).mockClear();
+    vi.mocked(hydrationTransport.recover).mockClear();
   });
   afterEach(() => vi.useRealTimers());
 
@@ -744,6 +615,19 @@ describe("useHydration — every change is an increment", () => {
     expect(result.current.cups).toBe(0);
   });
 
+  // The SDK's answer is stale while this page's change is unacknowledged: a day
+  // never read answered 1 against the emulator, with the server at 6.
+  it("keeps the count on screen when Download can't see the server past a pending cup", async () => {
+    cloud.write(DAY, 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    cloud.goSilent();
+    act(() => result.current.drink());
+    await act(() => result.current.pullFromCloud());
+    expect(result.current.cups).toBe(4);
+    expect(stored().cups).toBe(4);
+  });
+
   it("Sync to cloud hands over queued cups", async () => {
     cloud.write(DAY, 3);
     const { result } = renderHook(() => useHydration(synced));
@@ -804,7 +688,7 @@ describe("useHydration — every change is an increment", () => {
     await flush();
     // Not connected: sending would ask to sign in.
     expect(hydrationTransport.send).not.toHaveBeenCalled();
-    expect(hydrationTransport.receipts).not.toHaveBeenCalled();
+    expect(hydrationTransport.recover).not.toHaveBeenCalled();
     expect(outbox()).toHaveLength(4);
     cloud.write(DAY, 1); // the phone
     rerender({ connected: true });

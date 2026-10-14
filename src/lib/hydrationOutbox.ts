@@ -10,31 +10,36 @@
 //
 //  - Each change has its own localStorage key, so recording and settling never
 //    read-modify-write a value another tab is writing.
-//  - Each change has its own Web Lock, held by the page sending it from the
-//    moment the change is stored until the server acknowledges it. A page that
-//    closes releases its locks exactly when its queued writes die, so a change
-//    whose lock is free is one nobody is sending.
-//  - Each write carries a receipt (`ops.{id}`) in the same atomic write, and a
-//    page about to resend a change it didn't just make reads the day from the
-//    server first. A receipt means the write landed and only its acknowledgement
-//    was lost, so the change is settled instead of sent again.
+//  - Each change has its own Web Lock, held by the page that made it from the
+//    moment it is stored until the server acknowledges it. A page that closes
+//    releases its locks when its queued writes die, so a change whose lock is
+//    free is one nobody is sending.
+//  - Each write carries a receipt (`ops.{id}`), and a change a page didn't just
+//    make is only ever sent again by `recover`: one transaction that reads the
+//    day from the server and writes nothing if the receipt is there — the write
+//    landed and only its acknowledgement was lost. A transaction, because a
+//    plain read can be answered by an open listener's view, which can lag the
+//    write it is meant to find; and because a write landing between a separate
+//    read and the resend would still be counted twice.
 //
-// Without Web Locks (an insecure context, Safari before 15.4) no page can tell
-// whether another is still sending a stored change, so nothing is stored for
-// another page to find: a change is sent at once, or kept in this page's memory
-// until a flush, and is lost if the page closes first.
+// A change this page can't store (no Web Locks, storage full or blocked) is
+// kept in this page's memory instead, and the next flush delivers it. Nobody
+// else knows of it, so it is lost if the page closes first.
 //
 // A neutral lib: the transport is passed in, so it imports no feature.
 
 export type HydrationTransport = {
-  /** Add `delta` to `day`'s count, with `id`'s receipt in the same write. */
+  /** Add `delta` to `day`'s count, with `id`'s receipt in the same write. Queues offline. */
   send: (email: string, day: string, delta: number, id: string) => Promise<void>;
-  /** The ids whose receipts `day`'s record holds, read from the server. */
-  receipts: (email: string, day: string) => Promise<Iterable<string>>;
+  /**
+   * The same, in a transaction that reads the day from the server first and
+   * writes nothing when `id`'s receipt is already there. Fails offline.
+   */
+  recover: (email: string, day: string, delta: number, id: string) => Promise<void>;
 };
 
 type Entry = { day: string; delta: number; at: number };
-type Held = { id: string; entry: Entry; release: () => void };
+type Held = { id: string; entry: Entry; stored: boolean; release: () => void };
 
 const PREFIX = "bookmarkdeck:focus:hydration-outbox:v1";
 const LOCK = "bookmarkdeck:hydration-op";
@@ -99,17 +104,20 @@ function read(email: string, id: string): Entry | null {
   }
 }
 
+/** Store a change; only once it is stored are the oldest beyond the cap dropped. */
 function store(email: string, id: string, entry: Entry): boolean {
   try {
-    const all = stored(email).sort((a, b) => a.entry.at - b.entry.at);
-    for (const old of all.slice(0, Math.max(0, all.length + 1 - MAX_ENTRIES))) {
-      localStorage.removeItem(keyPrefix(email) + old.id);
-    }
     localStorage.setItem(keyPrefix(email) + id, JSON.stringify(entry));
-    return true;
   } catch {
     return false;
   }
+  const others = stored(email)
+    .filter((s) => s.id !== id)
+    .sort((a, b) => a.entry.at - b.entry.at);
+  for (const old of others.slice(0, Math.max(0, others.length + 1 - MAX_ENTRIES))) {
+    forget(email, old.id);
+  }
+  return true;
 }
 
 function forget(email: string, id: string) {
@@ -129,8 +137,10 @@ export function hydrationInFlight(): boolean {
 }
 
 // A page restored from the back/forward cache may have lost its locks while it
-// was frozen, and another page may have sent its changes since. Reloading drops
-// this page's copies of them rather than sending them a second time.
+// was frozen, and another page may have recovered its stored changes since.
+// Its own queued writes would then land a second time, so it reloads instead.
+// Only with Web Locks: without them nothing is stored, and a reload would lose
+// what only this page holds.
 function guardRestore() {
   if (restoreGuarded || typeof window === "undefined") return;
   restoreGuarded = true;
@@ -139,18 +149,18 @@ function guardRestore() {
   });
 }
 
-/** Send one change; settled (removed) once acknowledged, kept if refused. */
-async function deliver(
+/** Send one change; true once acknowledged, false if refused. */
+async function sendNow(
   email: string,
   id: string,
   entry: Entry,
-  transport: HydrationTransport
+  transport: HydrationTransport,
+  guarded: boolean
 ): Promise<boolean> {
   inFlight++;
-  guardRestore();
+  if (guarded) guardRestore();
   try {
     await transport.send(email, entry.day, entry.delta, id);
-    forget(email, id);
     return true;
   } catch {
     return false;
@@ -159,13 +169,14 @@ async function deliver(
   }
 }
 
-// Changes kept in this page's memory, when there are no Web Locks.
+// Changes this page couldn't store, for its next flush.
 const unsent: { email: string; id: string; entry: Entry }[] = [];
 
 /**
  * Record a change of `delta` cups to `day`. With `send`, it goes to the server
- * now; without (not connected), it waits for a flush. Either way it is stored
- * until acknowledged, so a page that closes first doesn't lose it.
+ * at once, so this page's changes land in the order they were made; without
+ * (not connected), it waits for a flush. Either way it is stored until
+ * acknowledged, so a page that closes first doesn't lose it.
  */
 export function recordHydration(
   email: string,
@@ -177,28 +188,28 @@ export function recordHydration(
   if (!delta) return;
   const id = newId();
   const entry: Entry = { day, delta, at: Date.now() };
-  const keep = () => {
-    if (send) {
-      void deliver(email, id, entry, transport).then((ok) => {
+  const locks = lockManager();
+  const sending = send ? sendNow(email, id, entry, transport, locks !== null) : null;
+  const keepHere = () => {
+    if (!sending) unsent.push({ email, id, entry });
+    else
+      void sending.then((ok) => {
         if (!ok) unsent.push({ email, id, entry });
       });
-    } else {
-      unsent.push({ email, id, entry });
-    }
   };
-  const locks = lockManager();
-  if (!locks) return keep();
+  if (!locks) return keepHere();
   let ran = false;
   // Stored only once its lock is held: until then no other page can find it,
   // so none can find it unclaimed.
   locks
     .request(lockName(id), async () => {
       ran = true;
-      store(email, id, entry);
-      if (send) await deliver(email, id, entry, transport);
+      if (!store(email, id, entry)) return keepHere();
+      if (sending && (await sending)) forget(email, id);
+      // Refused, or not sent: it stays stored, for a flush to recover.
     })
     .catch(() => {
-      if (!ran) keep();
+      if (!ran) keepHere();
     });
 }
 
@@ -214,59 +225,55 @@ function claim(locks: LockManager, id: string): Promise<(() => void) | null> {
   });
 }
 
-async function flushDay(
-  email: string,
-  day: string,
-  held: Held[],
-  transport: HydrationTransport
-): Promise<void> {
-  let landed: Set<string>;
-  try {
-    landed = new Set(await transport.receipts(email, day));
-  } catch {
-    held.forEach((h) => h.release()); // offline: kept for the next flush
-    return;
-  }
-  // In the order they were made: a removal applied before the cup it removes
-  // clamps at 0 and is lost.
+/**
+ * One day's changes, in the order they were made — a removal applied before
+ * the cup it removes clamps at 0 and is lost — one at a time, stopping at the
+ * first that fails (offline), so none overtakes an earlier one.
+ */
+async function recoverDay(email: string, held: Held[], transport: HydrationTransport) {
   held.sort((a, b) => a.entry.at - b.entry.at);
-  await Promise.all(
-    held.map(async (h) => {
-      if (landed.has(h.id)) forget(email, h.id);
-      else await deliver(email, h.id, h.entry, transport);
-      h.release();
-    })
-  );
+  let failed = false;
+  for (const h of held) {
+    if (!failed) {
+      try {
+        await transport.recover(email, h.entry.day, h.entry.delta, h.id);
+        if (h.stored) forget(email, h.id);
+      } catch {
+        failed = true;
+      }
+    }
+    if (failed && !h.stored) unsent.push({ email, id: h.id, entry: h.entry });
+    h.release();
+  }
 }
 
 /**
- * Send every stored change no live page is sending. Safe to call any number of
- * times, from any number of pages: each change is sent by whichever page holds
- * its lock, after checking the server doesn't already have it.
+ * Deliver every change no live page is sending: those stored by any page, and
+ * those only this page holds. Safe to call any number of times, from any
+ * number of pages — each stored change is recovered by whichever page holds
+ * its lock, and recovery writes nothing the server already has.
  */
 export async function flushHydration(email: string, transport: HydrationTransport): Promise<void> {
-  const locks = lockManager();
-  if (!locks) {
-    const mine = unsent.filter((u) => u.email === email).sort((a, b) => a.entry.at - b.entry.at);
-    for (const u of mine) unsent.splice(unsent.indexOf(u), 1);
-    await Promise.all(
-      mine.map(async (u) => {
-        if (!(await deliver(email, u.id, u.entry, transport))) unsent.push(u);
-      })
-    );
-    return;
+  const held: Held[] = [];
+  for (let i = unsent.length - 1; i >= 0; i--) {
+    if (unsent[i].email !== email) continue;
+    const [u] = unsent.splice(i, 1);
+    held.push({ id: u.id, entry: u.entry, stored: false, release: () => {} });
   }
-  const ids = stored(email).map((s) => s.id);
-  if (!ids.length) return;
-  const claims = await Promise.all(ids.map((id) => claim(locks, id)));
+  const locks = lockManager();
+  if (locks) {
+    const ids = stored(email).map((s) => s.id);
+    const claims = await Promise.all(ids.map((id) => claim(locks, id)));
+    ids.forEach((id, i) => {
+      const release = claims[i];
+      if (!release) return; // a live page is sending it
+      // Read again under the lock: the page that held it may have settled it.
+      const entry = read(email, id);
+      if (!entry) return release();
+      held.push({ id, entry, stored: true, release });
+    });
+  }
   const byDay = new Map<string, Held[]>();
-  ids.forEach((id, i) => {
-    const release = claims[i];
-    if (!release) return; // a live page is sending it
-    // Read again under the lock: the page that held it may have settled it.
-    const entry = read(email, id);
-    if (!entry) return release();
-    byDay.set(entry.day, [...(byDay.get(entry.day) ?? []), { id, entry, release }]);
-  });
-  await Promise.all([...byDay].map(([day, held]) => flushDay(email, day, held, transport)));
+  for (const h of held) byDay.set(h.entry.day, [...(byDay.get(h.entry.day) ?? []), h]);
+  await Promise.all([...byDay.values()].map((day) => recoverDay(email, day, transport)));
 }

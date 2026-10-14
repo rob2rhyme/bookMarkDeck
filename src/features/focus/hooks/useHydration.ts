@@ -152,11 +152,12 @@ export function useHydration({
   }, [hydrated, rollIfNewDay, flush]);
 
   // Follow the current day's count for live cross-browser updates. Every
-  // snapshot is taken as the count: the SDK lays this page's unacknowledged
-  // changes over it, so they show. Cache-only answers are held back until the
-  // server has answered (serverFirst) — offline, a record another device wrote
-  // reads as missing from the cache. The first answer is also when the outbox
-  // is handed over.
+  // snapshot that arrives is taken as the count. serverFirst holds back the
+  // ones that would mislead: cache-only answers before the server has answered
+  // (offline, a record another device wrote reads as missing), and any carrying
+  // this page's unacknowledged changes, which the SDK lays over a stale count.
+  // This page shows its own changes itself, through `show`. The first answer is
+  // also when the outbox is handed over.
   useEffect(() => {
     if (!canSync || !email || !day) return;
     const unsubscribe = subscribeHydration(
@@ -204,13 +205,13 @@ export function useHydration({
   const drink = useCallback(() => {
     rollIfNewDay();
     const next = countRef.current + 1;
+    // Before the day's record has been read the total isn't known — other
+    // devices' cups aren't in it yet — so the log doesn't claim one.
+    const known = !canSync || answeredRef.current === dayRef.current;
     show(next);
     if (email) recordHydration(email, dayRef.current, 1, { send: canSync }, hydrationTransport);
     lastDrinkRef.current = Date.now();
     setReminding(false);
-    // Before the day's record has been read the total isn't known — other
-    // devices' cups aren't in it yet — so the log doesn't claim one.
-    const known = !canSync || answeredRef.current === dayRef.current;
     onLog?.(
       "hydration",
       known
@@ -236,8 +237,9 @@ export function useHydration({
     rollIfNewDay();
     const d = dayRef.current;
     const remote = await fetchHydration(email, d);
-    // Dropped if the day or the account changed while it was in flight.
-    if (d !== dayRef.current || email !== emailRef.current) return;
+    // Dropped if the day or the account changed while it was in flight, or if
+    // this page's own changes to the day are unacknowledged (the answer is stale).
+    if (remote === undefined || d !== dayRef.current || email !== emailRef.current) return;
     show(remote ?? 0);
   }, [canSync, email, rollIfNewDay, show]);
 

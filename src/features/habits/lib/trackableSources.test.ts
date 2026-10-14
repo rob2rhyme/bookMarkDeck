@@ -9,7 +9,7 @@ vi.mock("@/features/focus/data/focusData", () => ({
   subscribeMeditationSessions: () => () => {},
   subscribeSessions: () => () => {},
   subscribeResets: () => () => {},
-  saveHydration: async () => {},
+  hydrationTransport: { send: async () => {}, recover: async () => {} },
 }));
 // inventoryData also imports the Firebase client — stub it (the declutter source
 // wires to it), so importing the registry stays node-safe.
@@ -102,25 +102,25 @@ describe("resolveSource", () => {
 });
 
 describe("mergeStep — raiseOnly", () => {
-  const base = { policy: "raiseOnly" as const, target: 1, isFirst: true };
+  const base = { policy: "raiseOnly" as const, target: 1 };
 
   it("marks a binary habit done when the signal is present", () => {
     const r = mergeStep({ ...base, habitType: "binary", curCount: 0, remote: 1 });
-    expect(r).toEqual({ set: 1, remove: false, mirror: null });
+    expect(r).toEqual({ set: 1, remove: false });
   });
 
   it("never un-marks when the signal drops to 0", () => {
     const r = mergeStep({ ...base, habitType: "binary", curCount: 1, remote: 0 });
-    expect(r).toEqual({ set: null, remove: false, mirror: null });
+    expect(r).toEqual({ set: null, remove: false });
   });
 
   it("raises a measurable count but never lowers it", () => {
     expect(
       mergeStep({ ...base, habitType: "measurable", target: 10, curCount: 3, remote: 7 })
-    ).toEqual({ set: 7, remove: false, mirror: null });
+    ).toEqual({ set: 7, remove: false });
     expect(
       mergeStep({ ...base, habitType: "measurable", target: 10, curCount: 8, remote: 5 })
-    ).toEqual({ set: null, remove: false, mirror: null });
+    ).toEqual({ set: null, remove: false });
   });
 
   it("treats a null remote as no progress", () => {
@@ -129,41 +129,30 @@ describe("mergeStep — raiseOnly", () => {
   });
 });
 
+// Hydration's count travels as increments, so the habit adopts it and never
+// pushes its own back: a count pushed back is added a second time to cups still
+// on their way. The first snapshot used to max-merge and push the higher value.
 describe("mergeStep — bidirectional", () => {
   const base = { policy: "bidirectional" as const, habitType: "measurable" as const, target: 8 };
 
-  it("max-merges on the first snapshot and pushes the higher value back", () => {
-    const r = mergeStep({ ...base, curCount: 5, remote: 2, isFirst: true });
-    expect(r.set).toBeNull(); // entry already 5 → no rewrite needed
-    expect(r.remove).toBe(false);
-    expect(r.mirror).toBe(5); // …but Focus gets bumped up to 5
+  it("adopts a lower remote, even on the first snapshot", () => {
+    expect(mergeStep({ ...base, curCount: 5, remote: 3 })).toEqual({ set: 3, remove: false });
   });
 
-  it("writes the entry up when the remote is higher on first snapshot", () => {
-    const r = mergeStep({ ...base, curCount: 2, remote: 5, isFirst: true });
-    expect(r.set).toBe(5); // remote higher → entry rises to 5
-    expect(r.mirror).toBeNull(); // Focus already at 5, nothing to push
-  });
-
-  it("adopts the remote on later snapshots", () => {
-    const r = mergeStep({ ...base, curCount: 5, remote: 3, isFirst: false });
-    expect(r.set).toBe(3);
-    expect(r.mirror).toBeNull();
+  it("adopts a higher remote", () => {
+    expect(mergeStep({ ...base, curCount: 2, remote: 5 })).toEqual({ set: 5, remove: false });
   });
 
   it("removes the entry when the remote falls to 0", () => {
-    const r = mergeStep({ ...base, curCount: 4, remote: 0, isFirst: false });
-    expect(r).toEqual({ set: null, remove: true, mirror: null });
+    expect(mergeStep({ ...base, curCount: 4, remote: 0 })).toEqual({ set: null, remove: true });
   });
 
-  it("seeds Focus from the habit when no remote doc exists yet", () => {
-    const r = mergeStep({ ...base, curCount: 6, remote: null, isFirst: true });
-    expect(r.mirror).toBe(6);
-    expect(r.set).toBeNull();
+  it("changes nothing when the remote matches", () => {
+    expect(mergeStep({ ...base, curCount: 4, remote: 4 })).toEqual({ set: null, remove: false });
   });
 
-  it("does not seed on a later null snapshot", () => {
-    const r = mergeStep({ ...base, curCount: 6, remote: null, isFirst: false });
-    expect(r.mirror).toBeNull();
+  // The habit's own taps are already on their way as increments.
+  it("changes nothing, and seeds nothing, when no record exists yet", () => {
+    expect(mergeStep({ ...base, curCount: 6, remote: null })).toEqual({ set: null, remove: false });
   });
 });

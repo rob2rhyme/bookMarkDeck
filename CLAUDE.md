@@ -265,7 +265,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     `useFocusTimer.dom.test.tsx` covers the restore-from-localStorage paths, which depend on
     effect *ordering* and so are invisible to any unit test of the maths.
     Test-only helpers live in `src/test/` (`webLocksMock.ts`: pages, their Web Locks, and a
-    page closing).
+    page closing; `hydrationCloud.ts`: an in-memory `focusHydration` for hook tests).
   - Six **source-scanning** tests sit in that node project and assert properties of how
     the code is written rather than what it returns, so nothing else could catch them:
     `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
@@ -547,21 +547,30 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   (absolute) is now only for a backup restore.
   **The outbox exists because Firestore keeps queued writes in tab memory** (the
   memory cache): an increment queued offline dies with its tab. So each change is
-  also stored — one localStorage key per change, never a shared list — under a Web
-  Lock held by whichever page is sending it, from before it is stored until the
-  server acknowledges it. A page that closes releases its locks exactly when its
-  queued writes die, so a change whose lock is free is one nobody is sending, and
-  any page may send it. Before resending a change it didn't just make, a page reads
-  the day **from the server** (`getDocFromServer`) for its receipt: each write
-  carries `ops.{id}` in the same atomic batch, so "landed, acknowledgement lost" is
-  settled instead of counted twice. A removal is clamped (`maximum(0)`) in that
-  batch, so one reaching an empty record leaves no debt to eat the next cup.
+  sent at once (in the order made) and also stored — one localStorage key per
+  change, never a shared list — under a Web Lock its page holds from storing it
+  until the server acknowledges it. A page that closes releases its locks when its
+  queued writes die, so a change whose lock is free is one nobody is sending.
+  Each write carries a receipt, `ops.{id}`, in the same atomic batch, and a change a
+  page didn't just make is only ever delivered by **`recoverHydration`: one
+  transaction that reads the day from the server and writes nothing if the receipt
+  is there** — "landed, acknowledgement lost" is settled, not counted twice. It was
+  a `getDocFromServer` read and then a send, and review proved it double-counted:
+  with a listener already open on the day (every Focus tab has one), that read is
+  answered from the listener's view, which can lag the very write it looks for.
+  A removal is clamped (`maximum(0)`) in the batch, so one reaching an empty
+  record leaves no debt to eat the next cup. A change that can't be stored (storage
+  full or blocked, a lock request refused, no Web Locks) is kept in the page's
+  memory and delivered by its next flush.
   **The outbox is handed over** on the day's first server answer, on `online`
   (`connected` is sign-in state and stays true offline, so "on connect" never fires
   when the network comes back), on focus/visibility, and by *Sync to cloud* — which
-  never writes the count on screen. Cups taken while not connected are recorded and
-  delivered on connect; a cached count no outbox entry accounts for is never
-  uploaded, because it can't say which of its cups the cloud already has.
+  never writes the count on screen. Habits' water link hands it over too (below),
+  so a Focus tab that closed offline still delivers when habits opens first. Cups
+  taken while not connected are recorded and delivered on connect; a cached count
+  no outbox entry accounts for is never uploaded, because it can't say which of its
+  cups the cloud already has. Offline, a recovery transaction gives up after about
+  8 s of retries (measured), and the change waits for the next flush.
   **`serverFirst` holds back two kinds of snapshot** (`subscribeHydration`).
   Cache-only answers before the server has answered: offline, a record another
   device wrote reads as *missing* from the cache. And **any snapshot carrying this
@@ -570,27 +579,46 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   cup taken before the day was ever read showed as the day's only cup (4 → 1 → 6),
   and one taken offline hid the phone's cups until the acknowledgement came back.
   The hook shows its own changes itself, from a synchronous `countRef`, and makes
-  its writes outside state updaters, which StrictMode runs twice.
+  its writes outside state updaters, which StrictMode runs twice. *Download*
+  (`fetchHydration`) answers `undefined` while such a write is pending, and the
+  count on screen stays.
+  **Habits' water link moves the same way** (`trackableSources.ts`, the hydration
+  source). A tap is sent as the change it makes — `mirror(ctx, value, previous)`
+  records `value − previous`, and moves Focus's cache by that change rather than
+  to the habit's count — and every snapshot is adopted (`mergeStep`,
+  bidirectional). **Nothing is pushed back**: the first snapshot used to max-merge
+  and push a higher habit count to Focus, and with Focus's cups waiting in the
+  outbox the habit's count already held them, so the outbox then added them a
+  second time (review measured 7 for 5, and 8 for 6 after a tap). An increment
+  isn't idempotent; a count pushed back never is. "Set" actions (a toggle to the
+  target, a logged count) are relative to the count the habit shows, and cups
+  logged before a habit was linked aren't seeded. `useHabits` updates
+  `entriesRef` as it writes, because an outbox flush lands one snapshot per change,
+  several to a render, and a merge against a stale count dropped the last of them.
   **Focus's day rolls over on its own clock** (a 15 s check plus focus/visibility,
   and at the start of every action) — it used to live inside the reminder loop, so
   with reminders off a tab left open overnight carried yesterday's count into
   today. **A rollover writes nothing** (it wrote 0 to the new day's record, over
   cups a phone had logged while the laptop slept), and **the live record follows
   the current day**. A change still on its way keeps its own day in the outbox.
-  The fake cloud in `useHydration.dom.test.tsx` models queued writes, receipts, a
-  lost acknowledgement and a tab closing; `src/test/webLocksMock.ts` models pages
-  and their locks. Neither can show what the SDK does, so the two snapshot rules
-  are pinned on `onSnapshot` in `focusData.test.ts`, and the whole path was run
-  against the real SDK on the emulator.
+  The fake cloud (`src/test/hydrationCloud.ts`, shared by both pillars' hook tests,
+  and `useHabits.dom.test.tsx` runs habits and Focus against one) models queued
+  writes, receipts, recovery, a lost acknowledgement and a tab closing;
+  `src/test/webLocksMock.ts` models pages and their locks. Neither can show what
+  the SDK does, so the snapshot rules are pinned on `onSnapshot` in
+  `focusData.test.ts`, and the whole path was run against the real SDK on the
+  emulator — including a listening tab whose watch was paused behind a proxy. Note
+  for such runs: `disableNetwork` doesn't stop a transaction, so an outage has to
+  be made at the network.
   **Known limits:**
-  - *Habits still writes absolute counts* — its water taps, and its link's first
-    merge, which pushes a higher habit count back — until it moves to the outbox.
   - *A rare double count.* The SDK re-sends unacknowledged writes after a connection
-    drops, so inside a live tab an increment can very rarely apply twice. Only a rule
-    on `ops` in `firestore.rules` could close that.
+    drops, so inside a live tab an increment can very rarely apply twice; and a write
+    already on the wire when its tab closes can land after another page has
+    recovered it. Only a rule on `ops` in `firestore.rules` could close those.
   - *Back/forward cache.* A restored page with a send unacknowledged reloads
-    (`pageshow`), in case its locks lapsed while it was frozen; how each engine
-    treats locks there is assumed, not tested.
+    (`pageshow`, only where Web Locks exist), in case its locks lapsed while it was
+    frozen. A reload isn't an instant teardown, and how each engine treats locks
+    there is assumed, not tested.
   - *The previous bundle.* Its tabs write absolute counts until they reload, and cups
     that exist only in an old-format cache, from a tab that closed before its merge
     ran, are not recovered.
@@ -598,8 +626,11 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
     (still held by a closed or another tab) leaves the day one high.
   - *Display.* Offline, a tab doesn't see another tab's cups until they land, and a
     change recovered from the outbox shows only once acknowledged.
-  - *Without Web Locks* (an insecure context, Safari before 15.4) nothing is stored
-    for another page: cups queued by a tab that closes offline are lost, as before.
+  - *Kept in memory* (no Web Locks — an insecure context, Safari before 15.4 — or
+    storage full or blocked): cups queued by a tab that closes before they land are
+    lost, as before.
+  - *A change refused for good* (by the rules, say) is retried on every flush, and
+    holds back the changes after it on its day.
   - *Size.* One `ops` key per change in each day's record (10–20 a day), and a device
     that never syncs keeps only its newest 500 changes.
   - *A restore stays absolute*; changes still pending land on top of it.

@@ -18,8 +18,9 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 type Sent = { email: string; day: string; delta: number; id: string };
 
 /**
- * A server that records what reaches it. `hold()` keeps sends pending (no ack
- * yet); `offline()` also fails receipt reads, as getDocFromServer does.
+ * A server that records what reaches it, by a send or a recovery. "hold" keeps
+ * sends pending (no ack yet); "offline" also fails recoveries, as a transaction
+ * does; "lose-acks" lands sends without ever acknowledging them.
  */
 function server() {
   const sent: Sent[] = [];
@@ -48,9 +49,13 @@ function server() {
         })
       );
     }),
-    receipts: vi.fn(async (_email: string, day: string) => {
+    // A transaction: reads the day on the server, writes only without the receipt.
+    recover: vi.fn(async (email: string, day: string, delta: number, id: string) => {
       if (mode === "offline") throw new Error("offline");
-      return [...(landed.get(day) ?? [])];
+      if (landed.get(day)?.has(id)) return;
+      sent.push({ email, day, delta, id });
+      if (!landed.has(day)) landed.set(day, new Set());
+      landed.get(day)!.add(id);
     }),
   };
   return {
@@ -82,6 +87,14 @@ beforeEach(() => {
 afterEach(() => locks.uninstall());
 
 describe("recordHydration", () => {
+  // At once, not after the lock is granted (a task away in browsers): a snapshot
+  // arriving in between would show the count without this cup.
+  it("sends at once, before its lock is granted", () => {
+    const s = server();
+    recordHydration(EMAIL, DAY, 1, { send: true }, s.transport);
+    expect(s.transport.send).toHaveBeenCalledOnce();
+  });
+
   it("sends the change with its own id, and settles it once acknowledged", async () => {
     const s = server();
     recordHydration(EMAIL, DAY, 1, { send: true }, s.transport);
@@ -133,6 +146,74 @@ describe("recordHydration", () => {
     expect(entries()).toEqual([]);
   });
 
+  // Storage blocked or full: the change can't be stored, so this page keeps it.
+  describe("when the change can't be stored", () => {
+    afterEach(() => vi.restoreAllMocks());
+    const full = () =>
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new DOMException("full", "QuotaExceededError");
+      });
+
+    it("keeps an unsent change in this page, for a flush to deliver once", async () => {
+      const s = server();
+      full();
+      recordHydration(EMAIL, DAY, 1, { send: false }, s.transport);
+      await settle();
+      await flushHydration(EMAIL, s.transport);
+      await flushHydration(EMAIL, s.transport);
+      expect(s.total()).toBe(1);
+    });
+
+    it("keeps it in this page through a flush that can't deliver it", async () => {
+      const s = server();
+      full();
+      recordHydration(EMAIL, DAY, 1, { send: false }, s.transport);
+      await settle();
+      s.set("offline");
+      await flushHydration(EMAIL, s.transport);
+      s.set("online");
+      await flushHydration(EMAIL, s.transport);
+      expect(s.total()).toBe(1);
+    });
+
+    it("keeps a refused send in this page, for a flush to deliver", async () => {
+      const s = server();
+      full();
+      vi.mocked(s.transport.send).mockRejectedValueOnce(new Error("refused"));
+      recordHydration(EMAIL, DAY, 1, { send: true }, s.transport);
+      await settle();
+      await flushHydration(EMAIL, s.transport);
+      expect(s.total()).toBe(1);
+    });
+
+    it("drops no older change when the new one couldn't be stored", async () => {
+      const s = server();
+      for (let i = 0; i < 500; i++) {
+        localStorage.setItem(`${PREFIX}old${i}`, JSON.stringify({ day: DAY, delta: 1, at: i }));
+      }
+      full();
+      recordHydration(EMAIL, DAY, 1, { send: false }, s.transport);
+      await settle();
+      expect(entries()).toHaveLength(500);
+      vi.restoreAllMocks();
+      localStorage.clear();
+      await flushHydration(EMAIL, s.transport); // this page still holds it
+      expect(s.total()).toBe(1);
+    });
+
+    it("keeps the change in this page when its lock is refused", async () => {
+      const s = server();
+      locks.use({
+        request: () => Promise.reject(new DOMException("blocked", "SecurityError")),
+      } as unknown as LockManagerLike);
+      recordHydration(EMAIL, DAY, 1, { send: false }, s.transport);
+      await settle();
+      await flushHydration(EMAIL, s.transport);
+      await flushHydration(EMAIL, s.transport);
+      expect(s.total()).toBe(1);
+    });
+  });
+
   // A device that never syncs would otherwise grow the outbox for ever.
   it("keeps only the newest 500 changes", async () => {
     const s = server();
@@ -181,6 +262,7 @@ describe("flushHydration", () => {
     localStorage.removeItem(`${PREFIX}x`); // settled elsewhere, lock since released
     await flushing;
     expect(s.transport.send).not.toHaveBeenCalled();
+    expect(s.transport.recover).not.toHaveBeenCalled();
   });
 
   it("leaves a change alone while a live page holds it", async () => {
@@ -239,12 +321,12 @@ describe("flushHydration", () => {
     expect(entries()).toEqual([]);
   });
 
-  it("keeps a change when the receipts can't be read, and retries later", async () => {
+  it("keeps a change it can't recover offline, and retries later", async () => {
     const s = server();
     orphan("x");
     s.set("offline");
     await flushHydration(EMAIL, s.transport);
-    expect(s.transport.send).not.toHaveBeenCalled();
+    expect(s.sent).toEqual([]);
     expect(entries()).toHaveLength(1);
     expect(locks.heldNames()).toEqual([]); // released for the next try
     s.set("online");
@@ -262,20 +344,34 @@ describe("flushHydration", () => {
     expect(s.sent.map((x) => x.id)).toEqual(["a", "b", "c"]);
   });
 
-  it("reads each day's receipts once, and only after holding its changes", async () => {
+  it("recovers each change while holding its lock, one at a time per day", async () => {
     const s = server();
     orphan("a", 1, 1, "2026-10-10");
     orphan("b", 1, 2, "2026-10-10");
     orphan("c", 1, 3, DAY);
-    vi.mocked(s.transport.receipts).mockImplementation(async () => {
-      expect(locks.heldNames().sort()).toEqual(
-        ["a", "b", "c"].map((id) => `bookmarkdeck:hydration-op:${id}`)
-      );
-      return [];
+    let busy = 0;
+    const recover = s.transport.recover;
+    s.transport.recover = vi.fn(async (email: string, day: string, delta: number, id: string) => {
+      expect(locks.held(`bookmarkdeck:hydration-op:${id}`)).toBe(true);
+      if (day === "2026-10-10") expect(++busy).toBe(1);
+      await settle();
+      if (day === "2026-10-10") busy--;
+      return recover(email, day, delta, id);
     });
     await flushHydration(EMAIL, s.transport);
-    expect(s.transport.receipts).toHaveBeenCalledTimes(2);
-    expect(s.sent).toHaveLength(3);
+    expect(s.sent.map((x) => x.id).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("stops a day at the first change it can't recover, so none overtakes it", async () => {
+    const s = server();
+    orphan("a", 1, 1);
+    orphan("b", -1, 2);
+    vi.mocked(s.transport.recover).mockRejectedValueOnce(new Error("unavailable"));
+    await flushHydration(EMAIL, s.transport);
+    expect(s.sent).toEqual([]);
+    expect(entries()).toHaveLength(2);
+    await flushHydration(EMAIL, s.transport);
+    expect(s.sent.map((x) => x.id)).toEqual(["a", "b"]);
   });
 
   it("touches only the account it is asked about", async () => {

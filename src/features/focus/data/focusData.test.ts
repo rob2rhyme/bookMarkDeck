@@ -9,17 +9,18 @@ const batch = vi.hoisted(() => ({
   set: vi.fn(),
   commit: vi.fn(async () => {}),
 }));
+const tx = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn() }));
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn(() => ({})),
   deleteDoc: vi.fn(),
   doc: vi.fn(() => ({})),
   getDoc: vi.fn(),
-  getDocFromServer: vi.fn(),
   getDocs: vi.fn(),
   increment: vi.fn((n: number) => ({ increment: n })),
   maximum: vi.fn((n: number) => ({ maximum: n })),
   onSnapshot: vi.fn(() => () => {}),
   query: vi.fn(),
+  runTransaction: vi.fn(async (_db: unknown, fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
   serverTimestamp: vi.fn(() => "ts"),
   setDoc: vi.fn(),
   where: vi.fn(),
@@ -30,10 +31,11 @@ vi.mock("@/lib/firebase", () => ({
   ensureFirebaseGoogleAuth: vi.fn(async () => ({ uid: "u1" })),
 }));
 
-import { getDocFromServer, onSnapshot } from "firebase/firestore";
+import { getDoc, onSnapshot } from "firebase/firestore";
 import {
   addHydration,
-  hydrationReceipts,
+  fetchHydration,
+  recoverHydration,
   subscribeHydration,
 } from "@/features/focus/data/focusData";
 
@@ -150,27 +152,59 @@ describe("addHydration", () => {
   });
 });
 
-describe("hydrationReceipts", () => {
-  it("reads the receipts from the server, never the cache", async () => {
-    vi.mocked(getDocFromServer).mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ cups: 2, ops: { a: 1, b: 1 } }),
-    } as never);
-    expect([...(await hydrationReceipts("a@example.com", "2026-10-10"))]).toEqual(["a", "b"]);
+// A change found in the outbox may already have landed, its acknowledgement
+// lost. It is delivered in a transaction — a read of the server itself, not of
+// an open listener's view, which can lag the write it is looking for — and
+// only if its receipt isn't there.
+describe("recoverHydration", () => {
+  const record = (data: object | null) =>
+    tx.get.mockResolvedValueOnce({ exists: () => data != null, data: () => data });
+  beforeEach(() => tx.set.mockClear());
+
+  it("applies a change whose receipt isn't on the server, with its receipt", async () => {
+    record({ cups: 3, ops: { a: 1 } });
+    await recoverHydration("a@example.com", "2026-10-10", 1, "b");
+    expect(tx.set).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      { cups: 4, updatedAt: "ts", ops: { b: 1 } },
+      { merge: true }
+    );
   });
 
-  it("reads none from a missing record, or one written before receipts", async () => {
-    vi.mocked(getDocFromServer).mockResolvedValueOnce({ exists: () => false } as never);
-    expect([...(await hydrationReceipts("a@example.com", "2026-10-10"))]).toEqual([]);
-    vi.mocked(getDocFromServer).mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ cups: 2 }),
-    } as never);
-    expect([...(await hydrationReceipts("a@example.com", "2026-10-10"))]).toEqual([]);
+  it("writes nothing when the receipt is already there", async () => {
+    record({ cups: 3, ops: { a: 1 } });
+    await recoverHydration("a@example.com", "2026-10-10", 1, "a");
+    expect(tx.set).not.toHaveBeenCalled();
   });
 
-  it("fails offline rather than answering from the cache", async () => {
-    vi.mocked(getDocFromServer).mockRejectedValueOnce(new Error("unavailable"));
-    await expect(hydrationReceipts("a@example.com", "2026-10-10")).rejects.toThrow();
+  it("starts a missing record from 0, and clamps a removal there", async () => {
+    record(null);
+    await recoverHydration("a@example.com", "2026-10-10", -1, "c");
+    expect(tx.set).toHaveBeenCalledWith(
+      expect.anything(),
+      { cups: 0, updatedAt: "ts", ops: { c: -1 } },
+      { merge: true }
+    );
+  });
+});
+
+describe("fetchHydration", () => {
+  const answer = (cups: number, hasPendingWrites: boolean) =>
+    vi.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ cups }),
+      metadata: { hasPendingWrites, fromCache: false },
+    } as never);
+
+  it("reads the day's count", async () => {
+    answer(5, false);
+    expect(await fetchHydration("a@example.com", "2026-10-10")).toBe(5);
+  });
+
+  // The SDK lays a pending increment over a stale count: against the emulator a
+  // day never read answered 1 with the server at 6.
+  it("answers nothing while this page has a change to the day unacknowledged", async () => {
+    answer(1, true);
+    expect(await fetchHydration("a@example.com", "2026-10-10")).toBeUndefined();
   });
 });

@@ -14,12 +14,12 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getDocFromServer,
   getDocs,
   increment,
   maximum,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   where,
@@ -402,13 +402,18 @@ export async function deleteNote(
 
 /* ------------------------------------------------------------ hydration --- */
 
-/** Cups drunk on a given day, or null if no record exists yet. */
+/**
+ * Cups drunk on a given day, or null if no record exists yet. Undefined while
+ * this page has a change to the day unacknowledged: the SDK's answer is then
+ * stale, for the reason subscribeHydration gives.
+ */
 export async function fetchHydration(
   emailHint: string,
   day: string
-): Promise<number | null> {
+): Promise<number | null | undefined> {
   const uid = await uidFor(emailHint);
   const snap = await getDoc(doc(hydrationCol(uid), day));
+  if (snap.metadata.hasPendingWrites) return undefined;
   if (!snap.exists()) return null;
   const cups = snap.data().cups;
   return typeof cups === "number" ? Math.max(0, cups) : null;
@@ -457,17 +462,38 @@ export async function addHydration(
   await batch.commit();
 }
 
-/** The changes a day's record has receipts for — from the server, never the cache. */
-export async function hydrationReceipts(emailHint: string, day: string): Promise<string[]> {
+/**
+ * Deliver a change found in the outbox: in one transaction, read the day from
+ * the server and apply the change only if its receipt isn't there yet. Not a
+ * read and then a write: a plain read can be answered by an open listener's
+ * view, which can lag the very write whose receipt it is looking for, and a
+ * write landing between the two would be counted twice anyway. Fails offline.
+ */
+export async function recoverHydration(
+  emailHint: string,
+  day: string,
+  delta: number,
+  opId: string
+): Promise<void> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocFromServer(doc(hydrationCol(uid), day));
-  const ops = snap.exists() ? snap.data().ops : null;
-  return ops && typeof ops === "object" ? Object.keys(ops) : [];
+  const ref = doc(hydrationCol(uid), day);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists() ? snap.data() : {};
+    const ops: unknown = data.ops;
+    if (ops && typeof ops === "object" && opId in ops) return;
+    const cups = typeof data.cups === "number" ? data.cups : 0;
+    tx.set(
+      ref,
+      { cups: Math.max(0, cups + delta), updatedAt: serverTimestamp(), ops: { [opId]: delta } },
+      { merge: true }
+    );
+  });
 }
 
 export const hydrationTransport: HydrationTransport = {
   send: addHydration,
-  receipts: hydrationReceipts,
+  recover: recoverHydration,
 };
 
 /* ------------------------------------------------------------- activity --- */

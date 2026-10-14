@@ -25,7 +25,7 @@ it("reloads a restored page while a send is unacknowledged, and not otherwise", 
   let ack = () => {};
   const transport = {
     send: vi.fn(() => new Promise<void>((r) => (ack = r))),
-    receipts: vi.fn(async () => []),
+    recover: vi.fn(async () => {}),
   };
   recordHydration("a@example.com", "2026-10-11", 1, { send: true }, transport);
   await settle();
@@ -38,4 +38,22 @@ it("reloads a restored page while a send is unacknowledged, and not otherwise", 
   await settle();
   show(true);
   expect(reload).toHaveBeenCalledTimes(1);
+});
+
+// Without Web Locks nothing is stored, so a send in flight exists only in this
+// page: a reload would lose it.
+it("never reloads a page without Web Locks", async () => {
+  vi.resetModules();
+  const fresh = await import("./hydrationOutbox");
+  locks.use(null);
+  const reload = vi.fn();
+  vi.spyOn(window, "location", "get").mockReturnValue({ reload } as unknown as Location);
+  const transport = {
+    send: vi.fn(() => new Promise<void>(() => {})),
+    recover: vi.fn(async () => {}),
+  };
+  fresh.recordHydration("a@example.com", "2026-10-11", 1, { send: true }, transport);
+  await settle();
+  window.dispatchEvent(Object.assign(new Event("pageshow"), { persisted: true }));
+  expect(reload).not.toHaveBeenCalled();
 });
