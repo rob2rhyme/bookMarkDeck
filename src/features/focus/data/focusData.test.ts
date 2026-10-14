@@ -5,32 +5,47 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // so the first answer said "missing" — and a merge against "missing" queued a
 // write that replaced the other device's count on reconnect. Reproduced against
 // the real SDK and the emulator; this pins the rule that closes it.
+const batch = vi.hoisted(() => ({
+  set: vi.fn(),
+  commit: vi.fn(async () => {}),
+}));
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn(() => ({})),
   deleteDoc: vi.fn(),
   doc: vi.fn(() => ({})),
   getDoc: vi.fn(),
+  getDocFromServer: vi.fn(),
   getDocs: vi.fn(),
   increment: vi.fn((n: number) => ({ increment: n })),
+  maximum: vi.fn((n: number) => ({ maximum: n })),
   onSnapshot: vi.fn(() => () => {}),
   query: vi.fn(),
   serverTimestamp: vi.fn(() => "ts"),
   setDoc: vi.fn(),
   where: vi.fn(),
+  writeBatch: vi.fn(() => batch),
 }));
 vi.mock("@/lib/firebase", () => ({
   db: {},
   ensureFirebaseGoogleAuth: vi.fn(async () => ({ uid: "u1" })),
 }));
 
-import { onSnapshot, setDoc } from "firebase/firestore";
-import { addHydration, subscribeHydration } from "@/features/focus/data/focusData";
+import { getDocFromServer, onSnapshot } from "firebase/firestore";
+import {
+  addHydration,
+  hydrationReceipts,
+  subscribeHydration,
+} from "@/features/focus/data/focusData";
 
-type Snap = { exists: () => boolean; data: () => { cups: number }; metadata: { fromCache: boolean } };
-const snap = (cups: number | null, fromCache: boolean): Snap => ({
+type Snap = {
+  exists: () => boolean;
+  data: () => { cups: number };
+  metadata: { fromCache: boolean; hasPendingWrites: boolean };
+};
+const snap = (cups: number | null, fromCache: boolean, hasPendingWrites = false): Snap => ({
   exists: () => cups != null,
   data: () => ({ cups: cups as number }),
-  metadata: { fromCache },
+  metadata: { fromCache, hasPendingWrites },
 });
 
 /** Subscribe, wait for the listener to attach, and hand back its snapshot feed. */
@@ -70,24 +85,62 @@ describe("subscribeHydration — serverFirst", () => {
     expect(cb).toHaveBeenCalledExactlyOnceWith(null);
   });
 
+  // The SDK lays a pending increment over the count cached when it was made:
+  // a day never read reads as 0 + 1 until the write is acknowledged.
+  it("holds back a snapshot carrying this page's unacknowledged writes", async () => {
+    const { cb, feed } = await attach({ serverFirst: true });
+    feed(snap(1, false, true)); // the server has answered, but over a stale base
+    expect(cb).not.toHaveBeenCalled();
+    feed(snap(6, false)); // acknowledged
+    expect(cb).toHaveBeenCalledExactlyOnceWith(6);
+    feed(snap(7, true, true)); // offline, a later change of its own
+    expect(cb).toHaveBeenCalledOnce();
+  });
+
   it("passes every snapshot through when not asked to wait", async () => {
     const { cb, options, feed } = await attach();
     expect(options.includeMetadataChanges).toBe(false);
     feed(snap(null, true));
     expect(cb).toHaveBeenCalledWith(null);
+    feed(snap(2, true, true));
+    expect(cb).toHaveBeenLastCalledWith(2);
   });
 });
 
-// A change owed to a day whose record was never read goes up as an increment:
-// unlike an absolute count, it composes with what another device wrote.
+// Every routine change is an increment, so changes from several devices add up
+// instead of the last writer's count replacing the others'. Each carries its
+// receipt in the same atomic write, which is how a page that finds a change
+// left behind tells "landed, acknowledgement lost" from "never sent".
 describe("addHydration", () => {
-  it("writes an increment, merged into the record", async () => {
-    await addHydration("a@example.com", "2026-10-10", 2);
-    expect(setDoc).toHaveBeenCalledWith(
+  beforeEach(() => {
+    batch.set.mockClear();
+    batch.commit.mockClear();
+  });
+
+  it("adds the change and its receipt in one write", async () => {
+    await addHydration("a@example.com", "2026-10-10", 1, "op-1");
+    expect(batch.set).toHaveBeenCalledExactlyOnceWith(
       expect.anything(),
-      { cups: { increment: 2 }, updatedAt: "ts" },
+      { cups: { increment: 1 }, updatedAt: "ts", ops: { "op-1": 1 } },
       { merge: true }
     );
+    expect(batch.commit).toHaveBeenCalledOnce();
+  });
+
+  // Without the clamp a removal reaching an empty record leaves -1, and that
+  // debt silently eats the next cup anyone logs.
+  it("clamps a removal at 0 in the same write", async () => {
+    await addHydration("a@example.com", "2026-10-10", -1, "op-2");
+    expect(batch.set).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      { cups: { increment: -1 }, updatedAt: "ts", ops: { "op-2": -1 } },
+      { merge: true }
+    );
+    expect(batch.set).toHaveBeenNthCalledWith(2, expect.anything(), { cups: { maximum: 0 } }, {
+      merge: true,
+    });
+    expect(batch.commit).toHaveBeenCalledOnce();
   });
 
   it("reads a record an increment took below 0 as 0", async () => {
@@ -97,3 +150,27 @@ describe("addHydration", () => {
   });
 });
 
+describe("hydrationReceipts", () => {
+  it("reads the receipts from the server, never the cache", async () => {
+    vi.mocked(getDocFromServer).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ cups: 2, ops: { a: 1, b: 1 } }),
+    } as never);
+    expect([...(await hydrationReceipts("a@example.com", "2026-10-10"))]).toEqual(["a", "b"]);
+  });
+
+  it("reads none from a missing record, or one written before receipts", async () => {
+    vi.mocked(getDocFromServer).mockResolvedValueOnce({ exists: () => false } as never);
+    expect([...(await hydrationReceipts("a@example.com", "2026-10-10"))]).toEqual([]);
+    vi.mocked(getDocFromServer).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ cups: 2 }),
+    } as never);
+    expect([...(await hydrationReceipts("a@example.com", "2026-10-10"))]).toEqual([]);
+  });
+
+  it("fails offline rather than answering from the cache", async () => {
+    vi.mocked(getDocFromServer).mockRejectedValueOnce(new Error("unavailable"));
+    await expect(hydrationReceipts("a@example.com", "2026-10-10")).rejects.toThrow();
+  });
+});

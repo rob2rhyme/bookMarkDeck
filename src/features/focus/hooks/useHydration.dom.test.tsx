@@ -1,76 +1,148 @@
 import { act, renderHook } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// An in-memory focusHydration collection: one count per day, live listeners
-// per day, and a write echoed to that day's listeners — enough to replay
-// another device writing while this tab sleeps.
+import { webLocksMock, type LockManagerLike, type WebLocksMock } from "@/test/webLocksMock";
+
+// An in-memory focusHydration collection seen from one page. The server holds
+// a count and the receipts of the changes it applied, per day. While the page
+// is offline its own writes queue, and nothing another device writes is heard.
+// A closed page's queued writes die with it; a write can also land without its
+// acknowledgement ever coming back. Listeners hear what subscribeHydration
+// passes on with serverFirst: the server's count, and nothing while this page
+// has a write to that day unacknowledged.
 const cloud = vi.hoisted(() => {
+  type Write = { day: string; apply: (v: number) => number; id?: string; done: () => void };
+  type Listener = (v: number | null) => void;
   const days = new Map<string, number>();
-  const listeners = new Map<string, Set<(v: number | null) => void>>();
+  const receipts = new Map<string, Set<string>>();
+  const listeners = new Map<string, Set<Listener>>();
+  let queue: Write[] = []; // written offline, not yet landed
+  let unacked: Write[] = []; // landed, acknowledgement lost
   let silent = false;
-  const emit = (day: string) => {
-    if (silent) return;
-    listeners.get(day)?.forEach((cb) => cb(days.has(day) ? days.get(day)! : null));
+  let losingAcks = false;
+  const server = (day: string) => (days.has(day) ? days.get(day)! : null);
+  const pending = (day: string) => [...queue, ...unacked].some((w) => w.day === day);
+  const land = (w: Write) => {
+    days.set(w.day, w.apply(days.get(w.day) ?? 0));
+    if (w.id) receipts.set(w.day, new Set([...(receipts.get(w.day) ?? []), w.id]));
   };
+  /** The server answers `day`'s listeners. */
+  const answer = (day: string) => {
+    if (silent || pending(day)) return;
+    listeners.get(day)?.forEach((cb) => cb(server(day)));
+  };
+  const commit = (w: Omit<Write, "done">) =>
+    new Promise<void>((resolve) => {
+      const write = { ...w, done: resolve };
+      if (silent) {
+        queue.push(write);
+        return;
+      }
+      land(write);
+      if (losingAcks) unacked.push(write);
+      else resolve();
+      answer(w.day);
+    });
   return {
     days,
     subscribedDays: [] as string[],
     reset() {
       days.clear();
+      receipts.clear();
       listeners.clear();
+      queue = [];
+      unacked = [];
       silent = false;
+      losingAcks = false;
       this.subscribedDays.length = 0;
     },
-    /** This device can't reach the server: writes land, nothing is heard back. */
+    /** This page loses the network. */
     goSilent() {
       silent = true;
     },
-    /** Back online: the server answers every listener with what it holds. */
+    /** Back online: the queued writes land in order, and every listener hears the server. */
     reconnect() {
       silent = false;
-      listeners.forEach((_, day) => emit(day));
+      const sent = queue;
+      queue = [];
+      sent.forEach((w) => {
+        land(w);
+        if (losingAcks) unacked.push(w);
+        else w.done();
+      });
+      listeners.forEach((_, day) => answer(day));
+    },
+    /** From now on a write lands, but its acknowledgement never comes back. */
+    loseAcks() {
+      losingAcks = true;
+    },
+    /** The page closes: its queued writes die unsent, and none is pending any more. */
+    killTab() {
+      queue = [];
+      unacked = [];
+      losingAcks = false;
     },
     /** Another device writes `day`'s count. */
     write(day: string, cups: number) {
       days.set(day, cups);
-      emit(day);
+      answer(day);
     },
-    /** A server-side increment. */
+    /** Another device adds to `day`'s count. */
     add(day: string, delta: number) {
-      days.set(day, (days.get(day) ?? 0) + delta);
-      emit(day);
+      days.set(day, Math.max(0, (days.get(day) ?? 0) + delta));
+      answer(day);
     },
     /** A snapshot of `day` arriving, whatever the store holds. */
     snapshot(day: string, cups: number | null) {
       listeners.get(day)?.forEach((cb) => cb(cups));
     },
-    listen(day: string, cb: (v: number | null) => void) {
+    listen(day: string, cb: Listener) {
       this.subscribedDays.push(day);
       if (!listeners.has(day)) listeners.set(day, new Set());
-      listeners.get(day)!.add(cb);
+      const set = listeners.get(day)!;
+      set.add(cb);
       // Firestore delivers the first snapshot asynchronously.
       Promise.resolve().then(() => {
-        if (!silent && listeners.get(day)?.has(cb)) cb(days.has(day) ? days.get(day)! : null);
+        if (!silent && !pending(day) && set.has(cb)) cb(server(day));
       });
-      return () => listeners.get(day)?.delete(cb);
+      return () => set.delete(cb);
+    },
+    /** This page's increment, with its receipt when it carries one. */
+    increment: (day: string, delta: number, id?: string) =>
+      commit({ day, id, apply: (v) => Math.max(0, v + delta) }),
+    /** This page writing a count outright. */
+    set: (day: string, cups: number) => commit({ day, apply: () => cups }),
+    async receiptsFor(day: string) {
+      if (silent) throw new Error("offline");
+      return [...(receipts.get(day) ?? [])];
     },
   };
 });
 
-vi.mock("@/features/focus/data/focusData", () => ({
-  addHydration: vi.fn(async (_e: string, day: string, delta: number) => cloud.add(day, delta)),
-  fetchHydration: vi.fn(async (_e: string, day: string) => cloud.days.get(day) ?? null),
-  saveHydration: vi.fn(async (_e: string, day: string, cups: number) => cloud.write(day, cups)),
-  subscribeHydration: vi.fn((_e: string, day: string, cb: (v: number | null) => void) =>
-    cloud.listen(day, cb)
-  ),
-}));
+vi.mock("@/features/focus/data/focusData", () => {
+  const send = vi.fn((_e: string, day: string, delta: number, id?: string) =>
+    cloud.increment(day, delta, id)
+  );
+  return {
+    addHydration: send,
+    hydrationTransport: {
+      send,
+      receipts: vi.fn((_e: string, day: string) => cloud.receiptsFor(day)),
+    },
+    fetchHydration: vi.fn(async (_e: string, day: string) => cloud.days.get(day) ?? null),
+    saveHydration: vi.fn((_e: string, day: string, cups: number) => cloud.set(day, cups)),
+    subscribeHydration: vi.fn((_e: string, day: string, cb: (v: number | null) => void) =>
+      cloud.listen(day, cb)
+    ),
+  };
+});
 vi.mock("@/features/focus/lib/sound", () => ({ playChime: vi.fn() }));
 vi.mock("@/features/focus/lib/notify", () => ({ notify: vi.fn() }));
 
 import {
-  addHydration,
   fetchHydration,
+  hydrationTransport,
   saveHydration,
   subscribeHydration,
 } from "@/features/focus/data/focusData";
@@ -78,10 +150,26 @@ import { useHydration } from "./useHydration";
 
 const EMAIL = "a@example.com";
 const KEY = `bookmarkdeck:focus:hydration:v1:${EMAIL}`;
+const OUTBOX = `bookmarkdeck:focus:hydration-outbox:v1:${EMAIL}:`;
 const ARGS = { email: EMAIL, enabled: false, intervalMin: 60, goal: 8, soundEnabled: false };
 const seed = (rec: object) => localStorage.setItem(KEY, JSON.stringify(rec));
 const stored = () => JSON.parse(localStorage.getItem(KEY)!);
+const outbox = () => Object.keys(localStorage).filter((k) => k.startsWith(OUTBOX));
 const mount = () => renderHook(() => useHydration(ARGS));
+/** Let every pending promise, lock grant and snapshot run. */
+const flush = () =>
+  act(async () => {
+    for (let i = 0; i < 50; i++) await Promise.resolve();
+  });
+
+let locks: WebLocksMock;
+let page: LockManagerLike;
+beforeEach(() => {
+  locks = webLocksMock();
+  page = locks.client();
+  locks.use(page);
+});
+afterEach(() => locks.uninstall());
 
 // The cache's day used to be a toDateString stamp ("Sun Oct 11 2026") while
 // everything else, Focus's own Firestore doc included, keys days as YYYY-MM-DD.
@@ -140,7 +228,6 @@ describe("useHydration — the cache's day", () => {
 describe("useHydration — across midnight", () => {
   const savedTz = process.env.TZ;
   const synced = { ...ARGS, connected: true };
-  const flush = () => act(async () => {});
   const tick = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
 
   beforeEach(() => {
@@ -182,6 +269,7 @@ describe("useHydration — across midnight", () => {
     await flush();
     act(() => result.current.drink());
     act(() => result.current.drink());
+    await flush();
     expect(cloud.days.get("2026-10-10")).toBe(2);
 
     // The laptop sleeps — its timers don't run — and the phone logs 3 cups.
@@ -189,7 +277,6 @@ describe("useHydration — across midnight", () => {
     act(() => cloud.write("2026-10-11", 3));
     tick(15_000); // it wakes
     await flush();
-    expect(saveHydration).not.toHaveBeenCalledWith(EMAIL, "2026-10-11", 0);
     expect(cloud.days.get("2026-10-11")).toBe(3);
     expect(result.current.cups).toBe(3);
 
@@ -197,6 +284,7 @@ describe("useHydration — across midnight", () => {
     act(() => cloud.write("2026-10-11", 4));
     expect(result.current.cups).toBe(4);
     act(() => result.current.drink());
+    await flush();
     expect(cloud.days.get("2026-10-11")).toBe(5);
   });
 
@@ -216,7 +304,7 @@ describe("useHydration — across midnight", () => {
     expect(result.current.cups).toBe(2);
   });
 
-  it("doesn't write a new day's count before it has read that day's record", async () => {
+  it("adds a drink made before the new day's record is read to that record", async () => {
     vi.setSystemTime(new Date(2026, 9, 10, 22, 0));
     const { result } = renderHook(() => useHydration(synced));
     await flush();
@@ -226,24 +314,24 @@ describe("useHydration — across midnight", () => {
     vi.setSystemTime(new Date(2026, 9, 11, 8, 0));
     act(() => cloud.write("2026-10-11", 5)); // the phone, this morning
     act(() => result.current.drink()); // before today's record has been read
-    expect(cloud.days.get("2026-10-11")).toBe(5);
     await flush();
-    // The phone's 5, plus this cup: kept, not swallowed by the merge.
+    // The phone's 5, plus this cup.
     expect(result.current.cups).toBe(6);
     expect(cloud.days.get("2026-10-11")).toBe(6);
+    expect(cloud.days.get("2026-10-10")).toBe(2);
     act(() => result.current.drink());
+    await flush();
     expect(cloud.days.get("2026-10-11")).toBe(7);
   });
 
-  it("doesn't write over a higher count with a drink made before the first read", async () => {
+  it("adds a drink made before the first read to a higher count", async () => {
     vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
     seed({ day: "2026-10-11", cups: 2 });
     cloud.write("2026-10-11", 5);
     const { result } = renderHook(() => useHydration(synced));
     act(() => result.current.drink());
-    expect(cloud.days.get("2026-10-11")).toBe(5);
     await flush();
-    expect(result.current.cups).toBe(6); // max(2, 5) + this cup
+    expect(result.current.cups).toBe(6);
     expect(cloud.days.get("2026-10-11")).toBe(6);
   });
 
@@ -260,11 +348,10 @@ describe("useHydration — across midnight", () => {
     rerender({ enabled: true });
     tick(15_000);
     await flush();
-    expect(saveHydration).not.toHaveBeenCalledWith(EMAIL, "2026-10-11", 0);
     expect(cloud.days.get("2026-10-11")).toBe(3);
   });
 
-  it("keeps a cup removed before the first read, instead of merging it back", async () => {
+  it("removes a cup removed before the first read", async () => {
     vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
     seed({ day: "2026-10-11", cups: 3 });
     cloud.write("2026-10-11", 3);
@@ -273,17 +360,6 @@ describe("useHydration — across midnight", () => {
     await flush();
     expect(result.current.cups).toBe(2);
     expect(cloud.days.get("2026-10-11")).toBe(2);
-  });
-
-  it("writes a gap drink back when the cloud's count is lower", async () => {
-    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
-    seed({ day: "2026-10-11", cups: 2 }); // logged offline earlier
-    cloud.write("2026-10-11", 1);
-    const { result } = renderHook(() => useHydration(synced));
-    act(() => result.current.drink());
-    await flush();
-    expect(result.current.cups).toBe(3); // max(2, 1) + this cup
-    expect(cloud.days.get("2026-10-11")).toBe(3);
   });
 
   it("waits for the record again after reconnecting", async () => {
@@ -297,9 +373,9 @@ describe("useHydration — across midnight", () => {
     act(() => cloud.write("2026-10-11", 4)); // the phone, while this one was offline
     rerender({ connected: true });
     act(() => result.current.drink()); // before the reconnected record is read
-    expect(cloud.days.get("2026-10-11")).toBe(4);
     await flush();
     expect(cloud.days.get("2026-10-11")).toBe(5);
+    expect(result.current.cups).toBe(5);
   });
 
   it("asks for the server's answer, not a cache-only one", async () => {
@@ -377,6 +453,7 @@ describe("useHydration — across midnight", () => {
     await flush();
     vi.setSystemTime(new Date(2026, 9, 11, 8, 0));
     act(() => result.current.removeCup());
+    await flush();
     expect(cloud.days.get("2026-10-10")).toBe(3);
   });
 
@@ -391,14 +468,20 @@ describe("useHydration — across midnight", () => {
     expect(result.current.cups).toBe(4);
   });
 
-  // An explicit upload writes the count on screen to the day it belongs to — a
-  // pair — even before the record has been read; that is what the button is for.
-  it("uploads the count on screen to its own day", async () => {
+  it("doesn't log a total after reconnecting, until the record is read again", async () => {
     vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
-    seed({ day: "2026-10-11", cups: 2 });
-    const { result } = renderHook(() => useHydration(synced));
-    await act(() => result.current.pushToCloud());
-    expect(saveHydration).toHaveBeenCalledWith(EMAIL, "2026-10-11", 2);
+    const onLog = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ connected }: { connected: boolean }) => useHydration({ ...ARGS, connected, onLog }),
+      { initialProps: { connected: true } }
+    );
+    await flush();
+    rerender({ connected: false });
+    cloud.write("2026-10-11", 4); // the phone, meanwhile
+    cloud.goSilent();
+    rerender({ connected: true });
+    act(() => result.current.drink());
+    expect(onLog).toHaveBeenLastCalledWith("hydration", "Drank a cup of water");
   });
 
   it("doesn't log a total before the day's record has been read", async () => {
@@ -406,22 +489,27 @@ describe("useHydration — across midnight", () => {
     cloud.write("2026-10-11", 5);
     const onLog = vi.fn();
     const { result } = renderHook(() => useHydration({ ...synced, onLog }));
-    act(() => result.current.drink()); // the merge will make this 6, not 1
+    act(() => result.current.drink()); // the record holds 5 more than this tab knows
     expect(onLog).toHaveBeenLastCalledWith("hydration", "Drank a cup of water");
     await flush();
     act(() => result.current.drink());
     expect(onLog).toHaveBeenLastCalledWith("hydration", "Drank a cup of water (7 cups today)");
   });
 
-  it("doesn't count an upload made before the first read twice", async () => {
+  // Sync to cloud runs while a cup is still on its way; it must not send it again.
+  it("doesn't count a cup twice when Sync to cloud runs before it lands", async () => {
     vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
     seed({ day: "2026-10-11", cups: 2 });
+    cloud.write("2026-10-11", 2);
     cloud.goSilent();
     const { result } = renderHook(() => useHydration(synced));
     await flush();
-    act(() => result.current.drink()); // 3, held back: the record hasn't been read
-    await act(() => result.current.pushToCloud()); // the user uploads 3
-    act(() => cloud.reconnect()); // the server answers: 3
+    act(() => result.current.drink());
+    act(() => void result.current.pushToCloud());
+    await flush();
+    act(() => cloud.reconnect());
+    await flush();
+    act(() => void result.current.pushToCloud());
     await flush();
     expect(result.current.cups).toBe(3);
     expect(cloud.days.get("2026-10-11")).toBe(3);
@@ -437,6 +525,7 @@ describe("useHydration — across midnight", () => {
     await flush();
     await act(() => result.current.pullFromCloud());
     act(() => result.current.drink());
+    await flush();
     expect(cloud.days.get("2026-10-11")).toBe(5);
     rerender({ connected: false });
     rerender({ connected: true });
@@ -446,9 +535,8 @@ describe("useHydration — across midnight", () => {
   });
 
   // Offline across midnight, cups taken before the server ever answered still
-  // belong to the day they were taken on. They go up as an increment, so the
-  // phone's cups that evening survive too.
-  it("delivers a day's unread cups to it as an increment when the day ends", async () => {
+  // belong to the day they were taken on, beside the phone's cups that evening.
+  it("delivers a day's unread cups to it after the day ends", async () => {
     vi.setSystemTime(new Date(2026, 9, 10, 23, 50));
     seed({ day: "2026-10-10", cups: 2 });
     cloud.write("2026-10-10", 2);
@@ -456,11 +544,13 @@ describe("useHydration — across midnight", () => {
     const { result } = renderHook(() => useHydration(synced));
     await flush();
     act(() => result.current.drink());
-    act(() => result.current.drink()); // 4 here; the record owes +2
-    cloud.days.set("2026-10-10", 5); // the phone, meanwhile: 3 more
+    act(() => result.current.drink());
+    cloud.add("2026-10-10", 3); // the phone, meanwhile
     tick(15 * 60_000); // midnight passes
-    expect(addHydration).toHaveBeenCalledWith(EMAIL, "2026-10-10", 2);
+    act(() => cloud.reconnect());
+    await flush();
     expect(cloud.days.get("2026-10-10")).toBe(7);
+    expect(cloud.days.has("2026-10-11")).toBe(false);
   });
 
   it("drops a Download that lands after switching accounts", async () => {
@@ -487,14 +577,251 @@ describe("useHydration — across midnight", () => {
       '"cups":9'
     );
   });
+});
 
-  // Unchanged behaviour, pinned: an offline count reaches an empty cloud record.
-  it("uploads today's offline count when the cloud has none", async () => {
+// Every cup is sent as an increment, through the outbox, so cups taken on
+// several devices or in several tabs add up. They used to be written as the
+// count on screen, and the last count written won: a laptop offline for an hour
+// replaced the phone's cups with its own number on reconnect, a stale cache put
+// back a cup removed elsewhere, and two tabs each kept only their own cups.
+describe("useHydration — every change is an increment", () => {
+  const DAY = "2026-10-11";
+  const synced = { ...ARGS, connected: true };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
-    seed({ day: "2026-10-11", cups: 2 });
+    localStorage.clear();
+    cloud.reset();
+    vi.mocked(hydrationTransport.send).mockClear();
+    vi.mocked(hydrationTransport.receipts).mockClear();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("adds an offline cup to the cups another device logged meanwhile", async () => {
+    cloud.write(DAY, 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    cloud.goSilent();
+    act(() => result.current.drink());
+    await flush();
+    expect(result.current.cups).toBe(4);
+    cloud.add(DAY, 2); // the phone, unheard here
+    act(() => cloud.reconnect());
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(6);
+    expect(result.current.cups).toBe(6);
+  });
+
+  it("takes the record's count over a stale cached one, and writes nothing", async () => {
+    seed({ day: DAY, cups: 5 }); // before a cup was removed on the phone
+    cloud.write(DAY, 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    expect(result.current.cups).toBe(3);
+    expect(cloud.days.get(DAY)).toBe(3);
+    expect(stored().cups).toBe(3);
+  });
+
+  it("adds up cups taken in two tabs while offline", async () => {
+    cloud.write(DAY, 2);
+    const a = renderHook(() => useHydration(synced));
+    const b = renderHook(() => useHydration(synced));
+    await flush();
+    cloud.goSilent();
+    act(() => a.result.current.drink());
+    act(() => b.result.current.drink());
+    act(() => cloud.reconnect());
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(a.result.current.cups).toBe(4);
+    expect(b.result.current.cups).toBe(4);
+  });
+
+  it("delivers a cup from a tab that closed offline, through the next tab", async () => {
+    cloud.write(DAY, 3);
+    const first = renderHook(() => useHydration(synced));
+    await flush();
+    cloud.goSilent();
+    act(() => first.result.current.drink());
+    await flush();
+    // The tab closes before the network is back: its queued write dies with it.
+    first.unmount();
+    cloud.killTab();
+    locks.crash(page);
+    cloud.add(DAY, 1); // the phone
+    act(() => cloud.reconnect());
+    locks.use(locks.client());
+    const next = renderHook(() => useHydration(synced));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(5);
+    expect(next.result.current.cups).toBe(5);
+    expect(outbox()).toEqual([]);
+  });
+
+  it("doesn't resend a cup whose write landed but was never acknowledged", async () => {
+    cloud.write(DAY, 3);
+    const first = renderHook(() => useHydration(synced));
+    await flush();
+    cloud.loseAcks();
+    act(() => first.result.current.drink());
+    await flush();
+    first.unmount();
+    cloud.killTab();
+    locks.crash(page);
+    locks.use(locks.client());
     renderHook(() => useHydration(synced));
     await flush();
-    expect(cloud.days.get("2026-10-11")).toBe(2);
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(outbox()).toEqual([]);
+  });
+
+  it("leaves a cup another live tab is sending, and sends it once that tab is gone", async () => {
+    cloud.write(DAY, 3);
+    localStorage.setItem(`${OUTBOX}x`, JSON.stringify({ day: DAY, delta: 1, at: 1 }));
+    const release = locks.holdAs("bookmarkdeck:hydration-op:x");
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(3);
+    release(); // that tab closes
+    act(() => void window.dispatchEvent(new Event("online")));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(result.current.cups).toBe(4);
+    act(() => void window.dispatchEvent(new Event("online")));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(4);
+  });
+
+  it("hands over queued cups when the window regains focus", async () => {
+    cloud.write(DAY, 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    localStorage.setItem(`${OUTBOX}x`, JSON.stringify({ day: DAY, delta: 1, at: 1 }));
+    act(() => void window.dispatchEvent(new Event("focus")));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(result.current.cups).toBe(4);
+  });
+
+  it("sends and logs one cup per drink under StrictMode", async () => {
+    cloud.write(DAY, 3);
+    const onLog = vi.fn();
+    const { result } = renderHook(() => useHydration({ ...synced, onLog }), {
+      wrapper: StrictMode,
+    });
+    await flush();
+    act(() => result.current.drink());
+    await flush();
+    expect(onLog).toHaveBeenCalledExactlyOnceWith("hydration", "Drank a cup of water (4 cups today)");
+    expect(hydrationTransport.send).toHaveBeenCalledOnce();
+    expect(cloud.days.get(DAY)).toBe(4);
+  });
+
+  it("sends nothing when removing a cup at 0", async () => {
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    act(() => result.current.removeCup());
+    await flush();
+    expect(result.current.cups).toBe(0);
+    expect(cloud.days.has(DAY)).toBe(false);
+    expect(outbox()).toEqual([]);
+  });
+
+  it("lands a cup taken offline before midnight on that day, beside the phone's", async () => {
+    vi.setSystemTime(new Date(2026, 9, 10, 23, 50));
+    cloud.write("2026-10-10", 2);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    cloud.goSilent();
+    act(() => result.current.drink());
+    cloud.add("2026-10-10", 1); // the phone, unheard here
+    act(() => void vi.advanceTimersByTime(15 * 60_000)); // midnight passes
+    act(() => cloud.reconnect());
+    await flush();
+    expect(cloud.days.get("2026-10-10")).toBe(4);
+    expect(cloud.days.has(DAY)).toBe(false);
+    expect(result.current.cups).toBe(0);
+  });
+
+  it("Sync to cloud hands over queued cups", async () => {
+    cloud.write(DAY, 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    localStorage.setItem(`${OUTBOX}x`, JSON.stringify({ day: DAY, delta: 1, at: 1 }));
+    await act(() => result.current.pushToCloud());
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(outbox()).toEqual([]);
+  });
+
+  it("Sync to cloud never writes the count on screen", async () => {
+    seed({ day: DAY, cups: 5 });
+    cloud.write(DAY, 3);
+    cloud.goSilent();
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    expect(result.current.cups).toBe(5); // the cache, until the record is read
+    act(() => void result.current.pushToCloud());
+    await flush();
+    act(() => cloud.reconnect());
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(3);
+    expect(result.current.cups).toBe(3);
+  });
+
+  it("counts two drinks in one batch as two", async () => {
+    const onLog = vi.fn();
+    const { result } = renderHook(() => useHydration({ ...synced, onLog }));
+    await flush();
+    act(() => {
+      result.current.drink();
+      result.current.drink();
+    });
+    await flush();
+    expect(result.current.cups).toBe(2);
+    expect(hydrationTransport.send).toHaveBeenCalledTimes(2);
+    expect(cloud.days.get(DAY)).toBe(2);
+    expect(onLog.mock.calls.map((c) => c[1])).toEqual([
+      "Drank a cup of water (1 cup today)",
+      "Drank a cup of water (2 cups today)",
+    ]);
+  });
+
+  it("keeps cups taken before connecting, and delivers them once connected", async () => {
+    const { result, rerender } = renderHook(
+      ({ connected }: { connected: boolean }) => useHydration({ ...ARGS, connected }),
+      { initialProps: { connected: false } }
+    );
+    act(() => result.current.drink());
+    act(() => result.current.drink());
+    act(() => result.current.drink());
+    act(() => result.current.removeCup());
+    await flush();
+    expect(outbox()).toHaveLength(4);
+    act(() => void window.dispatchEvent(new Event("online")));
+    act(() => void window.dispatchEvent(new Event("focus")));
+    await act(() => result.current.pushToCloud());
+    await flush();
+    // Not connected: sending would ask to sign in.
+    expect(hydrationTransport.send).not.toHaveBeenCalled();
+    expect(hydrationTransport.receipts).not.toHaveBeenCalled();
+    expect(outbox()).toHaveLength(4);
+    cloud.write(DAY, 1); // the phone
+    rerender({ connected: true });
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(3);
+    expect(result.current.cups).toBe(3);
+    expect(outbox()).toEqual([]);
+  });
+
+  // A count in the cache alone can't say which of its cups the cloud already
+  // has, so it is never uploaded; the record's count is taken instead.
+  it("doesn't upload a cached count no change in the outbox accounts for", async () => {
+    seed({ day: DAY, cups: 2 });
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    expect(cloud.days.has(DAY)).toBe(false);
+    expect(result.current.cups).toBe(0);
   });
 });
 
