@@ -12,7 +12,8 @@ vi.mock("@/features/focus/data/focusData", async () => ({
   subscribeResets: () => () => {},
 }));
 vi.mock("@/features/inventory/data/inventoryData", () => ({ subscribeItems: () => () => {} }));
-vi.mock("@/features/habits/data/habitData", () => ({
+// Hoisted, so every fresh copy of the hooks (one per tab) shares these fns.
+const habitData = vi.hoisted(() => ({
   deleteEntry: vi.fn(async () => {}),
   deleteHabit: vi.fn(async () => {}),
   fetchEntries: vi.fn(async () => []),
@@ -22,13 +23,23 @@ vi.mock("@/features/habits/data/habitData", () => ({
   subscribeEntries: () => () => {},
   subscribeHabits: () => () => {},
 }));
+vi.mock("@/features/habits/data/habitData", () => habitData);
 vi.mock("@/features/focus/lib/sound", () => ({ playChime: vi.fn() }));
 vi.mock("@/features/focus/lib/notify", () => ({ notify: vi.fn() }));
 
 import { hydrationTransport } from "@/features/focus/data/focusData";
-import { useHydration } from "@/features/focus/hooks/useHydration";
 import type { Habit } from "@/features/habits/lib/types";
-import { useHabits } from "./useHabits";
+
+// A tab is its own copy of a hook and of the outbox under it, as in a browser:
+// a Focus tab and a habits tab share only localStorage, the locks and the cloud.
+async function habitsTab() {
+  vi.resetModules();
+  return (await import("./useHabits")).useHabits;
+}
+async function focusTab() {
+  vi.resetModules();
+  return (await import("@/features/focus/hooks/useHydration")).useHydration;
+}
 
 const EMAIL = "a@example.com";
 const DAY = "2026-10-11";
@@ -76,6 +87,7 @@ afterEach(() => {
 });
 
 async function openHabits() {
+  const useHabits = await habitsTab();
   const hook = renderHook(() => useHabits(EMAIL, true));
   await flush();
   const habit = () => hook.result.current.habits.find((h) => h.id === "w") as Habit;
@@ -283,6 +295,7 @@ describe("useHabits — the water link", () => {
   // they landed, so they live only in the outbox and Focus's cache (5).
   async function cupsLeftInTheOutbox() {
     cloud.write(DAY, 3);
+    const useHydration = await focusTab();
     const focus = renderHook(() => useHydration(focusArgs));
     await flush();
     cloud.goSilent();
@@ -303,6 +316,7 @@ describe("useHabits — the water link", () => {
     expect(cloud.days.get(DAY)).toBe(5);
     expect(count()).toBe(5);
     locks.use(locks.client());
+    const useHydration = await focusTab();
     renderHook(() => useHydration(focusArgs));
     await flush();
     expect(cloud.days.get(DAY)).toBe(5);
@@ -314,6 +328,7 @@ describe("useHabits — the water link", () => {
     act(() => hook.result.current.adjustToday(habit(), 1));
     await flush();
     locks.use(locks.client());
+    const useHydration = await focusTab();
     renderHook(() => useHydration(focusArgs));
     await flush();
     expect(cloud.days.get(DAY)).toBe(6);

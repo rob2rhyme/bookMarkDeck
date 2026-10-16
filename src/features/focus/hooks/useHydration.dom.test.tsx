@@ -17,7 +17,19 @@ import {
   saveHydration,
   subscribeHydration,
 } from "@/features/focus/data/focusData";
-import { useHydration } from "./useHydration";
+
+type UseHydration = typeof import("./useHydration").useHydration;
+
+/**
+ * A tab: its own copy of the hook, and of the outbox under it. Tabs share
+ * localStorage, the lock registry and the cloud, as they do in a browser; one
+ * copy shared by two "tabs" makes one tab's state the other's.
+ */
+async function tab(): Promise<UseHydration> {
+  vi.resetModules();
+  return (await import("./useHydration")).useHydration;
+}
+let useHydration: UseHydration;
 
 const EMAIL = "a@example.com";
 const KEY = `bookmarkdeck:focus:hydration:v1:${EMAIL}`;
@@ -35,10 +47,11 @@ const flush = () =>
 
 let locks: WebLocksMock;
 let page: LockManagerLike;
-beforeEach(() => {
+beforeEach(async () => {
   locks = webLocksMock();
   page = locks.client();
   locks.use(page);
+  useHydration = await tab();
 });
 afterEach(() => locks.uninstall());
 
@@ -424,6 +437,27 @@ describe("useHydration — across midnight", () => {
     expect(cloud.days.has("2026-10-11")).toBe(false);
   });
 
+  it("drops a Download that lands after midnight", async () => {
+    vi.setSystemTime(new Date(2026, 9, 10, 23, 59));
+    cloud.write("2026-10-10", 9);
+    let land: (v: number) => void = () => {};
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    vi.mocked(fetchHydration).mockImplementationOnce(
+      () => new Promise<number | null>((r) => (land = r))
+    );
+    let download: Promise<void> = Promise.resolve();
+    act(() => void (download = result.current.pullFromCloud()));
+    vi.setSystemTime(new Date(2026, 9, 11, 0, 1));
+    tick(15_000);
+    await act(async () => {
+      land(9); // yesterday's count
+      await download;
+    });
+    expect(result.current.cups).toBe(0);
+    expect(stored()).toMatchObject({ day: "2026-10-11", cups: 0 });
+  });
+
   it("drops a Download that lands after switching accounts", async () => {
     vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
     let land: (v: number) => void = () => {};
@@ -496,8 +530,9 @@ describe("useHydration — every change is an increment", () => {
 
   it("adds up cups taken in two tabs while offline", async () => {
     cloud.write(DAY, 2);
+    const other = await tab();
     const a = renderHook(() => useHydration(synced));
-    const b = renderHook(() => useHydration(synced));
+    const b = renderHook(() => other(synced));
     await flush();
     cloud.goSilent();
     act(() => a.result.current.drink());
@@ -523,7 +558,8 @@ describe("useHydration — every change is an increment", () => {
     cloud.add(DAY, 1); // the phone
     act(() => cloud.reconnect());
     locks.use(locks.client());
-    const next = renderHook(() => useHydration(synced));
+    const nextTab = await tab();
+    const next = renderHook(() => nextTab(synced));
     await flush();
     expect(cloud.days.get(DAY)).toBe(5);
     expect(next.result.current.cups).toBe(5);
@@ -541,7 +577,8 @@ describe("useHydration — every change is an increment", () => {
     cloud.killTab();
     locks.crash(page);
     locks.use(locks.client());
-    renderHook(() => useHydration(synced));
+    const nextTab = await tab();
+    renderHook(() => nextTab(synced));
     await flush();
     expect(cloud.days.get(DAY)).toBe(4);
     expect(outbox()).toEqual([]);
@@ -573,6 +610,61 @@ describe("useHydration — every change is an increment", () => {
     await flush();
     expect(cloud.days.get(DAY)).toBe(4);
     expect(result.current.cups).toBe(4);
+  });
+
+  it("hands over queued cups when the tab becomes visible", async () => {
+    cloud.write(DAY, 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    localStorage.setItem(`${OUTBOX}x`, JSON.stringify({ day: DAY, delta: 1, at: 1 }));
+    act(() => void document.dispatchEvent(new Event("visibilitychange")));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(result.current.cups).toBe(4);
+  });
+
+  // A server outage fires no `online` event, and a tab left open may get no
+  // focus either: what the outbox couldn't deliver is retried on the clock.
+  it("retries what it couldn't deliver while the tab stays open", async () => {
+    cloud.write(DAY, 3);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    cloud.goSilent();
+    localStorage.setItem(`${OUTBOX}x`, JSON.stringify({ day: DAY, delta: 1, at: 1 }));
+    act(() => void window.dispatchEvent(new Event("focus")));
+    await flush();
+    expect(outbox()).toHaveLength(1);
+    act(() => cloud.reconnect());
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(3);
+    act(() => void vi.advanceTimersByTime(30_000));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(result.current.cups).toBe(4);
+    expect(outbox()).toEqual([]);
+  });
+
+  // The server's first answer leaves out what the outbox is still delivering,
+  // so the total isn't known until it lands.
+  it("doesn't log a total while the day has changes still to deliver", async () => {
+    cloud.write(DAY, 3);
+    localStorage.setItem(`${OUTBOX}x`, JSON.stringify({ day: DAY, delta: 1, at: 1 }));
+    let open = () => {};
+    vi.mocked(hydrationTransport.recover).mockImplementationOnce(async (...args) => {
+      await new Promise<void>((r) => (open = r));
+      return cloud.recover(args[1], args[2], args[3]);
+    });
+    const onLog = vi.fn();
+    const { result } = renderHook(() => useHydration({ ...synced, onLog }));
+    await flush();
+    expect(hydrationTransport.recover).toHaveBeenCalledOnce();
+    act(() => result.current.drink());
+    expect(onLog).toHaveBeenLastCalledWith("hydration", "Drank a cup of water");
+    open();
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(5);
+    act(() => result.current.drink());
+    expect(onLog).toHaveBeenLastCalledWith("hydration", "Drank a cup of water (6 cups today)");
   });
 
   it("sends and logs one cup per drink under StrictMode", async () => {

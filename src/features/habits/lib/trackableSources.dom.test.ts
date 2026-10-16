@@ -16,6 +16,7 @@ vi.mock("@/features/focus/data/focusData", () => ({
 vi.mock("@/lib/hydrationOutbox", () => ({
   recordHydration: vi.fn(),
   flushHydration: vi.fn(async () => {}),
+  hydrationRetryDue: vi.fn(() => false),
 }));
 vi.mock("@/features/inventory/data/inventoryData", () => ({
   subscribeItems: () => () => {},
@@ -23,7 +24,7 @@ vi.mock("@/features/inventory/data/inventoryData", () => ({
 
 import { hydrationTransport, subscribeHydration } from "@/features/focus/data/focusData";
 import { sourceById } from "@/features/habits/lib/trackableSources";
-import { flushHydration, recordHydration } from "@/lib/hydrationOutbox";
+import { flushHydration, hydrationRetryDue, recordHydration } from "@/lib/hydrationOutbox";
 
 const EMAIL = "a@example.com";
 const KEY = `bookmarkdeck:focus:hydration:v1:${EMAIL}`;
@@ -153,5 +154,27 @@ describe("hydration source — subscription", () => {
     stop();
     window.dispatchEvent(new Event("online"));
     expect(flushHydration).toHaveBeenCalledTimes(2);
+  });
+
+  // A change the network kept from landing is retried while habits stays open,
+  // even with no focus or `online` event — which a server outage never fires.
+  it("retries a flush the outbox says is due, while subscribed", () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(flushHydration).mockClear();
+      const stop = hydration.subscribe(EMAIL, "2026-03-15", vi.fn());
+      vi.advanceTimersByTime(60_000);
+      expect(flushHydration).not.toHaveBeenCalled();
+      vi.mocked(hydrationRetryDue).mockReturnValue(true);
+      vi.advanceTimersByTime(15_000);
+      expect(hydrationRetryDue).toHaveBeenCalledWith(EMAIL);
+      expect(flushHydration).toHaveBeenCalledOnce();
+      stop();
+      vi.advanceTimersByTime(60_000);
+      expect(flushHydration).toHaveBeenCalledOnce();
+    } finally {
+      vi.mocked(hydrationRetryDue).mockReturnValue(false);
+      vi.useRealTimers();
+    }
   });
 });

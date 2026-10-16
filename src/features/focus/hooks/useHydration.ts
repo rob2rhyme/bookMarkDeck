@@ -12,7 +12,12 @@ import { playChime } from "@/features/focus/lib/sound";
 import { notify } from "@/features/focus/lib/notify";
 import { todayKey } from "@/lib/dayKey";
 import { readHydrationCache, writeHydrationCache } from "@/lib/focusHydrationCache";
-import { flushHydration, recordHydration } from "@/lib/hydrationOutbox";
+import {
+  flushHydration,
+  hydrationRetryDue,
+  hydrationWaiting,
+  recordHydration,
+} from "@/lib/hydrationOutbox";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
 
@@ -130,16 +135,20 @@ export function useHydration({
   // so with reminders off nothing noticed midnight; focus and visibility catch
   // a tab whose timers slept. They, and the network coming back, are also when
   // changes left in the outbox are handed over — `connected` is sign-in state,
-  // and doesn't change when the network does.
+  // and doesn't change when the network does. A server outage fires no
+  // `online`, so the clock also retries what the outbox couldn't deliver.
   useEffect(() => {
     if (!hydrated) return;
-    const roll = () => void rollIfNewDay();
+    const tick = () => {
+      rollIfNewDay();
+      if (email && hydrationRetryDue(email)) void flush();
+    };
     const wake = () => {
       rollIfNewDay();
       void flush();
     };
     const online = () => void flush();
-    const id = setInterval(roll, 15000);
+    const id = setInterval(tick, 15000);
     window.addEventListener("focus", wake);
     window.addEventListener("online", online);
     document.addEventListener("visibilitychange", wake);
@@ -149,7 +158,7 @@ export function useHydration({
       window.removeEventListener("online", online);
       document.removeEventListener("visibilitychange", wake);
     };
-  }, [hydrated, rollIfNewDay, flush]);
+  }, [hydrated, rollIfNewDay, flush, email]);
 
   // Follow the current day's count for live cross-browser updates. Every
   // snapshot that arrives is taken as the count. serverFirst holds back the
@@ -206,8 +215,12 @@ export function useHydration({
     rollIfNewDay();
     const next = countRef.current + 1;
     // Before the day's record has been read the total isn't known — other
-    // devices' cups aren't in it yet — so the log doesn't claim one.
-    const known = !canSync || answeredRef.current === dayRef.current;
+    // devices' cups aren't in it yet — and nor is it while changes to the day
+    // wait in the outbox, so the log doesn't claim one.
+    const known =
+      !canSync ||
+      (answeredRef.current === dayRef.current &&
+        !(email && hydrationWaiting(email, dayRef.current)));
     show(next);
     if (email) recordHydration(email, dayRef.current, 1, { send: canSync }, hydrationTransport);
     lastDrinkRef.current = Date.now();

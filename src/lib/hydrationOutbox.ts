@@ -5,17 +5,18 @@
 // changes made on several devices, or in several tabs, add up instead of the
 // last writer's count replacing the others'. An increment queued offline lives
 // only in the tab's memory (Firestore runs on its memory cache here), so each
-// change is also stored here, and any page sends it if the page that made it
-// closes first. Three rules keep that from counting a cup twice:
+// change is also stored here, and any page delivers it if the page that made
+// it closes first. Three rules keep that from counting a cup twice:
 //
 //  - Each change has its own localStorage key, so recording and settling never
 //    read-modify-write a value another tab is writing.
-//  - Each change has its own Web Lock, held by the page that made it from the
-//    moment it is stored until the server acknowledges it. A page that closes
-//    releases its locks when its queued writes die, so a change whose lock is
-//    free is one nobody is sending.
+//  - Each change has its own Web Lock. A page holds it while the change is
+//    stored and while the page is sending it — until the server acknowledges
+//    it — and releases it once a change that waits for a flush is stored. A
+//    page that closes releases its locks when its queued writes die, so a
+//    change whose lock is free is one nobody is sending.
 //  - Each write carries a receipt (`ops.{id}`), and a change a page didn't just
-//    make is only ever sent again by `recover`: one transaction that reads the
+//    send is only ever delivered by `recover`: one transaction that reads the
 //    day from the server and writes nothing if the receipt is there — the write
 //    landed and only its acknowledgement was lost. A transaction, because a
 //    plain read can be answered by an open listener's view, which can lag the
@@ -25,6 +26,13 @@
 // A change this page can't store (no Web Locks, storage full or blocked) is
 // kept in this page's memory instead, and the next flush delivers it. Nobody
 // else knows of it, so it is lost if the page closes first.
+//
+// A page's own changes to a day reach the server in the order it made them: a
+// removal that overtakes the cup it removes clamps at 0 and is lost. Changes
+// the page sends go through the SDK's queue, in order. One made while the page
+// has changes waiting for a flush waits behind them; and a flush leaves a day
+// alone while the page is still sending to it, or while another page is
+// delivering one of its changes to it. Between pages there is no order.
 //
 // A neutral lib: the transport is passed in, so it imports no feature.
 
@@ -45,6 +53,9 @@ const PREFIX = "bookmarkdeck:focus:hydration-outbox:v1";
 const LOCK = "bookmarkdeck:hydration-op";
 // A device that never syncs keeps its newest changes, not every change for ever.
 const MAX_ENTRIES = 500;
+// After a flush that couldn't deliver something, how long until a retry is due.
+const FIRST_RETRY_MS = 15_000;
+const MAX_RETRY_MS = 5 * 60_000;
 
 const keyPrefix = (email: string) => `${PREFIX}:${email}:`;
 const lockName = (id: string) => `${LOCK}:${id}`;
@@ -60,6 +71,15 @@ function newId(): string {
   } catch {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
   }
+}
+
+// Changes are ordered by when they were made. Within a page that order must be
+// exact: two changes in one millisecond, or a clock stepped back between them,
+// would otherwise sort either way.
+let lastAt = 0;
+function stamp(): number {
+  lastAt = Math.max(Date.now(), lastAt + 1);
+  return lastAt;
 }
 
 function parse(raw: string | null): Entry | null {
@@ -121,6 +141,7 @@ function store(email: string, id: string, entry: Entry): boolean {
 }
 
 function forget(email: string, id: string) {
+  ours.delete(id);
   try {
     localStorage.removeItem(keyPrefix(email) + id);
   } catch {
@@ -128,26 +149,53 @@ function forget(email: string, id: string) {
   }
 }
 
-let inFlight = 0;
-let restoreGuarded = false;
-// Changes this page has sent and the server hasn't acknowledged.
-const sendingIds = new Set<string>();
+// The changes this page made and hasn't seen delivered. `sending`: on its way
+// through the SDK, unacknowledged. Otherwise it waits for a flush. `stored`:
+// whether it is in localStorage, where another page can deliver it.
+type Ours = { email: string; day: string; sending: boolean; stored: boolean };
+const ours = new Map<string, Ours>();
+
+// Changes this page couldn't store, for its next flush.
+const unsent: { email: string; id: string; entry: Entry }[] = [];
 
 /** Whether this page has sent a change the server hasn't acknowledged yet. */
 export function hydrationInFlight(): boolean {
-  return inFlight > 0;
+  return [...ours.values()].some((o) => o.sending);
+}
+
+/** This page's changes to `day` that wait for a flush, dropping any another page has delivered. */
+function oursWaiting(email: string, day: string): string[] {
+  const ids: string[] = [];
+  for (const [id, o] of ours) {
+    if (o.email !== email || o.day !== day || o.sending) continue;
+    if (o.stored && !read(email, id)) ours.delete(id);
+    else ids.push(id);
+  }
+  return ids;
+}
+
+/**
+ * Whether `day` has changes this page can't yet count as on the server: its
+ * own waiting for a flush, or any stored by a page that isn't sending them.
+ */
+export function hydrationWaiting(email: string, day: string): boolean {
+  if (oursWaiting(email, day).length) return true;
+  return stored(email).some((s) => s.entry.day === day && !ours.get(s.id)?.sending);
 }
 
 // A page restored from the back/forward cache may have lost its locks while it
-// was frozen, and another page may have recovered its stored changes since.
-// Its own queued writes would then land a second time, so it reloads instead.
-// Only with Web Locks: without them nothing is stored, and a reload would lose
-// what only this page holds.
+// was frozen, and another page may have delivered its stored changes since. Its
+// own queued writes would then land a second time, so it reloads instead — but
+// only when every change it holds is stored: a reload loses one held only here.
+// Chromium never restores a page holding a Web Lock, so there this never fires.
+let restoreGuarded = false;
 function guardRestore() {
   if (restoreGuarded || typeof window === "undefined") return;
   restoreGuarded = true;
   window.addEventListener("pageshow", (e) => {
-    if ((e as PageTransitionEvent).persisted && inFlight > 0) window.location.reload();
+    if (!(e as PageTransitionEvent).persisted) return;
+    const held = [...ours.values()];
+    if (held.some((o) => o.sending) && held.every((o) => o.stored)) window.location.reload();
   });
 }
 
@@ -156,40 +204,26 @@ async function sendNow(
   email: string,
   id: string,
   entry: Entry,
-  transport: HydrationTransport,
-  guarded: boolean
+  transport: HydrationTransport
 ): Promise<boolean> {
-  inFlight++;
-  sendingIds.add(id);
-  if (guarded) guardRestore();
   try {
     await transport.send(email, entry.day, entry.delta, id);
+    ours.delete(id);
     return true;
   } catch {
+    const o = ours.get(id);
+    if (o) o.sending = false;
     return false;
-  } finally {
-    inFlight--;
-    sendingIds.delete(id);
   }
-}
-
-// Changes this page couldn't store, for its next flush.
-const unsent: { email: string; id: string; entry: Entry }[] = [];
-
-/** Whether `day` has changes waiting for a flush: stored, and not being sent by this page. */
-function waiting(email: string, day: string): boolean {
-  if (unsent.some((u) => u.email === email && u.entry.day === day)) return true;
-  return stored(email).some((s) => s.entry.day === day && !sendingIds.has(s.id));
 }
 
 /**
  * Record a change of `delta` cups to `day`. With `send`, it goes to the server
- * at once, so this page's changes land in the order they were made — unless
- * the day has changes still waiting for a flush, when it waits behind them: a
- * removal sent ahead of the cup it removes reaches 0, is clamped there, and
- * the day ends one high. Without `send` (not connected) it waits for a flush.
- * Either way it is stored until acknowledged, so a page that closes first
- * doesn't lose it.
+ * at once, through the SDK's queue — unless this page has changes to the day
+ * waiting for a flush, when it waits behind them. Without `send` (not
+ * connected) it waits for a flush. It is stored until it is acknowledged, so a
+ * page that closes first doesn't lose it; one that can't be stored is kept in
+ * this page only.
  */
 export function recordHydration(
   email: string,
@@ -200,10 +234,13 @@ export function recordHydration(
 ): void {
   if (!delta) return;
   const id = newId();
-  const entry: Entry = { day, delta, at: Date.now() };
+  const entry: Entry = { day, delta, at: stamp() };
   const locks = lockManager();
-  const behind = send && waiting(email, day);
-  const sending = send && !behind ? sendNow(email, id, entry, transport, locks !== null) : null;
+  const behind = send && oursWaiting(email, day).length > 0;
+  const mine: Ours = { email, day, sending: send && !behind, stored: false };
+  ours.set(id, mine);
+  if (mine.sending && locks) guardRestore();
+  const sending = mine.sending ? sendNow(email, id, entry, transport) : null;
   const keepHere = () => {
     if (!sending) unsent.push({ email, id, entry });
     else
@@ -213,7 +250,7 @@ export function recordHydration(
   };
   // Once it is stored (or kept here) and its lock released, so a flush can take it.
   const followOn = () => {
-    if (behind) void flushHydration(email, transport);
+    if (behind) void flush(email, transport, locks);
   };
   if (!locks) {
     keepHere();
@@ -227,8 +264,9 @@ export function recordHydration(
       .request(lockName(id), async () => {
         ran = true;
         if (!store(email, id, entry)) return keepHere();
+        mine.stored = true;
         if (sending && (await sending)) forget(email, id);
-        // Refused, or not sent: it stays stored, for a flush to recover.
+        // Refused, or not sent: it stays stored, for a flush to deliver.
       })
       .catch(() => {
         if (!ran) keepHere();
@@ -243,19 +281,24 @@ export function recordHydration(
 /** Claim a change's lock if no page holds it. */
 function claim(locks: LockManager, id: string): Promise<(() => void) | null> {
   return new Promise((resolve) => {
-    locks
-      .request(lockName(id), { ifAvailable: true }, (lock) => {
-        if (!lock) return resolve(null);
-        return new Promise<void>((release) => resolve(release));
-      })
-      .catch(() => resolve(null));
+    try {
+      locks
+        .request(lockName(id), { ifAvailable: true }, (lock) => {
+          if (!lock) return resolve(null);
+          return new Promise<void>((release) => resolve(release));
+        })
+        .catch(() => resolve(null));
+    } catch {
+      resolve(null);
+    }
   });
 }
 
 /**
  * One day's changes, in the order they were made — a removal applied before
  * the cup it removes clamps at 0 and is lost — one at a time, stopping at the
- * first that fails (offline), so none overtakes an earlier one.
+ * first that fails (offline), so none overtakes an earlier one. True if all
+ * were delivered.
  */
 async function recoverDay(email: string, held: Held[], transport: HydrationTransport) {
   held.sort((a, b) => a.entry.at - b.entry.at);
@@ -265,13 +308,47 @@ async function recoverDay(email: string, held: Held[], transport: HydrationTrans
       try {
         await transport.recover(email, h.entry.day, h.entry.delta, h.id);
         if (h.stored) forget(email, h.id);
+        else ours.delete(h.id);
       } catch {
         failed = true;
       }
     }
-    if (failed && !h.stored) unsent.push({ email, id: h.id, entry: h.entry });
+    if (failed) putBack(email, h);
     h.release();
   }
+  return !failed;
+}
+
+/** A change this flush holds but doesn't deliver: one held only here goes back. */
+function putBack(email: string, h: Held) {
+  if (!h.stored) unsent.push({ email, id: h.id, entry: h.entry });
+}
+
+/**
+ * Whether a flush holding `held` may deliver `day` now. Not while this page is
+ * still sending to the day — the SDK may not have delivered it yet — nor while
+ * one of this page's changes to the day is out of the flush's hands (another
+ * page is delivering it): either would let a later change overtake it.
+ */
+function ready(email: string, day: string, held: Held[]): boolean {
+  for (const o of ours.values()) {
+    if (o.email === email && o.day === day && o.sending) return false;
+  }
+  return oursWaiting(email, day).every((id) => held.some((h) => h.id === id));
+}
+
+// After a flush that left changes undelivered, when this page should try again:
+// sooner after one that only waited for a day, backing off after failures.
+const retries = new Map<string, { due: number; wait: number }>();
+
+/**
+ * Whether a flush of this account is due again: the last one left changes it
+ * couldn't deliver yet. Pages flush on events (the server's first answer, the
+ * network coming back, focus); this is for a page left open with neither.
+ */
+export function hydrationRetryDue(email: string): boolean {
+  const r = retries.get(email);
+  return r !== undefined && Date.now() >= r.due;
 }
 
 // One flush at a time per account in this page, so a day's changes go out in
@@ -287,30 +364,44 @@ const flushes = new Map<string, { last: Promise<void>; waiting: boolean }>();
  * its lock, and recovery writes nothing the server already has.
  */
 export function flushHydration(email: string, transport: HydrationTransport): Promise<void> {
-  const slot = flushes.get(email);
-  if (slot?.waiting) return slot.last;
-  const mine = { last: Promise.resolve(), waiting: Boolean(slot) };
-  mine.last = slot
-    ? slot.last.then(() => {
-        mine.waiting = false;
-        return flushOnce(email, transport);
-      })
-    : flushOnce(email, transport);
-  flushes.set(email, mine);
-  void mine.last.finally(() => {
-    if (flushes.get(email) === mine) flushes.delete(email);
-  });
-  return mine.last;
+  return flush(email, transport, lockManager());
 }
 
-async function flushOnce(email: string, transport: HydrationTransport): Promise<void> {
+function flush(
+  email: string,
+  transport: HydrationTransport,
+  locks: LockManager | null
+): Promise<void> {
+  const slot = flushes.get(email);
+  if (slot?.waiting) return slot.last;
+  const next = { last: Promise.resolve(), waiting: Boolean(slot) };
+  next.last = slot
+    ? slot.last.then(() => {
+        next.waiting = false;
+        return flushOnce(email, transport, locks);
+      })
+    : flushOnce(email, transport, locks);
+  flushes.set(email, next);
+  void next.last.finally(() => {
+    if (flushes.get(email) === next) flushes.delete(email);
+  });
+  return next.last;
+}
+
+async function flushOnce(
+  email: string,
+  transport: HydrationTransport,
+  locks: LockManager | null
+): Promise<void> {
   const held: Held[] = [];
-  for (let i = unsent.length - 1; i >= 0; i--) {
-    if (unsent[i].email !== email) continue;
+  for (let i = 0; i < unsent.length; ) {
+    if (unsent[i].email !== email) {
+      i++;
+      continue;
+    }
     const [u] = unsent.splice(i, 1);
     held.push({ id: u.id, entry: u.entry, stored: false, release: () => {} });
   }
-  const locks = lockManager();
   if (locks) {
     const ids = stored(email).map((s) => s.id);
     const claims = await Promise.all(ids.map((id) => claim(locks, id)));
@@ -319,11 +410,31 @@ async function flushOnce(email: string, transport: HydrationTransport): Promise<
       if (!release) return; // a live page is sending it
       // Read again under the lock: the page that held it may have settled it.
       const entry = read(email, id);
-      if (!entry) return release();
+      if (!entry) {
+        ours.delete(id);
+        return release();
+      }
       held.push({ id, entry, stored: true, release });
     });
   }
   const byDay = new Map<string, Held[]>();
   for (const h of held) byDay.set(h.entry.day, [...(byDay.get(h.entry.day) ?? []), h]);
-  await Promise.all([...byDay.values()].map((day) => recoverDay(email, day, transport)));
+  let deferred = false;
+  const results = await Promise.all(
+    [...byDay].map(([day, dayHeld]) => {
+      if (ready(email, day, dayHeld)) return recoverDay(email, dayHeld, transport);
+      deferred = true;
+      for (const h of dayHeld) {
+        putBack(email, h);
+        h.release();
+      }
+      return true;
+    })
+  );
+  const wait = retries.get(email)?.wait ?? 0;
+  if (results.includes(false)) {
+    const next = Math.min(MAX_RETRY_MS, wait ? wait * 2 : FIRST_RETRY_MS);
+    retries.set(email, { due: Date.now() + next, wait: next });
+  } else if (deferred) retries.set(email, { due: Date.now(), wait });
+  else retries.delete(email);
 }

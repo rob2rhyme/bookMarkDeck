@@ -37,7 +37,7 @@ import {
 } from "@/features/habits/lib/journal";
 import type { Habit, HabitType } from "@/features/habits/lib/types";
 import { readHydrationCache, writeHydrationCache } from "@/lib/focusHydrationCache";
-import { flushHydration, recordHydration } from "@/lib/hydrationOutbox";
+import { flushHydration, hydrationRetryDue, recordHydration } from "@/lib/hydrationOutbox";
 
 type Unsub = () => void;
 
@@ -87,9 +87,13 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
     match: isWaterHabit,
     // Server-first, as Focus does. The first answer, and the network coming
     // back, are also when the outbox is handed over — Focus's cups included, so
-    // a Focus tab that closed offline still delivers when habits opens first.
+    // a Focus tab that closed offline still delivers when habits opens first —
+    // and so is a retry the outbox says is due.
     subscribe: (email, day, cb) => {
       const flush = () => void flushHydration(email, hydrationTransport);
+      const retry = setInterval(() => {
+        if (hydrationRetryDue(email)) flush();
+      }, 15_000);
       let first = true;
       const unsubscribe = subscribeHydration(
         email,
@@ -106,6 +110,7 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
       window.addEventListener("online", flush);
       return () => {
         unsubscribe();
+        clearInterval(retry);
         window.removeEventListener("online", flush);
       };
     },

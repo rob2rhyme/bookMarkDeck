@@ -10,7 +10,23 @@ import { vi } from "vitest";
 // acknowledgement ever coming back. Listeners hear what subscribeHydration
 // passes on with serverFirst: the server's count, and nothing while this page
 // has a write to that day unacknowledged.
-export const cloud = (() => {
+//
+// Both are kept on globalThis, so a test can load a fresh copy of a hook (and
+// the outbox under it) with vi.resetModules — one per tab, as browsers do —
+// and every copy still talks to the same cloud through the same mocks.
+const shared = globalThis as {
+  __bmdHydrationCloud?: ReturnType<typeof makeCloud>;
+  __bmdHydrationData?: ReturnType<typeof makeData>;
+};
+
+export const cloud = (shared.__bmdHydrationCloud ??= makeCloud());
+
+/** The hydration half of focusData, wired to `cloud`. */
+export function hydrationData() {
+  return (shared.__bmdHydrationData ??= makeData());
+}
+
+function makeCloud() {
   type Write = { day: string; apply: (v: number) => number; id?: string; done: () => void };
   type Listener = (v: number | null) => void;
   const days = new Map<string, number>();
@@ -128,10 +144,9 @@ export const cloud = (() => {
       return pending(day) ? undefined : server(day);
     },
   };
-})();
+}
 
-/** The hydration half of focusData, wired to `cloud`. */
-export function hydrationData() {
+function makeData() {
   const send = vi.fn((_e: string, day: string, delta: number, id?: string) =>
     cloud.increment(day, delta, id)
   );
