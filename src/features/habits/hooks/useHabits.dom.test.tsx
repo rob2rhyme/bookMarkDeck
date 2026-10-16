@@ -21,7 +21,7 @@ const habitData = vi.hoisted(() => ({
   saveEntry: vi.fn(async () => {}),
   saveEntryCount: vi.fn(async () => {}),
   saveHabit: vi.fn(async () => {}),
-  subscribeEntries: () => () => {},
+  subscribeEntries: vi.fn((_e: string, _cb: (entries: HabitEntry[]) => void) => () => {}),
   subscribeHabits: () => () => {},
 }));
 vi.mock("@/features/habits/data/habitData", () => habitData);
@@ -29,7 +29,7 @@ vi.mock("@/features/focus/lib/sound", () => ({ playChime: vi.fn() }));
 vi.mock("@/features/focus/lib/notify", () => ({ notify: vi.fn() }));
 
 import { hydrationTransport } from "@/features/focus/data/focusData";
-import type { Habit } from "@/features/habits/lib/types";
+import type { Habit, HabitEntry } from "@/features/habits/lib/types";
 
 // A tab is its own copy of a hook and of the outbox under it, as in a browser:
 // a Focus tab and a habits tab share only localStorage, the locks and the cloud.
@@ -308,6 +308,53 @@ describe("useHabits — the water link", () => {
     hook.rerender({ c: true });
     await flush();
     expect(habitData.saveEntry).not.toHaveBeenCalled();
+  });
+
+  // Entries from the cloud go through commitEntries too: set straight into
+  // state, they never reached entriesRef, and the next tap — built on the ref —
+  // dropped every one of them.
+  it("keeps the entries a cloud snapshot brought in when the next tap lands", async () => {
+    let deliver: (entries: HabitEntry[]) => void = () => {};
+    habitData.subscribeEntries.mockImplementationOnce((_e, cb) => {
+      deliver = cb;
+      return () => {};
+    });
+    const { hook, habit } = await openHabits();
+    const yesterday: HabitEntry = {
+      id: "w_2026-10-10",
+      habitId: "w",
+      day: "2026-10-10",
+      status: "done",
+      count: 6,
+      createdAt: null,
+    };
+    act(() => deliver([yesterday]));
+    act(() => hook.result.current.adjustToday(habit(), 1));
+    await flush();
+    expect(hook.result.current.entries).toContainEqual(yesterday);
+    expect(hook.result.current.todayEntry("w")).toMatchObject({ count: 1 });
+  });
+
+  it("keeps a logged note and time when it raises the habit from Focus's cache", async () => {
+    const logged: HabitEntry = {
+      id: `w_${DAY}`,
+      habitId: "w",
+      day: DAY,
+      status: "done",
+      count: 2,
+      note: "with lemon",
+      at: "08:30",
+      createdAt: "2026-10-11T08:30:00.000Z",
+    };
+    localStorage.setItem(`bookmarkdeck:habit-entries:v1:${EMAIL}`, JSON.stringify([logged]));
+    localStorage.setItem(
+      `bookmarkdeck:focus:hydration:v1:${EMAIL}`,
+      JSON.stringify({ day: DAY, cups: 5, lastDrink: 1 })
+    );
+    const useHabits = await habitsTab();
+    const hook = renderHook(() => useHabits(EMAIL, false));
+    await flush();
+    expect(hook.result.current.todayEntry("w")).toEqual({ ...logged, count: 5 });
   });
 
   it("keeps a logged note and time when it adopts a cup from elsewhere", async () => {
