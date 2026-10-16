@@ -187,6 +187,76 @@ describe("useHabits — the water link", () => {
     expect(count()).toBe(0);
   });
 
+  // Only the count is computed from the change: the rest of the entry — its
+  // note, time and when it was made — is the one from before the tap.
+  it("puts back the note and time from before the tap it undoes", async () => {
+    const { hook, habit } = await openHabits();
+    act(() =>
+      hook.result.current.logDetail(habit(), { status: "done", count: 4, note: "with lemon", at: "08:30" })
+    );
+    const before = hook.result.current.todayEntry("w");
+    act(() =>
+      hook.result.current.logDetail(habit(), { status: "done", count: 5, note: "plain", at: "09:00" })
+    );
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(sent()).toEqual([4, 1, -1]);
+    expect(hook.result.current.todayEntry("w")).toEqual({ ...before, count: 4 });
+  });
+
+  it("puts back the note after undoing a skip, with a cup from elsewhere since", async () => {
+    const { hook, habit, count } = await openHabits();
+    act(() =>
+      hook.result.current.logDetail(habit(), { status: "done", count: 4, note: "with lemon", at: "08:30" })
+    );
+    const before = hook.result.current.todayEntry("w");
+    act(() => hook.result.current.skipToday(habit()));
+    await flush();
+    act(() => cloud.add(DAY, 1)); // the phone
+    await flush();
+    expect(count()).toBe(1);
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(5);
+    expect(hook.result.current.todayEntry("w")).toEqual({ ...before, count: 5 });
+  });
+
+  // A tap made under one link is undone under that link or not at all: undone
+  // as a change to Focus after linking, it took back cups it never sent.
+  it("doesn't undo a tap made before the habit was linked", async () => {
+    localStorage.setItem(
+      `bookmarkdeck:habits:v1:${EMAIL}`,
+      JSON.stringify([{ ...water, linkedSourceId: "none" }])
+    );
+    cloud.write(DAY, 3);
+    const { hook, habit, count } = await openHabits();
+    act(() => hook.result.current.adjustToday(habit(), 2));
+    act(() => hook.result.current.updateHabit({ ...habit(), linkedSourceId: undefined }));
+    await flush();
+    expect(count()).toBe(3); // linking makes today's count Focus's
+    expect(hook.result.current.undoableIds.has("w")).toBe(false);
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(sent()).toEqual([]);
+    expect(cloud.days.get(DAY)).toBe(3);
+    expect(count()).toBe(3);
+  });
+
+  it("doesn't undo a tap sent to Focus after the habit was unlinked", async () => {
+    cloud.write(DAY, 3);
+    const { hook, habit, count } = await openHabits();
+    act(() => hook.result.current.adjustToday(habit(), 1));
+    await flush();
+    expect(hook.result.current.undoableIds.has("w")).toBe(true);
+    act(() => hook.result.current.updateHabit({ ...habit(), linkedSourceId: "none" }));
+    expect(hook.result.current.undoableIds.has("w")).toBe(false);
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(sent()).toEqual([1]);
+    expect(cloud.days.get(DAY)).toBe(4);
+    expect(count()).toBe(4);
+  });
+
   it("keeps a logged note and time when it adopts a cup from elsewhere", async () => {
     cloud.write(DAY, 3);
     const { hook, habit, count } = await openHabits();

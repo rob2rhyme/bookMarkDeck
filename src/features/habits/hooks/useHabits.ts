@@ -109,11 +109,11 @@ export function useHabits(
   );
 
   // Per-habit single-step undo: the today-entry that existed just before the
-  // most recent tap (null = there was none), and the done-count the tap left.
-  // Set on every logging action, consumed by undoToday, and reset when the day
-  // rolls over.
+  // most recent tap (null = there was none), the done-count the tap left, and
+  // the source the tap was linked to. Set on every logging action, consumed by
+  // undoToday, and reset when the day rolls over.
   const [undoByHabit, setUndoByHabit] = useState<
-    Map<string, { before: HabitEntry | null; after: number }>
+    Map<string, { before: HabitEntry | null; after: number; source: string | null }>
   >(() => new Map());
 
   // Hydration-safe load (after mount only).
@@ -262,11 +262,12 @@ export function useHabits(
   // Snapshot today's entry (or null) right before a tap mutates it, with the
   // done-count the tap leaves, so the tap can be reverted.
   const recordUndo = useCallback(
-    (habitId: string, after: number) => {
-      const before = currentEntry(habitId);
+    (habit: Habit, after: number) => {
+      const before = currentEntry(habit.id);
+      const source = resolveSource(habit)?.id ?? null;
       setUndoByHabit((m) => {
         const next = new Map(m);
-        next.set(habitId, { before, after });
+        next.set(habit.id, { before, after, source });
         return next;
       });
     },
@@ -295,7 +296,7 @@ export function useHabits(
       const existing = currentEntry(habit.id);
       const target = habitTarget(habit);
       const isDone = existing?.status === "done" && existing.count >= target;
-      recordUndo(habit.id, isDone ? 0 : target);
+      recordUndo(habit, isDone ? 0 : target);
       if (isDone) {
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, doneCount(existing));
@@ -326,7 +327,7 @@ export function useHabits(
         existing && existing.status === "done" ? existing.count : 0;
       const wasDone = prevCount >= target;
       const count = Math.max(0, prevCount + delta);
-      recordUndo(habit.id, count);
+      recordUndo(habit, count);
       if (count === 0) {
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, prevCount);
@@ -351,7 +352,7 @@ export function useHabits(
     (habit: Habit) => {
       if (!today) return;
       const previous = doneCount(currentEntry(habit.id));
-      recordUndo(habit.id, 0);
+      recordUndo(habit, 0);
       upsertEntry({
         id: entryId(habit.id, today),
         habitId: habit.id,
@@ -435,31 +436,38 @@ export function useHabits(
 
   /**
    * Revert the most recent tap on a habit to the snapshot taken before it. A
-   * habit linked both ways (water) takes back only the tap's change instead:
-   * its count may have taken in cups from other devices since, and restoring
-   * the count from before the tap erased them.
+   * habit linked both ways (water) takes back only the tap's change to the
+   * count instead: it may have taken in cups from other devices since, and
+   * restoring the count from before the tap erased them. The rest of the entry
+   * is the snapshot's. A tap made under a link the habit no longer has (or
+   * without the one it now has) isn't undone: as a change to Focus it would
+   * take back cups the tap never sent, or leave behind ones it did.
    */
   const undoToday = useCallback(
     (habit: Habit) => {
       if (!today) return;
       const rec = undoByHabit.get(habit.id);
       if (rec === undefined) return; // nothing recorded
+      const forget = () =>
+        setUndoByHabit((m) => {
+          const next = new Map(m);
+          next.delete(habit.id);
+          return next;
+        });
+      const source = resolveSource(habit);
+      if ((source?.id ?? null) !== rec.source) return forget();
       const current = currentEntry(habit.id);
       let restored = rec.before;
-      if (resolveSource(habit)?.policy === "bidirectional") {
+      if (source?.policy === "bidirectional") {
         const count = doneCount(current) - (rec.after - doneCount(rec.before));
-        const base = current ?? rec.before;
+        const base = rec.before ?? current;
         if (count > 0 && base) restored = { ...base, status: "done", count };
         else if (count <= 0 && rec.before?.status === "done") restored = null;
       }
       if (restored === null) removeEntry(entryId(habit.id, today));
       else upsertEntry(restored);
       mirrorLinked(habit, doneCount(restored), doneCount(current));
-      setUndoByHabit((m) => {
-        const next = new Map(m);
-        next.delete(habit.id);
-        return next;
-      });
+      forget();
     },
     [today, currentEntry, undoByHabit, removeEntry, upsertEntry, mirrorLinked]
   );
@@ -478,7 +486,7 @@ export function useHabits(
       if (!today) return;
       const prev = currentEntry(habit.id);
       if (detail.status === "clear") {
-        recordUndo(habit.id, 0);
+        recordUndo(habit, 0);
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, doneCount(prev));
         return;
@@ -489,7 +497,7 @@ export function useHabits(
         detail.status === "skipped"
           ? 0
           : Math.max(1, Math.round(detail.count ?? prev?.count ?? target));
-      recordUndo(habit.id, detail.status === "done" ? count : 0);
+      recordUndo(habit, detail.status === "done" ? count : 0);
       const note = detail.note?.trim();
       upsertEntry({
         id: entryId(habit.id, today),
@@ -760,10 +768,15 @@ export function useHabits(
     [dueToday, statsByHabit]
   );
 
-  const undoableIds = useMemo(
-    () => new Set(undoByHabit.keys()),
-    [undoByHabit]
-  );
+  // Not a tap made under a link the habit no longer has: undoToday ignores it.
+  const undoableIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const [id, rec] of undoByHabit) {
+      const habit = habits.find((h) => h.id === id);
+      if (habit && (resolveSource(habit)?.id ?? null) === rec.source) ids.add(id);
+    }
+    return ids;
+  }, [undoByHabit, habits]);
 
   return {
     hydrated,
