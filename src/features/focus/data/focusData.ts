@@ -981,7 +981,12 @@ export function subscribeHydration(
   });
 }
 
-/** Live full hydration history — every day's cup total, for the history chart. */
+/**
+ * Live full hydration history — every day's cup total, for the history chart.
+ * A snapshot carrying this page's unacknowledged writes is held back, for the
+ * reason subscribeHydration gives; metadata changes are listened for so the
+ * acknowledgement arrives even when the count it confirms hasn't changed.
+ */
 export function subscribeHydrationHistory(
   emailHint: string,
   cb: (rows: { day: string; cups: number }[]) => void
@@ -989,7 +994,9 @@ export function subscribeHydrationHistory(
   return listen(emailHint, (uid) =>
     onSnapshot(
       hydrationCol(uid),
-      (snap) =>
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
         cb(
           snap.docs
             .map((d) => ({
@@ -997,7 +1004,8 @@ export function subscribeHydrationHistory(
               cups: typeof d.data().cups === "number" ? d.data().cups : 0,
             }))
             .filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.day) && r.cups > 0)
-        ),
+        );
+      },
       onListenError("hydrationHistory")
     )
   );

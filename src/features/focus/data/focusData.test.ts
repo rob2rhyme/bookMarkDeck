@@ -37,6 +37,7 @@ import {
   fetchHydration,
   recoverHydration,
   subscribeHydration,
+  subscribeHydrationHistory,
 } from "@/features/focus/data/focusData";
 
 type Snap = {
@@ -106,6 +107,32 @@ describe("subscribeHydration — serverFirst", () => {
     expect(cb).toHaveBeenCalledWith(null);
     feed(snap(2, true, true));
     expect(cb).toHaveBeenLastCalledWith(2);
+  });
+});
+
+// The chart took every snapshot, including one carrying this page's
+// unacknowledged cup — laid, as subscribeHydration explains, over a stale count.
+describe("subscribeHydrationHistory", () => {
+  const days = (cups: number, hasPendingWrites: boolean) => ({
+    docs: [{ id: "2026-10-11", data: () => ({ cups }) }],
+    metadata: { fromCache: false, hasPendingWrites },
+  });
+
+  it("holds back a snapshot carrying this page's unacknowledged writes", async () => {
+    const cb = vi.fn();
+    subscribeHydrationHistory("a@example.com", cb);
+    await vi.waitFor(() => expect(onSnapshot).toHaveBeenCalled());
+    const [, options, feed] = vi.mocked(onSnapshot).mock.calls[0] as unknown as [
+      unknown,
+      { includeMetadataChanges: boolean },
+      (s: ReturnType<typeof days>) => void,
+    ];
+    // Acknowledged with the same count, only the metadata changes.
+    expect(options.includeMetadataChanges).toBe(true);
+    feed(days(1, true));
+    expect(cb).not.toHaveBeenCalled();
+    feed(days(6, false));
+    expect(cb).toHaveBeenCalledExactlyOnceWith([{ day: "2026-10-11", cups: 6 }]);
   });
 });
 
