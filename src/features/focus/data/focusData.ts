@@ -438,7 +438,8 @@ export async function saveHydration(
 }
 
 /**
- * Add `delta` cups (+1 or −1) to a day's count, with change `opId`'s receipt
+ * Add `delta` cups (a change: +1 or −1 from Focus, any count from a habit tap)
+ * to a day's count, with change `opId`'s receipt
  * in the same atomic write (see @/lib/hydrationOutbox). An increment composes
  * with other devices' changes instead of replacing them. A removal is clamped
  * at 0 in the same write, so one that reaches an empty record doesn't leave a
