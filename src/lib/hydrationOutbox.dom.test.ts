@@ -443,6 +443,38 @@ describe("recordHydration", () => {
       expect(s.total()).toBe(1);
     });
 
+    // Left alone while the page still sends to the day, a change held only
+    // here goes back to wait for the next flush rather than out of the page.
+    it("keeps a change a flush left alone, for the next one", async () => {
+      const s = server();
+      full();
+      s.set("hold");
+      p.record(EMAIL, DAY, 1, { send: true }, s.transport);
+      p.record(EMAIL, DAY, -1, { send: false }, s.transport);
+      await settle();
+      await p.flush(EMAIL, s.transport);
+      expect(s.sent).toEqual([]);
+      s.release();
+      await settle();
+      await p.flush(EMAIL, s.transport);
+      expect(s.sent.map((x) => x.delta)).toEqual([1, -1]);
+      expect(s.cups()).toBe(0);
+    });
+
+    // Its send acknowledged, a change that was never stored is done: still
+    // counted as on its way, it would hold its day back from every flush.
+    it("stops counting an acknowledged send it couldn't store", async () => {
+      const s = server();
+      full();
+      p.record(EMAIL, DAY, 1, { send: true }, s.transport);
+      await settle();
+      expect(p.inFlight()).toBe(false);
+      p.record(EMAIL, DAY, -1, { send: false }, s.transport);
+      await settle();
+      await p.flush(EMAIL, s.transport);
+      expect(s.sent.map((x) => x.delta)).toEqual([1, -1]);
+    });
+
     it("holds a later change behind one this page holds", async () => {
       const s = server();
       full();
