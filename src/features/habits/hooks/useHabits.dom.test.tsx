@@ -19,6 +19,7 @@ const habitData = vi.hoisted(() => ({
   fetchEntries: vi.fn(async () => []),
   fetchHabits: vi.fn(async () => []),
   saveEntry: vi.fn(async () => {}),
+  saveEntryCount: vi.fn(async () => {}),
   saveHabit: vi.fn(async () => {}),
   subscribeEntries: () => () => {},
   subscribeHabits: () => () => {},
@@ -77,6 +78,8 @@ beforeEach(() => {
   localStorage.setItem(`bookmarkdeck:habits:v1:${EMAIL}`, JSON.stringify([water]));
   cloud.reset();
   vi.mocked(hydrationTransport.send).mockClear();
+  habitData.saveEntry.mockClear();
+  habitData.saveEntryCount.mockClear();
   locks = webLocksMock();
   page = locks.client();
   locks.use(page);
@@ -255,6 +258,56 @@ describe("useHabits — the water link", () => {
     expect(sent()).toEqual([1]);
     expect(cloud.days.get(DAY)).toBe(4);
     expect(count()).toBe(4);
+  });
+
+  // This copy of the entry can be older than the cloud's — the hydration
+  // listener opens before the entries one — so an adoption writes only the
+  // count: the whole entry erased a note and time logged on another device.
+  it("writes only the count when it adopts a cup from elsewhere", async () => {
+    cloud.write(DAY, 3);
+    const { count } = await openHabits();
+    expect(count()).toBe(3);
+    act(() => cloud.add(DAY, 1));
+    await flush();
+    expect(count()).toBe(4);
+    expect(habitData.saveEntry).not.toHaveBeenCalled();
+    expect(habitData.saveEntryCount).toHaveBeenLastCalledWith(
+      EMAIL,
+      expect.objectContaining({ id: `w_${DAY}`, status: "done", count: 4 })
+    );
+  });
+
+  it("writes only the count when it raises the habit from Focus's cache", async () => {
+    localStorage.setItem(
+      `bookmarkdeck:focus:hydration:v1:${EMAIL}`,
+      JSON.stringify({ day: DAY, cups: 2, lastDrink: 1 })
+    );
+    const { count } = await openHabits();
+    expect(count()).toBe(2);
+    expect(habitData.saveEntry).not.toHaveBeenCalled();
+    expect(habitData.saveEntryCount).toHaveBeenCalledWith(
+      EMAIL,
+      expect.objectContaining({ status: "done", count: 2 })
+    );
+  });
+
+  // Queued while not connected, an adopted count went up as the whole entry on
+  // connect, and erased a note logged on another device. Linked, the habit
+  // takes the record's count again once connected, so there's nothing to send.
+  it("doesn't queue a count adopted while not connected for upload", async () => {
+    localStorage.setItem(
+      `bookmarkdeck:focus:hydration:v1:${EMAIL}`,
+      JSON.stringify({ day: DAY, cups: 2, lastDrink: 1 })
+    );
+    const useHabits = await habitsTab();
+    const hook = renderHook(({ c }: { c: boolean }) => useHabits(EMAIL, c), {
+      initialProps: { c: false },
+    });
+    await flush();
+    expect(hook.result.current.todayEntry("w")).toMatchObject({ status: "done", count: 2 });
+    hook.rerender({ c: true });
+    await flush();
+    expect(habitData.saveEntry).not.toHaveBeenCalled();
   });
 
   it("keeps a logged note and time when it adopts a cup from elsewhere", async () => {

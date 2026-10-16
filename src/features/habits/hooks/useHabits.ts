@@ -8,6 +8,7 @@ import {
   fetchEntries,
   fetchHabits,
   saveEntry,
+  saveEntryCount,
   saveHabit,
   subscribeEntries,
   subscribeHabits,
@@ -224,6 +225,18 @@ export function useHabits(
       commitEntries((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
       if (canSync && email) saveEntry(email, entry).catch(() => {});
       else queueUpsert("habitEntries", email, entry.id);
+    },
+    [canSync, email, commitEntries]
+  );
+
+  // A count taken from a linked source writes only the count: this copy of the
+  // entry may not have the note and time another device logged on it yet.
+  // Nothing is queued while not connected — a queued entry goes up whole on
+  // connect — since once connected the habit takes the source's count again.
+  const adoptCount = useCallback(
+    (entry: HabitEntry) => {
+      commitEntries((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
+      if (canSync && email) saveEntryCount(email, entry).catch(() => {});
     },
     [canSync, email, commitEntries]
   );
@@ -679,7 +692,7 @@ export function useHabits(
         });
         if (r.remove) removeEntry(id);
         else if (r.set != null)
-          upsertEntry({
+          adoptCount({
             ...e, // a note or time logged on the entry stays
             id,
             habitId: habit.id,
@@ -712,7 +725,7 @@ export function useHabits(
         target: habitTarget(habit),
       });
       if (r.set != null)
-        upsertEntry({
+        adoptCount({
           ...e,
           id,
           habitId: habit.id,

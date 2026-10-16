@@ -116,6 +116,29 @@ export async function saveEntry(
   );
 }
 
+/**
+ * Write only an entry's count — a count taken from a linked source. This
+ * device's copy of the entry can be older than the cloud's, so writing the
+ * whole of it erased a note and time logged on another device.
+ */
+export async function saveEntryCount(
+  emailHint: string,
+  entry: HabitEntry
+): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(
+    doc(entriesCol(uid), entry.id),
+    {
+      habitId: entry.habitId,
+      day: entry.day,
+      status: entry.status,
+      count: entry.count,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
 export async function deleteEntry(emailHint: string, id: string): Promise<void> {
   const uid = await uidFor(emailHint);
   await deleteDoc(doc(entriesCol(uid), id));
