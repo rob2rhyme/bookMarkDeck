@@ -73,3 +73,38 @@ describe("CommandPalette — notes", () => {
     expect(push).toHaveBeenCalledWith("/notes");
   });
 });
+
+describe("CommandPalette — bookmarks", () => {
+  const cache = (bookmarks: { id: string; title: string; url: string }[]) => JSON.stringify({ bookmarks });
+
+  beforeEach(() => {
+    localStorage.setItem("bookmarkdeck:v2:me@example.com", cache([{ id: "b1", title: "My bank", url: "https://bank.example" }]));
+    // Another account that signed in on this device, and the signed-out cache.
+    localStorage.setItem("bookmarkdeck:v2:someone@else.com", cache([{ id: "b2", title: "Their intranet", url: "https://intra.example" }]));
+    localStorage.setItem("bookmarkdeck:v2", cache([{ id: "b3", title: "Guest link", url: "https://guest.example" }]));
+  });
+
+  it("lists only the signed-in account's bookmarks", () => {
+    openPalette();
+    const all = rows().join("\n");
+    expect(all).toContain("My bank");
+    expect(all).not.toContain("Their intranet");
+    expect(all).not.toContain("Guest link");
+  });
+
+  it("never lists or opens a javascript: or data: bookmark", () => {
+    localStorage.setItem(
+      "bookmarkdeck:v2:me@example.com",
+      cache([
+        { id: "x1", title: "Free stuff", url: " JavaScript:alert(1)" },
+        { id: "x2", title: "Free page", url: "data:text/html,<script>alert(1)</script>" },
+      ])
+    );
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const box = openPalette();
+    fireEvent.change(box, { target: { value: "free" } });
+    expect(rows().some((r) => r.includes("Free"))).toBe(false);
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+});

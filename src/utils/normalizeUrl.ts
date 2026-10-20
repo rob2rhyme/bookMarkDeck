@@ -11,6 +11,18 @@
 // Returns "" for empty input or a blocked scheme; the caller should treat "" as
 // "not a usable URL" (skip the add / skip the open).
 
+/**
+ * A URL that runs code or carries a document when opened: `javascript:`,
+ * `data:`, `vbscript:`. Narrower than normalizeUrl on purpose — it is for STORED
+ * links (imports, cache, cloud), where an app scheme like `obsidian://` is a
+ * legitimate shortcut that normalizeUrl would reject. Leading whitespace and
+ * control characters are ignored, as browsers ignore them when navigating.
+ */
+export function isUnsafeUrl(raw: string): boolean {
+  const s = (raw ?? "").replace(/[\u0000-\u0020]/g, "").toLowerCase();
+  return s.startsWith("javascript:") || s.startsWith("data:") || s.startsWith("vbscript:");
+}
+
 export function normalizeUrl(raw: string): string {
   const trimmed = (raw ?? "").trim();
   if (!trimmed) return "";

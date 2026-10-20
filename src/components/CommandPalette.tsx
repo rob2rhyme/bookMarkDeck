@@ -12,6 +12,7 @@ import { HighlightedText } from "@/components/HighlightedText";
 import { Modal } from "@/components/Modal";
 import { setFilingIntent } from "@/lib/filingIntent";
 import { readNoteSummaries, setNewNoteIntent, type NoteSummary } from "@/lib/notesIndex";
+import { isUnsafeUrl } from "@/utils/normalizeUrl";
 import {
   Bookmark,
   Cabinet,
@@ -66,28 +67,30 @@ function Favicon({ url }: { url: string }) {
   );
 }
 
-/** Read bookmarks from every per-user localStorage cache, deduped by URL. */
-function readCachedBookmarks(): CachedBookmark[] {
-  if (typeof window === "undefined") return [];
+// Must match storageKeyV2ForUser in src/hooks/useBookmarks.ts.
+const BOOKMARKS_KEY_V2 = "bookmarkdeck:v2";
+
+/**
+ * The signed-in account's cached bookmarks, deduped by URL. Only that account's:
+ * this used to read every `bookmarkdeck:v2*` key on the device, so on a shared
+ * computer the next person to sign in could search the last one's bookmarks.
+ */
+function readCachedBookmarks(email: string | null): CachedBookmark[] {
+  if (typeof window === "undefined" || !email) return [];
   const seen = new Set<string>();
   const out: CachedBookmark[] = [];
   try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i);
-      if (!key || !key.startsWith("bookmarkdeck:v2")) continue;
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw);
-      const list = Array.isArray(parsed?.bookmarks) ? parsed.bookmarks : [];
-      for (const b of list) {
-        if (typeof b?.url !== "string" || seen.has(b.url)) continue;
-        seen.add(b.url);
-        out.push({
-          id: typeof b.id === "string" ? b.id : b.url,
-          title: typeof b.title === "string" && b.title ? b.title : b.url,
-          url: b.url,
-        });
-      }
+    const raw = window.localStorage.getItem(`${BOOKMARKS_KEY_V2}:${email}`);
+    const parsed = raw ? JSON.parse(raw) : null;
+    const list = Array.isArray(parsed?.bookmarks) ? parsed.bookmarks : [];
+    for (const b of list) {
+      if (typeof b?.url !== "string" || seen.has(b.url) || isUnsafeUrl(b.url)) continue;
+      seen.add(b.url);
+      out.push({
+        id: typeof b.id === "string" ? b.id : b.url,
+        title: typeof b.title === "string" && b.title ? b.title : b.url,
+        url: b.url,
+      });
     }
   } catch {
     /* ignore malformed cache */
@@ -115,7 +118,7 @@ export function CommandPalette() {
   }, []);
 
   const openPalette = useCallback(() => {
-    setBookmarks(readCachedBookmarks());
+    setBookmarks(readCachedBookmarks(email));
     setNotes(readNoteSummaries(email));
     setQuery("");
     setActive(0);
@@ -142,7 +145,7 @@ export function CommandPalette() {
         e.preventDefault();
         setOpen((v) => {
           if (!v) {
-            setBookmarks(readCachedBookmarks());
+            setBookmarks(readCachedBookmarks(email));
             setNotes(readNoteSummaries(email));
             setQuery("");
             setActive(0);
@@ -246,7 +249,7 @@ export function CommandPalette() {
       icon: <Favicon url={b.url} />,
       run: () => {
         close();
-        window.open(b.url, "_blank", "noopener,noreferrer");
+        if (!isUnsafeUrl(b.url)) window.open(b.url, "_blank", "noopener,noreferrer");
       },
     }));
     // Before bookmarks: the list is capped at 50, and a long bookmark list

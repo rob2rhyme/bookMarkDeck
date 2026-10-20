@@ -28,7 +28,7 @@ import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
-import { normalizeUrl } from "@/utils/normalizeUrl";
+import { isUnsafeUrl, normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { buildBackupFile, parseBackupJson } from "@/utils/bookmarkBackupFile";
 import { FIELD_CLASS } from "@/components/ui/Field";
@@ -895,7 +895,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
   const handleShortcutOpen = (app: ShortcutApp) => {
     const target = app.url.trim();
-    if (!target) return;
+    if (!target || isUnsafeUrl(target)) return;
     window.open(target, "_blank", "noopener,noreferrer");
   };
 

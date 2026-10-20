@@ -8,13 +8,14 @@ vi.mock("@/features/notes/data/notesData", () => ({
 }));
 
 import { fetchVaults, saveVault, subscribeVaults } from "@/features/notes/data/notesData";
-import { createVault, type VaultRecord } from "@/features/notes/lib/vault";
+import { createVault, vaultIterationLimits, type VaultRecord } from "@/features/notes/lib/vault";
 import { isUnlocked, resetVaultSessionForTests } from "@/features/notes/lib/vaultSession";
 import { useVaults } from "./useVaults";
 
 const EMAIL = "a@example.com";
 const KEY = `bookmarkdeck:notes:vaults:v1:${EMAIL}`;
 const FAST = { iterations: 1_000 };
+vaultIterationLimits.min = 1_000;
 
 beforeEach(() => {
   localStorage.clear();

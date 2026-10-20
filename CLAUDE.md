@@ -16,6 +16,10 @@ sessions (the work) → a record of progress. *Connection over breadth.*
 - **Firebase / Firestore (NoSQL)** for per-user cloud data, accessed **client-side**.
 - **Tailwind CSS v4** (utility classes; dark slate theme).
 - Deployed on **Vercel**. CSP + security headers set in `next.config.ts`.
+  **Stored links are untrusted**: a bookmark or shortcut can arrive from a shared file
+  or the cloud, so `isUnsafeUrl` (`@/utils/normalizeUrl`) keeps `javascript:`/`data:`/
+  `vbscript:` out of import and out of every `window.open`. `normalizeUrl` is for what
+  the user types and is stricter (it would reject an `obsidian://` shortcut).
 - Also in the repo (do **not** disturb when doing web work):
   - `src/utils/googleDriveSync.ts` — a **Google Drive sync** path.
 
@@ -762,7 +766,9 @@ Other invariants:
   subscription to the same data. Keep the key in sync with
   `storageKeyV2ForUser` — and note it is **four** files, not two: `useBookmarks`
   owns it, and filing's `lib/bookmarks.ts`, inventory's `useBookmarkLibrary` and
-  `CommandPalette` all hardcode it to read the same cache.
+  `CommandPalette` all hardcode it to read the same cache. The palette reads **only
+  the signed-in account's** key — it used to read every `bookmarkdeck:v2*` key, so the
+  next person to sign in on a shared computer could search the last one's bookmarks.
   `src/lib/storageKeys.test.ts` pins that set, along with the nine other keys
   hardcoded in more than one file — bump one copy and the reader silently reads
   nothing, which no other check can see.
@@ -888,6 +894,12 @@ feature; nothing imports it — removable cleanly in both directions.
   recovery code shown once. A passphrase reset re-wraps; no note is re-encrypted.
   Ciphertext is bound to its note id (GCM additional data); GCM's tag is the
   wrong-passphrase check (nothing else stored). WebCrypto only — no dependency.
+  **The stored iteration count is untrusted** (`vaultIterationLimits`): whoever controls
+  the database controls it, and a reset used to re-wrap the new passphrase at whatever
+  count the record carried — one iteration, if someone lowered it. Records outside
+  600k–5M are refused, and every wrap uses `PBKDF2_ITERATIONS`. Not covered, by design:
+  a server can replay an older ciphertext of the same note, or drop a note's lock
+  (stated limits of a web app whose database you don't control).
   **Invariants:** a locked note's `body` is always `""` in state, cache and Firestore
   (`normalizeNote` blanks it on read, `updateNote` on write, and `toFirestore` *throws*
   on a locked note with a body — the plaintext lives only in the open editor's memory).

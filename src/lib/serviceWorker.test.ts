@@ -181,6 +181,15 @@ describe("notificationclick", () => {
     const openWindow = await click("/focus", []);
     expect(openWindow).toHaveBeenCalledWith(`${ORIGIN}/focus`);
   });
+
+  it.each([
+    ["a backslash path", "/\\evil.example/x"],
+    ["an absolute URL", "https://evil.example/x"],
+    ["a protocol-relative URL", "//evil.example/x"],
+  ])("never leaves the app for %s", async (_label, url) => {
+    const openWindow = await click(url, []);
+    expect(openWindow).toHaveBeenCalledWith(`${ORIGIN}/`);
+  });
 });
 
 describe("static asset cache", () => {

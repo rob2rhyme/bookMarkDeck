@@ -17,6 +17,7 @@ import {
 } from "@/utils/pendingDeletes";
 import { ShortcutApp } from "@/types/shortcut";
 import { newHere, recordSyncedIds } from "@/utils/syncedIds";
+import { isUnsafeUrl } from "@/utils/normalizeUrl";
 
 const BASE_STORAGE_KEY_V1 = "bookmarkdeck:v1";
 const BASE_STORAGE_KEY_V2 = "bookmarkdeck:v2";
@@ -341,7 +342,8 @@ function planBookmarkImport(
   const additions: Bookmark[] = [];
   let duplicate = 0;
   for (const bookmark of normalizeBookmarks(imported)) {
-    if (!bookmark.url.trim()) continue;
+    // A shared bookmark file can carry `javascript:`/`data:` links; never store one.
+    if (!bookmark.url.trim() || isUnsafeUrl(bookmark.url)) continue;
     if (urls.has(bookmark.url)) {
       duplicate++;
       continue;

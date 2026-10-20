@@ -144,10 +144,13 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = new URL(
+  let target = new URL(
     (event.notification.data && event.notification.data.url) || "/",
     self.location.origin
   );
+  // A click only ever opens this app. "/\\evil.example" resolves off-site, and
+  // the server's own check is not the last word on what reaches the worker.
+  if (target.origin !== self.location.origin) target = new URL("/", self.location.origin);
   event.waitUntil(
     (async () => {
       const all = await self.clients.matchAll({

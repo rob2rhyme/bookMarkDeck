@@ -19,6 +19,16 @@
 // A vault is a small public record (salts, IVs, wrapped keys); it is safe to sync.
 
 export const PBKDF2_ITERATIONS = 600_000;
+
+/**
+ * The iteration counts a vault record may carry. The count is stored beside the
+ * wrapped key, so whoever controls the database controls it: a record lowered to
+ * one iteration would still unwrap — and a passphrase reset used to re-wrap at the
+ * stored count, handing the new passphrase over at the cost of one hash. Records
+ * outside this range are refused, and every wrap uses PBKDF2_ITERATIONS. The
+ * ceiling stops a record freezing the tab. Tests lower `min` for speed.
+ */
+export const vaultIterationLimits = { min: PBKDF2_ITERATIONS, max: 5_000_000 };
 const VAULT_VERSION = 1;
 
 export type Sealed = { iv: string; ct: string };
@@ -116,6 +126,7 @@ async function unwrap(
   secret: string,
   extractable: boolean
 ): Promise<CryptoKey> {
+  if (!iterationsAllowed(sealed.iterations)) throw new WrongSecretError();
   const kek = await deriveWrapKey(secret, fromB64(sealed.salt), sealed.iterations);
   return crypto.subtle.unwrapKey(
     "raw",
@@ -185,7 +196,7 @@ export async function resetPassphrase(
   } catch {
     throw new WrongSecretError();
   }
-  const next: VaultRecord = { ...record, pass: await wrap(dataKey, newPassphrase, opts.iterations ?? record.pass.iterations) };
+  const next: VaultRecord = { ...record, pass: await wrap(dataKey, newPassphrase, opts.iterations ?? PBKDF2_ITERATIONS) };
   return { record: next, key: await unwrap(next.pass, newPassphrase, false) };
 }
 
@@ -218,11 +229,20 @@ export function normalizeLock(raw: unknown): NoteLock | null {
   return isStr(r.kid) && isStr(r.iv) && isStr(r.ct) ? { kid: r.kid, iv: r.iv, ct: r.ct } : null;
 }
 
+function iterationsAllowed(n: unknown): n is number {
+  return (
+    typeof n === "number" &&
+    Number.isInteger(n) &&
+    n >= vaultIterationLimits.min &&
+    n <= vaultIterationLimits.max
+  );
+}
+
 function normalizeSealed(raw: unknown): VaultRecord["pass"] | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   if (!isStr(r.salt) || !isStr(r.iv) || !isStr(r.ct)) return null;
-  const iterations = typeof r.iterations === "number" && r.iterations >= 1 ? r.iterations : null;
+  const iterations = iterationsAllowed(r.iterations) ? r.iterations : null;
   return iterations ? { salt: r.salt, iv: r.iv, ct: r.ct, iterations } : null;
 }
 

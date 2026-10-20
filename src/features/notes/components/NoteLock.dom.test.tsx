@@ -28,6 +28,9 @@ vi.mock("@/features/notes/lib/vault", async (importOriginal) => {
 
 import type { Note } from "@/features/notes/lib/notes";
 import { lock as lockVault, resetVaultSessionForTests } from "@/features/notes/lib/vaultSession";
+import { vaultIterationLimits } from "@/features/notes/lib/vault";
+
+vaultIterationLimits.min = 1_000;
 import { NoteEditorScreen } from "./NoteEditor";
 
 const KEY = "bookmarkdeck:notes:v1:a@example.com";
