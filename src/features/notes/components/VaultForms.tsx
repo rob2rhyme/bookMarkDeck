@@ -148,8 +148,12 @@ export function SetupForm({
       </h2>
       <p className="text-sm text-slate-400">
         A locked note is encrypted on this device before it&rsquo;s saved. Only this passphrase — or the recovery code
-        you&rsquo;ll get next — can open it. Nobody else can, including whoever runs the server.{" "}
+        you&rsquo;ll get next — can open it. Nobody else can, including whoever stores your data.{" "}
         <span className="text-slate-300">Titles and tags stay visible</span> so you can still find your notes.
+      </p>
+      <p className="text-xs text-slate-500">
+        Locking protects a note from then on. Text saved before you locked it may still be in older backups or
+        exports.
       </p>
       <NewPassphraseFields pass={pass} confirm={confirm} setPass={setPass} setConfirm={setConfirm} />
       {error && (

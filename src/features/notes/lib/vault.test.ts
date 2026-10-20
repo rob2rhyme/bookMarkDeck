@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   PBKDF2_ITERATIONS,
@@ -11,11 +11,18 @@ import {
   normalizeVault,
   openVault,
   resetPassphrase,
+  vaultIterationLimits,
   WrongSecretError,
 } from "./vault";
 
 // Real PBKDF2 at a test-sized cost; the production default is pinned separately.
 const FAST = { iterations: 1_000 };
+beforeAll(() => {
+  vaultIterationLimits.min = 1_000;
+});
+afterAll(() => {
+  vaultIterationLimits.min = PBKDF2_ITERATIONS;
+});
 
 describe("vault", () => {
   it("uses 600k PBKDF2 iterations by default (OWASP 2023 for SHA-256)", () => {
@@ -102,5 +109,33 @@ describe("normalizers", () => {
     const { record } = await createVault("pw-pw-pw-pw", FAST);
     expect(normalizeVault(JSON.parse(JSON.stringify(record)))).toEqual(record);
     expect(normalizeVault({ ...record, pass: { ...record.pass, iterations: 0 } })).toBeNull();
+  });
+});
+
+describe("a tampered iteration count", () => {
+  // Whoever controls the database controls the stored count. Lowering it must
+  // not make the passphrase (or a new one, after a reset) cheap to guess.
+  it("is refused when reading a vault, below the floor and above the ceiling", async () => {
+    const { record } = await createVault("pw-pw-pw-pw", FAST);
+    expect(normalizeVault({ ...record, pass: { ...record.pass, iterations: 999 } })).toBeNull();
+    expect(normalizeVault({ ...record, recovery: { ...record.recovery, iterations: 1e12 } })).toBeNull();
+    expect(normalizeVault({ ...record, pass: { ...record.pass, iterations: 1_000.5 } })).toBeNull();
+  });
+
+  it("is refused at unlock, so nothing is derived at the lowered cost", async () => {
+    const { record } = await createVault("pw-pw-pw-pw", FAST);
+    vaultIterationLimits.min = PBKDF2_ITERATIONS;
+    try {
+      await expect(openVault(record, "pw-pw-pw-pw")).rejects.toBeInstanceOf(WrongSecretError);
+    } finally {
+      vaultIterationLimits.min = 1_000;
+    }
+  });
+
+  it("is never carried into a passphrase reset — the new passphrase is wrapped at the standard cost", async () => {
+    const { record, recoveryCode } = await createVault("old pass", FAST);
+    const reset = await resetPassphrase(record, recoveryCode, "new pass");
+    expect(reset.record.pass.iterations).toBe(PBKDF2_ITERATIONS);
+    expect(reset.record.recovery).toEqual(record.recovery);
   });
 });

@@ -21,6 +21,10 @@ const baseCsp = [
   "font-src 'self' https: data:",
   "base-uri 'self'",
   "frame-ancestors 'none'",
+  // Nothing here embeds plugins or posts a form off-site (sign-in, sign-out and
+  // checkout navigate by script, not by form), so both can be shut outright.
+  "object-src 'none'",
+  "form-action 'self'",
 ];
 
 const connectSrc = "connect-src 'self' https:";
