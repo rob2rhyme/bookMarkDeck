@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
@@ -12,6 +12,9 @@ vi.mock("@/features/notes/data/notesData", () => ({
   deleteNote: vi.fn(async () => {}),
   fetchNotes: vi.fn(async () => []),
   saveNote: vi.fn(async () => {}),
+  appendDeletion: vi.fn(async () => {}),
+  saveDeletions: vi.fn(async () => {}),
+  subscribeDeletions: vi.fn(() => () => {}),
   subscribeNotes: vi.fn(() => () => {}),
 }));
 
@@ -153,5 +156,27 @@ describe("NoteEditor", () => {
   it("says when a note doesn't exist", async () => {
     await open(null);
     expect(await screen.findByText(/doesn.t exist/)).toBeTruthy();
+  });
+});
+
+describe("NoteEditor — history", () => {
+  it("shows the note's history, newest first", async () => {
+    await open(
+      note({
+        activity: [
+          { at: "2026-01-01T00:00:00.000Z", kind: "created" },
+          { at: "2026-01-02T00:00:00.000Z", kind: "edited", n: 4, from: "2026-01-01T23:40:00.000Z" },
+          { at: "2026-01-03T00:00:00.000Z", kind: "pinned" },
+        ],
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    const dialog = await screen.findByRole("dialog", { name: "History" });
+    const rows = within(dialog).getAllByRole("listitem").map((li) => li.textContent ?? "");
+    expect(rows.map((r) => r.replace(/^.*?(Pinned|Edited|Created)/, "$1"))).toEqual([
+      expect.stringMatching(/^Pinned/),
+      expect.stringMatching(/^Edited \(4 saves\)/),
+      expect.stringMatching(/^Created/),
+    ]);
   });
 });

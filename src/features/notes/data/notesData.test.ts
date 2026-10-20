@@ -42,11 +42,32 @@ const NOTE: Note = {
 describe("notesData", () => {
   it("round-trips a note through the Firestore shape", () => {
     const stored = toFirestore(NOTE);
-    expect(Object.keys(stored).sort()).toEqual(["body", "createdAt", "lock", "pinned", "tags", "title", "updatedAt"]);
+    expect(Object.keys(stored).sort()).toEqual([
+      "activity",
+      "body",
+      "createdAt",
+      "lock",
+      "pinned",
+      "tags",
+      "title",
+      "updatedAt",
+    ]);
     expect(stored.lock).toBeNull();
     // Client instants, not serverTimestamp(): a pending server time reads back
     // null locally and would sink the note being typed to the bottom of the list.
     expect(mapNote({ id: "n1", data: () => stored as unknown as Record<string, unknown> })).toEqual(NOTE);
+  });
+
+  it("round-trips a note's history", () => {
+    const withHistory = {
+      ...NOTE,
+      activity: [
+        { at: "2026-10-01T00:00:00.000Z", kind: "created" as const },
+        { at: "2026-10-02T00:00:00.000Z", kind: "edited" as const, n: 3, from: "2026-10-01T23:50:00.000Z" },
+      ],
+    };
+    const stored = toFirestore(withHistory);
+    expect(mapNote({ id: "n1", data: () => stored as unknown as Record<string, unknown> })).toEqual(withHistory);
   });
 
   it("maps a malformed document without throwing", () => {

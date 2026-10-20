@@ -5,6 +5,9 @@ vi.mock("@/features/notes/data/notesData", () => ({
   deleteNote: vi.fn(async () => {}),
   fetchNotes: vi.fn(async () => []),
   saveNote: vi.fn(async () => {}),
+  appendDeletion: vi.fn(async () => {}),
+  saveDeletions: vi.fn(async () => {}),
+  subscribeDeletions: vi.fn(() => () => {}),
   subscribeNotes: vi.fn(() => () => {}),
 }));
 
@@ -204,5 +207,59 @@ describe("useNotes — tags", () => {
     expect(byId()).toEqual({ a: ["keep"], b: [], c: ["x"] });
     expect(result.current.retag("missing", null)).toBe(0);
     expect(result.current.retag("keep", "#keep")).toBe(0);
+  });
+});
+
+describe("useNotes — history and the deletion log", () => {
+  const kinds = (n?: Note) => (n?.activity ?? []).map((e) => e.kind);
+
+  it("records what happened, never what the note said", async () => {
+    const { result } = renderHook(() => useNotes(EMAIL, false));
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    let id = "";
+    act(() => {
+      id = result.current.createNote({ body: "wifi: hunter2" }).id;
+    });
+    act(() => void result.current.updateNote(id, { body: "wifi: hunter3" }));
+    act(() => void result.current.updateNote(id, { body: "wifi: hunter4" }));
+    act(() => void result.current.updateNote(id, { pinned: true }));
+    act(() => void result.current.updateNote(id, { tags: ["Home", "net"] }));
+    const n = cached().find((x) => x.id === id);
+    expect(kinds(n)).toEqual(["created", "edited", "pinned", "tagged"]);
+    expect(n?.activity?.[1].n).toBe(2); // two saves, one entry
+    expect(n?.activity?.[3]).toMatchObject({ added: ["home", "net"] });
+    expect(JSON.stringify(n?.activity)).not.toContain("hunter");
+  });
+
+  it("records locking and unlocking, and an edit of a locked note's text", async () => {
+    localStorage.setItem(KEY, JSON.stringify([note("n1", { body: "secret" })]));
+    const { result } = renderHook(() => useNotes(EMAIL, false));
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    const lock = (ct: string) => ({ kid: "v", iv: "i", ct });
+    act(() => void result.current.updateNote("n1", { lock: lock("a"), body: "" }));
+    act(() => void result.current.updateNote("n1", { lock: lock("b") }));
+    act(() => void result.current.updateNote("n1", { lock: null, body: "secret" }));
+    expect(kinds(cached()[0])).toEqual(["locked", "edited", "unlocked"]);
+  });
+
+  it("logs a delete for the account, and Undo shows on the note as Restored", async () => {
+    localStorage.setItem(KEY, JSON.stringify([note("n1", { title: "Plan" })]));
+    const { result } = renderHook(() => useNotes(EMAIL, false));
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    let removed: Note | null = null;
+    act(() => {
+      removed = result.current.removeNote("n1");
+    });
+    const log = JSON.parse(localStorage.getItem(`bookmarkdeck:notes:deleted:v1:${EMAIL}`) ?? "[]");
+    expect(log).toEqual([expect.objectContaining({ id: "n1", title: "Plan" })]);
+    act(() => result.current.restoreNote(removed!));
+    expect(kinds(cached()[0])).toEqual(["restored"]);
+  });
+
+  it("marks notes restored from a backup", async () => {
+    const { result } = renderHook(() => useNotes(EMAIL, false));
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    act(() => result.current.importNotes([note("b1")]));
+    expect(kinds(cached()[0])).toEqual(["imported"]);
   });
 });
