@@ -194,6 +194,14 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   what keeps six pillars at six bottom-nav cells (the most 320px holds). Header pills
   are icon-only below `xl`: five labelled pills plus the account menu overflow the
   row under ~1280px.
+- **UI that opens on its own never lands on top of another dialog.** The first-run
+  welcome (`Onboarding`) opens after a cloud check, so it used to cover whatever the user
+  had just opened. It now waits until the page has been dialog-free for a moment
+  (`@/lib/dialogPresence`: any `aria-modal="true"` element — the shared `Modal` *and* the
+  hand-built overlays — plus the ⌘K palette's open event) and counts as seen only once
+  shown. Once open it stays: closing one `Modal` under another hands body-scroll
+  restoration to the wrong one. A new hand-built dialog must keep `aria-modal="true"`
+  or this can't see it.
 - Existing pages: `/` (home), `/folders/[folderKey]`, `/folders/manage`, `/folders/unstaged`,
   `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/filing`, `/notes`, `/notes/[id]`,
   `/guide` (site guide), `/faq`, `/privacy`, `/terms`, `/login`.
