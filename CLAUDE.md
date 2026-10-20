@@ -93,7 +93,11 @@ account holding **both** `roles/firebaserules.admin` (create rulesets, move the 
 `roles/serviceusage.serviceUsageConsumer` (what firebase-tools needs to call project APIs as a
 service account rather than a user). Service accounts live in the Cloud console, not the Firebase
 one: console.cloud.google.com → IAM & Admin → Service Accounts, same project as `.firebaserc`.
-Full steps are in the workflow header. Without the secret the deploy job skips with a notice
+Full steps are in the workflow header. **The deploy job runs only on `main`**: the workflow is also
+dispatchable, and a dispatch on another branch would run that branch's own verify script — so
+without the ref check an unmerged branch could ship an open ruleset. For a second gate, add a
+GitHub `environment` with required reviewers holding the secret (repo settings, not YAML).
+Without the secret the deploy job skips with a notice
 rather than failing, so forks still get the verification half. The last two commands read the same credential locally
 via `GOOGLE_APPLICATION_CREDENTIALS`. `firebase-tools` is pinned in `package.json` and is
 deliberately **not** a dependency — it's fetched by `npx -y`, so it can't drag transitive
@@ -354,6 +358,10 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   The trap it closed is worth remembering — a local Node of exactly `v22.22.2` ran all 785
   tests while CI on 20 reached 773, so "green locally" proves nothing about CI unless the
   runtimes match. Check `node -v` against the workflow before trusting a local run.
+  **Workflows run with `permissions: contents: read`, and every action is pinned by
+  commit SHA** with its tag in a comment (a tag can be moved); Dependabot's
+  `github-actions` entry keeps the pins current. actionlint's installer is fetched by
+  commit too.
   actionlint is blocking and pinned: an invalid workflow expression fails at *startup*,
   producing a run with no jobs and no entry in the PR's check list, so the failure looks
   like nothing ran.
