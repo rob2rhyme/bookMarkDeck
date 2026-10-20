@@ -8,12 +8,17 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { ArrowLeft, CheckSquare, Copy, ExternalLink, Pin, Share2, Trash2 } from "@/components/icons";
+import { ArrowLeft, CheckSquare, Copy, ExternalLink, Lock, Pin, Share2, Trash2, Unlock } from "@/components/icons";
 import { IconAction } from "@/components/IconAction";
+import { Modal } from "@/components/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/toast/ToastProvider";
 import { Markdown } from "@/features/notes/components/Markdown";
 import { TagEditor } from "@/features/notes/components/TagEditor";
+import { SetupForm, UnlockForm } from "@/features/notes/components/VaultForms";
+import { useVaults } from "@/features/notes/hooks/useVaults";
+import { createVault, decryptNote, encryptNote } from "@/features/notes/lib/vault";
+import { addKeys, isUnlocked, keyFor, lock as lockVault, onBeforeLock, subscribe as onVaultChange, touch, useVaultUnlocked } from "@/features/notes/lib/vaultSession";
 import { useAutosave, type SaveStatus } from "@/features/notes/hooks/useAutosave";
 import { useNotes } from "@/features/notes/hooks/useNotes";
 import { useNotesSync } from "@/features/notes/hooks/useNotesSync";
@@ -34,15 +39,151 @@ import {
   type TextEdit,
 } from "@/features/notes/lib/smartText";
 
+type Draft = { title: string; body: string };
+
 export function NoteEditorScreen({ id }: { id: string }) {
   const { data: session, status } = useSession();
+  const { toast } = useToast();
   const email = session?.user?.email ?? null;
   const sync = useNotesSync(email);
   const api = useNotes(email, sync.connected);
+  const vault = useVaults(email, sync.connected);
+  const unlocked = useVaultUnlocked();
   const note = api.notes.find((n) => n.id === id) ?? null;
   // Set by a delete: the note vanishes a beat before the route changes, and
   // "doesn't exist" shouldn't flash in between.
   const [leaving, setLeaving] = useState(false);
+
+  /* ---- locked notes ---------------------------------------------------- */
+  // The decrypted body, held only in memory and only while the vault is open,
+  // tagged with the ciphertext it came from. A save sets it alongside the new
+  // ciphertext, so the editor never sees its own write as a remote change.
+  const [plain, setPlain] = useState<{ ct: string; text: string } | null>(null);
+  const [failedCt, setFailedCt] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<null | "setup" | "unlock">(null);
+  const pendingLock = useRef<(() => Draft) | null>(null);
+  const noteRef = useRef(note);
+  useEffect(() => {
+    noteRef.current = note;
+  });
+  // Encrypting is async: saves run one after another so a slow one can never
+  // land after (and over) a newer one.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const serial = <T,>(fn: () => Promise<T>): Promise<T> => {
+    const run = queue.current.then(fn, fn);
+    queue.current = run.catch(() => {});
+    return run;
+  };
+
+  // Locking the vault drops the plaintext from memory too.
+  useEffect(() => onVaultChange(() => !isUnlocked() && setPlain(null)), []);
+
+  const lockInfo = note?.lock;
+  const key = lockInfo && unlocked ? keyFor(lockInfo.kid) : undefined;
+  useEffect(() => {
+    if (!lockInfo || !key || plain?.ct === lockInfo.ct) return;
+    let cancelled = false;
+    decryptNote(key, id, lockInfo).then(
+      (text) => !cancelled && setPlain({ ct: lockInfo.ct, text }),
+      () => !cancelled && setFailedCt(lockInfo.ct)
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [id, lockInfo, key, plain?.ct]);
+
+  const encryptAndStore = (n: Note, kid: string, draft: Draft) =>
+    serial(async () => {
+      const k = keyFor(kid);
+      if (!k) throw new Error("The vault is locked.");
+      const sealed = await encryptNote(k, kid, n.id, draft.body);
+      setPlain({ ct: sealed.ct, text: draft.body });
+      await api.updateNote(n.id, { title: draft.title, lock: sealed });
+    });
+
+  const onSave = (draft: Draft): Promise<void> => {
+    const n = noteRef.current;
+    if (!n) return Promise.resolve();
+    if (n.lock) return encryptAndStore(n, n.lock.kid, draft);
+    return serial(() => api.updateNote(n.id, draft));
+  };
+
+  const performLock = (getDraft: () => Draft) => {
+    const n = noteRef.current;
+    const kid = vault.primaryKid();
+    if (!n || !kid) return;
+    encryptAndStore(n, kid, getDraft()).then(
+      () => toast("Note locked", { variant: "success", duration: 2000 }),
+      () => toast("Couldn't lock the note.", { variant: "error" })
+    );
+  };
+
+  const requestLock = (getDraft: () => Draft) => {
+    if (!vault.ready) {
+      toast("Still loading your locked-notes settings — try again in a moment.");
+      return;
+    }
+    pendingLock.current = getDraft;
+    if (vault.vaults.length === 0) setDialog("setup");
+    else if (!vault.primaryKid()) setDialog("unlock");
+    else {
+      pendingLock.current = null;
+      performLock(getDraft);
+    }
+  };
+
+  const finishDialog = () => {
+    setDialog(null);
+    const pending = pendingLock.current;
+    pendingLock.current = null;
+    if (pending) performLock(pending);
+  };
+
+  const removeLock = (draft: Draft) =>
+    serial(async () => {
+      const n = noteRef.current;
+      if (!n) return;
+      await api.updateNote(n.id, { title: draft.title, body: draft.body, lock: null });
+      setPlain(null);
+    });
+
+  const createAndUnlock = async (passphrase: string) => {
+    const { record, recoveryCode, key: k } = await createVault(passphrase);
+    await vault.putVault(record);
+    addKeys([[record.id, k]]);
+    return recoveryCode;
+  };
+
+  const vaultDialog = (
+    <Modal
+      open={dialog !== null}
+      onClose={() => {
+        setDialog(null);
+        pendingLock.current = null;
+      }}
+      labelledBy="vault-title"
+    >
+      {dialog === "setup" ? (
+        <SetupForm onCreate={createAndUnlock} onDone={finishDialog} />
+      ) : dialog === "unlock" ? (
+        <UnlockForm
+          intro={
+            <h2 id="vault-title" className="text-lg font-semibold text-slate-50">
+              Unlock to lock this note
+            </h2>
+          }
+          onUnlock={async (p) => {
+            await vault.unlock(p);
+            finishDialog();
+          }}
+          onRecover={async (c, p) => {
+            await vault.recover(c, p);
+            finishDialog();
+          }}
+        />
+      ) : null}
+    </Modal>
+  );
 
   const back = (
     <Link
@@ -75,10 +216,65 @@ export function NoteEditorScreen({ id }: { id: string }) {
       </div>
     );
   }
+  if (note.lock && !key) {
+    // Unlocked but no key for THIS note: it was locked with a vault this
+    // passphrase didn't open (set up on another device, say).
+    const otherVault = unlocked;
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-3 sm:px-0">
+        {back}
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/70 p-6">
+          <div className="flex items-center gap-2 text-slate-50">
+            <Lock className="h-5 w-5 text-blue-300" />
+            <h2 id="vault-title" className="text-lg font-semibold">
+              {note.title.trim() || "Locked note"}
+            </h2>
+          </div>
+          <UnlockForm
+            intro={
+              <p className="text-sm text-slate-400">
+                {otherVault
+                  ? "This note was locked with a different passphrase. Enter that one to open it."
+                  : "This note is locked. Enter your passphrase to open it."}
+              </p>
+            }
+            onUnlock={vault.unlock}
+            onRecover={vault.recover}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (note.lock && plain?.ct !== note.lock.ct) {
+    return (
+      <div className="flex flex-col gap-4 px-3 sm:px-0">
+        {back}
+        <p className="text-sm text-slate-500" role="status">
+          {failedCt === note.lock.ct ? "This note couldn't be decrypted. It may be damaged." : "Unlocking…"}
+        </p>
+      </div>
+    );
+  }
+
   // No sync banner here: the list carries it, and the save status below the
   // editor already says "Saved on this device" when sync is off.
+  const source: Draft = note.lock ? { title: note.title, body: plain!.text } : { title: note.title, body: note.body };
   return (
-    <NoteEditor key={note.id} note={note} api={api} canSync={api.canSync} onLeave={() => setLeaving(true)} />
+    <>
+      <NoteEditor
+        key={note.id}
+        note={note}
+        source={source}
+        api={api}
+        canSync={api.canSync}
+        onLeave={() => setLeaving(true)}
+        onSave={onSave}
+        onRequestLock={requestLock}
+        onRemoveLock={removeLock}
+      />
+      {vaultDialog}
+    </>
   );
 }
 
@@ -129,27 +325,39 @@ function statusText(status: SaveStatus, canSync: boolean, updatedAt: string, now
 
 function NoteEditor({
   note,
+  source,
   api,
   canSync,
   onLeave,
+  onSave,
+  onRequestLock,
+  onRemoveLock,
 }: {
   note: Note;
+  /** What the editor shows: the note itself, or a locked note's decrypted body. */
+  source: Draft;
   api: ReturnType<typeof useNotes>;
   canSync: boolean;
   onLeave: () => void;
+  /** Persists the draft — encrypting first when the note is locked. */
+  onSave: (draft: Draft) => Promise<void>;
+  onRequestLock: (getDraft: () => Draft) => void;
+  onRemoveLock: (draft: Draft) => Promise<void>;
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const { updateNote, removeNote, restoreNote } = api;
+  const secure = Boolean(note.lock);
 
-  const [title, setTitle] = useState(note.title);
-  const [body, setBody] = useState(note.body);
+  const [title, setTitle] = useState(source.title);
+  const [body, setBody] = useState(source.body);
+  const [confirmingUnlock, setConfirmingUnlock] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [now] = useState(() => new Date());
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   // A brand-new note opens with the cursor in the title.
-  const [openedBlank] = useState(() => isBlank(note));
+  const [openedBlank] = useState(() => !note.lock && isBlank(note));
   // This component only renders after the notes cache has loaded (post-mount),
   // so reading localStorage here never runs during SSR.
   const [view, setViewState] = useState<View>(() => (openedBlank ? "edit" : readView()));
@@ -169,19 +377,33 @@ function NoteEditor({
     draft.current = { title, body };
   });
 
-  const autosave = useAutosave(() => updateNote(note.id, draft.current));
-  const { schedule, flush, saveNow, dirty } = autosave;
+  const autosave = useAutosave(() => onSave(draft.current));
+  const { schedule: scheduleSave, flush, saveNow, hasPending, dirty } = autosave;
+  // Typing in an unlocked note counts as activity for the vault's idle lock.
+  const schedule = () => {
+    if (secure) touch();
+    scheduleSave();
+  };
+
+  // If the vault locks with typing still pending, save it — encrypted — first.
+  useEffect(
+    () =>
+      onBeforeLock(async () => {
+        if (hasPending()) await saveNow();
+      }),
+    [hasPending, saveNow]
+  );
 
   // Adopt a change made elsewhere (another device, another tab) while nothing
   // here is waiting to be saved. Adjusted during render, not in an effect, so
   // there is no frame showing the stale text. With unsaved typing pending, the
   // local draft wins: last writer wins, per note.
-  const [syncedFrom, setSyncedFrom] = useState({ title: note.title, body: note.body });
-  if (note.title !== syncedFrom.title || note.body !== syncedFrom.body) {
-    setSyncedFrom({ title: note.title, body: note.body });
+  const [syncedFrom, setSyncedFrom] = useState(source);
+  if (source.title !== syncedFrom.title || source.body !== syncedFrom.body) {
+    setSyncedFrom(source);
     if (!dirty) {
-      setTitle(note.title);
-      setBody(note.body);
+      setTitle(source.title);
+      setBody(source.body);
     }
   }
 
@@ -196,6 +418,11 @@ function NoteEditor({
     if (window.scrollY !== y) window.scrollTo({ top: y });
   }, [body, view]);
 
+  const lockedRef = useRef(secure);
+  useEffect(() => {
+    lockedRef.current = secure;
+  });
+
   useEffect(() => {
     const t = pendingDiscard.get(note.id);
     if (t) {
@@ -204,7 +431,8 @@ function NoteEditor({
     }
     const id = note.id;
     return () => {
-      if (!isBlank(draft.current)) return;
+      // Never discard a locked note: its title may be blank by design.
+      if (lockedRef.current || !isBlank(draft.current)) return;
       pendingDiscard.set(
         id,
         setTimeout(() => {
@@ -339,8 +567,9 @@ function NoteEditor({
     const removed = removeNote(note.id);
     router.push("/notes");
     if (removed && !isBlank(removed)) {
-      // The draft may be ahead of the stored copy by an unsaved debounce.
-      const latest = { ...removed, title, body };
+      // The draft may be ahead of the stored copy by an unsaved debounce — but a
+      // locked note is restored exactly as stored: encrypted, body empty.
+      const latest = removed.lock ? removed : { ...removed, title, body };
       toast("Note deleted", {
         action: { label: "Undo", onClick: () => restoreNote(latest) },
         duration: 6000,
@@ -375,6 +604,12 @@ function NoteEditor({
             icon={<Pin className={`h-4 w-4 ${note.pinned ? "text-blue-300" : ""}`} />}
           />
           <IconAction label="Copy note" onClick={onCopy} icon={<Copy className="h-4 w-4" />} />
+          <IconAction
+            label={secure ? "Remove lock" : "Lock note"}
+            active={secure}
+            onClick={() => (secure ? setConfirmingUnlock(true) : onRequestLock(() => draft.current))}
+            icon={secure ? <Lock className="h-4 w-4 text-blue-300" /> : <Unlock className="h-4 w-4" />}
+          />
           {canShare && <IconAction label="Share" onClick={onShare} icon={<Share2 className="h-4 w-4" />} />}
           <IconAction
             label="Delete note"
@@ -384,6 +619,37 @@ function NoteEditor({
           />
         </div>
       </div>
+
+      {confirmingUnlock && (
+        <div
+          role="alertdialog"
+          aria-label="Remove the lock?"
+          className="flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          onKeyDown={(e) => e.key === "Escape" && setConfirmingUnlock(false)}
+        >
+          <p className="text-sm text-slate-200">Remove the lock? The note will be stored unencrypted again.</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmingUnlock(false)}
+              className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => {
+                setConfirmingUnlock(false);
+                onRemoveLock(draft.current).catch(() => toast("Couldn't remove the lock.", { variant: "error" }));
+              }}
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-500"
+            >
+              Remove lock
+            </button>
+          </div>
+        </div>
+      )}
 
       {confirming && (
         <div
@@ -528,6 +794,11 @@ function NoteEditor({
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-xs text-slate-500">
         <span id="note-status" role="status" aria-live="polite" className="flex items-center gap-2">
+          {secure && (
+            <span className="flex items-center gap-1 text-blue-300">
+              <Lock className="h-3.5 w-3.5" /> Encrypted ·
+            </span>
+          )}
           <span className={autosave.status === "error" ? "text-red-400" : undefined}>
             {statusText(autosave.status, canSync, note.updatedAt, now)}
           </span>
@@ -538,6 +809,15 @@ function NoteEditor({
               className="font-semibold text-blue-300 hover:text-blue-200"
             >
               Retry
+            </button>
+          )}
+          {secure && (
+            <button
+              type="button"
+              onClick={() => void lockVault()}
+              className="font-semibold text-blue-300 hover:text-blue-200"
+            >
+              Lock now
             </button>
           )}
         </span>

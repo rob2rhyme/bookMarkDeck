@@ -153,6 +153,33 @@ test.describe("signed in", () => {
     await expect(page.getByLabel("Note", { exact: true })).toHaveValue("[x] call the bank");
   });
 
+  test("/notes: lock a note, reload, and unlock it with the passphrase", async ({ page }) => {
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    await page.getByLabel("Title", { exact: true }).fill("Cabin");
+    await page.getByLabel("Note", { exact: true }).fill("door code 4417");
+    await page.getByRole("button", { name: "Lock note" }).click();
+    await page.getByLabel("Passphrase", { exact: true }).fill("correct horse battery");
+    await page.getByLabel("Confirm passphrase").fill("correct horse battery");
+    await page.getByRole("button", { name: "Create passphrase" }).click();
+    await expect(page.getByTestId("recovery-code")).toHaveText(/^[0-9A-Z]{4}(-[0-9A-Z]{4}){7}$/);
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByText(/Encrypted/)).toBeVisible();
+
+    // Nothing this device stores holds the text or the passphrase.
+    const stored = await page.evaluate(() => Object.keys(localStorage).map((k) => localStorage.getItem(k)).join("\n"));
+    expect(stored).not.toContain("4417");
+    expect(stored).not.toContain("correct horse");
+
+    // A reload drops the in-memory key: the note asks for the passphrase.
+    await page.reload();
+    await expect(page.getByText("This note is locked. Enter your passphrase to open it.")).toBeVisible();
+    await page.getByLabel("Passphrase", { exact: true }).fill("correct horse battery");
+    await page.getByRole("button", { name: "Unlock" }).click();
+    await expect(page.getByLabel("Note", { exact: true })).toHaveValue("door code 4417");
+  });
+
   test("mobile bottom nav omits the pillar you are on", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 740 });
     await page.goto("/notes");

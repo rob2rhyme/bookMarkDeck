@@ -61,5 +61,8 @@ export function useAutosave(save: () => Promise<void>, delay = 800) {
     []
   );
 
-  return { status, schedule, flush, saveNow: run, dirty: status === "pending" };
+  /** Whether a debounced save is waiting — read at call time, not render time. */
+  const hasPending = useCallback(() => timer.current !== null, []);
+
+  return { status, schedule, flush, saveNow: run, hasPending, dirty: status === "pending" };
 }

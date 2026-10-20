@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-import { ClipboardPaste, Plus, Search, StickyNote, X } from "@/components/icons";
+import { ClipboardPaste, Lock, Plus, Search, StickyNote, X } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { useToast } from "@/components/toast/ToastProvider";
@@ -20,6 +20,7 @@ import { copyText, readText } from "@/features/notes/lib/clipboard";
 import { MAX_NOTE_CHARS, type Note } from "@/features/notes/lib/notes";
 import { isActive, parseQuery, searchNotes, type NoteHit } from "@/features/notes/lib/search";
 import { tagCounts } from "@/features/notes/lib/tags";
+import { lock as lockVault, useVaultUnlocked } from "@/features/notes/lib/vaultSession";
 
 const isTyping = (el: Element | null) =>
   !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable);
@@ -52,6 +53,7 @@ export function NotesDashboard({
   const sync = useNotesSync(email);
   const { notes, hydrated, createNote, updateNote, retag } = useNotes(email, sync.connected);
   const [pasting, setPasting] = useState(false);
+  const vaultOpen = useVaultUnlocked();
   const [query, setQuery] = useState(initialQuery);
   const [tag, setTag] = useState<string | null>(initialTag);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -128,6 +130,10 @@ export function NotesDashboard({
   };
 
   const onCopy = async (note: Note) => {
+    if (note.lock) {
+      toast("This note is locked — open it and unlock to copy.");
+      return;
+    }
     if (!note.body) {
       toast("This note has no text to copy.");
       return;
@@ -216,6 +222,16 @@ export function NotesDashboard({
             >
               <ClipboardPaste className="h-4 w-4" /> Paste as new note
             </button>
+            {vaultOpen && (
+              <button
+                type="button"
+                onClick={() => void lockVault()}
+                title="Locked notes are open on this device. Lock them now."
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-blue-400/60 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-blue-300 transition hover:border-blue-300"
+              >
+                <Lock className="h-4 w-4" /> Lock notes
+              </button>
+            )}
           </div>
         </div>
       </div>

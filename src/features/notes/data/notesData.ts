@@ -21,8 +21,12 @@ import {
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { normalizeNote, type Note } from "@/features/notes/lib/notes";
+import { normalizeVault, type VaultRecord } from "@/features/notes/lib/vault";
 
 const notesCol = (uid: string) => collection(db, "users", uid, "notes");
+// Locked notes' vault records: salts, IVs and WRAPPED keys — nothing that opens a
+// note without the passphrase or recovery code. See lib/vault.ts.
+const vaultsCol = (uid: string) => collection(db, "users", uid, "notesVaults");
 
 async function uidFor(emailHint: string): Promise<string> {
   const user = await ensureFirebaseGoogleAuth(emailHint);
@@ -53,6 +57,8 @@ export function mapNote(d: { id: string; data: () => Record<string, unknown> }):
  * in the local snapshot, which would drop a note being typed to the bottom.
  */
 export function toFirestore(note: Note) {
+  // The one rule locking exists for: plaintext of a locked note never leaves the device.
+  if (note.lock && note.body) throw new Error("Refusing to write a locked note's plaintext.");
   const at = (iso: string) => {
     const d = new Date(iso);
     return Timestamp.fromDate(Number.isNaN(d.getTime()) ? new Date() : d);
@@ -62,6 +68,7 @@ export function toFirestore(note: Note) {
     body: note.body,
     pinned: note.pinned,
     tags: note.tags,
+    lock: note.lock ?? null,
     createdAt: at(note.createdAt),
     updatedAt: at(note.updatedAt),
   };
@@ -102,6 +109,41 @@ export function subscribeNotes(emailHint: string, cb: (notes: Note[]) => void): 
       );
     })
     .catch((err) => console.error("[notes] listener auth failed:", err));
+  return () => {
+    cancelled = true;
+    unsub();
+  };
+}
+
+/* --------------------------------------------------------------- vaults --- */
+
+const mapVaults = (docs: { id: string; data: () => Record<string, unknown> }[]) =>
+  docs.map((d) => normalizeVault({ ...d.data(), id: d.id })).filter((v): v is VaultRecord => v !== null);
+
+export async function fetchVaults(emailHint: string): Promise<VaultRecord[]> {
+  const uid = await uidFor(emailHint);
+  return mapVaults((await getDocs(vaultsCol(uid))).docs);
+}
+
+export async function saveVault(emailHint: string, vault: VaultRecord): Promise<void> {
+  const uid = await uidFor(emailHint);
+  const { id, ...rest } = vault;
+  await setDoc(doc(vaultsCol(uid), id), rest);
+}
+
+export function subscribeVaults(emailHint: string, cb: (vaults: VaultRecord[]) => void): Unsub {
+  let unsub: Unsub = () => {};
+  let cancelled = false;
+  uidFor(emailHint)
+    .then((uid) => {
+      if (cancelled) return;
+      unsub = onSnapshot(
+        vaultsCol(uid),
+        (snap) => cb(mapVaults(snap.docs)),
+        (err) => console.error("[notes] vault listener error:", err)
+      );
+    })
+    .catch((err) => console.error("[notes] vault listener auth failed:", err));
   return () => {
     cancelled = true;
     unsub();

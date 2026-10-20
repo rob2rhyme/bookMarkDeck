@@ -55,7 +55,8 @@ function saveLocal(email: string | null | undefined, notes: Note[], source: symb
   window.dispatchEvent(new CustomEvent(CHANGED_EVENT, { detail: { key: keyFor(email), source } }));
 }
 
-export type NotePatch = Partial<Pick<Note, "title" | "body" | "pinned" | "tags">>;
+/** `lock: null` removes a lock (the patch must then carry the plaintext body). */
+export type NotePatch = Partial<Pick<Note, "title" | "body" | "pinned" | "tags">> & { lock?: Note["lock"] | null };
 
 export function useNotes(email?: string | null, connected = false) {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -206,12 +207,17 @@ export function useNotes(email?: string | null, connected = false) {
         (k) => JSON.stringify(patch[k]) !== JSON.stringify(cur[k])
       );
       if (changed.length === 0) return Promise.resolve();
-      const edited = changed.some((k) => k === "title" || k === "body");
+      const edited = changed.some((k) => k === "title" || k === "body" || k === "lock");
+      const { lock, ...rest } = patch;
       const next: Note = {
         ...cur,
-        ...patch,
+        ...rest,
         updatedAt: edited ? new Date().toISOString() : cur.updatedAt,
       };
+      if (lock === null) delete next.lock;
+      else if (lock) next.lock = lock;
+      // A locked note never holds plaintext — not in state, not in the cache.
+      if (next.lock) next.body = "";
       commit(list.map((n) => (n.id === id ? next : n)));
       return write(next);
     },
