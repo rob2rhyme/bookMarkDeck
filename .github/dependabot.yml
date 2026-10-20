@@ -92,3 +92,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # Workflows pin actions by commit SHA (a tag can be moved under you); this
+  # keeps the pins current, one grouped PR a month.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns: ["*"]
