@@ -27,7 +27,8 @@ Two independent auth systems, by design:
    - Server: `const session = await getServerSession(authConfig)` from `@/auth/auth.config`;
      redirect to `/login` if absent (see `src/app/(app)/page.tsx`).
    - Client: `const { data: session } = useSession()` (next-auth/react).
-   - Config: `src/auth/auth.config.ts` (Google, default scopes only — `openid email profile`).
+   - Config: `src/auth/auth.config.ts` (Google: `openid email profile` plus Google Tasks and Calendar
+     (`tasks`, `calendar.events`, `calendar.readonly`), with offline access).
      Route handler: `src/app/api/auth/[...nextauth]/route.ts`.
 2. **Firebase Auth (Google)** — owns access to *Firestore*, keyed by Firebase `uid`.
    - `ensureFirebaseGoogleAuth(emailHint)` in `src/lib/firebase.ts` signs the user into Firebase
@@ -809,8 +810,9 @@ feature; nothing imports it — removable cleanly in both directions.
   tracks *which* key it has loaded (`hydrated` means "this email's cache"), any change
   made before that reads the cache first, and the list's New/Paste/`N` wait on
   `status !== "loading" && hydrated`.
-- Collection: `users/{uid}/notes/{noteId}` → `{ title, body, pinned, tags[], createdAt,
-  updatedAt }`. Covered by the recursive owner rule; `FIRESTORE_RULES.md` says why a
+- Collections: `users/{uid}/notes/{noteId}` → `{ title, body, pinned, tags[], lock?,
+  createdAt, updatedAt }`, and `users/{uid}/notesVaults/{id}` (wrapped keys only — see
+  locked notes below). Covered by the recursive owner rule; `FIRESTORE_RULES.md` says why a
   notes-specific rule would add nothing (rules OR together). Timestamps are the
   client's instant, not `serverTimestamp()` — a pending server time reads `null` in the
   local snapshot and would sink the note being typed to the bottom of the list.
@@ -904,8 +906,21 @@ feature; nothing imports it — removable cleanly in both directions.
   prevented Esc — that is how the tag box clears without closing the note.
 - Size cap: `MAX_NOTE_CHARS` (300k UTF-16 units ≤ 900 KB UTF-8) keeps a note inside
   Firestore's 1 MiB document limit.
+- **⌘K finds notes without importing the feature.** `@/lib/notesIndex` owns the notes
+  cache key (`useNotes` imports it, so the two can't drift) and gives the palette a
+  read-only summary of **the signed-in account's** cache only; a locked note is listed by
+  title and tags, never body. Notes rank before bookmarks (the list is capped at 50).
+  "New note" is an intent handoff (`setNewNoteIntent` → `NotesDashboard` consumes it once
+  the cache is loaded), as `filingIntent` does.
+- **Backup & export** (`lib/notesBackup.ts`, `NotesBackupDialog`). The JSON backup carries
+  every note **as stored** — locked notes still encrypted — plus the vault records (wrapped
+  keys only), so it restores on a fresh account and unlocks with the passphrase or
+  recovery code while leaking nothing locked. Restore **merges by id and never deletes**;
+  on a shared id the backup wins only if its `updatedAt` is newer, and existing vaults are
+  never replaced. The Markdown export is for reading elsewhere, so locked notes appear by
+  title only.
 - Shared-file touches (additive): `AppShell.tsx` (nav entry; both navs omit the active
-  pillar), `icons.tsx` (`StickyNote`, `Copy`, `ClipboardPaste`, `Pin`, `Lock`, `Unlock`),
+  pillar), `CommandPalette.tsx` + `@/lib/notesIndex` (⌘K), `icons.tsx` (`StickyNote`, `Copy`, `ClipboardPaste`, `Pin`, `Lock`, `Unlock`),
   `globals.css` (`.bd-note-title`).
 
 ## Git & PR workflow

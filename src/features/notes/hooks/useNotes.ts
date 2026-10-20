@@ -14,6 +14,7 @@ import {
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
 import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { notesCacheKey } from "@/lib/notesIndex";
 
 // Same model as the filing hooks: a per-user localStorage cache renders at once,
 // a live Firestore subscription takes over once connected, and changes made while
@@ -23,8 +24,8 @@ import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
 // editor saves on pagehide and on unmount, and neither waits for another render.
 
 const DOMAIN = "notes";
-const BASE_KEY = "bookmarkdeck:notes:v1";
-const keyFor = (email?: string | null) => (email ? `${BASE_KEY}:${email}` : BASE_KEY);
+// The key lives in @/lib/notesIndex, which the ⌘K palette reads too.
+const keyFor = notesCacheKey;
 
 function loadLocal(email?: string | null): Note[] {
   if (typeof window === "undefined") return [];
@@ -249,6 +250,26 @@ export function useNotes(email?: string | null, connected = false) {
     [commit, current, write]
   );
 
+  /**
+   * Restore from a backup: write the notes planImport chose (new, or newer than
+   * this device's copy) — merging by id, never deleting. A restored id cancels any
+   * delete still queued for it. Each note is written like any edit, so it reaches
+   * the cloud now or on the next connect.
+   */
+  const importNotes = useCallback(
+    (incoming: Note[]) => {
+      if (incoming.length === 0) return;
+      const byId = new Map(current().map((n) => [n.id, n]));
+      for (const n of incoming) {
+        byId.set(n.id, n);
+        unqueueDelete(DOMAIN, email, n.id);
+      }
+      commit([...byId.values()]);
+      incoming.forEach((n) => write(n).catch(() => {}));
+    },
+    [commit, current, email, write]
+  );
+
   /** Remove a note; returns it so the caller can offer Undo (restoreNote). */
   const removeNote = useCallback(
     (id: string): Note | null => {
@@ -290,5 +311,6 @@ export function useNotes(email?: string | null, connected = false) {
     removeNote,
     restoreNote,
     retag,
+    importNotes,
   };
 }
