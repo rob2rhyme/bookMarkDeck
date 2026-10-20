@@ -7,12 +7,14 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-import { Archive, ClipboardPaste, Lock, Plus, Search, StickyNote, X } from "@/components/icons";
+import { Archive, BarChart, ClipboardPaste, Lock, Plus, Search, StickyNote, X } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { useToast } from "@/components/toast/ToastProvider";
 import { NoteCard } from "@/features/notes/components/NoteCard";
 import { NotesBackupDialog } from "@/features/notes/components/NotesBackupDialog";
+import { NotesInsights } from "@/features/notes/components/NotesInsights";
+import { useDeletionLog } from "@/features/notes/hooks/useDeletionLog";
 import { NotesSyncBanner } from "@/features/notes/components/NotesSyncBanner";
 import { TagFilter } from "@/features/notes/components/TagFilter";
 import { useNotes } from "@/features/notes/hooks/useNotes";
@@ -54,7 +56,11 @@ export function NotesDashboard({
   const { data: session, status } = useSession();
   const email = session?.user?.email ?? null;
   const sync = useNotesSync(email);
-  const { notes, hydrated, createNote, updateNote, retag, importNotes } = useNotes(email, sync.connected);
+  const { notes, hydrated, canSync, createNote, updateNote, retag, importNotes } = useNotes(email, sync.connected);
+  const deletions = useDeletionLog(email, canSync);
+  // The instant Insights opened: the dialog's "this week" and "untouched for"
+  // are measured from it, and reading the clock in a click keeps render pure.
+  const [insightsAt, setInsightsAt] = useState<Date | null>(null);
   const vault = useVaults(email, sync.connected);
   const [backupOpen, setBackupOpen] = useState(false);
   const [pasting, setPasting] = useState(false);
@@ -249,6 +255,14 @@ export function NotesDashboard({
             >
               <Archive className="h-4 w-4" /> Backup
             </button>
+            <button
+              type="button"
+              onClick={() => setInsightsAt(new Date())}
+              disabled={!ready}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500 disabled:opacity-50"
+            >
+              <BarChart className="h-4 w-4" /> Insights
+            </button>
             {vaultOpen && (
               <button
                 type="button"
@@ -264,6 +278,16 @@ export function NotesDashboard({
       </div>
 
       <NotesSyncBanner {...sync} email={email} />
+
+      {insightsAt && (
+        <NotesInsights
+          open
+          onClose={() => setInsightsAt(null)}
+          notes={notes}
+          deletions={deletions}
+          now={insightsAt}
+        />
+      )}
 
       <NotesBackupDialog
         open={backupOpen}

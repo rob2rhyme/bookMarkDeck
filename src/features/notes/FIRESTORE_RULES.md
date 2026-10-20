@@ -1,8 +1,9 @@
 # Notes — Firestore rules
 
 ```
-users/{uid}/notes/{noteId}         # { title, body, pinned, tags[], lock, createdAt, updatedAt }
+users/{uid}/notes/{noteId}         # { title, body, pinned, tags[], lock, activity[], createdAt, updatedAt }
 users/{uid}/notesVaults/{vaultId}  # { v, createdAt, pass:{salt,iv,ct,iterations}, recovery:{…} }
+users/{uid}/notesMeta/log          # { deleted: [{ id, title, at }] } — the deletion log
 ```
 
 A **locked** note stores `body: ""` and `lock: { kid, iv, ct }` — its body encrypted on
@@ -12,7 +13,7 @@ collection opens a locked note without one of those. See `lib/vault.ts`.
 
 ## Firestore — no change required ✅
 
-Both are subcollections of `users/{uid}`, so the existing recursive owner rule in
+All three are under `users/{uid}`, so the existing recursive owner rule in
 `firestore.rules` already limits them to their owner:
 
 ```

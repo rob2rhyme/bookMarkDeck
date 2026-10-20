@@ -837,8 +837,8 @@ feature; nothing imports it — removable cleanly in both directions.
   made before that reads the cache first, and the list's New/Paste/`N` wait on
   `status !== "loading" && hydrated`.
 - Collections: `users/{uid}/notes/{noteId}` → `{ title, body, pinned, tags[], lock?,
-  createdAt, updatedAt }`, and `users/{uid}/notesVaults/{id}` (wrapped keys only — see
-  locked notes below). Covered by the recursive owner rule; `FIRESTORE_RULES.md` says why a
+  activity[], createdAt, updatedAt }`, `users/{uid}/notesVaults/{id}` (wrapped keys only —
+  see locked notes below), and `users/{uid}/notesMeta/log` (the deletion log, below). Covered by the recursive owner rule; `FIRESTORE_RULES.md` says why a
   notes-specific rule would add nothing (rules OR together). Timestamps are the
   client's instant, not `serverTimestamp()` — a pending server time reads `null` in the
   local snapshot and would sink the note being typed to the bottom of the list.
@@ -951,6 +951,21 @@ feature; nothing imports it — removable cleanly in both directions.
   on a shared id the backup wins only if its `updatedAt` is newer, and existing vaults are
   never replaced. The Markdown export is for reading elsewhere, so locked notes appear by
   title only.
+- **History and Insights** (`lib/activity.ts`, `lib/deletionLog.ts`, `lib/insights.ts`,
+  `components/NotesInsights.tsx`). Each note carries `activity[]` — created, edited,
+  pinned, tagged, locked, unlocked, restored, imported — **never content**, so it rides
+  the note's own sync, cache and backup and needs no second sync path. Autosave saves every
+  800 ms, so saves under 30 min apart fold into one "edited" entry (`n` saves, `from`);
+  capped at 100 events a note, so it is recent history, not a ledger. A deleted note takes
+  its history with it, so **deletions go to an account log** (`notesMeta/log`, mirrored in
+  the device cache) that only ever grows by union, newest 100: removing an entry on Undo
+  would be undone by another device's copy, so an undone delete stays listed and the note's
+  own history reads "Restored". Offline deletes reach the cloud on `useDeletionLog`'s next
+  merge. `computeInsights` is pure — totals, local-week buckets (Monday first; tests pin a
+  zone), tags, most-edited, longest, untouched 180+ days and the audit feed — computed when
+  the dialog opens and stored nowhere. Locked notes count, but not their words. Last
+  writer wins per note, so two devices editing one note at once can drop each other's
+  events, as with the note's text.
 - Shared-file touches (additive): `AppShell.tsx` (nav entry; both navs omit the active
   pillar), `CommandPalette.tsx` + `@/lib/notesIndex` (⌘K), `icons.tsx` (`StickyNote`, `Copy`, `ClipboardPaste`, `Pin`, `Lock`, `Unlock`),
   `globals.css` (`.bd-note-title`).

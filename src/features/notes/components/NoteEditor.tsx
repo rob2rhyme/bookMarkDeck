@@ -8,12 +8,14 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { ArrowLeft, CheckSquare, Copy, ExternalLink, Lock, Pin, Share2, Trash2, Unlock } from "@/components/icons";
+import { ArrowLeft, CheckSquare, Clock, Copy, ExternalLink, Lock, Pin, Share2, Trash2, Unlock } from "@/components/icons";
 import { IconAction } from "@/components/IconAction";
 import { Modal } from "@/components/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/toast/ToastProvider";
 import { Markdown } from "@/features/notes/components/Markdown";
+import { NoteHistory } from "@/features/notes/components/NotesInsights";
+import { historyOf } from "@/features/notes/lib/insights";
 import { TagEditor } from "@/features/notes/components/TagEditor";
 import { SetupForm, UnlockForm } from "@/features/notes/components/VaultForms";
 import { useVaults } from "@/features/notes/hooks/useVaults";
@@ -353,6 +355,8 @@ function NoteEditor({
   const [body, setBody] = useState(source.body);
   const [confirmingUnlock, setConfirmingUnlock] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // The instant History opened (read in the click, not during render).
+  const [historyAt, setHistoryAt] = useState<Date | null>(null);
   const [now] = useState(() => new Date());
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
@@ -611,6 +615,7 @@ function NoteEditor({
             icon={secure ? <Lock className="h-4 w-4 text-blue-300" /> : <Unlock className="h-4 w-4" />}
           />
           {canShare && <IconAction label="Share" onClick={onShare} icon={<Share2 className="h-4 w-4" />} />}
+          <IconAction label="History" onClick={() => setHistoryAt(new Date())} icon={<Clock className="h-4 w-4" />} />
           <IconAction
             label="Delete note"
             variant="danger"
@@ -619,6 +624,8 @@ function NoteEditor({
           />
         </div>
       </div>
+
+      {historyAt && <NoteHistory open onClose={() => setHistoryAt(null)} events={historyOf(note)} now={historyAt} />}
 
       {confirmingUnlock && (
         <div

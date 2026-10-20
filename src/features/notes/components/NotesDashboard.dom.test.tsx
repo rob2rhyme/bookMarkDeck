@@ -16,6 +16,9 @@ vi.mock("@/features/notes/data/notesData", () => ({
   deleteNote: vi.fn(async () => {}),
   fetchNotes: vi.fn(async () => []),
   saveNote: vi.fn(async () => {}),
+  appendDeletion: vi.fn(async () => {}),
+  saveDeletions: vi.fn(async () => {}),
+  subscribeDeletions: vi.fn(() => () => {}),
   subscribeNotes: vi.fn(() => () => {}),
 }));
 
@@ -140,5 +143,26 @@ describe("NotesDashboard — creating before the session loads", () => {
     // Filed under the account, beside its existing notes — not instead of them.
     expect(cached()).toHaveLength(4);
     expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/notes\/[0-9a-f-]{36}$/));
+  });
+});
+
+describe("NotesDashboard — insights", () => {
+  it("opens Insights with totals, tags and the activity list", async () => {
+    localStorage.setItem(
+      "bookmarkdeck:notes:deleted:v1:a@example.com",
+      JSON.stringify([{ id: "x", title: "Old plan", at: "2026-01-02T00:00:00.000Z" }])
+    );
+    render(<NotesDashboard />);
+    const button = await screen.findByRole("button", { name: /Insights/ });
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(button);
+    const dialog = await screen.findByRole("dialog", { name: "Insights" });
+    expect(within(dialog).getByText("Notes").previousElementSibling?.textContent).toBe("3");
+    expect(within(dialog).getByRole("link", { name: "#home" })).toBeTruthy();
+    // Every note's creation, and the deleted note — named, but no longer a link.
+    expect(within(dialog).getAllByText("Created")).toHaveLength(3);
+    const gone = within(dialog).getByText("Old plan");
+    expect(gone.closest("a")).toBeNull();
+    expect(gone.closest("li")?.textContent).toMatch(/Deleted/);
   });
 });

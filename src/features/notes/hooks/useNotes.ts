@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { deleteNote, fetchNotes, saveNote, subscribeNotes } from "@/features/notes/data/notesData";
+import { appendDeletion, deleteNote, fetchNotes, saveNote, subscribeNotes } from "@/features/notes/data/notesData";
+import { mergeDeletions, readDeletions, writeDeletions } from "@/features/notes/lib/deletionLog";
 import { newNote, normalizeNote, sortNotes, type Note } from "@/features/notes/lib/notes";
 import { normalizeTag, normalizeTags, renameIn } from "@/features/notes/lib/tags";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/utils/pendingDeletes";
 import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
 import { notesCacheKey } from "@/lib/notesIndex";
+import { appendEvent, tagDiff, type NoteEvent } from "@/features/notes/lib/activity";
 
 // Same model as the filing hooks: a per-user localStorage cache renders at once,
 // a live Firestore subscription takes over once connected, and changes made while
@@ -58,6 +60,22 @@ function saveLocal(email: string | null | undefined, notes: Note[], source: symb
 
 /** `lock: null` removes a lock (the patch must then carry the plaintext body). */
 export type NotePatch = Partial<Pick<Note, "title" | "body" | "pinned" | "tags">> & { lock?: Note["lock"] | null };
+
+/**
+ * The history entries a patch adds. Pinning and tagging are their own events; a
+ * change of title or body is an edit (coalesced, lib/activity.ts); adding or
+ * removing the lock is locking, while a new ciphertext on a still-locked note is
+ * an edit of its text.
+ */
+function historyFor(cur: Note, next: Note, changed: (keyof NotePatch)[], at: string): NoteEvent[] | undefined {
+  let h = cur.activity;
+  if (changed.includes("pinned")) h = appendEvent(h, { at, kind: next.pinned ? "pinned" : "unpinned" });
+  if (changed.includes("tags")) h = appendEvent(h, { at, kind: "tagged", ...tagDiff(cur.tags, next.tags) });
+  if (!cur.lock && next.lock) h = appendEvent(h, { at, kind: "locked" });
+  else if (cur.lock && !next.lock) h = appendEvent(h, { at, kind: "unlocked" });
+  else if (changed.some((k) => k === "title" || k === "body" || k === "lock")) h = appendEvent(h, { at, kind: "edited" });
+  return h;
+}
 
 export function useNotes(email?: string | null, connected = false) {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -210,13 +228,15 @@ export function useNotes(email?: string | null, connected = false) {
       if (changed.length === 0) return Promise.resolve();
       const edited = changed.some((k) => k === "title" || k === "body" || k === "lock");
       const { lock, ...rest } = patch;
+      const now = new Date().toISOString();
       const next: Note = {
         ...cur,
         ...rest,
-        updatedAt: edited ? new Date().toISOString() : cur.updatedAt,
+        updatedAt: edited ? now : cur.updatedAt,
       };
       if (lock === null) delete next.lock;
       else if (lock) next.lock = lock;
+      next.activity = historyFor(cur, next, changed, now);
       // A locked note never holds plaintext — not in state, not in the cache.
       if (next.lock) next.body = "";
       commit(list.map((n) => (n.id === id ? next : n)));
@@ -238,7 +258,11 @@ export function useNotes(email?: string | null, connected = false) {
       const next = current().map((n) => {
         if (!n.tags.includes(from)) return n;
         const tags = target ? renameIn(n.tags, from, target) : n.tags.filter((t) => t !== from);
-        const updated = { ...n, tags };
+        const updated: Note = {
+          ...n,
+          tags,
+          activity: appendEvent(n.activity, { at: new Date().toISOString(), kind: "tagged", ...tagDiff(n.tags, tags) }),
+        };
         changed.push(updated);
         return updated;
       });
@@ -260,12 +284,14 @@ export function useNotes(email?: string | null, connected = false) {
     (incoming: Note[]) => {
       if (incoming.length === 0) return;
       const byId = new Map(current().map((n) => [n.id, n]));
-      for (const n of incoming) {
+      const at = new Date().toISOString();
+      const written = incoming.map((n) => ({ ...n, activity: appendEvent(n.activity, { at, kind: "imported" }) }));
+      for (const n of written) {
         byId.set(n.id, n);
         unqueueDelete(DOMAIN, email, n.id);
       }
       commit([...byId.values()]);
-      incoming.forEach((n) => write(n).catch(() => {}));
+      written.forEach((n) => write(n).catch(() => {}));
     },
     [commit, current, email, write]
   );
@@ -278,6 +304,11 @@ export function useNotes(email?: string | null, connected = false) {
       if (!cur) return null;
       commit(list.filter((n) => n.id !== id));
       unqueueUpsert(DOMAIN, email, id); // an offline edit to it must not be pushed back
+      // The note's own history goes with it, so the account log records the delete.
+      // Offline, the cache holds it until useDeletionLog next merges with the cloud.
+      const entry = { id, title: cur.title.trim(), at: new Date().toISOString() };
+      writeDeletions(email, mergeDeletions([entry], readDeletions(email)));
+      if (canSync && email) appendDeletion(email, entry).catch(() => {});
       if (canSync && email) {
         deleteNote(email, id).catch((err) => console.error("[notes] delete failed:", err));
       } else {
@@ -289,9 +320,10 @@ export function useNotes(email?: string | null, connected = false) {
   );
 
   const restoreNote = useCallback(
-    (note: Note) => {
+    (deleted: Note) => {
       const list = current();
-      if (list.some((n) => n.id === note.id)) return;
+      if (list.some((n) => n.id === deleted.id)) return;
+      const note = { ...deleted, activity: appendEvent(deleted.activity, { at: new Date().toISOString(), kind: "restored" }) };
       unqueueDelete(DOMAIN, email, note.id);
       commit([...list, note]);
       write(note).catch(() => {});

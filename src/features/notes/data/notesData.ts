@@ -4,13 +4,15 @@
 // authenticate with ensureFirebaseGoogleAuth (emailHint), then scope all data
 // under users/{uid}.
 //
-//   users/{uid}/notes/{noteId} -> { title, body, pinned, tags[], createdAt, updatedAt }
+//   users/{uid}/notes/{noteId} -> { title, body, pinned, tags[], lock?, activity[], createdAt, updatedAt }
+//   users/{uid}/notesMeta/log   -> { deleted[] }  (lib/deletionLog.ts)
 //
 // The existing recursive owner rule (match /users/{uid}/{document=**}) covers
 // this collection — see FIRESTORE_RULES.md. No rule change required.
 
 import {
   Timestamp,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -22,6 +24,7 @@ import {
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { normalizeNote, type Note } from "@/features/notes/lib/notes";
 import { normalizeVault, type VaultRecord } from "@/features/notes/lib/vault";
+import { normalizeDeletions, type DeletedEntry } from "@/features/notes/lib/deletionLog";
 
 const notesCol = (uid: string) => collection(db, "users", uid, "notes");
 // Locked notes' vault records: salts, IVs and WRAPPED keys — nothing that opens a
@@ -69,6 +72,7 @@ export function toFirestore(note: Note) {
     pinned: note.pinned,
     tags: note.tags,
     lock: note.lock ?? null,
+    activity: note.activity ?? [],
     createdAt: at(note.createdAt),
     updatedAt: at(note.updatedAt),
   };
@@ -144,6 +148,41 @@ export function subscribeVaults(emailHint: string, cb: (vaults: VaultRecord[]) =
       );
     })
     .catch((err) => console.error("[notes] vault listener auth failed:", err));
+  return () => {
+    cancelled = true;
+    unsub();
+  };
+}
+
+/* -------------------------------------------------------- deletion log --- */
+
+const logDoc = (uid: string) => doc(db, "users", uid, "notesMeta", "log");
+
+/** Add one entry. arrayUnion, so two devices deleting at once both land. */
+export async function appendDeletion(emailHint: string, entry: DeletedEntry): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(logDoc(uid), { deleted: arrayUnion(entry) }, { merge: true });
+}
+
+/** Replace the cloud log with an already-merged list (lib/deletionLog.ts merges). */
+export async function saveDeletions(emailHint: string, deleted: DeletedEntry[]): Promise<void> {
+  const uid = await uidFor(emailHint);
+  await setDoc(logDoc(uid), { deleted }, { merge: true });
+}
+
+export function subscribeDeletions(emailHint: string, cb: (deleted: DeletedEntry[]) => void): Unsub {
+  let unsub: Unsub = () => {};
+  let cancelled = false;
+  uidFor(emailHint)
+    .then((uid) => {
+      if (cancelled) return;
+      unsub = onSnapshot(
+        logDoc(uid),
+        (snap) => cb(normalizeDeletions(snap.data()?.deleted)),
+        (err) => console.error("[notes] deletion log listener error:", err)
+      );
+    })
+    .catch((err) => console.error("[notes] deletion log listener auth failed:", err));
   return () => {
     cancelled = true;
     unsub();

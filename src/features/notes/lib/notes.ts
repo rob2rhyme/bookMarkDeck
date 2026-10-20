@@ -1,5 +1,6 @@
 // Pure helpers for the Notes pillar — no React, no Firebase.
 
+import { normalizeActivity, type NoteEvent } from "@/features/notes/lib/activity";
 import { toPlainText } from "@/features/notes/lib/markdown";
 import { normalizeTags } from "@/features/notes/lib/tags";
 import { normalizeLock, type NoteLock } from "@/features/notes/lib/vault";
@@ -19,6 +20,8 @@ export type Note = {
    * `body` is always "" — the plaintext exists only in an unlocked editor's memory.
    */
   lock?: NoteLock;
+  /** What happened to the note and when, never what it said (lib/activity.ts). */
+  activity?: NoteEvent[];
 };
 
 /**
@@ -41,6 +44,7 @@ export function normalizeNote(raw: unknown): Note | null {
   const epoch = new Date(0).toISOString();
   const createdAt = isoOr(r.createdAt, epoch);
   const lock = normalizeLock(r.lock);
+  const activity = normalizeActivity(r.activity);
   return {
     id: r.id,
     title: typeof r.title === "string" ? r.title : "",
@@ -51,6 +55,7 @@ export function normalizeNote(raw: unknown): Note | null {
     createdAt,
     updatedAt: isoOr(r.updatedAt, createdAt),
     ...(lock ? { lock } : {}),
+    ...(activity.length ? { activity } : {}),
   };
 }
 
@@ -67,6 +72,7 @@ export function newNote(
     tags: [],
     createdAt: iso,
     updatedAt: iso,
+    activity: [{ at: iso, kind: "created" }],
   };
 }
 
