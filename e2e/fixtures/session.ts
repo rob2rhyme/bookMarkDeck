@@ -19,10 +19,10 @@ export const E2E_USER = {
 };
 
 /** Mint a session JWT the app will accept. */
-export async function sessionToken(): Promise<string> {
+export async function sessionToken(user: typeof E2E_USER = E2E_USER): Promise<string> {
   return encode({
     token: {
-      ...E2E_USER,
+      ...user,
       // Load-bearing. The jwt callback (src/auth/auth.config.ts) reads:
       //   if (t.expiresAt && Date.now() < t.expiresAt - 60_000) return t;
       //   return refreshAccessToken(t);
@@ -42,11 +42,11 @@ export async function sessionToken(): Promise<string> {
  * Add the session cookie to a context. Not the `__Secure-` prefixed name —
  * next-auth only uses that over HTTPS, and the suite runs on http://localhost.
  */
-export async function signIn(context: BrowserContext): Promise<void> {
+export async function signIn(context: BrowserContext, user: typeof E2E_USER = E2E_USER): Promise<void> {
   await context.addCookies([
     {
       name: SESSION_COOKIE,
-      value: await sessionToken(),
+      value: await sessionToken(user),
       domain: "localhost",
       path: "/",
       httpOnly: true,

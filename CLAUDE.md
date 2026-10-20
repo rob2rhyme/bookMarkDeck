@@ -48,6 +48,18 @@ Two independent auth systems, by design:
      next-auth Google OAuth client ID whitelisted on the Firebase project's Google provider; otherwise
      it degrades to one tap that lights up all pillars.
 
+**Sign-in is limited to the owner** (`src/auth/allowlist.ts`; `AUTH_ALLOWED_EMAILS`,
+comma-separated, replaces the in-code default). Three checks, because each alone has a gap:
+the `signIn` callback refuses other accounts (and unverified emails); the `jwt` callback
+throws for them, which makes next-auth clear the cookie, so a session minted before the
+lock reads as signed out; and `middleware.ts` checks the email itself, since the gate
+decodes the cookie without running callbacks. `e2e/allowlist.spec.ts` pins all three
+from the outside. The default lives in code so an unset variable locks to the owner
+rather than failing open. **Firestore is not covered by this** — anyone can still sign
+into Firebase with the public config and write under their *own* `users/{uid}` (never
+yours); closing that is a rules change, an owner decision (the Firebase project may be
+shared with other apps).
+
 **Reuse both — never add a second auth system or a second database.**
 
 ## Data model (Firestore)
