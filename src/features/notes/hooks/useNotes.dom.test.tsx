@@ -173,3 +173,36 @@ describe("useNotes — sync", () => {
     expect(cached().map((n) => n.id)).toEqual(["remote"]);
   });
 });
+
+describe("useNotes — tags", () => {
+  it("normalises a tag patch and doesn't bump updatedAt", async () => {
+    localStorage.setItem(KEY, JSON.stringify([note("a")]));
+    const { result } = renderHook(() => useNotes(EMAIL, false));
+    await waitFor(() => expect(result.current.notes).toHaveLength(1));
+    act(() => void result.current.updateNote("a", { tags: ["#Work", "work", "To Do"] }));
+    expect(cached()[0]).toMatchObject({ tags: ["work", "to-do"], updatedAt: "2026-01-01T00:00:00.000Z" });
+  });
+
+  it("renames a tag everywhere, merging duplicates, and removes one everywhere", async () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify([note("a", { tags: ["old", "keep"] }), note("b", { tags: ["old", "new"] }), note("c", { tags: ["x"] })])
+    );
+    const { result } = renderHook(() => useNotes(EMAIL, false));
+    await waitFor(() => expect(result.current.notes).toHaveLength(3));
+    let n = 0;
+    act(() => {
+      n = result.current.retag("old", "New");
+    });
+    expect(n).toBe(2);
+    const byId = () => Object.fromEntries(cached().map((x) => [x.id, x.tags]));
+    expect(byId()).toEqual({ a: ["new", "keep"], b: ["new"], c: ["x"] });
+    act(() => {
+      n = result.current.retag("new", null);
+    });
+    expect(n).toBe(2);
+    expect(byId()).toEqual({ a: ["keep"], b: [], c: ["x"] });
+    expect(result.current.retag("missing", null)).toBe(0);
+    expect(result.current.retag("keep", "#keep")).toBe(0);
+  });
+});

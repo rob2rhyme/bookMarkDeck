@@ -111,6 +111,28 @@ test.describe("signed in", () => {
     await expect(page.getByRole("link", { name: "Groceries" })).toBeVisible();
   });
 
+  test("/notes: tag a note, then find it by search and by tag", async ({ page }) => {
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    await page.getByLabel("Title", { exact: true }).fill("Café list");
+    const tagBox = page.getByRole("combobox", { name: "Add tag" });
+    await tagBox.fill("Errands");
+    await tagBox.press("Enter");
+    await page.getByLabel("Note", { exact: true }).fill("oat milk\nbeans");
+    await page.getByRole("link", { name: "Notes", exact: true }).first().click();
+
+    const search = page.getByRole("searchbox", { name: "Search notes" });
+    await search.fill("cafe beans");
+    await expect(page.getByRole("status")).toHaveText(/1 note/);
+    await expect(page.locator("mark").first()).toHaveText("Café");
+    await expect(page).toHaveURL(/\?q=cafe\+beans/);
+    await search.press("Escape");
+
+    await page.getByRole("group", { name: "Filter by tag" }).getByRole("button", { name: /#errands/ }).click();
+    await expect(page.getByRole("link", { name: "Café list" })).toBeVisible();
+    await expect(page).toHaveURL(/\?tag=errands/);
+  });
+
   test("mobile bottom nav omits the pillar you are on", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 740 });
     await page.goto("/notes");

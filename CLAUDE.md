@@ -791,8 +791,8 @@ Other invariants:
 `src/features/notes/` + `/notes` (list) and `/notes/[id]` (editor). Imports no other
 feature; nothing imports it — removable cleanly in both directions.
 
-- **Phase 1 scope.** No search, tags UI, markdown rendering or encryption yet — those
-  are later phases. `tags[]` is stored (always `[]`) so a tags UI needs no migration.
+- **Phases.** 1: list, editor, smart lists, clipboard. **2: search + tags** (this
+  section). Markdown rendering and encryption are later phases — not built.
 - Collection: `users/{uid}/notes/{noteId}` → `{ title, body, pinned, tags[], createdAt,
   updatedAt }`. Covered by the recursive owner rule; `FIRESTORE_RULES.md` says why a
   notes-specific rule would add nothing (rules OR together). Timestamps are the
@@ -806,8 +806,25 @@ feature; nothing imports it — removable cleanly in both directions.
   events (other tabs) **and** a same-tab `bd:notes-cache-changed` event — the list and
   editor are separate routes with separate hook instances, and an Undo or a blank-note
   discard lands after one has unmounted.
-- **Order:** pinned first, then `updatedAt` desc. Pinning does **not** bump `updatedAt` —
-  pinning a note isn't editing it.
+- **Order:** pinned first, then `updatedAt` desc. Pinning or tagging does **not** bump
+  `updatedAt` — organising a note isn't editing it. Tags save at once, not through the
+  autosave debounce.
+- **Tags are canonical on write** (`lib/tags.ts`, `normalizeTag`): lowercase, no `#`,
+  whitespace → `-`, only letters/digits/`-`/`_`/`/`, ≤32 chars, ≤20 per note. One form
+  everywhere means the filter, `#tag` search and counts never re-fold at read time;
+  `normalizeNote` re-canonicalises what it reads, so a hand-edited doc can't split a tag.
+  Rename/delete across every note is `retag(from, to | null)`; delete offers Undo by
+  restoring each note's previous tags.
+- **Search** (`lib/search.ts`) is pure and client-side over the already-loaded notes —
+  no index, nothing stored. Every word must match (title, body or a tag); `"quoted
+  phrases"` are one term; `#tag` filters. Case- **and accent**-insensitive: matching
+  runs on a folded copy that maps each folded unit back to its original index, so
+  highlights land correctly even where folding changes length (`İ`). Ranked title >
+  tag > body, ties keeping display order. A card shows the body line that matched
+  (windowed), not its first line. Highlights reuse the shared `<mark>` styling but not
+  `@/components/HighlightedText`, which takes one literal phrase. The query and tag
+  live in the URL (`?q=`, `?tag=`, via `history.replaceState`) so Back from a note
+  restores the results.
 - **Editor:** autosave is debounced 800 ms and **driven imperatively** (`schedule()` from
   change handlers), so adopting a remote change never triggers a save of its own. It
   flushes on ⌘S, `pagehide`/hidden, and unmount. A remote change is adopted only while
@@ -829,6 +846,9 @@ feature; nothing imports it — removable cleanly in both directions.
 - **The title is the one input above 16px.** `globals.css` forces every form control to
   16px with `!important` (iOS zoom-on-focus); an important base-layer rule outranks
   any utility, so the title's size is a `.bd-note-title` rule beside it.
+- Keys: `N` new note, `/` search, Esc clears search or leaves the editor. An input that
+  handles Esc itself `preventDefault`s it, and the editor's window handler skips a
+  prevented Esc — that is how the tag box clears without closing the note.
 - Size cap: `MAX_NOTE_CHARS` (300k UTF-16 units ≤ 900 KB UTF-8) keeps a note inside
   Firestore's 1 MiB document limit.
 - Shared-file touches (additive): `AppShell.tsx` (nav entry; both navs omit the active
