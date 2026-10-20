@@ -60,7 +60,7 @@ Rules live in the committed **`firestore.rules`** at the repo root (wired via `f
 `.firebaserc`, project `unified-project-440e5`): a single owner-scoped recursive rule
 `match /users/{uid}/{document=**}` allowing read/write only when `request.auth.uid == uid` —
 which covers every collection, since all user data lives under `users/{uid}`. Per-feature notes:
-`src/features/{focus,habits,inventory}/FIRESTORE_RULES.md`. Any new collection must stay under
+`src/features/{focus,habits,inventory,notes}/FIRESTORE_RULES.md`. Any new collection must stay under
 `users/{uid}` (or get its own owner-scoped rule) — and that is **enforced**, not just asked for:
 `src/lib/firestorePaths.test.ts` scans the source for `doc(db, …)` / `collection(db, …)` and fails
 if any path is not rooted at `users` with a uid *variable*. A stray root collection would otherwise
@@ -77,7 +77,7 @@ then reads the released ruleset back to confirm the deploy landed:
 
 | Command | Answers |
 |---|---|
-| `npm run verify:rules` | is the **file** correct? (44 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`) — needs `FIRESTORE_EMULATOR_HOST` |
+| `npm run verify:rules` | is the **file** correct? (55 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`; notes asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
 | `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |
@@ -190,10 +190,13 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
 - `src/app/(app)/layout.tsx` wraps pages in `<AppShell>` (`src/components/AppShell.tsx`) +
   `<GlobalClientUI>`. `AppShell` renders the header (logo + pillar nav pills + account
   menu), a mobile bottom nav (pillars + ⌘K search), and the footer
-  (Guide / Privacy / Terms / FAQ).
+  (Guide / Privacy / Terms / FAQ). **Both navs omit the pillar you are on** — that is
+  what keeps six pillars at six bottom-nav cells (the most 320px holds). Header pills
+  are icon-only below `xl`: five labelled pills plus the account menu overflow the
+  row under ~1280px.
 - Existing pages: `/` (home), `/folders/[folderKey]`, `/folders/manage`, `/folders/unstaged`,
-  `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/filing`, `/guide` (site guide),
-  `/faq`, `/privacy`, `/terms`, `/login`.
+  `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/filing`, `/notes`, `/notes/[id]`,
+  `/guide` (site guide), `/faq`, `/privacy`, `/terms`, `/login`.
 
 ## Styling
 
@@ -285,7 +288,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   routes stay gated. **Exempting a route makes its own gate the only gate**, so any route
   added to that list needs a route test proving its check rejects a forged request.
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
-  Covers the public surface *and* all five authed pillars — signing in needs no real
+  Covers the public surface *and* all six authed pillars — signing in needs no real
   credentials, because the gate is `getServerSession`, which only verifies a
   next-auth JWT against `NEXTAUTH_SECRET`; `e2e/fixtures/session.ts` mints a cookie
   with the same dummy secret the test server runs with. Firebase creds gate only
@@ -301,7 +304,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   + `test` + `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds
   previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
   backlog was cleared. It carries real weight, because `npm run lint` is only
-  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 84
+  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 85
   remaining *warnings* are **all one rule** — `react-hooks/set-state-in-effect`; only
   errors fail the build. That the set is homogeneous is the useful part: a warning from
   any other rule is new, and worth reading rather than assuming it is backlog.
@@ -313,10 +316,10 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   | cloud subscribe / fetch (`[canSync, email]`, `[connected, email]`) | 28 |
   | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 15 |
   | modal / panel reset on open (`[open, …]`) | 14 |
-  | other storage-backed reload | 14 |
+  | other storage-backed reload (+1: `useNotes`' cache load, `[email]`) | 15 |
   | **derived-state reset** | **13** |
 
-  Hydration-shaped effects are about **29 of 84**; the biggest group is Firestore
+  Hydration-shaped effects are about **30 of 85**; the biggest group is Firestore
   subscriptions, which have nothing to do with hydration. The distinction earns its
   place because the blanket version of it is how #292's regression stayed in `main` for
   months — a deleted button whose orphaned state warned for exactly this rule, waved off
@@ -781,6 +784,56 @@ Other invariants:
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`,
   `icons.tsx` (`Clock`, `BarChart`).
+
+## Notes feature (`/notes`)
+
+*Jot it down, find it later, copy it out in one tap.* A self-contained pillar under
+`src/features/notes/` + `/notes` (list) and `/notes/[id]` (editor). Imports no other
+feature; nothing imports it — removable cleanly in both directions.
+
+- **Phase 1 scope.** No search, tags UI, markdown rendering or encryption yet — those
+  are later phases. `tags[]` is stored (always `[]`) so a tags UI needs no migration.
+- Collection: `users/{uid}/notes/{noteId}` → `{ title, body, pinned, tags[], createdAt,
+  updatedAt }`. Covered by the recursive owner rule; `FIRESTORE_RULES.md` says why a
+  notes-specific rule would add nothing (rules OR together). Timestamps are the
+  client's instant, not `serverTimestamp()` — a pending server time reads `null` in the
+  local snapshot and would sink the note being typed to the bottom of the list.
+- **Same sync model as filing**: per-user cache (`bookmarkdeck:notes:v1:{email}`) renders
+  at once, the live subscription takes over when connected, offline changes go through
+  `queueUpsert`/`queueDelete` and `toUpload` on connect. The cache is written
+  **synchronously** by every change (not from an effect) because the editor saves on
+  `pagehide` and unmount, which don't wait for a render. The hook adopts `storage`
+  events (other tabs) **and** a same-tab `bd:notes-cache-changed` event — the list and
+  editor are separate routes with separate hook instances, and an Undo or a blank-note
+  discard lands after one has unmounted.
+- **Order:** pinned first, then `updatedAt` desc. Pinning does **not** bump `updatedAt` —
+  pinning a note isn't editing it.
+- **Editor:** autosave is debounced 800 ms and **driven imperatively** (`schedule()` from
+  change handlers), so adopting a remote change never triggers a save of its own. It
+  flushes on ⌘S, `pagehide`/hidden, and unmount. A remote change is adopted only while
+  nothing is pending locally; otherwise last writer wins, per note. A note left
+  **blank** is discarded when the editor closes — deferred a tick and cancelled by a
+  remount of the same id, so React's dev double-mount can't delete the note being opened.
+  Delete asks inline, then offers Undo.
+- **Smart text is plain text** (`lib/smartText.ts`): Enter continues `- `/`* `/`• `/`1. `/
+  `1) `/`[ ] ` items (numbers renumber the items below; a new checkbox is unticked),
+  Enter on an empty item ends the list (outdenting first if nested), Tab/Shift-Tab
+  indent — captured **only** on list lines or multi-line selections, so Tab still moves
+  focus elsewhere — and ⌘/Ctrl+Enter toggles a checkbox. Edits are applied through
+  `execCommand("insertText")` so they stay on the native undo stack (setting `value`
+  wipes it); `e2e/authed.spec.ts` pins ⌘Z in a real browser.
+- **Clipboard** (`lib/clipboard.ts`): `@capacitor/clipboard` when
+  `Capacitor.isNativePlatform()`, falling back to `navigator.clipboard` on **any**
+  native failure — the shell loads the live site, so a deploy reaches devices before a
+  rebuilt app carries the plugin (see `CAPACITOR_IOS.md` §1).
+- **The title is the one input above 16px.** `globals.css` forces every form control to
+  16px with `!important` (iOS zoom-on-focus); an important base-layer rule outranks
+  any utility, so the title's size is a `.bd-note-title` rule beside it.
+- Size cap: `MAX_NOTE_CHARS` (300k UTF-16 units ≤ 900 KB UTF-8) keeps a note inside
+  Firestore's 1 MiB document limit.
+- Shared-file touches (additive): `AppShell.tsx` (nav entry; both navs omit the active
+  pillar), `icons.tsx` (`StickyNote`, `Copy`, `ClipboardPaste`, `Pin`), `globals.css`
+  (`.bd-note-title`).
 
 ## Git & PR workflow
 

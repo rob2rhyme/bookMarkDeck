@@ -95,6 +95,21 @@ for (const col of OTHERS) {
   await check(`other uid cannot write ${col}`, assertFails(setDoc(doc(bob, `users/${ALICE}/${col}/x9`), { a: 1 })));
 }
 
+// Notes (users/{uid}/notes/{noteId}) — covered by the same recursive rule, so
+// no rule of its own; asserted in full here because notes hold free text.
+const NOTE = { title: "t", body: "b", pinned: false, tags: [] };
+await check("owner creates a note", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notes/n1`), NOTE)));
+await check("owner reads a note", assertSucceeds(getDoc(doc(alice, `users/${ALICE}/notes/n1`))));
+await check("owner updates a note", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notes/n1`), { ...NOTE, pinned: true })));
+await check("other uid cannot read a note", assertFails(getDoc(doc(bob, `users/${ALICE}/notes/n1`))));
+await check("other uid cannot overwrite a note", assertFails(setDoc(doc(bob, `users/${ALICE}/notes/n1`), NOTE)));
+await check("other uid cannot create in another's notes", assertFails(setDoc(doc(bob, `users/${ALICE}/notes/n2`), NOTE)));
+await check("other uid cannot delete a note", assertFails(deleteDoc(doc(bob, `users/${ALICE}/notes/n1`))));
+await check("anonymous cannot read a note", assertFails(getDoc(doc(anon, `users/${ALICE}/notes/n1`))));
+await check("anonymous cannot write a note", assertFails(setDoc(doc(anon, `users/${ALICE}/notes/n3`), NOTE)));
+await check("root notes collection denied", assertFails(setDoc(doc(alice, `notes/n1`), NOTE)));
+await check("owner deletes a note", assertSucceeds(deleteDoc(doc(alice, `users/${ALICE}/notes/n1`))));
+
 // The recursive rule must not leak outside users/{uid}.
 await check("root collection denied", assertFails(setDoc(doc(alice, `filingDocuments/x1`), { a: 1 })));
 await check("other top-level denied", assertFails(setDoc(doc(alice, `admin/config`), { a: 1 })));

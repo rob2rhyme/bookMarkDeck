@@ -11,21 +11,23 @@ import { UpgradeButton } from "@/components/UpgradeButton";
 import { useEntitlement } from "@/hooks/useEntitlement";
 import { CursorOverlay } from "@/components/CursorOverlay";
 import { CursorSettingsPanel } from "@/components/CursorSettingsPanel";
-import { Bookmark, Cabinet, Package, Repeat, Search, Timer } from "@/components/icons";
+import { Bookmark, Cabinet, Package, Repeat, Search, StickyNote, Timer } from "@/components/icons";
 import {
   COMMAND_PALETTE_STATE_EVENT,
   OPEN_COMMAND_PALETTE_EVENT,
 } from "@/components/CommandPalette";
 
-// `short` is used ONLY by the mobile bottom nav. A fifth pillar makes six cells
-// there (~53px at 320px) and the padding/font are already at their minimum, so
-// the long labels would clip — see ANALYSIS-FILING-LOG.md §11.
+// `short` is used ONLY by the mobile bottom nav. Six cells there (~53px at
+// 320px) is the most the padding/font allow, and the long labels would clip —
+// see ANALYSIS-FILING-LOG.md §11. Six pillars + Search still make six, because
+// the bar omits the pillar you are on, as the desktop header does.
 const DESTINATIONS = [
   { href: "/", label: "Bookmarks", short: "Saved", Icon: Bookmark },
   { href: "/focus", label: "Focus", Icon: Timer },
   { href: "/habits", label: "Habits", Icon: Repeat },
   { href: "/inventory", label: "My Stuff", short: "Stuff", Icon: Package },
   { href: "/filing", label: "Filing", Icon: Cabinet },
+  { href: "/notes", label: "Notes", Icon: StickyNote },
 ] as const;
 
 export function AppShell({
@@ -47,7 +49,7 @@ export function AppShell({
   const activeHref =
     DESTINATIONS.find((d) => d.href !== "/" && pathname?.startsWith(d.href))
       ?.href ?? "/";
-  // Desktop header shows the pillars you're NOT currently on.
+  // Both navs show the pillars you're NOT currently on.
   const otherTabs = DESTINATIONS.filter((d) => d.href !== activeHref);
 
   // Hide the mobile bottom nav while a text field is focused. The on-screen
@@ -148,10 +150,14 @@ export function AppShell({
                             ? `${tab.label}, ${reminders} need attention`
                             : tab.label
                         }
-                        className="hidden items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:inline-flex sm:px-3 sm:py-1.5 sm:text-sm"
+                        title={tab.label}
+                        className="hidden items-center gap-1.5 rounded-full border border-slate-800/70 bg-slate-900/70 p-2 text-xs font-medium text-slate-200 shadow-sm transition hover:border-blue-400 hover:text-blue-300 sm:inline-flex sm:text-sm xl:px-3 xl:py-1.5"
                       >
                         <tab.Icon className="h-4 w-4" />
-                        <span className="hidden sm:inline">{tab.label}</span>
+                        {/* Labels only from xl: five pills + the account menu
+                            overflow the header below ~1280px (the logo wraps
+                            first, then the row runs off-screen). */}
+                        <span className="hidden xl:inline">{tab.label}</span>
                         {reminders > 0 && (
                           <span
                             aria-hidden
@@ -294,22 +300,18 @@ export function AppShell({
           style={{ minHeight: "var(--bottom-nav-h)" }}
           className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-800/70 bg-slate-950/95 backdrop-blur sm:hidden"
         >
-          {DESTINATIONS.map((tab) => {
-            const active = tab.href === activeHref;
+          {otherTabs.map((tab) => {
             const reminders = navBadges[tab.href] ?? 0;
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                aria-current={active ? "page" : undefined}
                 aria-label={
                   reminders > 0
                     ? `${tab.label}, ${reminders} need attention`
                     : undefined
                 }
-                className={`flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2.5 text-[10px] font-medium leading-tight transition ${
-                  active ? "text-blue-300" : "text-slate-400"
-                }`}
+                className="flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2.5 text-[10px] font-medium leading-tight text-slate-400 transition hover:text-slate-200"
               >
                 <span className="relative">
                   <tab.Icon className="h-6 w-6" />
