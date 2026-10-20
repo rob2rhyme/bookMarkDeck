@@ -1,10 +1,14 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const session = { status: "authenticated" as "authenticated" | "loading" };
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: { user: { email: "a@example.com" } }, status: "authenticated" }),
+  useSession: () =>
+    session.status === "loading"
+      ? { data: null, status: "loading" }
+      : { data: { user: { email: "a@example.com" } }, status: "authenticated" },
 }));
 vi.mock("firebase/auth", () => ({ onAuthStateChanged: () => () => {} }));
 vi.mock("@/lib/firebase", () => ({ auth: {}, ensureFirebaseGoogleAuth: vi.fn() }));
@@ -32,6 +36,8 @@ const note = (id: string, over: Partial<Note> = {}): Note => ({
 const cached = () => JSON.parse(localStorage.getItem(KEY) ?? "[]") as Note[];
 
 beforeEach(() => {
+  session.status = "authenticated";
+  push.mockClear();
   localStorage.clear();
   window.history.replaceState(null, "", "/notes");
   localStorage.setItem(
@@ -114,5 +120,25 @@ describe("NotesDashboard — tags", () => {
     });
     expect(cached()).toHaveLength(3);
     expect(cached().some((n) => n.tags.includes("home"))).toBe(false);
+  });
+});
+
+describe("NotesDashboard — creating before the session loads", () => {
+  it("won't create a note until the account's notes have loaded", async () => {
+    session.status = "loading";
+    const view = render(<NotesDashboard />);
+    const newBtn = await screen.findByRole("button", { name: "New note" });
+    expect((newBtn as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.keyDown(window, { key: "n" });
+    expect(push).not.toHaveBeenCalled();
+    expect(localStorage.getItem("bookmarkdeck:notes:v1")).toBeNull();
+
+    session.status = "authenticated";
+    view.rerender(<NotesDashboard />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "New note" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "New note" }));
+    // Filed under the account, beside its existing notes — not instead of them.
+    expect(cached()).toHaveLength(4);
+    expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/notes\/[0-9a-f-]{36}$/));
   });
 });

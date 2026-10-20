@@ -114,6 +114,42 @@ describe("NoteEditor", () => {
     expect(push).toHaveBeenCalledWith("/notes");
   });
 
+  it("⌘B wraps the selection in bold; the toolbar does the same", async () => {
+    const { body } = await open(note({ body: "buy milk" }));
+    body!.setSelectionRange(4, 8);
+    fireEvent.keyDown(body!, { key: "b", metaKey: true });
+    expect(body!.value).toBe("buy **milk**");
+    body!.setSelectionRange(0, 3);
+    fireEvent.click(screen.getByRole("button", { name: "Italic" }));
+    expect(body!.value).toBe("*buy* **milk**");
+  });
+
+  it("previews markdown, and ticking a box edits and saves the text", async () => {
+    await open(note({ body: "# Shop\n- [ ] milk" }));
+    fireEvent.click(screen.getByRole("button", { name: "preview" }));
+    expect(screen.getByRole("heading", { name: "Shop" })).toBeTruthy();
+    expect(screen.queryByLabelText("Note")).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mark as done" }));
+    await waitFor(() => expect(cached()[0].body).toBe("# Shop\n- [x] milk"), { timeout: 2000 });
+  });
+
+  it("remembers the view per device, but a blank note opens in Edit", async () => {
+    const first = await open();
+    fireEvent.keyDown(window, { key: "e", metaKey: true });
+    expect(screen.queryByLabelText("Note")).toBeNull();
+    expect(localStorage.getItem("bd:notes:view:v1")).toBe("preview");
+    first.unmount();
+    render(<NoteEditorScreen id="n1" />);
+    const toggle = await screen.findByRole("button", { name: "preview" });
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("a blank note opens in Edit even when Preview is remembered", async () => {
+    localStorage.setItem("bd:notes:view:v1", "preview");
+    const { body } = await open(note({ title: "", body: "" }));
+    expect(body).toBeTruthy();
+  });
+
   it("says when a note doesn't exist", async () => {
     await open(null);
     expect(await screen.findByText(/doesn.t exist/)).toBeTruthy();

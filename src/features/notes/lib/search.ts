@@ -8,6 +8,7 @@
 // - Ranked: a title hit outweighs a tag hit outweighs a body hit. Ties keep the
 //   order the notes came in (pinned first, then most recent).
 
+import { toPlainText } from "@/features/notes/lib/markdown";
 import { cardText, type Note } from "@/features/notes/lib/notes";
 import { normalizeTag } from "@/features/notes/lib/tags";
 
@@ -136,7 +137,10 @@ export function searchNotes(notes: Note[], query: string, tag: string | null = n
     if (!wantTags.every((t) => note.tags.includes(t))) return;
     const card = cardText(note);
     const fTitle = foldChar(note.title);
-    const fBody = foldChar(note.body);
+    // Search the text as read, not its markdown: "**milk**" is found by "milk"
+    // and its snippet shows no asterisks.
+    const body = toPlainText(note.body);
+    const fBody = foldChar(body);
     let score = 0;
     for (const term of q.terms) {
       const inTitle = fTitle.includes(term);
@@ -146,8 +150,8 @@ export function searchNotes(notes: Note[], query: string, tag: string | null = n
       score += inTitle ? 3 : inTag ? 2 : 1;
     }
     // An untitled note's card title IS its first line, so the snippet looks below it.
-    const cut = note.title.trim() ? 0 : afterFirstLine(note.body);
-    const snip = q.terms.length ? snippetFor(note.body.slice(cut), q.terms) : null;
+    const cut = note.title.trim() ? 0 : afterFirstLine(body);
+    const snip = q.terms.length ? snippetFor(body.slice(cut), q.terms) : null;
     const preview = snip || {
       text: card.preview,
       ranges: findRanges(card.preview, q.terms),

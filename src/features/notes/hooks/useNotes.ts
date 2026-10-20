@@ -59,7 +59,13 @@ export type NotePatch = Partial<Pick<Note, "title" | "body" | "pinned" | "tags">
 
 export function useNotes(email?: string | null, connected = false) {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH cache has loaded, not just whether one has. The email arrives after
+  // the session does; until that account's cache is read, the list in hand is
+  // another key's (or empty), and a change committed from it would replace the
+  // account's whole cache with it.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loadedRef = useRef<string | null>(null);
+  const hydrated = loadedKey === keyFor(email);
   // True once the first cloud snapshot has arrived — until then a note missing
   // from the cache may still be on its way (opened from another device).
   const [cloudLoaded, setCloudLoaded] = useState(false);
@@ -79,16 +85,18 @@ export function useNotes(email?: string | null, connected = false) {
       mounted.current = false;
     };
   }, []);
+  // The same goes for a mounted instance whose account's cache hasn't loaded yet.
   const current = useCallback(
-    () => (mounted.current ? ref.current : loadLocal(email)),
+    () => (mounted.current && loadedRef.current === keyFor(email) ? ref.current : loadLocal(email)),
     [email]
   );
 
   useEffect(() => {
     const local = loadLocal(email);
     ref.current = local;
+    loadedRef.current = keyFor(email);
     setNotes(local);
-    setHydrated(true);
+    setLoadedKey(keyFor(email));
   }, [email]);
 
   // Adopt the cache when another instance (this tab) or another tab writes it.

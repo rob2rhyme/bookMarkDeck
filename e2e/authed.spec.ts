@@ -133,6 +133,26 @@ test.describe("signed in", () => {
     await expect(page).toHaveURL(/\?tag=errands/);
   });
 
+  test("/notes: format with the toolbar, undo it, preview and tick a box", async ({ page }) => {
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    const body = page.getByLabel("Note", { exact: true });
+    await body.click();
+    await body.pressSequentially("[ ] call the bank");
+    await body.press("Shift+Home");
+    await page.getByRole("button", { name: "Bold" }).click();
+    await expect(body).toHaveValue("**[ ] call the bank**");
+    // Formatting goes through the native undo stack, like typing.
+    await body.press("ControlOrMeta+z");
+    await expect(body).toHaveValue("[ ] call the bank");
+
+    await page.getByRole("button", { name: "preview" }).click();
+    const box = page.getByRole("checkbox", { name: "Mark as done" });
+    await box.check();
+    await page.getByRole("button", { name: "edit" }).click();
+    await expect(page.getByLabel("Note", { exact: true })).toHaveValue("[x] call the bank");
+  });
+
   test("mobile bottom nav omits the pillar you are on", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 740 });
     await page.goto("/notes");

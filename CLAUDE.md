@@ -791,8 +791,16 @@ Other invariants:
 `src/features/notes/` + `/notes` (list) and `/notes/[id]` (editor). Imports no other
 feature; nothing imports it — removable cleanly in both directions.
 
-- **Phases.** 1: list, editor, smart lists, clipboard. **2: search + tags** (this
-  section). Markdown rendering and encryption are later phases — not built.
+- **Phases.** 1: list, editor, smart lists, clipboard. 2: search + tags. **3: markdown**.
+  Encryption is a later phase — not built.
+- **Nothing is created before the account's cache has loaded.** The cache key is the
+  session email, which arrives after mount; a note created in that gap was filed under
+  the bare key and the editor (opening a beat later under the real one) said it didn't
+  exist. Worse, in the render between the email arriving and its cache loading, a
+  commit from the old list would replace the account's whole cache. So `useNotes`
+  tracks *which* key it has loaded (`hydrated` means "this email's cache"), any change
+  made before that reads the cache first, and the list's New/Paste/`N` wait on
+  `status !== "loading" && hydrated`.
 - Collection: `users/{uid}/notes/{noteId}` → `{ title, body, pinned, tags[], createdAt,
   updatedAt }`. Covered by the recursive owner rule; `FIRESTORE_RULES.md` says why a
   notes-specific rule would add nothing (rules OR together). Timestamps are the
@@ -846,7 +854,22 @@ feature; nothing imports it — removable cleanly in both directions.
 - **The title is the one input above 16px.** `globals.css` forces every form control to
   16px with `!important` (iOS zoom-on-focus); an important base-layer rule outranks
   any utility, so the title's size is a `.bd-note-title` rule beside it.
-- Keys: `N` new note, `/` search, Esc clears search or leaves the editor. An input that
+- **Markdown** (`lib/markdown.ts` → `components/Markdown.tsx`) is a small parser of our
+  own, not a library: it yields a tree the renderer turns into React elements, so **no
+  HTML string ever reaches the DOM** (a pasted `<img onerror>` is text), links render
+  only for `http(s)`/`mailto`/`tel` (`safeHref`), and no dependency is added. A
+  deliberate subset — headings, paragraphs (single newlines kept as line breaks, as
+  notes are written), fenced code, quotes, nested lists, tasks, rules, pipe tables;
+  bold/italic/strike/code/links/bare URLs/escapes. A **bare `[ ] x` line is a task**,
+  because the editor's list continuation writes it that way. Task items carry their
+  **source line**, so ticking a box in Preview flips that line (`toggleTaskLine`) and
+  autosaves like typing. Cards and search use **`toPlainText`** (syntax dropped, line
+  structure kept), so "**milk**" matches "milk" and a card reads "☐ buy milk".
+  Edit/Preview is per device (`bd:notes:view:v1`); a blank note always opens in Edit.
+  The formatting toolbar and ⌘B/⌘I/⌘⇧X go through the same `TextEdit` +
+  `execCommand` path as the list smarts, so ⌘Z undoes them. No ⌘K for links — that
+  is the app-wide command palette.
+- Keys: `N` new note, `/` search, ⌘E Edit/Preview, Esc clears search or leaves the editor. An input that
   handles Esc itself `preventDefault`s it, and the editor's window handler skips a
   prevented Esc — that is how the tag box clears without closing the note.
 - Size cap: `MAX_NOTE_CHARS` (300k UTF-16 units ≤ 900 KB UTF-8) keeps a note inside

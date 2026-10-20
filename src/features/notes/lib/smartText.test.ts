@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   continueList,
+  cycleHeading,
+  insertLink,
+  toggleBullets,
+  toggleLinePrefix,
+  wrapInline,
   indentLines,
   parseMarker,
   tabIndents,
@@ -171,5 +176,51 @@ describe("toggleChecklist — ⌘/Ctrl+Enter", () => {
 
   it("applies to each selected line", () => {
     expect(toggle("«- [ ] a\nb»")).toBe("«- [x] a\n- [ ] b»");
+  });
+});
+
+describe("formatting", () => {
+  const run = (src: string, fn: (v: string, s: number, e: number) => TextEdit | null) => {
+    const { value, start, end } = at(src);
+    return show(value, fn(value, start, end));
+  };
+  const bold = (v: string, s: number, e: number) => wrapInline(v, s, e, "**");
+
+  it("wraps and unwraps a selection", () => {
+    expect(run("a «word» b", bold)).toBe("a **«word»** b");
+    expect(run("a **«word»** b", bold)).toBe("a «word» b");
+    expect(run("a «**word**» b", bold)).toBe("a «word» b");
+  });
+
+  it("keeps surrounding spaces outside the markers", () => {
+    expect(run("«word »next", bold)).toBe("**«word»** next");
+  });
+
+  it("inserts an empty pair around the caret", () => {
+    expect(run("a | b", (v, s, e) => wrapInline(v, s, e, "`"))).toBe("a `|` b");
+  });
+
+  it("cycles headings on the touched lines", () => {
+    expect(run("Title|", cycleHeading)).toBe("# Title|");
+    expect(run("# Title|", cycleHeading)).toBe("## Title|");
+    expect(run("### Title|", cycleHeading)).toBe("Title|");
+  });
+
+  it("toggles a quote prefix across lines, ignoring blank ones", () => {
+    const quote = (v: string, s: number, e: number) => toggleLinePrefix(v, s, e, "> ");
+    expect(run("«a\n\nb»", quote)).toBe("> «a\n\n> b»");
+    expect(run("«> a\n> b»", quote)).toBe("«a\nb»");
+  });
+
+  it("toggles bullets, leaving existing list lines alone when adding", () => {
+    expect(run("«a\n- b»", toggleBullets)).toBe("- «a\n- b»");
+    expect(run("«- a\n1. b»", toggleBullets)).toBe("«a\nb»");
+    expect(run("  indented|", toggleBullets)).toBe("  - indented|");
+  });
+
+  it("makes links: text becomes the label, a URL becomes the address", () => {
+    expect(run("see «docs»", insertLink)).toBe("see [docs](«https://»)");
+    expect(run("«https://x.dev»", insertLink)).toBe("[|](https://x.dev)");
+    expect(run("|", insertLink)).toBe("[«link»](https://)");
   });
 });

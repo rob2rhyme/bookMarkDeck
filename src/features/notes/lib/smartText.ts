@@ -223,3 +223,94 @@ export function toggleChecklist(value: string, start: number, end: number): Text
     return { line: `${indent}- [ ] ${line.slice(indent.length)}`, at: indent.length };
   });
 }
+
+/* --------------------------------------------------------- formatting --- */
+// Toolbar / ⌘B-⌘I actions. Each toggles: applying it to text that already has
+// the formatting removes it, so the same button both adds and clears.
+
+/**
+ * Wrap the selection in `marker` (**, *, ~~, `), or unwrap it if it is already
+ * wrapped — whether the markers sit just outside the selection or inside it.
+ * Surrounding spaces stay outside ("**word** ", never "**word **", which
+ * markdown wouldn't read as bold). An empty selection inserts a pair with the
+ * caret between.
+ */
+export function wrapInline(value: string, start: number, end: number, marker: string): TextEdit {
+  const m = marker.length;
+  let s = start;
+  let e = end;
+  if (value.slice(s, e).trim()) {
+    while (s < e && /\s/.test(value[s])) s++;
+    while (e > s && /\s/.test(value[e - 1])) e--;
+  }
+  const sel = value.slice(s, e);
+  if (value.slice(s - m, s) === marker && value.slice(e, e + m) === marker) {
+    return { from: s - m, to: e + m, insert: sel, selStart: s - m, selEnd: e - m };
+  }
+  if (sel.length >= 2 * m && sel.startsWith(marker) && sel.endsWith(marker)) {
+    const inner = sel.slice(m, -m);
+    return { from: s, to: e, insert: inner, selStart: s, selEnd: s + inner.length };
+  }
+  return { from: s, to: e, insert: marker + sel + marker, selStart: s + m, selEnd: e + m };
+}
+
+const HEADING_PREFIX = /^(#{1,6}) /;
+
+/** Cycle the touched lines: plain → # → ## → ### → plain, all following the first line. */
+export function cycleHeading(value: string, start: number, end: number): TextEdit | null {
+  const first = value.slice(lineStartOf(value, start), lineEndOf(value, start));
+  const level = HEADING_PREFIX.exec(first)?.[1].length ?? 0;
+  const next = level >= 3 ? "" : "#".repeat(level + 1) + " ";
+  return mapLines(value, start, end, (line) => {
+    const cur = HEADING_PREFIX.exec(line)?.[0] ?? "";
+    return { line: next + line.slice(cur.length), at: 0 };
+  });
+}
+
+/** Add `prefix` to every touched line, or remove it if they all already have it (blank lines don't count). */
+export function toggleLinePrefix(value: string, start: number, end: number, prefix: string): TextEdit | null {
+  const { s, e } = touchedBlock(value, start, end);
+  const lines = value.slice(s, e).split("\n");
+  const all = lines.filter((l) => l.trim()).every((l) => l.startsWith(prefix));
+  return mapLines(value, start, end, (line) => {
+    if (all) return { line: line.startsWith(prefix) ? line.slice(prefix.length) : line, at: 0 };
+    if (!line.trim() && lines.length > 1) return { line, at: 0 };
+    return { line: line.startsWith(prefix) ? line : prefix + line, at: 0 };
+  });
+}
+
+/** Make the touched lines a bullet list, or remove their list markers if they all have one. */
+export function toggleBullets(value: string, start: number, end: number): TextEdit | null {
+  const { s, e } = touchedBlock(value, start, end);
+  const lines = value.slice(s, e).split("\n");
+  const all = lines.filter((l) => l.trim()).every((l) => parseMarker(l) !== null);
+  return mapLines(value, start, end, (line) => {
+    const mk = parseMarker(line);
+    const indent = /^[ \t]*/.exec(line)![0];
+    if (all) return mk ? { line: indent + line.slice(mk.length), at: indent.length } : { line, at: 0 };
+    if (mk || (!line.trim() && lines.length > 1)) return { line, at: 0 };
+    return { line: `${indent}- ${line.slice(indent.length)}`, at: indent.length };
+  });
+}
+
+/**
+ * Turn the selection into a link. Selected text becomes the label with
+ * "https://" selected for typing the address; a selected URL becomes the
+ * address with the caret in the empty label.
+ */
+export function insertLink(value: string, start: number, end: number): TextEdit {
+  const sel = value.slice(start, end).trim();
+  if (/^(https?:\/\/|www\.)\S+$/i.test(sel)) {
+    return { from: start, to: end, insert: `[](${sel})`, selStart: start + 1, selEnd: start + 1 };
+  }
+  const label = sel || "link";
+  const insert = `[${label}](https://)`;
+  const urlAt = start + label.length + 3;
+  return {
+    from: start,
+    to: end,
+    insert,
+    selStart: sel ? urlAt : start + 1,
+    selEnd: sel ? urlAt + "https://".length : start + 1 + label.length,
+  };
+}

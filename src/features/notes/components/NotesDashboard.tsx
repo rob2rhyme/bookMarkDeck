@@ -47,7 +47,7 @@ export function NotesDashboard({
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const email = session?.user?.email ?? null;
   const sync = useNotesSync(email);
   const { notes, hydrated, createNote, updateNote, retag } = useNotes(email, sync.connected);
@@ -72,7 +72,13 @@ export function NotesDashboard({
     return () => clearInterval(t);
   }, []);
 
+  // Nothing is created until the session (whose email keys the cache) and that
+  // account's notes have loaded: a note made earlier was filed under no account
+  // and the editor, opening a beat later under the real one, couldn't find it.
+  const ready = status !== "loading" && hydrated;
+
   const onNew = () => {
+    if (!ready) return;
     const note = createNote();
     router.push(`/notes/${note.id}`);
   };
@@ -85,7 +91,7 @@ export function NotesDashboard({
       if (e.key === "/") {
         e.preventDefault();
         searchRef.current?.focus();
-      } else if (e.key === "n") {
+      } else if (e.key === "n" && ready) {
         e.preventDefault();
         const note = createNote();
         router.push(`/notes/${note.id}`);
@@ -93,9 +99,10 @@ export function NotesDashboard({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [createNote, router]);
+  }, [createNote, router, ready]);
 
   const onPaste = async () => {
+    if (!ready) return;
     setPasting(true);
     const text = await readText();
     setPasting(false);
@@ -195,15 +202,16 @@ export function NotesDashboard({
             <button
               type="button"
               onClick={onNew}
+              disabled={!ready}
               aria-keyshortcuts="N"
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:opacity-50"
             >
               <Plus className="h-4 w-4" /> New note
             </button>
             <button
               type="button"
               onClick={onPaste}
-              disabled={pasting}
+              disabled={pasting || !ready}
               className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50"
             >
               <ClipboardPaste className="h-4 w-4" /> Paste as new note

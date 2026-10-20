@@ -8,22 +8,29 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { ArrowLeft, Copy, Pin, Share2, Trash2 } from "@/components/icons";
+import { ArrowLeft, CheckSquare, Copy, ExternalLink, Pin, Share2, Trash2 } from "@/components/icons";
 import { IconAction } from "@/components/IconAction";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/toast/ToastProvider";
+import { Markdown } from "@/features/notes/components/Markdown";
 import { TagEditor } from "@/features/notes/components/TagEditor";
 import { useAutosave, type SaveStatus } from "@/features/notes/hooks/useAutosave";
 import { useNotes } from "@/features/notes/hooks/useNotes";
 import { useNotesSync } from "@/features/notes/hooks/useNotesSync";
 import { copyText } from "@/features/notes/lib/clipboard";
+import { parseMarkdown, toggleTaskLine } from "@/features/notes/lib/markdown";
 import { tagCounts } from "@/features/notes/lib/tags";
 import { countWords, editedAgo, isBlank, MAX_NOTE_CHARS, type Note } from "@/features/notes/lib/notes";
 import {
   continueList,
+  cycleHeading,
   indentLines,
+  insertLink,
   tabIndents,
+  toggleBullets,
   toggleChecklist,
+  toggleLinePrefix,
+  wrapInline,
   type TextEdit,
 } from "@/features/notes/lib/smartText";
 
@@ -75,6 +82,32 @@ export function NoteEditorScreen({ id }: { id: string }) {
   );
 }
 
+// Edit or Preview, remembered per device (like the theme). A device-local
+// convenience, so no sync; a blank note always opens in Edit.
+type View = "edit" | "preview";
+const VIEW_KEY = "bd:notes:view:v1";
+const readView = (): View => {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === "preview" ? "preview" : "edit";
+  } catch {
+    return "edit";
+  }
+};
+
+type Format = (value: string, start: number, end: number) => TextEdit | null;
+// The toolbar, in order. Phones have no ⌘B, so every format is one tap.
+const FORMATS: { label: string; glyph: React.ReactNode; keys?: string; run: Format }[] = [
+  { label: "Bold", glyph: <span className="font-bold">B</span>, keys: "⌘B", run: (v, s, e) => wrapInline(v, s, e, "**") },
+  { label: "Italic", glyph: <span className="font-serif italic">I</span>, keys: "⌘I", run: (v, s, e) => wrapInline(v, s, e, "*") },
+  { label: "Strikethrough", glyph: <span className="line-through">S</span>, keys: "⌘⇧X", run: (v, s, e) => wrapInline(v, s, e, "~~") },
+  { label: "Heading", glyph: <span className="font-semibold">H</span>, run: cycleHeading },
+  { label: "Bulleted list", glyph: <span className="text-lg leading-none">•</span>, run: toggleBullets },
+  { label: "Checklist", glyph: <CheckSquare className="h-4 w-4" />, keys: "⌘↵", run: toggleChecklist },
+  { label: "Quote", glyph: <span className="font-serif text-lg leading-none">&rdquo;</span>, run: (v, s, e) => toggleLinePrefix(v, s, e, "> ") },
+  { label: "Code", glyph: <span className="font-mono text-xs">{"</>"}</span>, run: (v, s, e) => wrapInline(v, s, e, "`") },
+  { label: "Link", glyph: <ExternalLink className="h-4 w-4" />, run: insertLink },
+];
+
 // A note left blank is discarded when the editor closes — "New note" then Back
 // leaves nothing behind. Deferred one tick and cancelled by a remount of the
 // same note, so React's dev-mode double mount can't delete the note being opened.
@@ -117,6 +150,17 @@ function NoteEditor({
 
   // A brand-new note opens with the cursor in the title.
   const [openedBlank] = useState(() => isBlank(note));
+  // This component only renders after the notes cache has loaded (post-mount),
+  // so reading localStorage here never runs during SSR.
+  const [view, setViewState] = useState<View>(() => (openedBlank ? "edit" : readView()));
+  const setView = (v: View) => {
+    setViewState(v);
+    try {
+      window.localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* private mode — the choice just isn't remembered */
+    }
+  };
 
   // The latest draft, for the debounced save and the unmount checks, which run
   // after this render has committed.
@@ -150,7 +194,7 @@ function NoteEditor({
     ta.style.height = "auto";
     ta.style.height = `${ta.scrollHeight}px`;
     if (window.scrollY !== y) window.scrollTo({ top: y });
-  }, [body]);
+  }, [body, view]);
 
   useEffect(() => {
     const t = pendingDiscard.get(note.id);
@@ -185,12 +229,17 @@ function NoteEditor({
     };
   }, [flush]);
 
-  // ⌘/Ctrl+S saves now; Esc goes back to the list (the unmount saves).
+  // ⌘/Ctrl+S saves now; ⌘/Ctrl+E flips Edit/Preview; Esc goes back to the
+  // list (the unmount saves).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "s") {
         e.preventDefault();
         void saveNow();
+      } else if (mod && !e.shiftKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        setView(view === "edit" ? "preview" : "edit");
       } else if (e.key === "Escape" && !confirming && !e.defaultPrevented) {
         e.preventDefault();
         router.push("/notes");
@@ -198,7 +247,7 @@ function NoteEditor({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saveNow, router, confirming]);
+  }, [saveNow, router, confirming, view]);
 
   const onBodyChange = (value: string) => {
     if (value.length > MAX_NOTE_CHARS) {
@@ -218,6 +267,9 @@ function NoteEditor({
   const applyEdit = (edit: TextEdit) => {
     const ta = bodyRef.current;
     if (!ta) return;
+    // A toolbar tap may come while the title has focus; insertText acts on the
+    // focused element, so focus the body first (without scrolling to it).
+    if (document.activeElement !== ta) ta.focus({ preventScroll: true });
     ta.setSelectionRange(edit.from, edit.to);
     let ok = false;
     try {
@@ -248,8 +300,13 @@ function NoteEditor({
       if (edit) applyEdit(edit);
       return;
     }
+    const mod = e.metaKey || e.ctrlKey;
+    const key = e.key.toLowerCase();
     let edit: TextEdit | null = null;
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) edit = toggleChecklist(value, s, en);
+    if (mod && !e.shiftKey && key === "b") edit = wrapInline(value, s, en, "**");
+    else if (mod && !e.shiftKey && key === "i") edit = wrapInline(value, s, en, "*");
+    else if (mod && e.shiftKey && key === "x") edit = wrapInline(value, s, en, "~~");
+    else if (e.key === "Enter" && mod) edit = toggleChecklist(value, s, en);
     else if (e.key === "Enter" && !e.shiftKey && !e.altKey) edit = continueList(value, s, en);
     if (!edit) return;
     e.preventDefault();
@@ -289,6 +346,13 @@ function NoteEditor({
         duration: 6000,
       });
     }
+  };
+
+  const runFormat = (run: Format) => {
+    const ta = bodyRef.current;
+    if (!ta) return;
+    const edit = run(ta.value, ta.selectionStart, ta.selectionEnd);
+    if (edit) applyEdit(edit);
   };
 
   const words = countWords(body);
@@ -384,6 +448,65 @@ function NoteEditor({
             onChange={(tags) => updateNote(note.id, { tags }).catch(() => {})}
           />
         </div>
+        {/* Phones: the toggle sits above a full-width toolbar, so all nine
+            formats show without scrolling (they don't fit beside it at 375px). */}
+        <div className="sticky top-0 z-10 flex flex-col-reverse gap-1 border-b border-slate-800/70 bg-slate-900 py-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+          {view === "edit" ? (
+            <div role="toolbar" aria-label="Formatting" className="flex min-w-0 gap-0.5 sm:-ml-1.5">
+              {FORMATS.map((f) => (
+                <button
+                  key={f.label}
+                  type="button"
+                  aria-label={f.label}
+                  title={f.keys ? `${f.label} (${f.keys})` : f.label}
+                  // mousedown would move focus off the text and lose the selection.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => runFormat(f.run)}
+                  className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-lg text-sm text-slate-300 transition hover:bg-slate-800 hover:text-slate-50 sm:h-8 sm:min-w-8 sm:flex-none sm:px-1.5"
+                >
+                  {f.glyph}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="hidden sm:block" />
+          )}
+          <div role="group" aria-label="View" className="flex shrink-0 self-end rounded-full border border-slate-700 p-0.5 text-xs font-semibold sm:self-auto">
+            {(["edit", "preview"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={view === v}
+                title="⌘/Ctrl+E"
+                onClick={() => setView(v)}
+                className={`rounded-full px-3 py-1 capitalize transition ${
+                  view === v ? "bg-slate-700 text-slate-50" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+        {view === "preview" ? (
+          body.trim() ? (
+            <div className="min-h-[50vh] pt-1">
+              <Markdown
+                blocks={parseMarkdown(body)}
+                // Ticking a box edits the text, so it autosaves like typing.
+                onToggleTask={(line) => onBodyChange(toggleTaskLine(body, line))}
+              />
+            </div>
+          ) : (
+            <div className="flex min-h-[50vh] flex-col items-start gap-2 pt-2 text-sm text-slate-500">
+              Nothing to preview yet.
+              <button type="button" onClick={() => setView("edit")} className="font-semibold text-blue-300 hover:text-blue-200">
+                Start writing
+              </button>
+            </div>
+          )
+        ) : (
+          <>
         <label htmlFor="note-body" className="sr-only">
           Note
         </label>
@@ -393,12 +516,14 @@ function NoteEditor({
           value={body}
           onChange={(e) => onBodyChange(e.target.value)}
           onKeyDown={onBodyKeyDown}
-          placeholder={"Start writing…\n\nTip: start a line with “- ”, “1. ” or “[ ] ” for a list."}
+          placeholder={"Start writing…\n\nMarkdown works: **bold**, # heading, - list, [ ] task."}
           spellCheck
           autoCapitalize="sentences"
           aria-describedby="note-status note-keys"
           className="min-h-[50vh] w-full resize-none overflow-hidden bg-transparent text-base leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none"
         />
+          </>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-xs text-slate-500">
@@ -420,7 +545,7 @@ function NoteEditor({
           {words} {words === 1 ? "word" : "words"} · {chars} {chars === 1 ? "character" : "characters"}
         </span>
         <span id="note-keys" className="hidden w-full sm:block">
-          ⌘/Ctrl+S save · ⌘/Ctrl+Enter checkbox · Tab / Shift+Tab indent a list · Esc back
+          ⌘/Ctrl+S save · ⌘/Ctrl+E preview · ⌘B bold · ⌘I italic · ⌘/Ctrl+Enter checkbox · Tab indent a list · Esc back
         </span>
       </div>
     </article>

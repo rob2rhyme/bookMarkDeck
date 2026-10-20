@@ -1,5 +1,6 @@
 // Pure helpers for the Notes pillar — no React, no Firebase.
 
+import { toPlainText } from "@/features/notes/lib/markdown";
 import { normalizeTags } from "@/features/notes/lib/tags";
 
 export type Note = {
@@ -82,7 +83,8 @@ const nonEmptyLines = (text: string) =>
  * then previews the line after it, so the card never repeats itself.
  */
 export function cardText(n: Pick<Note, "title" | "body">): { title: string; preview: string } {
-  const lines = nonEmptyLines(n.body);
+  // Markdown syntax is dropped: a card reads "☐ buy milk", not "- [ ] **buy** milk".
+  const lines = nonEmptyLines(toPlainText(n.body));
   const title = n.title.trim();
   if (title) return { title, preview: lines[0] ?? "" };
   if (lines.length) return { title: lines[0], preview: lines[1] ?? "" };
