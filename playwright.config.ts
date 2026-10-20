@@ -26,6 +26,8 @@ const dummyEnv: Record<string, string> = {
   NEXTAUTH_SECRET: E2E_SECRET,
   GOOGLE_CLIENT_ID: "dummy",
   GOOGLE_CLIENT_SECRET: "dummy",
+  // The sign-in allowlist (src/auth/allowlist.ts): the fixture's account only.
+  AUTH_ALLOWED_EMAILS: "e2e@example.com",
 };
 
 // Use the pre-installed Chromium when present; CI installs its own with

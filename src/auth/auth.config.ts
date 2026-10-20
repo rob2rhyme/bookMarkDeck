@@ -1,6 +1,7 @@
 // src/auth/auth.config.ts
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { isAllowedEmail } from "./allowlist";
 
 /**
  * Resolve the public origin NextAuth builds the Google callback URL from.
@@ -138,10 +139,21 @@ export const authConfig: NextAuthOptions = {
       },
     }),
   ],
+  // A refused sign-in shows next-auth's own "Access Denied" page.
   pages: { signIn: "/login" },
   callbacks: {
+    // Only the owner's account (src/auth/allowlist.ts), and only with an email
+    // Google has verified.
+    async signIn({ user, profile }) {
+      const verified = (profile as { email_verified?: boolean } | undefined)?.email_verified;
+      return verified !== false && isAllowedEmail(user.email);
+    },
     async jwt({ token, account, profile }) {
       const t = token as RefreshableToken;
+      // Ends a session that predates the allowlist (or an account later removed
+      // from it): next-auth clears the cookie when this throws, and the session
+      // reads as signed out everywhere — client and server alike.
+      if (!isAllowedEmail(t.email)) throw new Error("account not allowed");
       // Initial sign-in — capture tokens + expiry.
       if (account) {
         t.accessToken = account.access_token;
