@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Copy, Pin } from "@/components/icons";
+import { Copy, Lock, Pin } from "@/components/icons";
 import { Highlight } from "@/features/notes/components/Highlight";
 import { editedAgo, type Note } from "@/features/notes/lib/notes";
 import type { NoteHit } from "@/features/notes/lib/search";
@@ -37,6 +37,7 @@ export function NoteCard({
           href={`/notes/${note.id}`}
           className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-50 outline-none after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-blue-500/80"
         >
+          {note.lock && <Lock className="mr-1 inline h-3.5 w-3.5 text-blue-300" />}
           <Highlight {...title} />
         </Link>
         <button
@@ -55,7 +56,7 @@ export function NoteCard({
         </button>
       </div>
       <p className={`line-clamp-2 text-sm ${preview.text ? "text-slate-400" : "italic text-slate-500"}`}>
-        {preview.text ? <Highlight {...preview} /> : "No additional text"}
+        {preview.text ? <Highlight {...preview} /> : note.lock ? "Locked — open to unlock" : "No additional text"}
       </p>
       {note.tags.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">

@@ -42,7 +42,8 @@ const NOTE: Note = {
 describe("notesData", () => {
   it("round-trips a note through the Firestore shape", () => {
     const stored = toFirestore(NOTE);
-    expect(Object.keys(stored).sort()).toEqual(["body", "createdAt", "pinned", "tags", "title", "updatedAt"]);
+    expect(Object.keys(stored).sort()).toEqual(["body", "createdAt", "lock", "pinned", "tags", "title", "updatedAt"]);
+    expect(stored.lock).toBeNull();
     // Client instants, not serverTimestamp(): a pending server time reads back
     // null locally and would sink the note being typed to the bottom of the list.
     expect(mapNote({ id: "n1", data: () => stored as unknown as Record<string, unknown> })).toEqual(NOTE);
@@ -56,6 +57,23 @@ describe("notesData", () => {
       pinned: false,
       tags: [],
     });
+  });
+
+  it("round-trips a locked note, which carries no body", () => {
+    const lock = { kid: "v1", iv: "aXY=", ct: "Y3Q=" };
+    const locked = { ...NOTE, body: "", lock };
+    const stored = toFirestore(locked);
+    expect(stored).toMatchObject({ body: "", lock });
+    expect(mapNote({ id: "n1", data: () => stored as unknown as Record<string, unknown> })).toEqual(locked);
+  });
+
+  it("refuses to write a locked note's plaintext", () => {
+    expect(() => toFirestore({ ...NOTE, lock: { kid: "v1", iv: "i", ct: "c" } })).toThrow(/plaintext/);
+  });
+
+  it("reads a locked document's stray body as empty", () => {
+    const n = mapNote({ id: "n3", data: () => ({ body: "leaked?", lock: { kid: "v", iv: "i", ct: "c" } }) });
+    expect(n?.body).toBe("");
   });
 
   it("writes to users/{uid}/notes/{id}", async () => {

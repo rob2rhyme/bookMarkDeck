@@ -47,6 +47,11 @@ describe("cardText", () => {
     expect(cardText({ title: "", body: "## **Plan**\n- [x] ship it" })).toEqual({ title: "Plan", preview: "☑ ship it" });
   });
 
+  it("shows only the title of a locked note", () => {
+    expect(cardText({ title: "Bank", body: "", lock: { kid: "v", iv: "i", ct: "c" } })).toEqual({ title: "Bank", preview: "" });
+    expect(cardText({ title: "", body: "", lock: { kid: "v", iv: "i", ct: "c" } })).toEqual({ title: "Locked note", preview: "" });
+  });
+
   it("falls back to Untitled", () => {
     expect(cardText({ title: "", body: "" })).toEqual({ title: "Untitled", preview: "" });
   });

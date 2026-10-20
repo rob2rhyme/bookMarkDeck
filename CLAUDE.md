@@ -77,7 +77,7 @@ then reads the released ruleset back to confirm the deploy landed:
 
 | Command | Answers |
 |---|---|
-| `npm run verify:rules` | is the **file** correct? (55 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`; notes asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
+| `npm run verify:rules` | is the **file** correct? (60 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`; notes and notes vaults asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
 | `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |
@@ -304,7 +304,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   + `test` + `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds
   previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
   backlog was cleared. It carries real weight, because `npm run lint` is only
-  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 85
+  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 86
   remaining *warnings* are **all one rule** — `react-hooks/set-state-in-effect`; only
   errors fail the build. That the set is homogeneous is the useful part: a warning from
   any other rule is new, and worth reading rather than assuming it is backlog.
@@ -316,10 +316,10 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   | cloud subscribe / fetch (`[canSync, email]`, `[connected, email]`) | 28 |
   | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 15 |
   | modal / panel reset on open (`[open, …]`) | 14 |
-  | other storage-backed reload (+1: `useNotes`' cache load, `[email]`) | 15 |
+  | other storage-backed reload (+2: `useNotes`' and `useVaults`' cache loads, `[email]`) | 16 |
   | **derived-state reset** | **13** |
 
-  Hydration-shaped effects are about **30 of 85**; the biggest group is Firestore
+  Hydration-shaped effects are about **31 of 86**; the biggest group is Firestore
   subscriptions, which have nothing to do with hydration. The distinction earns its
   place because the blanket version of it is how #292's regression stayed in `main` for
   months — a deleted button whose orphaned state warned for exactly this rule, waved off
@@ -791,8 +791,8 @@ Other invariants:
 `src/features/notes/` + `/notes` (list) and `/notes/[id]` (editor). Imports no other
 feature; nothing imports it — removable cleanly in both directions.
 
-- **Phases.** 1: list, editor, smart lists, clipboard. 2: search + tags. **3: markdown**.
-  Encryption is a later phase — not built.
+- **Phases.** 1: list, editor, smart lists, clipboard. 2: search + tags. 3: markdown.
+  **4: locked notes** (per-note encryption, below). All four shipped.
 - **Nothing is created before the account's cache has loaded.** The cache key is the
   session email, which arrives after mount; a note created in that gap was filed under
   the bare key and the editor (opening a beat later under the real one) said it didn't
@@ -869,14 +869,36 @@ feature; nothing imports it — removable cleanly in both directions.
   The formatting toolbar and ⌘B/⌘I/⌘⇧X go through the same `TextEdit` +
   `execCommand` path as the list smarts, so ⌘Z undoes them. No ⌘K for links — that
   is the app-wide command palette.
+- **Locked notes are end-to-end encrypted, per note, opt-in** (`lib/vault.ts`,
+  `lib/vaultSession.ts`, `hooks/useVaults.ts`). Owner decision: lock *selected* notes
+  with one notes passphrase, not the whole pillar — forgetting it costs only what was
+  locked. **Envelope design:** one random AES-256-GCM data key per vault encrypts note
+  bodies; the vault record (`users/{uid}/notesVaults/{id}`) stores that key only
+  *wrapped*, twice — by PBKDF2-SHA256 (600k) of the passphrase and of a 160-bit
+  recovery code shown once. A passphrase reset re-wraps; no note is re-encrypted.
+  Ciphertext is bound to its note id (GCM additional data); GCM's tag is the
+  wrong-passphrase check (nothing else stored). WebCrypto only — no dependency.
+  **Invariants:** a locked note's `body` is always `""` in state, cache and Firestore
+  (`normalizeNote` blanks it on read, `updateNote` on write, and `toFirestore` *throws*
+  on a locked note with a body — the plaintext lives only in the open editor's memory).
+  Title and tags stay plaintext (stated in the setup copy) so the list and search work.
+  **Keys live in memory only** (non-extractable `CryptoKey`s): reload, tab close, "Lock
+  notes"/"Lock now" or 10 idle minutes lock again; before the keys drop, the open
+  editor's pending typing is saved encrypted (`onBeforeLock`). Encrypted saves run
+  serially, so a slow encryption can't land over a newer one, and each save records its
+  own ciphertext→plaintext so the editor never mistakes its write for a remote change.
+  **Vaults are never deleted** — a dropped vault is lost notes. Two devices that set one
+  up offline end with two; each lock names its vault (`kid`) and unlock tries every
+  vault. Setup waits for the cloud's answer (`ready`) so a second device doesn't start a
+  second vault needlessly. A locked note is never auto-discarded as blank.
 - Keys: `N` new note, `/` search, ⌘E Edit/Preview, Esc clears search or leaves the editor. An input that
   handles Esc itself `preventDefault`s it, and the editor's window handler skips a
   prevented Esc — that is how the tag box clears without closing the note.
 - Size cap: `MAX_NOTE_CHARS` (300k UTF-16 units ≤ 900 KB UTF-8) keeps a note inside
   Firestore's 1 MiB document limit.
 - Shared-file touches (additive): `AppShell.tsx` (nav entry; both navs omit the active
-  pillar), `icons.tsx` (`StickyNote`, `Copy`, `ClipboardPaste`, `Pin`), `globals.css`
-  (`.bd-note-title`).
+  pillar), `icons.tsx` (`StickyNote`, `Copy`, `ClipboardPaste`, `Pin`, `Lock`, `Unlock`),
+  `globals.css` (`.bd-note-title`).
 
 ## Git & PR workflow
 

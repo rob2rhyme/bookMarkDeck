@@ -110,6 +110,14 @@ await check("anonymous cannot write a note", assertFails(setDoc(doc(anon, `users
 await check("root notes collection denied", assertFails(setDoc(doc(alice, `notes/n1`), NOTE)));
 await check("owner deletes a note", assertSucceeds(deleteDoc(doc(alice, `users/${ALICE}/notes/n1`))));
 
+// Locked-notes vaults hold only wrapped keys, but they are still the owner's alone.
+const VAULT = { v: 1, pass: { salt: "s", iv: "i", ct: "c", iterations: 600000 } };
+await check("owner writes a notes vault", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notesVaults/v1`), VAULT)));
+await check("owner reads a notes vault", assertSucceeds(getDoc(doc(alice, `users/${ALICE}/notesVaults/v1`))));
+await check("other uid cannot read a notes vault", assertFails(getDoc(doc(bob, `users/${ALICE}/notesVaults/v1`))));
+await check("other uid cannot replace a notes vault", assertFails(setDoc(doc(bob, `users/${ALICE}/notesVaults/v1`), VAULT)));
+await check("anonymous cannot read a notes vault", assertFails(getDoc(doc(anon, `users/${ALICE}/notesVaults/v1`))));
+
 // The recursive rule must not leak outside users/{uid}.
 await check("root collection denied", assertFails(setDoc(doc(alice, `filingDocuments/x1`), { a: 1 })));
 await check("other top-level denied", assertFails(setDoc(doc(alice, `admin/config`), { a: 1 })));

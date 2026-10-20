@@ -2,6 +2,7 @@
 
 import { toPlainText } from "@/features/notes/lib/markdown";
 import { normalizeTags } from "@/features/notes/lib/tags";
+import { normalizeLock, type NoteLock } from "@/features/notes/lib/vault";
 
 export type Note = {
   id: string;
@@ -13,6 +14,11 @@ export type Note = {
   /** ISO instants. Kept as strings locally; Firestore Timestamps in the cloud. */
   createdAt: string;
   updatedAt: string;
+  /**
+   * Present on a LOCKED note: its body, encrypted (lib/vault.ts). A locked note's
+   * `body` is always "" — the plaintext exists only in an unlocked editor's memory.
+   */
+  lock?: NoteLock;
 };
 
 /**
@@ -34,14 +40,17 @@ export function normalizeNote(raw: unknown): Note | null {
   if (typeof r.id !== "string" || !r.id.trim()) return null;
   const epoch = new Date(0).toISOString();
   const createdAt = isoOr(r.createdAt, epoch);
+  const lock = normalizeLock(r.lock);
   return {
     id: r.id,
     title: typeof r.title === "string" ? r.title : "",
-    body: typeof r.body === "string" ? r.body : "",
+    // A locked note never carries plaintext, whatever the record says.
+    body: !lock && typeof r.body === "string" ? r.body : "",
     pinned: r.pinned === true,
     tags: normalizeTags(r.tags),
     createdAt,
     updatedAt: isoOr(r.updatedAt, createdAt),
+    ...(lock ? { lock } : {}),
   };
 }
 
@@ -82,7 +91,9 @@ const nonEmptyLines = (text: string) =>
  * (pasted text, say) is titled by its own first line instead of "Untitled", and
  * then previews the line after it, so the card never repeats itself.
  */
-export function cardText(n: Pick<Note, "title" | "body">): { title: string; preview: string } {
+export function cardText(n: Pick<Note, "title" | "body" | "lock">): { title: string; preview: string } {
+  // A locked note shows only its title — the body is ciphertext.
+  if (n.lock) return { title: n.title.trim() || "Locked note", preview: "" };
   // Markdown syntax is dropped: a card reads "☐ buy milk", not "- [ ] **buy** milk".
   const lines = nonEmptyLines(toPlainText(n.body));
   const title = n.title.trim();
