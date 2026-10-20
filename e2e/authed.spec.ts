@@ -180,6 +180,21 @@ test.describe("signed in", () => {
     await expect(page.getByLabel("Note", { exact: true })).toHaveValue("door code 4417");
   });
 
+  test("the first-run welcome never opens on top of another dialog", async ({ page }) => {
+    // A brand-new profile: the welcome is due. Open a dialog straight away.
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    await page.getByRole("button", { name: "Lock note" }).click();
+    await expect(page.getByRole("heading", { name: "Set a passphrase for locked notes" })).toBeVisible();
+    // Long enough for the welcome's cloud check and pause to have elapsed.
+    await page.waitForTimeout(3000);
+    await expect(page.locator('[aria-modal="true"]')).toHaveCount(1);
+    // Close the dialog: now the welcome gets its turn, alone.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "Welcome to Bookmark Deck" })).toBeVisible();
+    await expect(page.locator('[aria-modal="true"]')).toHaveCount(1);
+  });
+
   test("mobile bottom nav omits the pillar you are on", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 740 });
     await page.goto("/notes");
