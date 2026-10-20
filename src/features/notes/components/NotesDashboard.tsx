@@ -7,20 +7,23 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-import { ClipboardPaste, Lock, Plus, Search, StickyNote, X } from "@/components/icons";
+import { Archive, ClipboardPaste, Lock, Plus, Search, StickyNote, X } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { useToast } from "@/components/toast/ToastProvider";
 import { NoteCard } from "@/features/notes/components/NoteCard";
+import { NotesBackupDialog } from "@/features/notes/components/NotesBackupDialog";
 import { NotesSyncBanner } from "@/features/notes/components/NotesSyncBanner";
 import { TagFilter } from "@/features/notes/components/TagFilter";
 import { useNotes } from "@/features/notes/hooks/useNotes";
 import { useNotesSync } from "@/features/notes/hooks/useNotesSync";
+import { useVaults } from "@/features/notes/hooks/useVaults";
 import { copyText, readText } from "@/features/notes/lib/clipboard";
 import { MAX_NOTE_CHARS, type Note } from "@/features/notes/lib/notes";
 import { isActive, parseQuery, searchNotes, type NoteHit } from "@/features/notes/lib/search";
 import { tagCounts } from "@/features/notes/lib/tags";
 import { lock as lockVault, useVaultUnlocked } from "@/features/notes/lib/vaultSession";
+import { consumeNewNoteIntent, NEW_NOTE_NUDGE } from "@/lib/notesIndex";
 
 const isTyping = (el: Element | null) =>
   !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable);
@@ -51,7 +54,9 @@ export function NotesDashboard({
   const { data: session, status } = useSession();
   const email = session?.user?.email ?? null;
   const sync = useNotesSync(email);
-  const { notes, hydrated, createNote, updateNote, retag } = useNotes(email, sync.connected);
+  const { notes, hydrated, createNote, updateNote, retag, importNotes } = useNotes(email, sync.connected);
+  const vault = useVaults(email, sync.connected);
+  const [backupOpen, setBackupOpen] = useState(false);
   const [pasting, setPasting] = useState(false);
   const vaultOpen = useVaultUnlocked();
   const [query, setQuery] = useState(initialQuery);
@@ -78,6 +83,20 @@ export function NotesDashboard({
   // account's notes have loaded: a note made earlier was filed under no account
   // and the editor, opening a beat later under the real one, couldn't find it.
   const ready = status !== "loading" && hydrated;
+
+  // "New note" from ⌘K: honoured once this account's notes have loaded (the same
+  // gate as the button), and again on the nudge when the list is already open.
+  useEffect(() => {
+    if (!ready) return;
+    const take = () => {
+      if (!consumeNewNoteIntent()) return;
+      const note = createNote();
+      router.push(`/notes/${note.id}`);
+    };
+    take();
+    window.addEventListener(NEW_NOTE_NUDGE, take);
+    return () => window.removeEventListener(NEW_NOTE_NUDGE, take);
+  }, [ready, createNote, router]);
 
   const onNew = () => {
     if (!ready) return;
@@ -222,6 +241,14 @@ export function NotesDashboard({
             >
               <ClipboardPaste className="h-4 w-4" /> Paste as new note
             </button>
+            <button
+              type="button"
+              onClick={() => setBackupOpen(true)}
+              disabled={!ready}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500 disabled:opacity-50"
+            >
+              <Archive className="h-4 w-4" /> Backup
+            </button>
             {vaultOpen && (
               <button
                 type="button"
@@ -237,6 +264,20 @@ export function NotesDashboard({
       </div>
 
       <NotesSyncBanner {...sync} email={email} />
+
+      <NotesBackupDialog
+        open={backupOpen}
+        onClose={() => setBackupOpen(false)}
+        notes={notes}
+        vaults={vault.vaults}
+        onRestore={(plan, newVaults) => {
+          // Vaults first, so restored locked notes can be opened at once.
+          newVaults.forEach((v) => void vault.putVault(v));
+          importNotes(plan.write);
+          const n = plan.write.length;
+          toast(n ? `Restored ${n === 1 ? "1 note" : `${n} notes`}` : "Restored", { variant: "success" });
+        }}
+      />
 
       {hydrated && notes.length > 0 && (
         <div className="flex flex-col gap-3 px-3 sm:px-0">
