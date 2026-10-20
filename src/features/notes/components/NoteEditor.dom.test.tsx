@@ -94,6 +94,26 @@ describe("NoteEditor", () => {
     expect(body!.value).toBe("- milk\n- from my phone");
   });
 
+  it("saves a tag at once, without waiting for the autosave", async () => {
+    await open();
+    const tagBox = screen.getByRole("combobox", { name: "Add tag" });
+    fireEvent.change(tagBox, { target: { value: "Errands" } });
+    fireEvent.keyDown(tagBox, { key: "Enter" });
+    expect(cached()[0].tags).toEqual(["errands"]);
+    expect(cached()[0].updatedAt).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("Esc in the tag box clears it instead of leaving the note", async () => {
+    await open();
+    const tagBox = screen.getByRole("combobox", { name: "Add tag" });
+    tagBox.focus();
+    fireEvent.change(tagBox, { target: { value: "half" } });
+    fireEvent.keyDown(tagBox, { key: "Escape" });
+    expect(push).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(push).toHaveBeenCalledWith("/notes");
+  });
+
   it("says when a note doesn't exist", async () => {
     await open(null);
     expect(await screen.findByText(/doesn.t exist/)).toBeTruthy();

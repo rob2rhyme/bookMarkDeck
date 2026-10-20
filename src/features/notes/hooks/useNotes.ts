@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { deleteNote, fetchNotes, saveNote, subscribeNotes } from "@/features/notes/data/notesData";
 import { newNote, normalizeNote, sortNotes, type Note } from "@/features/notes/lib/notes";
+import { normalizeTag, normalizeTags, renameIn } from "@/features/notes/lib/tags";
 import {
   clearPendingUpserts,
   flushPendingDeletes,
@@ -184,11 +185,12 @@ export function useNotes(email?: string | null, connected = false) {
 
   /**
    * Apply a patch. Title/body changes bump updatedAt (the list order); a pin
-   * toggle does not — pinning a note isn't editing it. A patch that changes
-   * nothing writes nothing.
+   * toggle or a tag change does not — organising a note isn't editing it. A
+   * patch that changes nothing writes nothing.
    */
   const updateNote = useCallback(
-    (id: string, patch: NotePatch): Promise<void> => {
+    (id: string, input: NotePatch): Promise<void> => {
+      const patch = input.tags ? { ...input, tags: normalizeTags(input.tags) } : input;
       const list = current();
       const cur = list.find((n) => n.id === id);
       if (!cur) return Promise.resolve();
@@ -204,6 +206,31 @@ export function useNotes(email?: string | null, connected = false) {
       };
       commit(list.map((n) => (n.id === id ? next : n)));
       return write(next);
+    },
+    [commit, current, write]
+  );
+
+  /**
+   * Rename a tag on every note that has it (merging into `to` if a note already
+   * has that), or remove it everywhere when `to` is null. Returns how many notes
+   * changed. Like a tag edit, it doesn't bump updatedAt.
+   */
+  const retag = useCallback(
+    (from: string, to: string | null): number => {
+      const target = to === null ? null : normalizeTag(to);
+      if (to !== null && (!target || target === from)) return 0;
+      const changed: Note[] = [];
+      const next = current().map((n) => {
+        if (!n.tags.includes(from)) return n;
+        const tags = target ? renameIn(n.tags, from, target) : n.tags.filter((t) => t !== from);
+        const updated = { ...n, tags };
+        changed.push(updated);
+        return updated;
+      });
+      if (changed.length === 0) return 0;
+      commit(next);
+      changed.forEach((n) => write(n).catch(() => {}));
+      return changed.length;
     },
     [commit, current, write]
   );
@@ -248,5 +275,6 @@ export function useNotes(email?: string | null, connected = false) {
     updateNote,
     removeNote,
     restoreNote,
+    retag,
   };
 }

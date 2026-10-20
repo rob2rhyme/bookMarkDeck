@@ -1,11 +1,13 @@
 // Pure helpers for the Notes pillar — no React, no Firebase.
 
+import { normalizeTags } from "@/features/notes/lib/tags";
+
 export type Note = {
   id: string;
   title: string;
   body: string;
   pinned: boolean;
-  /** Stored from day one so a later tags UI needs no migration; no UI yet. */
+  /** Canonical tags (lib/tags.ts): lowercase, no "#", de-duplicated. */
   tags: string[];
   /** ISO instants. Kept as strings locally; Firestore Timestamps in the cloud. */
   createdAt: string;
@@ -36,9 +38,7 @@ export function normalizeNote(raw: unknown): Note | null {
     title: typeof r.title === "string" ? r.title : "",
     body: typeof r.body === "string" ? r.body : "",
     pinned: r.pinned === true,
-    tags: Array.isArray(r.tags)
-      ? r.tags.filter((t): t is string => typeof t === "string" && t.length > 0)
-      : [],
+    tags: normalizeTags(r.tags),
     createdAt,
     updatedAt: isoOr(r.updatedAt, createdAt),
   };

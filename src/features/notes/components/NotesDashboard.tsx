@@ -1,34 +1,69 @@
 "use client";
 
-// The Notes pillar's list: pinned first, then most recently edited. Phase 1 —
-// no search, tags UI or markdown yet (see CLAUDE.md → Notes feature).
+// The Notes pillar's list: pinned first, then most recently edited, with
+// search and a tag filter (phase 2). See CLAUDE.md → Notes feature.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-import { ClipboardPaste, Plus, StickyNote } from "@/components/icons";
+import { ClipboardPaste, Plus, Search, StickyNote, X } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { useToast } from "@/components/toast/ToastProvider";
 import { NoteCard } from "@/features/notes/components/NoteCard";
 import { NotesSyncBanner } from "@/features/notes/components/NotesSyncBanner";
+import { TagFilter } from "@/features/notes/components/TagFilter";
 import { useNotes } from "@/features/notes/hooks/useNotes";
 import { useNotesSync } from "@/features/notes/hooks/useNotesSync";
 import { copyText, readText } from "@/features/notes/lib/clipboard";
 import { MAX_NOTE_CHARS, type Note } from "@/features/notes/lib/notes";
+import { isActive, parseQuery, searchNotes, type NoteHit } from "@/features/notes/lib/search";
+import { tagCounts } from "@/features/notes/lib/tags";
 
 const isTyping = (el: Element | null) =>
   !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable);
 
-export function NotesDashboard() {
+/**
+ * Mirror the search into the URL (?q=, ?tag=) without a navigation, so Back from
+ * a note returns to the same results and a filtered list can be bookmarked.
+ * Passing history.state through keeps the App Router's own entry intact.
+ */
+function syncUrl(q: string, tag: string | null) {
+  const url = new URL(window.location.href);
+  if (q.trim()) url.searchParams.set("q", q);
+  else url.searchParams.delete("q");
+  if (tag) url.searchParams.set("tag", tag);
+  else url.searchParams.delete("tag");
+  window.history.replaceState(window.history.state, "", url);
+}
+
+export function NotesDashboard({
+  initialQuery = "",
+  initialTag = null,
+}: {
+  initialQuery?: string;
+  initialTag?: string | null;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const { data: session } = useSession();
   const email = session?.user?.email ?? null;
   const sync = useNotesSync(email);
-  const { notes, hydrated, createNote, updateNote } = useNotes(email, sync.connected);
+  const { notes, hydrated, createNote, updateNote, retag } = useNotes(email, sync.connected);
   const [pasting, setPasting] = useState(false);
+  const [query, setQuery] = useState(initialQuery);
+  const [tag, setTag] = useState<string | null>(initialTag);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const changeQuery = (q: string) => {
+    setQuery(q);
+    syncUrl(q, tag);
+  };
+  const changeTag = (t: string | null) => {
+    setTag(t);
+    syncUrl(query, t);
+  };
   // One clock for every card's "edited 5m ago", ticking each minute. Notes only
   // render after mount (they come from localStorage), so SSR never sees it.
   const [now, setNow] = useState(() => new Date());
@@ -42,13 +77,19 @@ export function NotesDashboard() {
     router.push(`/notes/${note.id}`);
   };
 
-  // "N" starts a note from anywhere on the list (not while typing elsewhere).
+  // "N" starts a note and "/" jumps to search, from anywhere on the list (not
+  // while typing elsewhere).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey || isTyping(document.activeElement)) return;
-      e.preventDefault();
-      const note = createNote();
-      router.push(`/notes/${note.id}`);
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(document.activeElement)) return;
+      if (e.key === "/") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (e.key === "n") {
+        e.preventDefault();
+        const note = createNote();
+        router.push(`/notes/${note.id}`);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -95,16 +136,50 @@ export function NotesDashboard() {
     updateNote(note.id, { pinned: !note.pinned }).catch(() => {});
   };
 
-  const pinned = notes.filter((n) => n.pinned);
-  const rest = notes.filter((n) => !n.pinned);
+  const onRenameTag = (from: string, to: string) => {
+    const n = retag(from, to);
+    const target = to;
+    changeTag(target);
+    toast(`Renamed #${from} to #${target} on ${n === 1 ? "1 note" : `${n} notes`}`, { variant: "success" });
+  };
 
-  const grid = (list: Note[]) => (
+  const onDeleteTag = (t: string) => {
+    // Remember each note's tags so Undo can put them back exactly.
+    const before = notes.filter((n) => n.tags.includes(t)).map((n) => [n.id, n.tags] as const);
+    const n = retag(t, null);
+    changeTag(null);
+    toast(`Removed #${t} from ${n === 1 ? "1 note" : `${n} notes`}`, {
+      duration: 6000,
+      action: {
+        label: "Undo",
+        onClick: () => before.forEach(([id, tags]) => void updateNote(id, { tags }).catch(() => {})),
+      },
+    });
+  };
+
+  const counts = tagCounts(notes);
+  const parsed = parseQuery(query);
+  const filtering = isActive(parsed) || tag !== null;
+  const hits = searchNotes(notes, query, tag);
+
+  const grid = (list: NoteHit[]) => (
     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {list.map((n) => (
-        <NoteCard key={n.id} note={n} now={now} onCopy={onCopy} onTogglePin={onTogglePin} />
+      {list.map((h) => (
+        <NoteCard
+          key={h.note.id}
+          hit={h}
+          now={now}
+          activeTag={tag}
+          onCopy={onCopy}
+          onTogglePin={onTogglePin}
+          onTagClick={(t) => changeTag(tag === t ? null : t)}
+        />
       ))}
     </ul>
   );
+  const pinned = hits.filter((h) => h.note.pinned);
+  const rest = hits.filter((h) => !h.note.pinned);
+  const describe = [query.trim() && `“${query.trim()}”`, tag && `#${tag}`].filter(Boolean).join(" in ");
 
   return (
     <div className="flex flex-col gap-6">
@@ -139,6 +214,47 @@ export function NotesDashboard() {
 
       <NotesSyncBanner {...sync} email={email} />
 
+      {hydrated && notes.length > 0 && (
+        <div className="flex flex-col gap-3 px-3 sm:px-0">
+          <div role="search" className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => changeQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  changeQuery("");
+                  e.currentTarget.blur();
+                }
+              }}
+              placeholder="Search notes, or #tag"
+              aria-label="Search notes"
+              aria-keyshortcuts="/"
+              autoComplete="off"
+              enterKeyHint="search"
+              className="w-full rounded-full border border-slate-800 bg-slate-900 py-2 pl-9 pr-10 text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  changeQuery("");
+                  searchRef.current?.focus();
+                }}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <TagFilter counts={counts} active={tag} onSelect={changeTag} onRename={onRenameTag} onDelete={onDeleteTag} />
+        </div>
+      )}
+
       <div className="flex flex-col gap-5 px-3 sm:px-0">
         {!hydrated ? null : notes.length === 0 ? (
           <EmptyState
@@ -154,6 +270,35 @@ export function NotesDashboard() {
           >
             No notes yet. Start one, or copy some text and use &ldquo;Paste as new note&rdquo;.
           </EmptyState>
+        ) : filtering ? (
+          <section className="flex flex-col gap-2" aria-label="Search results">
+            <p role="status" className="text-xs text-slate-500">
+              {hits.length === 0
+                ? `No notes match ${describe}.`
+                : `${hits.length === 1 ? "1 note" : `${hits.length} notes`} · ${describe}`}
+            </p>
+            {hits.length === 0 ? (
+              <EmptyState
+                action={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      setTag(null);
+                      syncUrl("", null);
+                    }}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  >
+                    Clear search
+                  </button>
+                }
+              >
+                Nothing found. Try fewer words, or check the spelling.
+              </EmptyState>
+            ) : (
+              grid(hits)
+            )}
+          </section>
         ) : pinned.length > 0 ? (
           <>
             <section className="flex flex-col gap-2">

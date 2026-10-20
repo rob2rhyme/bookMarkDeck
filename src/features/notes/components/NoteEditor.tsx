@@ -12,10 +12,12 @@ import { ArrowLeft, Copy, Pin, Share2, Trash2 } from "@/components/icons";
 import { IconAction } from "@/components/IconAction";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/toast/ToastProvider";
+import { TagEditor } from "@/features/notes/components/TagEditor";
 import { useAutosave, type SaveStatus } from "@/features/notes/hooks/useAutosave";
 import { useNotes } from "@/features/notes/hooks/useNotes";
 import { useNotesSync } from "@/features/notes/hooks/useNotesSync";
 import { copyText } from "@/features/notes/lib/clipboard";
+import { tagCounts } from "@/features/notes/lib/tags";
 import { countWords, editedAgo, isBlank, MAX_NOTE_CHARS, type Note } from "@/features/notes/lib/notes";
 import {
   continueList,
@@ -189,7 +191,7 @@ function NoteEditor({
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         void saveNow();
-      } else if (e.key === "Escape" && !confirming) {
+      } else if (e.key === "Escape" && !confirming && !e.defaultPrevented) {
         e.preventDefault();
         router.push("/notes");
       }
@@ -373,6 +375,15 @@ function NoteEditor({
           enterKeyHint="next"
           className="bd-note-title w-full bg-transparent font-semibold tracking-tight text-slate-50 placeholder:text-slate-600 focus:outline-none"
         />
+        <div className="pb-2 pt-1">
+          <TagEditor
+            tags={note.tags}
+            counts={tagCounts(api.notes)}
+            // Applied at once, not through the debounce — like a pin, a tag
+            // organises the note rather than editing it.
+            onChange={(tags) => updateNote(note.id, { tags }).catch(() => {})}
+          />
+        </div>
         <label htmlFor="note-body" className="sr-only">
           Note
         </label>
