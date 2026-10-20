@@ -47,6 +47,14 @@ on the project *and* on the App target. On the CocoaPods path also set
 
 Confirm `capacitor.config.ts` `server.url` points at **your** deployed domain.
 
+**Re-sync after adding a plugin.** `@capacitor/clipboard` (Notes' Copy and
+"Paste as new note") is native code, so it reaches the app only through
+`npx cap sync ios` and a rebuild. Until then the web side — which ships with
+every deploy, since the shell loads `server.url` — finds `isNativePlatform()`
+true but the plugin unimplemented, and falls back to `navigator.clipboard`
+(`src/features/notes/lib/clipboard.ts`). So nothing breaks in between; the
+native path simply isn't used yet.
+
 ## 2. Add the custom `TimerAlert` plugin
 > **Untested against Capacitor 8.** The Swift and Objective-C below were written
 > for Capacitor 6 and nothing in this repo compiles them — there is no `ios/`
