@@ -139,8 +139,9 @@ export const authConfig: NextAuthOptions = {
       },
     }),
   ],
-  // A refused sign-in shows next-auth's own "Access Denied" page.
-  pages: { signIn: "/login" },
+  // A refused sign-in lands back on /login?error=AccessDenied, which explains
+  // why, instead of next-auth's unstyled error page.
+  pages: { signIn: "/login", error: "/login" },
   callbacks: {
     // Only the owner's account (src/auth/allowlist.ts), and only with an email
     // Google has verified.

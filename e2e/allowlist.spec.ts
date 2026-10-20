@@ -28,3 +28,8 @@ test.describe("sign-in allowlist", () => {
     expect(await res.json()).toEqual({});
   });
 });
+
+test("a refused sign-in explains itself on /login", async ({ page }) => {
+  await page.goto("/login?error=AccessDenied");
+  await expect(page.getByText("That account can’t sign in here")).toBeVisible();
+});

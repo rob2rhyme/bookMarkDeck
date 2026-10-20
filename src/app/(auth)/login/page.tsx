@@ -8,12 +8,20 @@ import { useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+
+// next-auth sends every sign-in error back here as ?error=<code>
+// (pages.error); AccessDenied is an account not on src/auth/allowlist.ts.
+// Read from the URL rather than state, so it is right on first paint and needs
+// no effect.
+const noSubscribe = () => () => {};
+const readError = () => new URLSearchParams(window.location.search).get("error") ?? "";
 
 export default function LoginPage() {
   const router = useRouter();
   const { status } = useSession();
   const [isLoading, setIsLoading] = useState<string | null>(null);
+  const authError = useSyncExternalStore(noSubscribe, readError, () => "");
 
   useEffect(() => {
     if (status === "authenticated") router.replace("/");
@@ -113,6 +121,17 @@ export default function LoginPage() {
                     Choose a provider to continue. We never see your passwords.
                   </p>
                 </div>
+
+                {authError && (
+                  <p
+                    role="alert"
+                    className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-200"
+                  >
+                    {authError === "AccessDenied"
+                      ? "That account can\u2019t sign in here. Bookmark Deck is private to its owner."
+                      : "Sign-in didn\u2019t finish. Please try again."}
+                  </p>
+                )}
 
                 <div className="space-y-3">
                   {/* Google */}
