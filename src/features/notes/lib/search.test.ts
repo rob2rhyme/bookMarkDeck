@@ -107,4 +107,11 @@ describe("searchNotes", () => {
     expect(mark(hit.title)).toBe("Milk [prices]");
     expect(mark(hit.preview)).toBe("compare stores");
   });
+
+  it("matches the text as read, not its markdown", () => {
+    const [hit] = searchNotes([note("m", { title: "Shop", body: "- [ ] buy **oat** milk\n[docs](https://x.dev)" })], "oat milk");
+    expect(mark(hit.preview)).toBe("☐ buy [oat] [milk]");
+    expect(searchNotes([note("u", { title: "T", body: "see https://x.dev" })], "x.dev")).toHaveLength(1);
+    expect(searchNotes([note("v", { title: "T", body: "[label](https://hidden.dev)" })], "hidden")).toHaveLength(0);
+  });
 });

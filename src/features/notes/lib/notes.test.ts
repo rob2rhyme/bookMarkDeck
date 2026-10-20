@@ -43,6 +43,10 @@ describe("cardText", () => {
     expect(cardText({ title: " ", body: "Pasted heading\nsecond" })).toEqual({ title: "Pasted heading", preview: "second" });
   });
 
+  it("shows markdown as plain text", () => {
+    expect(cardText({ title: "", body: "## **Plan**\n- [x] ship it" })).toEqual({ title: "Plan", preview: "☑ ship it" });
+  });
+
   it("falls back to Untitled", () => {
     expect(cardText({ title: "", body: "" })).toEqual({ title: "Untitled", preview: "" });
   });
