@@ -56,8 +56,9 @@ parity, and distribution** — not catalog features.
 
 ## Tier 3 — competitive gaps (bigger, still on-stack)
 
-- **Bookmarks:** importers (Pocket/Raindrop/Chrome via `parseBookmarkHtml.ts`);
-  read-later/reader-view + highlights; tag-browse.
+- **Bookmarks:** ~~importers (Pocket/Raindrop/Chrome)~~ — **shipped**: browser HTML
+  already; Raindrop CSV/HTML and Pocket CSV/HTML added (`parseServiceCsv`,
+  `parseBookmarkHtml`); read-later/reader-view + highlights; tag-browse.
 - **Focus:** recurring to-dos + priorities (`useTodos.ts`); two-way calendar
   write-back (currently read-only); ambient soundscapes (Web Audio, matches
   `lib/sound.ts`).

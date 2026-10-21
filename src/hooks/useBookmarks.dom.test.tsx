@@ -459,6 +459,16 @@ describe("HTML import builds the folder tree", () => {
       expect(where).toEqual({ Jira: "Work", News: "Bar", Loose: null });
     });
 
+    // A Raindrop favourite arrives pinned; a link with no favourite flag does not.
+    it("keeps a favourite pinned", () => {
+      const plan = planHtmlImport([], [], [
+        { ...parsed("Fav", []), pinned: true },
+        parsed("Plain", []),
+      ]);
+      const pin = Object.fromEntries(plan.additions.map((b) => [b.title, Boolean(b.pinned)]));
+      expect(pin).toEqual({ Fav: true, Plain: false });
+    });
+
     it("creates no folder for links it skips as duplicates", () => {
       const existing = [{ ...parsed("Jira", []), id: "j", folderId: null }];
       const plan = planHtmlImport(existing, [], [parsed("Jira", ["Bar", "Work"])]);

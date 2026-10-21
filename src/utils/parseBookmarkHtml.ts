@@ -9,6 +9,8 @@ export type ParsedBookmark = {
   createdAt: string;
   /** Outermost first; [] for a link at the top level. */
   folderPath: string[];
+  /** A favourite in the service it came from (CSV exports only). */
+  pinned?: boolean;
 };
 
 /**
@@ -33,6 +35,18 @@ export function parseBookmarkHtml(html: string): ParsedBookmark[] {
       list = list.parentElement?.closest("dl") ?? null;
     }
 
+    // Pocket's export is not a Netscape file: <h1>Unread</h1><ul><li><a time_added=…>,
+    // then <h1>Read Archive</h1> and another list. It has no folders, so its two
+    // lists become one "Pocket" folder (and a "Read archive" subfolder).
+    const pocketAdded = a.getAttribute("time_added");
+    if (folderPath.length === 0 && pocketAdded !== null) {
+      folderPath.push("Pocket");
+      const heading = a.closest("ul")?.previousElementSibling;
+      if (heading?.tagName === "H1" && /archive/i.test(heading.textContent ?? "")) {
+        folderPath.push("Read archive");
+      }
+    }
+
     // A description is the <DD> straight after the link's <DT>.
     const next = a.closest("dt")?.nextElementSibling;
     const note = next?.tagName === "DD" ? (next.textContent ?? "").trim() : "";
@@ -42,7 +56,7 @@ export function parseBookmarkHtml(html: string): ParsedBookmark[] {
       .map((t) => t.trim())
       .filter(Boolean);
 
-    const added = Number(a.getAttribute("add_date"));
+    const added = Number(a.getAttribute("add_date") ?? pocketAdded);
     const createdAt =
       Number.isFinite(added) && added > 0 ? new Date(added * 1000).toISOString() : now;
 

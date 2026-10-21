@@ -150,6 +150,19 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   and after a push another device kept its old ids beside the new ones, duplicating
   everything. An imported record keeps its own id unless that id is taken, so
   re-importing your own backup keeps those links. Undo restores the pre-import list.
+- **Other services' exports go through the same import.** `handleImport` reads a `.csv` with
+  `parseServiceCsv` (`@/utils/parseServiceCsv`, over the RFC 4180 `parseCsv`) and everything
+  else with `parseBookmarkHtml`, so Raindrop and Pocket files share the preview,
+  de-duplication, `planFolderPaths` and Undo of a browser file — no second import path.
+  Columns are found by NAME, case-insensitively; only `url` is required. Raindrop
+  (`excerpt`/`favorite` columns): collection → folder (its catch-all "Unsorted" stays
+  unfiled), comma tags, `created`, **favourite → pinned** (`ParsedBookmark.pinned`, kept by
+  `planHtmlImport`). Pocket (`time_added` + `status`): `|`-separated tags, unix dates, and
+  two lists become a "Pocket" folder with a "Read archive" subfolder (the HTML export,
+  `<h1>Unread</h1><ul>…`, is mapped the same way). Raindrop's `excerpt`, `cover` and
+  `highlights` are not imported — an excerpt is a page summary, not the reader's own note.
+  A row without a link is skipped and unsafe schemes are still dropped by
+  `planBookmarkImport`. `e2e/import.spec.ts`.
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the

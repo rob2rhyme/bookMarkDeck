@@ -490,7 +490,7 @@ function planFolderPaths(
 function planHtmlImport(
   existingBookmarks: Bookmark[],
   existingFolders: Folder[],
-  parsed: { title: string; url: string; note: string; tags: string[]; createdAt: string; folderPath: string[] }[]
+  parsed: { title: string; url: string; note: string; tags: string[]; createdAt: string; folderPath: string[]; pinned?: boolean }[]
 ): { additions: Bookmark[]; duplicate: number; folderAdditions: Folder[] } {
   const seen = new Set(existingBookmarks.map((b) => b.url));
   const fresh = parsed.filter((p) => {
@@ -510,6 +510,7 @@ function planHtmlImport(
     createdAt: p.createdAt,
     folderId: folderIds[i],
     folder: p.folderPath[p.folderPath.length - 1],
+    ...(p.pinned ? { pinned: true } : {}),
   }));
   const planned = planBookmarkImport(existingBookmarks, records);
   return {

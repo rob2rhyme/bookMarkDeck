@@ -169,9 +169,16 @@ export default function GuidePage() {
           <Sub title="Import, export & backups">
             <p>
               <strong>📥 Import</strong> accepts a browser bookmarks file
-              (Netscape HTML) or a Bookmark Deck JSON backup, shows a preview
-              (new links / new shortcuts / duplicates skipped), and merges by
-              URL — nothing existing is overwritten. <strong>📤 Export</strong>{" "}
+              (Netscape HTML), a Bookmark Deck JSON backup, or an export from
+              another service — <strong>Raindrop.io</strong> (CSV or HTML) and{" "}
+              <strong>Pocket</strong> (CSV or HTML). It shows a preview (new
+              links / new folders / duplicates skipped), and merges by URL —
+              nothing existing is overwritten, and <strong>Undo</strong> takes
+              the whole import back. Raindrop collections become folders, with
+              their tags, notes, dates and favourites (pinned); Pocket links go
+              into a <em>Pocket</em> folder, with archived ones in a{" "}
+              <em>Read archive</em> subfolder beneath it. Any CSV with a{" "}
+              <code>url</code> column works too. <strong>📤 Export</strong>{" "}
               writes a standard HTML file any browser can import. Cloud sync
               also keeps your last <strong>7 snapshots</strong>, each
               restorable in-app or downloadable as JSON.
