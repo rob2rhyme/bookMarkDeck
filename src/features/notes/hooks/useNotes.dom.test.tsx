@@ -263,3 +263,47 @@ describe("useNotes — history and the deletion log", () => {
     expect(kinds(cached()[0])).toEqual(["imported"]);
   });
 });
+
+describe("useNotes — edited on two devices", () => {
+  it("on reconnect keeps both versions, announces it, and doesn't overwrite the newer edit", async () => {
+    // This device last saw "a" at 01:00, then edited it offline (now). Another
+    // device edited it meanwhile — later still, so its version is the newer one.
+    const seen = "2026-10-21T01:00:00.000Z";
+    localStorage.setItem(`bookmarkdeck:notes:base:v1:${EMAIL}`, JSON.stringify({ a: seen }));
+    recordSyncedIds("notes", EMAIL, ["a"]);
+    localStorage.setItem(KEY, JSON.stringify([note("a", { body: "seen", updatedAt: seen })]));
+    const theirs = note("a", { body: "edited on the phone", updatedAt: "2099-01-01T00:00:00.000Z" });
+    vi.mocked(fetchNotes).mockResolvedValue([theirs]);
+    const announced = vi.fn();
+    window.addEventListener("bd:notes-conflicts", announced);
+
+    const { result, rerender } = renderHook(({ on }) => useNotes(EMAIL, on), { initialProps: { on: false } });
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    act(() => void result.current.updateNote("a", { body: "edited on the laptop" }));
+
+    rerender({ on: true });
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalled());
+    const pushed = vi.mocked(saveNote).mock.calls.map(([, n]) => n);
+    // The phone's newer text is NOT overwritten; the laptop's is saved as a copy.
+    expect(pushed.some((n) => n.id === "a")).toBe(false);
+    expect(pushed).toEqual([
+      expect.objectContaining({ title: "a (conflicted copy)", body: "edited on the laptop", tags: ["conflict"] }),
+    ]);
+    expect(announced).toHaveBeenCalledTimes(1);
+    window.removeEventListener("bd:notes-conflicts", announced);
+  });
+
+  it("records the cloud version it sees, so the next reconnect can tell", async () => {
+    let push: (n: Note[]) => void = () => {};
+    vi.mocked(subscribeNotes).mockImplementation((_e, cb) => {
+      push = cb;
+      return () => {};
+    });
+    renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalled());
+    act(() => push([note("r", { updatedAt: "2026-10-21T05:00:00.000Z" })]));
+    expect(JSON.parse(localStorage.getItem(`bookmarkdeck:notes:base:v1:${EMAIL}`) ?? "{}")).toEqual({
+      r: "2026-10-21T05:00:00.000Z",
+    });
+  });
+});

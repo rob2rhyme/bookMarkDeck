@@ -78,7 +78,10 @@ export default function FaqPage() {
         <Q q="What does a note's History show?">
           <p>
             When a note was created, edited, pinned, tagged, locked, unlocked
-            or restored — never what it said. Saves less than 30 minutes apart
+            or restored — never what it said. If the same note was edited on
+            two devices while one was offline, both versions are kept: the
+            other one appears as a <em>(conflicted copy)</em> tagged{" "}
+            <code>#conflict</code>. Saves less than 30 minutes apart
             count as one edit. <em>Insights</em> on the Notes page adds totals,
             your most-used tags and a recent-activity list that includes
             deleted notes (by title). It&apos;s all worked out on your device
