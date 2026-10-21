@@ -23,10 +23,12 @@ parity, and distribution** — not catalog features.
 ## Tier 1 — highest impact × already-built infra
 
 1. **Turn on push** (VAPID/QStash env vars) — `[planned]`, config not code.
-2. **Streak-at-risk nudges** (Focus + Habits) — `[net-new]`. `useFocusStats.streak`
-   / `HabitStats.currentStreak` + `schedulePush` exist; reminders currently fire a
-   generic "Time for X", never streak-framed. Wire a streak-framed `reminderBody`
-   in `useHabitReminders.ts` + a Focus evening nudge.
+2. ~~**Streak-at-risk nudges** (Focus + Habits)~~ — **shipped**: habit reminders use
+   `reminderBody` with the live streak ("Keep your 12-day streak alive — Meditate
+   today.", from 2 days up; `useHabitReminders`) and Focus sends an 8 pm "keep your
+   focus streak" push while a streak is at risk and no session is logged
+   (`useFocusStreakNudge`). Both ride the push infrastructure, so they stay silent
+   until item 1 is turned on.
 3. **Push-when-closed reminders** (My Stuff: warranty/return/use-by/maintenance) —
    `[planned, "Fill — high retention"]`. `lib/value.ts` `attention()` already
    computes what to schedule.
