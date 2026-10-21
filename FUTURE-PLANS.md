@@ -16,9 +16,11 @@ _Last reviewed: 2026-07-16._
    (b) in `InventoryDashboard.tsx`, swap the AI-add button's `hidden` class
    back to `flex` (the comment above it marks the spot), then redeploy. The
    `/guide` section is written as "coming soon" — flip its title/last sentence
-   to live wording at the same time. Default model is `claude-haiku-4-5`
-   (cheapest vision tier, ~$0.002–0.01 per scan); set
-   `AI_CAPTURE_MODEL=claude-opus-4-8` for max accuracy. Later, when opening it
+   to live wording at the same time. Default model is `claude-haiku-5-5`
+   (cheapest vision tier, about a tenth of a cent per scan); set
+   `AI_CAPTURE_MODEL=claude-opus-5-5` (roughly 1–3 cents a scan) for max
+   accuracy. Both routes take the model from `aiModel()` in
+   `src/features/inventory/lib/aiCapture.ts`. Later, when opening it
    to paying users: add a per-user quota + billing gate (Track C in
    `ANALYSIS-MOBILE-APP-STRATEGY.md` §3 — billing lands *with* the metered
    feature).

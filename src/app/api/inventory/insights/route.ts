@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import Anthropic from "@anthropic-ai/sdk";
 
-import { extractJson } from "@/features/inventory/lib/aiCapture";
+import { AI_REQUEST, aiModel, extractJson } from "@/features/inventory/lib/aiCapture";
 import { createRateLimiter } from "@/lib/rateLimit";
 import { billingConfigured, isPro, withinFreeQuota } from "@/lib/entitlement";
 
@@ -20,7 +20,7 @@ const FREE_AI_INSIGHTS = 3;
 // the owner's interests and how they're shifting. Same opt-in scheme as AI
 // capture: dormant until ANTHROPIC_API_KEY is set, session-gated, and the
 // payload is aggregates only (category/tag labels — never item names/serials).
-const MODEL = process.env.AI_CAPTURE_MODEL?.trim() || "claude-haiku-4-5";
+const MODEL = aiModel();
 
 const PROMPT = [
   "You are analyzing aggregate statistics from one person's private home-inventory app.",
@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
   try {
     const response = await client.messages.create({
       model: MODEL,
-      max_tokens: 700,
+      max_tokens: AI_REQUEST.maxTokens,
+      output_config: { effort: AI_REQUEST.effort },
       messages: [{ role: "user", content: `${PROMPT}\n\n${summary}` }],
     });
     const text = response.content
