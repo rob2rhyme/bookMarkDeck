@@ -622,8 +622,13 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   through a ref, **not inside a state updater**: React may run an updater twice,
   and an increment sent from one would count twice. **Still absolute, on
   purpose:** Upload, Download and backup restore — explicit "make it this"
-  actions. **Known limits:** two devices removing the last cup at once leave the
-  record at −1; reads clamp to 0, so it shows 0, but the next cup lands on 0.
+  actions. **A removal is floored at 0 in a transaction** (`addHydration` with a
+  negative delta reads and writes in one `runTransaction`): as a bare increment,
+  two devices removing the last cup at once left the record at −1, which read as
+  0 while the next cup landed on 0. A transaction needs the server, so offline a
+  removal falls back to the increment; a record the server confirms below 0 is
+  raised back to 0 by `clampHydration` (also a transaction, so two repairing
+  devices can't both add). `focusData.test.ts` pins both. **Known limits:**
   Opening Focus with a stale device cache can still undo a removal made
   elsewhere (the first-answer max keeps the stale higher count), and a habit's
   *clear* removes the cups the habit knew of, not ones another device logged

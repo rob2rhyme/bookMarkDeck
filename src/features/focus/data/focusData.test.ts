@@ -14,6 +14,7 @@ vi.mock("firebase/firestore", () => ({
   increment: vi.fn((n: number) => ({ increment: n })),
   onSnapshot: vi.fn(() => () => {}),
   query: vi.fn(),
+  runTransaction: vi.fn(),
   serverTimestamp: vi.fn(() => "ts"),
   setDoc: vi.fn(),
   where: vi.fn(),
@@ -23,7 +24,7 @@ vi.mock("@/lib/firebase", () => ({
   ensureFirebaseGoogleAuth: vi.fn(async () => ({ uid: "u1" })),
 }));
 
-import { onSnapshot, setDoc } from "firebase/firestore";
+import { onSnapshot, runTransaction, setDoc } from "firebase/firestore";
 import { addHydration, subscribeHydration } from "@/features/focus/data/focusData";
 
 type Snap = { exists: () => boolean; data: () => { cups: number }; metadata: { fromCache: boolean } };
@@ -94,6 +95,72 @@ describe("addHydration", () => {
     const { cb, feed } = await attach();
     feed(snap(-1, false));
     expect(cb).toHaveBeenCalledWith(0);
+  });
+});
+
+// A removal used to be a bare increment too, so two devices taking away the
+// last cup at once left the record at -1 — it read as 0, but the next cup
+// landed on 0. A removal now reads and writes in one transaction, floored at 0.
+describe("addHydration — removals", () => {
+  /** A one-record store that runTransaction reads and writes. */
+  let stored: number | null;
+  const writes: unknown[] = [];
+  beforeEach(() => {
+    stored = null;
+    writes.length = 0;
+    vi.mocked(setDoc).mockClear();
+    vi.mocked(runTransaction).mockReset();
+    vi.mocked(runTransaction).mockImplementation((async (_db: unknown, fn: (tx: unknown) => unknown) =>
+      fn({
+        get: async () => ({ exists: () => stored != null, data: () => ({ cups: stored }) }),
+        set: (_ref: unknown, data: { cups: number }) => {
+          writes.push(data);
+          stored = data.cups;
+        },
+      })) as never);
+  });
+
+  it("floors the count at 0 when two devices remove the last cup", async () => {
+    stored = 1;
+    await addHydration("a@example.com", "2026-10-11", -1);
+    await addHydration("a@example.com", "2026-10-11", -1); // the other device, a beat later
+    expect(stored).toBe(0);
+    await addHydration("a@example.com", "2026-10-11", 1); // the next cup
+    expect(setDoc).toHaveBeenLastCalledWith(
+      expect.anything(),
+      { cups: { increment: 1 }, updatedAt: "ts" },
+      { merge: true }
+    );
+  });
+
+  it("takes a habit's clear off what is there, never below 0", async () => {
+    stored = 2;
+    await addHydration("a@example.com", "2026-10-11", -5);
+    expect(stored).toBe(0);
+  });
+
+  it("falls back to the increment when the transaction can't run (offline)", async () => {
+    vi.mocked(runTransaction).mockRejectedValueOnce(new Error("unavailable"));
+    await addHydration("a@example.com", "2026-10-11", -1);
+    expect(setDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      { cups: { increment: -1 }, updatedAt: "ts" },
+      { merge: true }
+    );
+  });
+
+  it("adds a cup without a transaction, so it still works offline", async () => {
+    await addHydration("a@example.com", "2026-10-11", 1);
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("repairs a record the server confirms below 0, and not a cached one", async () => {
+    stored = -1;
+    const { feed } = await attach();
+    feed(snap(-1, true));
+    expect(runTransaction).not.toHaveBeenCalled();
+    feed(snap(-1, false));
+    await vi.waitFor(() => expect(stored).toBe(0));
   });
 });
 
