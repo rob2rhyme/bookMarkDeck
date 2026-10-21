@@ -15,7 +15,12 @@ sessions (the work) → a record of progress. *Connection over breadth.*
 - **next-auth v4** (Google provider) for the Next.js session.
 - **Firebase / Firestore (NoSQL)** for per-user cloud data, accessed **client-side**.
 - **Tailwind CSS v4** (utility classes; dark slate theme).
-- Deployed on **Vercel**. CSP + security headers set in `next.config.ts`.
+- Deployed on **Vercel**. CSP + security headers set in `next.config.ts`. **The CSP names its
+  script hosts** (`SCRIPT_HOSTS`: Google Identity Services, Firebase's gapi, jsDelivr for
+  Tesseract) instead of `https:`; a new external script needs its host added there, and
+  `e2e/csp.spec.ts` fails on any violation the pages raise. `worker-src 'self' blob:` is
+  load-bearing: Tesseract starts its OCR worker from a `blob:` URL, and while workers fell
+  back to `script-src` (no `blob:`) on-device label/receipt reading was silently refused.
   **Stored links are untrusted**: a bookmark or shortcut can arrive from a shared file
   or the cloud, so `isUnsafeUrl` (`@/utils/normalizeUrl`) keeps `javascript:`/`data:`/
   `vbscript:` out of import and out of every `window.open`. `normalizeUrl` is for what
