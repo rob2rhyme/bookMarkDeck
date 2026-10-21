@@ -6,7 +6,6 @@ import { AppearanceApplier } from "@/components/AppearanceApplier";
 import { ToastProvider } from "@/components/toast/ToastProvider";
 import { AppearanceProvider } from "@/lib/appearanceSettings";
 import { CursorSettingsProvider } from "@/lib/cursorSettings";
-import { HabitsViewProvider } from "@/lib/habitsViewSettings";
 
 // Isolate client-only providers so the root layout can stay a Server Component.
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -21,7 +20,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               without the theme-color sync for a manual light/dark override. */}
           <AppearanceApplier />
           <CursorSettingsProvider>
-            <HabitsViewProvider>{children}</HabitsViewProvider>
+            {children}
           </CursorSettingsProvider>
         </AppearanceProvider>
       </ToastProvider>

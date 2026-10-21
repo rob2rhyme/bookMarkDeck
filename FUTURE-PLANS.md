@@ -49,17 +49,6 @@ _Last reviewed: 2026-07-16._
     30 days**, so start with plain tagged Amazon search links until volume
     exists. Owner currently has an Amazon Associates account only.
 
-## Code cleanups (kept intentionally for now)
-
-3. **Retired "Simple" habits dashboard.** `/habits` renders only the Classic
-   dashboard; `SimpleHabitsDashboard.tsx`, `HabitsViewToggle.tsx`, and
-   `SyncStatusChip` are unused by the route. Owner decision (2026-07-15):
-   keep as is; delete in a future cleanup pass.
-4. **Hidden Apple/Microsoft login buttons.** Present in
-   `src/app/(auth)/login/page.tsx` with `className="hidden …"` — only Google is
-   live. Keep until (if ever) those providers are added; otherwise remove in
-   the same cleanup pass.
-
 ## Small doc/tooling follow-ups
 
 5. **`npm run audit` script** (the one unshipped piece of FOCUS-INTEGRATION
