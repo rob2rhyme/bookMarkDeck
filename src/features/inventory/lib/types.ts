@@ -283,15 +283,22 @@ export type InventoryView = "grid" | "list" | "shelf";
 export type InventorySettings = {
   defaultCurrency: string;
   defaultView: InventoryView;
+  /** Opt-in daily reminder push. Off until asked for. */
+  pushEnabled: boolean;
+  /** Local hour, 0-23, the digest is aimed at. */
+  pushHour: number;
 };
 
 export const DEFAULT_INVENTORY_SETTINGS: InventorySettings = {
   defaultCurrency: "USD",
   defaultView: "grid",
+  pushEnabled: false,
+  pushHour: 9,
 };
 
 export function normalizeSettings(raw: unknown): InventorySettings {
   const r = (raw ?? {}) as Record<string, unknown>;
+  const hour = typeof r.pushHour === "number" ? r.pushHour : Number(r.pushHour);
   return {
     defaultCurrency:
       typeof r.defaultCurrency === "string" && r.defaultCurrency.trim()
@@ -301,6 +308,10 @@ export function normalizeSettings(raw: unknown): InventorySettings {
       r.defaultView === "list" || r.defaultView === "shelf"
         ? r.defaultView
         : "grid",
+    pushEnabled: r.pushEnabled === true,
+    pushHour: Number.isFinite(hour)
+      ? Math.min(23, Math.max(0, Math.floor(hour)))
+      : DEFAULT_INVENTORY_SETTINGS.pushHour,
   };
 }
 

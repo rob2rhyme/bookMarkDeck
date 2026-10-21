@@ -816,8 +816,13 @@ Other invariants:
   showing with its tag, and until push actually arrived (#316) nobody could see
   that every one shared `bmd-focus-timer`: two habits due at 07:00 showed as one,
   and the next timer end erased an unread digest. Tags: `bmd-focus-timer`,
-  `focus-streak`, `filing-digest`, `habit:{id}`; `/api/push/schedule` falls back
-  to the timer's for anything else. The worker's badge is `icons/badge-96.png`,
+  `focus-streak`, `filing-digest`, `inventory-digest`, `habit:{id}`; `/api/push/schedule` falls back
+  to the timer's for anything else. **My Stuff has the same daily digest**
+  (`useInventoryPush`, `features/inventory/lib/digest.ts`, opt-in from the 🔔
+  Reminders dialog; `pushEnabled`/`pushHour` on `InventorySettings`). Its count is
+  `reminderCount`, so push and nav badge agree; a PIN-locked My Stuff sends counts
+  only, never item names. `msUntilHour` lives in `@/lib/msUntilHour` (Filing's
+  digest re-exports it). The worker's badge is `icons/badge-96.png`,
   white on transparent — Android draws a badge from alpha alone, and the opaque
   app icon rendered as a solid square. `src/lib/serviceWorker.test.ts` loads the
   real `public/sw.js` into a `vm` sandbox, since nothing imports it. It also pins

@@ -22,7 +22,9 @@ import {
   flattenTree,
   useInventoryLocations,
 } from "@/features/inventory/hooks/useInventoryLocations";
+import { useInventoryPush } from "@/features/inventory/hooks/useInventoryPush";
 import { useInventorySettings } from "@/features/inventory/hooks/useInventorySettings";
+import { RemindersModal } from "@/features/inventory/components/RemindersModal";
 import { useInventorySync } from "@/features/inventory/hooks/useInventorySync";
 import {
   backupCount,
@@ -39,7 +41,7 @@ import type {
   WishlistItem,
 } from "@/features/inventory/lib/types";
 import { locationPathsById } from "@/features/inventory/lib/inventorySearch";
-import { DEFAULT_TAX_RATE, formatMoney, totalValue } from "@/features/inventory/lib/value";
+import { DEFAULT_TAX_RATE, attention, formatMoney, totalValue } from "@/features/inventory/lib/value";
 import { useRediscover } from "@/features/inventory/hooks/useRediscover";
 import { AttentionPanel } from "@/features/inventory/components/AttentionPanel";
 import { ItemCard } from "@/features/inventory/components/ItemCard";
@@ -155,6 +157,7 @@ export function InventoryDashboard() {
   const [subsOpen, setSubsOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [lockOpen, setLockOpen] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -172,6 +175,16 @@ export function InventoryDashboard() {
     return c;
   }, [inv.active]);
 
+  const attentionNow = useMemo(() => attention(inv.active, today), [inv.active, today]);
+  useInventoryPush({
+    email,
+    enabled: settings.pushEnabled,
+    hour: settings.pushHour,
+    attention: attentionNow,
+    // A locked My Stuff keeps item names off the lock screen too.
+    nameItems: !lock.enabled,
+    ready: inv.hydrated && today !== "",
+  });
   const lending = useMemo(() => lendingLedger(inv.active, today), [inv.active, today]);
   const overdueCount = lending.filter((e) => e.status === "overdue").length;
   // Things of other people's in your care (borrowed/rented, not yet given back).
@@ -699,6 +712,13 @@ export function InventoryDashboard() {
           </button>
           <button
             type="button"
+            onClick={() => setRemindersOpen(true)}
+            className="shrink-0 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-400 hover:text-slate-100"
+          >
+            🔔 Reminders
+          </button>
+          <button
+            type="button"
             onClick={lock.enabled ? lock.lockNow : () => setLockOpen(true)}
             title={lock.enabled ? "Lock My Stuff now" : "Lock My Stuff behind a PIN"}
             className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-400 hover:text-slate-100"
@@ -1129,6 +1149,12 @@ export function InventoryDashboard() {
         today={today}
         onSelect={openDetail}
         onClose={() => setCalendarOpen(false)}
+      />
+      <RemindersModal
+        open={remindersOpen}
+        onClose={() => setRemindersOpen(false)}
+        settings={settings}
+        onChange={update}
       />
       <AppLockModal
         open={lockOpen}
