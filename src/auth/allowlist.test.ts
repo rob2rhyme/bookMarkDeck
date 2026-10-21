@@ -50,3 +50,17 @@ describe("next-auth callbacks", () => {
     await expect(jwt({ token: mine } as never)).resolves.toMatchObject({ email: "owner@example.com" });
   });
 });
+
+describe("firestore.rules", () => {
+  // Rules can't read env or import, so they repeat the owner list. If the two
+  // drift, the app lets someone in whom the database then refuses (or the reverse).
+  it("admits exactly the accounts the app's default allowlist does", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { DEFAULT_ALLOWED_EMAILS } = await import("./allowlist");
+    const rules = readFileSync(new URL("../../firestore.rules", import.meta.url), "utf8");
+    const list = /function allowedEmails\(\)\s*\{\s*return\s*\[([^\]]*)\]/.exec(rules)?.[1];
+    expect(list, "allowedEmails() not found in firestore.rules").toBeTruthy();
+    const emails = [...list!.matchAll(/'([^']+)'/g)].map((m) => m[1].toLowerCase());
+    expect(emails.sort()).toEqual([...DEFAULT_ALLOWED_EMAILS].map((e) => e.toLowerCase()).sort());
+  });
+});

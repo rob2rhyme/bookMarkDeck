@@ -7,14 +7,15 @@
 // so a deployment with the variable unset still locks to the owner instead of
 // either locking the owner out or letting everyone in.
 
-const DEFAULT_ALLOWED = ["rob2rhyme@gmail.com"];
+// firestore.rules repeats this list (rules can't read env); allowlist.test.ts keeps them equal.
+export const DEFAULT_ALLOWED_EMAILS = ["rob2rhyme@gmail.com"];
 
 export function allowedEmails(): string[] {
   const fromEnv = (process.env.AUTH_ALLOWED_EMAILS ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  return fromEnv.length ? fromEnv : DEFAULT_ALLOWED;
+  return fromEnv.length ? fromEnv : DEFAULT_ALLOWED_EMAILS;
 }
 
 export function isAllowedEmail(email: unknown): boolean {

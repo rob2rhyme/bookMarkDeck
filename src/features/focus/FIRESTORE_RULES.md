@@ -29,7 +29,7 @@ These are all covered by the one owner-scoped recursive rule in `firestore.rules
 
 ```
 match /users/{uid}/{document=**} {
-  allow read, write: if request.auth != null && request.auth.uid == uid;
+  allow read, write: if isOwner(uid); // this uid AND the owner's verified email — see firestore.rules
 }
 ```
 

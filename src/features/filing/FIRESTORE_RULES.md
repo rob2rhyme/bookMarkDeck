@@ -35,7 +35,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isOwner(uid); // this uid AND the owner's verified email — see firestore.rules
     }
   }
 }

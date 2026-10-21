@@ -55,10 +55,11 @@ throws for them, which makes next-auth clear the cookie, so a session minted bef
 lock reads as signed out; and `middleware.ts` checks the email itself, since the gate
 decodes the cookie without running callbacks. `e2e/allowlist.spec.ts` pins all three
 from the outside. The default lives in code so an unset variable locks to the owner
-rather than failing open. **Firestore is not covered by this** — anyone can still sign
-into Firebase with the public config and write under their *own* `users/{uid}` (never
-yours); closing that is a rules change, an owner decision (the Firebase project may be
-shared with other apps).
+rather than failing open. **Firestore is locked the same way** (see **Firestore security
+rules**): before, anyone could sign into Firebase with the public web config and keep data
+under their *own* `users/{uid}` at the owner's cost. The Firebase project
+(`unified-project-440e5`) is single-owner by this rule — another app sharing it gets the
+same lock.
 
 **Reuse both — never add a second auth system or a second database.**
 
@@ -75,7 +76,10 @@ shared with other apps).
 ### Firestore security rules
 Rules live in the committed **`firestore.rules`** at the repo root (wired via `firebase.json` →
 `.firebaserc`, project `unified-project-440e5`): a single owner-scoped recursive rule
-`match /users/{uid}/{document=**}` allowing read/write only when `request.auth.uid == uid` —
+`match /users/{uid}/{document=**}` allowing read/write only when `request.auth.uid == uid`
+**and** the token's email is the owner's, verified (`isOwner`; `allowedEmails()` repeats
+`DEFAULT_ALLOWED_EMAILS` from `src/auth/allowlist.ts`, and `allowlist.test.ts` fails if the
+two differ — rules can't read env, so `AUTH_ALLOWED_EMAILS` doesn't reach them) —
 which covers every collection, since all user data lives under `users/{uid}`. Per-feature notes:
 `src/features/{focus,habits,inventory,notes}/FIRESTORE_RULES.md`. Any new collection must stay under
 `users/{uid}` (or get its own owner-scoped rule) — and that is **enforced**, not just asked for:
@@ -94,7 +98,7 @@ then reads the released ruleset back to confirm the deploy landed:
 
 | Command | Answers |
 |---|---|
-| `npm run verify:rules` | is the **file** correct? (60 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`; notes and notes vaults asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
+| `npm run verify:rules` | is the **file** correct? (66 assertions: owner access, cross-uid denial, anonymous denial, other accounts and unverified/missing emails denied even their own tree, no leak outside `users/{uid}`; notes and notes vaults asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
 | `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |
