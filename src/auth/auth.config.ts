@@ -139,6 +139,11 @@ export const authConfig: NextAuthOptions = {
       },
     }),
   ],
+  // 14 days, not next-auth's 30. The cookie carries the Google refresh token
+  // (Tasks + Calendar), so a copied cookie is worth less for less long. The
+  // expiry slides: every visit re-issues the cookie, so this is 14 days of NOT
+  // using the app, not a fortnightly sign-in.
+  session: { strategy: "jwt", maxAge: 14 * 24 * 60 * 60 },
   // A refused sign-in lands back on /login?error=AccessDenied, which explains
   // why, instead of next-auth's unstyled error page.
   pages: { signIn: "/login", error: "/login" },

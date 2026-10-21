@@ -13,6 +13,7 @@ const SECTIONS = [
   { id: "habits", label: "Habits" },
   { id: "stuff", label: "My Stuff" },
   { id: "filing", label: "Filing" },
+  { id: "notes", label: "Notes" },
   { id: "sync", label: "Sync & privacy" },
   { id: "personalize", label: "Make it yours" },
   { id: "shortcuts", label: "Tips & shortcuts" },
@@ -58,12 +59,12 @@ export default function GuidePage() {
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-slate-300">
         Bookmark Deck is a calm, private home for your online life — and the
-        life around it. Five pillars share one roof: <strong>Bookmarks</strong>{" "}
+        life around it. Six pillars share one roof: <strong>Bookmarks</strong>{" "}
         (the sites and apps you use), <strong>Focus</strong> (the work you do),{" "}
         <strong>Habits</strong> (the consistency you build),{" "}
-        <strong>My Stuff</strong> (the things you own), and{" "}
+        <strong>My Stuff</strong> (the things you own),{" "}
         <strong>Filing</strong> (where your paper lives, and what it&apos;s due
-        for). Everything is local-first and syncs to your own account when you
+        for), and <strong>Notes</strong> (what you jot down). Everything is local-first and syncs to your own account when you
         ask it to. This page is the long version of how it all works.
       </p>
 
@@ -85,7 +86,8 @@ export default function GuidePage() {
           <p className="text-slate-300">
             Sign in with Google on the login page — that&apos;s the only
             account you need, and one sign-in connects cloud sync for every
-            pillar at once. You land on <strong>Bookmarks</strong> (the home
+            pillar at once. Bookmark Deck is private to its owner, so only the
+            owner&apos;s Google account is let in. You land on <strong>Bookmarks</strong> (the home
             page); the other pillars are one tap away in the header pills, or
             in the bottom bar on your phone. Everything you add is saved on
             your device instantly; what reaches your account is always
@@ -97,9 +99,9 @@ export default function GuidePage() {
           </p>
           <p className="text-slate-300">
             The fastest way around is the command palette: press <K>⌘K</K> (or{" "}
-            <K>Ctrl K</K>) anywhere to jump between pillars, add a bookmark, or
-            search every bookmark you have — <K>↑</K>/<K>↓</K> to navigate,{" "}
-            <K>↵</K> to open.
+            <K>Ctrl K</K>) anywhere to jump between pillars, add a bookmark,
+            start a new note, or search every bookmark and note you have —{" "}
+            <K>↑</K>/<K>↓</K> to navigate, <K>↵</K> to open.
           </p>
         </Section>
 
@@ -819,19 +821,81 @@ export default function GuidePage() {
           </Sub>
         </Section>
 
+        <Section id="notes" title="Notes — jot it down, find it later">
+          <Sub title="Writing">
+            <p>
+              <strong>New note</strong> (or press <K>N</K>) opens a blank page;{" "}
+              <strong>Paste as new note</strong> turns whatever is on your
+              clipboard into one. Notes save themselves as you type — the
+              status under the title says <em>Saving…</em> then{" "}
+              <em>Saved</em>, and <K>⌘S</K> saves at once. A note you leave
+              blank is simply discarded.
+            </p>
+            <p>
+              Lists keep themselves going: <K>↵</K> after a <code>- </code>,{" "}
+              <code>1. </code> or <code>[ ] </code> line starts the next item
+              (numbers renumber), <K>↵</K> on an empty item ends the list,{" "}
+              <K>Tab</K>/<K>⇧Tab</K> indent, and <K>⌘↵</K> ticks a checkbox.
+              The toolbar and <K>⌘B</K>/<K>⌘I</K>/<K>⌘⇧X</K> add bold, italic
+              and strikethrough, and <K>⌘Z</K> undoes all of it. Notes are plain
+              text with Markdown: <K>⌘E</K> flips to <em>Preview</em>, where
+              headings, links, tables and checklists render — and ticking a
+              box there ticks it in the note.
+            </p>
+          </Sub>
+          <Sub title="Finding">
+            <p>
+              Pinned notes sit on top, then the most recently edited. Press{" "}
+              <K>/</K> to search: every word must match the title, text or a
+              tag, <code>&quot;quoted phrases&quot;</code> stay together, and{" "}
+              <code>#tag</code> filters. It ignores case and accents. Tags can
+              be renamed or removed across every note at once. Notes also show
+              up in <K>⌘K</K>, and <strong>Copy</strong> puts a note on your
+              clipboard in one tap.
+            </p>
+          </Sub>
+          <Sub title="Locked notes">
+            <p>
+              <strong>Lock</strong> a note to encrypt it on your device before
+              it&apos;s saved. The first time, you choose a notes passphrase and
+              get a <strong>recovery code</strong> — the only other way in, shown
+              once, so save it somewhere safe. Nobody else can read a locked
+              note, including whoever stores your data; lose both the passphrase
+              and the code and its text is gone for good. Titles and tags stay
+              visible so you can still find it. Once unlocked, they lock again
+              after a reload, closing the tab, <em>Lock notes</em>, or 10 idle
+              minutes.
+            </p>
+          </Sub>
+          <Sub title="Backup, History and Insights">
+            <p>
+              <strong>Backup</strong> downloads a JSON file you can restore later
+              (locked notes stay encrypted in it, and still open with your
+              passphrase) or a Markdown export for reading elsewhere. Restoring
+              merges and never deletes; a note newer here than in the backup is
+              kept. Each note&apos;s <strong>History</strong> (the clock button
+              in the editor) shows when it was created, edited, pinned, tagged,
+              locked or restored — never what it said. <strong>Insights</strong>{" "}
+              adds totals, activity over the last 12 weeks, your most-used tags,
+              most-edited and long-untouched notes, and a recent-activity list
+              that includes deletions. It&apos;s all worked out on your device.
+            </p>
+          </Sub>
+        </Section>
+
         <Section id="sync" title="Sync & privacy">
           <Sub title="Local-first, always">
             <p>
-              Everything saves to your device the moment you act — no account
-              required to use the app. Data is cached per signed-in account,
-              so two people sharing a browser don&apos;t mix.
+              Everything saves to your device the moment you act, and works
+              offline. Data is cached per signed-in account, and search only
+              ever looks at the account that&apos;s signed in.
             </p>
           </Sub>
           <Sub title="One sign-in covers everything">
             <p>
               Signing in with Google once connects cloud sync for{" "}
-              <strong>every</strong> pillar — Bookmarks, Focus, Habits, My Stuff
-              and Filing — automatically and silently on your next visit. No more
+              <strong>every</strong> pillar — Bookmarks, Focus, Habits, My Stuff,
+              Filing and Notes — automatically and silently on your next visit. No more
               per-app &ldquo;Sign in to sync&rdquo; taps. (If the silent
               connection ever can&apos;t complete, that button simply
               reappears — one tap reconnects all pillars at once.)
@@ -843,19 +907,23 @@ export default function GuidePage() {
               press <em>Sync to cloud</em> / <em>Sync from cloud</em> on the
               home page — explicit by design, with the last 7 snapshots kept as
               restorable backups.{" "}
-              <strong>Focus, Habits, My Stuff and Filing</strong> save to your
+              <strong>Focus, Habits, My Stuff, Filing and Notes</strong> save to your
               account automatically while you&apos;re signed in, and each still
               has manual sync/export buttons. Anything you create before
               connecting is pushed up when you do, rather than being overwritten
               by the first sync. Cloud data lives in Firebase under your Google
-              account and is scoped to you alone.
+              account, and the database only admits the owner&apos;s verified
+              Google account.
             </p>
           </Sub>
           <Sub title="Privacy">
             <p>
               No analytics or ad SDKs. Google Tasks/Calendar are touched only
               if you enable Google sync, and the access token lives in your
-              encrypted session cookie — not on a server database. To leave:
+              encrypted session cookie — not on a server database. Your session
+              ends after 14 days without using the app. Locked notes are the one
+              thing that&apos;s end-to-end encrypted; everything else is kept
+              private by your sign-in and the database rules. To leave:
               export your data, delete locally, sync the empty state, and
               revoke the app at myaccount.google.com/permissions. Details in{" "}
               <Link href="/privacy" className="text-blue-300 hover:text-blue-200">
@@ -903,16 +971,17 @@ export default function GuidePage() {
           <ul className="list-disc space-y-1.5 pl-5 text-slate-300">
             <li>
               <K>⌘K</K> / <K>Ctrl K</K> — command palette: jump anywhere, add a
-              bookmark, search everything.
+              bookmark, start a note, search bookmarks and notes.
             </li>
             <li>
-              On mobile, the bottom bar holds all five pillars plus a Search
+              On mobile, the bottom bar holds the other pillars plus a Search
               tab; it tucks away while you&apos;re typing.
             </li>
             <li>
               Deletes almost everywhere offer a brief <strong>Undo</strong> —
               bookmarks, shortcuts, to-dos, journal notes, activity entries,
-              and My Stuff items (photos and receipts come back too).
+              notes and tags, and My Stuff items (photos and receipts come back
+              too).
             </li>
             <li>
               Long page? A scroll-to-top button with a progress ring appears
