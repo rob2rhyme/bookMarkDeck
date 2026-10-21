@@ -609,16 +609,23 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   its record was ever read** (offline across midnight) sends what this device
   owes it as `addHydration` — a Firestore `increment`, which composes with other
   devices' writes instead of replacing them.
-  **Known limits — older than all of this, verified on `a4d8908`, not fixed:** every
-  other write is an *absolute* count, so once a listener is attached the last
-  writer wins. A laptop that loses its network on the same day keeps its listener
-  (nothing re-subscribes), and a drink there replaces the phone's newer count on
-  reconnect. Habits' water taps write the same way, before any server answer
-  (only habits' *subscription* is server-first). Opening Focus with a stale device
-  cache can undo a removal made elsewhere (the max keeps the stale higher count),
-  and two tabs on one device each merge only their own changes. The structural
-  fix is to write every drink as an increment, as the rollover already does; it
-  changes both pillars' write model, so it is an owner decision.
+  **Every cup reaches the cloud as a change, not a total** (`addHydration`, a
+  Firestore `increment`): Focus's +/− send ±1, the first-answer merge sends the
+  difference it resolved, and a linked water habit's tap sends the difference
+  between its new count and the one it replaced (`TrackableSource.mirror`'s
+  `delta`). It used to send the day's absolute count, so once a listener was
+  attached the last writer won — a laptop that lost its network kept its
+  listener, and its next drink put its stale total over the phone's newer one.
+  `useHydration.dom.test.tsx` ("two devices") replays that. The count is advanced
+  through a ref, **not inside a state updater**: React may run an updater twice,
+  and an increment sent from one would count twice. **Still absolute, on
+  purpose:** Upload, Download and backup restore — explicit "make it this"
+  actions. **Known limits:** two devices removing the last cup at once leave the
+  record at −1; reads clamp to 0, so it shows 0, but the next cup lands on 0.
+  Opening Focus with a stale device cache can still undo a removal made
+  elsewhere (the first-answer max keeps the stale higher count), and a habit's
+  *clear* removes the cups the habit knew of, not ones another device logged
+  that it hadn't heard about yet.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 

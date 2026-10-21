@@ -75,9 +75,11 @@ export function useHydration({
   const emailRef = useRef(email);
   const canSync = connected && Boolean(email);
 
-  useEffect(() => {
-    cupsRef.current = cups;
-  }, [cups]);
+  /** Set the count and its ref together, so a tap never reads a stale count. */
+  const setCount = useCallback((v: number) => {
+    cupsRef.current = v;
+    setCups(v);
+  }, []);
   useEffect(() => {
     emailRef.current = email;
   }, [email]);
@@ -88,10 +90,14 @@ export function useHydration({
     else baseRef.current = { day: d, cups: v };
   }, []);
 
+  // A cup is sent as the change it makes (a Firestore increment), never as the
+  // day's total: a total from this device would replace cups another device
+  // logged meanwhile. Before the first answer nothing is sent; the merge sends
+  // what this device owes.
   const persistRemote = useCallback(
-    (value: number) => {
-      if (canSync && email && remoteReadyRef.current) {
-        saveHydration(email, dayRef.current, value).catch(() => {});
+    (delta: number) => {
+      if (delta !== 0 && canSync && email && remoteReadyRef.current) {
+        addHydration(email, dayRef.current, delta).catch(() => {});
       }
     },
     [canSync, email]
@@ -103,11 +109,11 @@ export function useHydration({
       dayRef.current = d;
       const cached = readHydrationCache(email, d);
       baseRef.current = { day: d, cups: cached?.cups ?? 0 };
-      setCups(cached?.cups ?? 0);
+      setCount(cached?.cups ?? 0);
       lastDrinkRef.current = cached?.lastDrink ?? Date.now();
       setDay(d);
     },
-    [email]
+    [email, setCount]
   );
 
   /**
@@ -192,11 +198,14 @@ export function useHydration({
           const base = mergeBaseRef.current;
           const changed = cupsRef.current - base;
           const resolved = Math.max(0, Math.max(base, remote ?? 0) + changed);
-          if (resolved !== cupsRef.current) setCups(resolved);
-          if (resolved !== (remote ?? 0)) saveHydration(email, day, resolved).catch(() => {});
+          if (resolved !== cupsRef.current) setCount(resolved);
+          // The difference goes up as an increment, so a cup another device adds
+          // while this one is in flight still counts.
+          const owed = resolved - (remote ?? 0);
+          if (owed !== 0) addHydration(email, day, owed).catch(() => {});
           return;
         }
-        if (remote != null) setCups(remote);
+        if (remote != null) setCount(remote);
       },
       { serverFirst: true }
     );
@@ -204,7 +213,7 @@ export function useHydration({
       unsubscribe();
       if (followingRef.current === day) followingRef.current = null;
     };
-  }, [canSync, email, day]);
+  }, [canSync, email, day, setCount]);
 
   // Reminder loop.
   useEffect(() => {
@@ -229,34 +238,33 @@ export function useHydration({
     }
   }, [reminding, enabled, soundEnabled]);
 
+  // The count is read and advanced through the ref, not inside a state updater:
+  // an updater may run twice, and an increment sent from it would count twice.
   const drink = useCallback(() => {
     rollIfNewDay();
-    setCups((c) => {
-      const next = c + 1;
-      persistRemote(next);
-      // Before the day's record has been read the total isn't known yet — the
-      // merge may raise it — so the log doesn't claim one.
-      const settled = !canSync || remoteReadyRef.current;
-      onLog?.(
-        "hydration",
-        settled
-          ? `Drank a cup of water (${next} ${next === 1 ? "cup" : "cups"} today)`
-          : "Drank a cup of water"
-      );
-      return next;
-    });
+    const next = cupsRef.current + 1;
+    setCount(next);
+    persistRemote(1);
+    // Before the day's record has been read the total isn't known yet — the
+    // merge may raise it — so the log doesn't claim one.
+    const settled = !canSync || remoteReadyRef.current;
+    onLog?.(
+      "hydration",
+      settled
+        ? `Drank a cup of water (${next} ${next === 1 ? "cup" : "cups"} today)`
+        : "Drank a cup of water"
+    );
     lastDrinkRef.current = Date.now();
     setReminding(false);
-  }, [canSync, onLog, persistRemote, rollIfNewDay]);
+  }, [canSync, onLog, persistRemote, rollIfNewDay, setCount]);
 
   const removeCup = useCallback(() => {
     rollIfNewDay();
-    setCups((c) => {
-      const next = Math.max(0, c - 1);
-      persistRemote(next);
-      return next;
-    });
-  }, [persistRemote, rollIfNewDay]);
+    if (cupsRef.current <= 0) return;
+    const next = cupsRef.current - 1;
+    setCount(next);
+    persistRemote(-1);
+  }, [persistRemote, rollIfNewDay, setCount]);
 
   const dismiss = useCallback(() => {
     lastDrinkRef.current = Date.now();
@@ -271,8 +279,8 @@ export function useHydration({
     // Dropped if the day or the account changed while it was in flight.
     if (d !== dayRef.current || email !== emailRef.current) return;
     rebase(d, remote ?? 0); // adopting the cloud's count is not a local change
-    setCups(remote ?? 0);
-  }, [canSync, email, rebase, rollIfNewDay]);
+    setCount(remote ?? 0);
+  }, [canSync, email, rebase, rollIfNewDay, setCount]);
 
   // An explicit upload: the day and the count it writes are a pair. The count
   // it uploads becomes the base, or the merge would add it a second time.

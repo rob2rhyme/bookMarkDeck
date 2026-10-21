@@ -11,13 +11,13 @@ vi.mock("@/features/focus/data/focusData", () => ({
   subscribeMeditationSessions: () => () => {},
   subscribeSessions: () => () => {},
   subscribeResets: () => () => {},
-  saveHydration: vi.fn(async () => {}),
+  addHydration: vi.fn(async () => {}),
 }));
 vi.mock("@/features/inventory/data/inventoryData", () => ({
   subscribeItems: () => () => {},
 }));
 
-import { saveHydration, subscribeHydration } from "@/features/focus/data/focusData";
+import { addHydration, subscribeHydration } from "@/features/focus/data/focusData";
 import { sourceById } from "@/features/habits/lib/trackableSources";
 
 const EMAIL = "a@example.com";
@@ -32,7 +32,7 @@ describe("hydration source — the day it is given", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 2, 15, 0, 5)); // 00:05, Sun Mar 15
     localStorage.clear();
-    vi.mocked(saveHydration).mockClear();
+    vi.mocked(addHydration).mockClear();
     // Focus's record for today in the pre-upgrade format, as an old bundle writes it.
     localStorage.setItem(KEY, JSON.stringify({ date: "Sun Mar 15 2026", cups: 2, lastDrink: 111 }));
   });
@@ -47,21 +47,37 @@ describe("hydration source — the day it is given", () => {
   });
 
   it("writes yesterday's count to yesterday only — never over today's cache", () => {
-    hydration.mirror!({ email: EMAIL, day: "2026-03-14", canSync: true }, 4);
-    expect(saveHydration).toHaveBeenCalledWith(EMAIL, "2026-03-14", 4);
+    hydration.mirror!({ email: EMAIL, day: "2026-03-14", canSync: true }, 4, 1);
+    expect(addHydration).toHaveBeenCalledWith(EMAIL, "2026-03-14", 1);
     expect(stored().cups).toBe(2);
   });
 
   it("stamps today's write with today's day key", () => {
-    hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: false }, 3);
+    hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: false }, 3, 1);
     expect(stored()).toMatchObject({ day: "2026-03-15", cups: 3 });
   });
 
   // As before the cache moved: a habits-side write counts as a drink for
   // Focus's reminder clock.
   it("resets Focus's reminder clock when habits logs water", () => {
-    hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: false }, 4);
+    hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: false }, 4, 2);
     expect(stored().lastDrink).toBe(Date.now());
+  });
+});
+
+// The cloud gets the change, never the total: a total replaced cups another
+// device had logged in the meantime.
+describe("hydration source — what reaches the cloud", () => {
+  beforeEach(() => vi.mocked(addHydration).mockClear());
+
+  it("sends the tap's change as an increment", () => {
+    hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: true }, 5, -1);
+    expect(addHydration).toHaveBeenCalledWith(EMAIL, "2026-03-15", -1);
+  });
+
+  it("sends nothing when the count did not change", () => {
+    hydration.mirror!({ email: EMAIL, day: "2026-03-15", canSync: true }, 5, 0);
+    expect(addHydration).not.toHaveBeenCalled();
   });
 });
 

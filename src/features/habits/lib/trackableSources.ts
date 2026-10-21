@@ -11,13 +11,15 @@
 // Merge policy keeps each link correct:
 //   • bidirectional (hydration) — count moves both ways; first snapshot
 //     max-merges, later snapshots adopt the remote, and a higher local value is
-//     pushed back via `mirror`.
+//     pushed back via `mirror`. The cloud only ever receives the CHANGE (a
+//     Firestore increment), so a tap here composes with cups logged on another
+//     device instead of overwriting them.
 //   • raiseOnly (journal, meditation, focus) — the signal can only mark progress
 //     up, never down. There's no forward write to persist a manual tap, so
 //     auto-lowering would bounce it; raise-only avoids that.
 
 import {
-  saveHydration,
+  addHydration,
   subscribeHydration,
   subscribeMeditationSessions,
   subscribeNotes,
@@ -61,8 +63,12 @@ export type TrackableSource = {
   ) => Unsub;
   /** Offline value from a local cache, or null when none exists. */
   readCache: (email: string | null | undefined, day: string) => number | null;
-  /** Forward write (habit → Focus); omit for sources with no writable surface. */
-  mirror?: (ctx: LinkCtx, value: number) => void;
+  /**
+   * Forward write (habit → Focus); omit for sources with no writable surface.
+   * `value` is the new count (for the device cache), `delta` the change from the
+   * count it replaces — what reaches the cloud.
+   */
+  mirror?: (ctx: LinkCtx, value: number, delta: number) => void;
 };
 
 const MIN_UNITS = ["min", "mins", "minute", "minutes"];
@@ -81,9 +87,9 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
     // the first merge push this habit's count over another device's.
     subscribe: (email, day, cb) => subscribeHydration(email, day, cb, { serverFirst: true }),
     readCache: (email, day) => readHydrationCache(email, day)?.cups ?? null,
-    mirror: ({ email, day, canSync }, value) => {
+    mirror: ({ email, day, canSync }, value, delta) => {
       writeHydrationCache(email, day, value); // dropped unless `day` is today
-      if (canSync && email) saveHydration(email, day, value).catch(() => {});
+      if (canSync && email && delta !== 0) addHydration(email, day, delta).catch(() => {});
     },
   },
   {
