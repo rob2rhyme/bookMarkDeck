@@ -107,4 +107,52 @@ describe("parseBookmarkHtml", () => {
       );
     });
   });
+
+  // Pocket's own export: two lists under <h1> headings, `time_added` for the date.
+  describe("a Pocket export", () => {
+    const POCKET = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Pocket Export</title></head><body>
+<h1>Unread</h1>
+<ul>
+<li><a href="https://example.com/read" time_added="1700000000" tags="reading,later">An unread article</a></li>
+</ul>
+<h1>Read Archive</h1>
+<ul>
+<li><a href="https://example.com/done" time_added="1600000000" tags="">A finished one</a></li>
+</ul></body></html>`;
+
+    it("files unread links under Pocket and archived ones under Pocket / Read archive", () => {
+      const b = byTitle(POCKET);
+      expect(b.get("An unread article")!.folderPath).toEqual(["Pocket"]);
+      expect(b.get("A finished one")!.folderPath).toEqual(["Pocket", "Read archive"]);
+    });
+
+    it("reads time_added as the date and tags as tags", () => {
+      const b = byTitle(POCKET);
+      expect(b.get("An unread article")!.createdAt).toBe(new Date(1700000000 * 1000).toISOString());
+      expect(b.get("An unread article")!.tags).toEqual(["reading", "later"]);
+      expect(b.get("A finished one")!.tags).toEqual([]);
+    });
+  });
+
+  // Raindrop's HTML export is a Netscape file with real folders and TAGS, so it
+  // already read; this pins that it keeps doing so.
+  describe("a Raindrop HTML export", () => {
+    const RAINDROP = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<TITLE>Raindrop.io</TITLE>
+<H1>Raindrop.io</H1>
+<DL><p>
+    <DT><H3 ADD_DATE="1700000000">Dev</H3>
+    <DL><p>
+        <DT><A HREF="https://doc.rust-lang.org/book/" ADD_DATE="1700000100" TAGS="rust,learning">Rust book</A>
+        <DD>Read ch. 4 first
+    </DL><p>
+</DL><p>`;
+
+    it("keeps the collection, tags, note and date", () => {
+      const r = byTitle(RAINDROP).get("Rust book")!;
+      expect(r.folderPath).toEqual(["Dev"]);
+      expect(r.tags).toEqual(["rust", "learning"]);
+      expect(r.note).toBe("Read ch. 4 first");
+    });
+  });
 });

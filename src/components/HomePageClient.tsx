@@ -29,6 +29,7 @@ import { ShortcutApp } from "@/types/shortcut";
 import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
+import { parseServiceCsv } from "@/utils/parseServiceCsv";
 import { isUnsafeUrl, normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { buildBackupFile, parseBackupJson } from "@/utils/bookmarkBackupFile";
@@ -1076,10 +1077,18 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       });
       return;
     }
-    if (isLikelyJson) console.error("JSON import failed, trying HTML instead");
+    if (isLikelyJson) console.error("JSON import failed, trying another format");
 
-    // Fallback to Netscape HTML import (bookmarks only).
-    const imported = parseBookmarkHtml(text);
+    // A CSV from Raindrop or Pocket (or any list with a "url" column); otherwise
+    // a browser or Pocket HTML file. Both give the same records, so they share
+    // the preview, the duplicate check, the folder planning and Undo.
+    const isCsv = file.name.toLowerCase().endsWith(".csv");
+    const csv = isCsv ? parseServiceCsv(text) : null;
+    if (isCsv && !csv) {
+      toast("That CSV has no \"url\" column, so there are no links to import.", { variant: "error" });
+      return;
+    }
+    const imported = csv ? csv.bookmarks : parseBookmarkHtml(text);
     if (imported.length === 0) {
       toast("No bookmarks found in that file.", { variant: "error" });
       return;
@@ -1087,8 +1096,9 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     // The file's folder tree is recreated (or matched to yours) and every link
     // filed in it — it used to land in Unstaged.
     const bm = planHtmlImport(bookmarks, folderEntities, imported);
+    const from = csv && csv.flavour !== "generic" ? ` (${csv.flavour === "pocket" ? "Pocket" : "Raindrop"})` : "";
     setImportPreview({
-      source: file.name,
+      source: `${file.name}${from}`,
       newBookmarks: bm.additions.length,
       duplicateBookmarks: bm.duplicate,
       newShortcuts: 0,
@@ -1520,7 +1530,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           <label className="relative inline-flex cursor-pointer items-center">
             <input
               type="file"
-              accept=".html,text/html"
+              accept=".html,.htm,.csv,.json,text/html,text/csv,application/json"
               className="absolute inset-0 cursor-pointer opacity-0"
               onChange={(e) =>
                 handleImport(e.target.files?.[0] ?? null).catch(console.error)
@@ -1856,7 +1866,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                 <label className="relative inline-flex cursor-pointer items-center align-middle">
                   <input
                     type="file"
-                    accept=".html,text/html"
+                    accept=".html,.htm,.csv,.json,text/html,text/csv,application/json"
                     className="absolute inset-0 cursor-pointer opacity-0"
                     onChange={(e) =>
                       handleImport(e.target.files?.[0] ?? null).catch(
