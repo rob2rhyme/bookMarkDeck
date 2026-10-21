@@ -17,6 +17,7 @@ import {
 import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
 import { notesCacheKey } from "@/lib/notesIndex";
 import { appendEvent, tagDiff, type NoteEvent } from "@/features/notes/lib/activity";
+import { CONFLICTS_FOUND, planReconnect, readBase, recordBase } from "@/features/notes/lib/conflicts";
 
 // Same model as the filing hooks: a per-user localStorage cache renders at once,
 // a live Firestore subscription takes over once connected, and changes made while
@@ -155,7 +156,9 @@ export function useNotes(email?: string | null, connected = false) {
 
   // On connect: replay offline deletes, upload what the cloud never had plus
   // what was edited offline (toUpload), THEN attach the listener — so the first
-  // snapshot can't drop notes written before connecting.
+  // snapshot can't drop notes written before connecting. An offline edit to a
+  // note another device ALSO changed meanwhile keeps both (lib/conflicts.ts): the
+  // newer version wins the note, the other is written as a conflicted copy.
   useEffect(() => {
     if (!canSync || !email) return;
     let cancelled = false;
@@ -163,17 +166,28 @@ export function useNotes(email?: string | null, connected = false) {
     (async () => {
       await flushPendingDeletes(DOMAIN, email, (id) => deleteNote(email, id));
       const cloud = await fetchNotes(email);
-      const cloudIds = new Set(cloud.map((n) => n.id));
-      await Promise.all(
-        toUpload(ref.current, cloudIds, DOMAIN, email).map((n) => saveNote(email, n).catch(() => {}))
+      const cloudById = new Map(cloud.map((n) => [n.id, n]));
+      const plan = planReconnect(
+        toUpload(ref.current, new Set(cloudById.keys()), DOMAIN, email),
+        cloudById,
+        readBase(email),
+        new Date()
       );
+      if (plan.copies.length) commit([...current(), ...plan.copies]);
+      const written = [...plan.push, ...plan.copies];
+      await Promise.all(written.map((n) => saveNote(email, n).catch(() => {})));
+      recordBase(email, written);
       clearPendingUpserts(DOMAIN, email);
+      if (plan.copies.length) {
+        window.dispatchEvent(new CustomEvent(CONFLICTS_FOUND, { detail: { count: plan.copies.length } }));
+      }
     })()
       .catch(() => {})
       .finally(() => {
         if (cancelled) return;
         unsub = subscribeNotes(email, (cloud) => {
           recordSyncedIds(DOMAIN, email, cloud.map((n) => n.id));
+          recordBase(email, cloud, true);
           commit(cloud);
           setCloudLoaded(true);
         });
@@ -182,13 +196,13 @@ export function useNotes(email?: string | null, connected = false) {
       cancelled = true;
       unsub();
     };
-  }, [canSync, email, commit]);
+  }, [canSync, email, commit, current]);
 
   /** Push one note. Resolves when the cloud has it — or at once when it was only queued. */
   const write = useCallback(
     (note: Note): Promise<void> => {
       if (canSync && email) {
-        return saveNote(email, note).catch((err) => {
+        return saveNote(email, note).then(() => recordBase(email, [note]), (err) => {
           // A rejected write (e.g. over Firestore's 1 MiB document cap) should be
           // diagnosable, and the editor shows it as a failed save.
           console.error("[notes] save failed:", err);

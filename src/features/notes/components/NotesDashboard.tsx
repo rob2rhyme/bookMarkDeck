@@ -26,6 +26,7 @@ import { isActive, parseQuery, searchNotes, type NoteHit } from "@/features/note
 import { tagCounts } from "@/features/notes/lib/tags";
 import { lock as lockVault, useVaultUnlocked } from "@/features/notes/lib/vaultSession";
 import { consumeNewNoteIntent, NEW_NOTE_NUDGE } from "@/lib/notesIndex";
+import { CONFLICTS_FOUND } from "@/features/notes/lib/conflicts";
 
 const isTyping = (el: Element | null) =>
   !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable);
@@ -103,6 +104,22 @@ export function NotesDashboard({
     window.addEventListener(NEW_NOTE_NUDGE, take);
     return () => window.removeEventListener(NEW_NOTE_NUDGE, take);
   }, [ready, createNote, router]);
+
+  // A reconnect found notes edited on two devices and kept both (lib/conflicts.ts).
+  useEffect(() => {
+    const onConflicts = (e: Event) => {
+      const n = (e as CustomEvent<{ count: number }>).detail?.count ?? 0;
+      if (!n) return;
+      toast(
+        n === 1
+          ? "A note was edited on two devices — both versions kept (see #conflict)"
+          : `${n} notes were edited on two devices — both versions kept (see #conflict)`,
+        { variant: "default" }
+      );
+    };
+    window.addEventListener(CONFLICTS_FOUND, onConflicts);
+    return () => window.removeEventListener(CONFLICTS_FOUND, onConflicts);
+  }, [toast]);
 
   const onNew = () => {
     if (!ready) return;

@@ -982,6 +982,16 @@ feature; nothing imports it — removable cleanly in both directions.
   the dialog opens and stored nowhere. Locked notes count, but not their words. Last
   writer wins per note, so two devices editing one note at once can drop each other's
   events, as with the note's text.
+- **Edited on two devices → both kept** (`lib/conflicts.ts`). Each device remembers, per
+  note, the cloud `updatedAt` it last saw (its *base*, `bookmarkdeck:notes:base:v1:{email}`,
+  refreshed from every snapshot and every confirmed write). On reconnect, `planReconnect`
+  checks each offline edit `toUpload` would push: if the cloud copy moved past this device's
+  base and the text differs, the newer version keeps the note and the older is written as a
+  new "(conflicted copy)" tagged `#conflict`, with a `conflict` history event, and the list
+  toasts (`CONFLICTS_FOUND`). Before, the upload overwrote the other device's edit. **Not
+  covered:** locked notes (ciphertext is bound to the note id, so a copy under a new id
+  couldn't decrypt — they stay last-writer-wins), notes with no recorded base (edits made
+  before this shipped), and two devices both online typing in the same note at once.
 - Shared-file touches (additive): `AppShell.tsx` (nav entry; both navs omit the active
   pillar), `CommandPalette.tsx` + `@/lib/notesIndex` (⌘K), `icons.tsx` (`StickyNote`, `Copy`, `ClipboardPaste`, `Pin`, `Lock`, `Unlock`),
   `globals.css` (`.bd-note-title`).

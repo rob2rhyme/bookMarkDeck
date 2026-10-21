@@ -880,6 +880,14 @@ export default function GuidePage() {
               most-edited and long-untouched notes, and a recent-activity list
               that includes deletions. It&apos;s all worked out on your device.
             </p>
+            <p>
+              Edited the same note on two devices while one was offline? When
+              it reconnects, nothing is overwritten: the newer version stays in
+              the note and the other is saved beside it as a{" "}
+              <em>(conflicted copy)</em> tagged <code>#conflict</code>, so you
+              can merge them and delete the copy. (Locked notes keep whichever
+              was saved last.)
+            </p>
           </Sub>
         </Section>
 

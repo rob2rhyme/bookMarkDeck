@@ -18,7 +18,8 @@ export type NoteEventKind =
   | "locked"
   | "unlocked"
   | "restored"
-  | "imported";
+  | "imported"
+  | "conflict";
 
 export type NoteEvent = {
   /** ISO instant. For a coalesced "edited", the LAST edit in the run. */
@@ -52,6 +53,7 @@ export const EVENT_LABELS: Record<NoteEventKind, string> = {
   unlocked: "Unlocked",
   restored: "Restored",
   imported: "Restored from a backup",
+  conflict: "Saved as a conflicted copy — another device edited the note too",
 };
 
 const KINDS = new Set<string>(Object.keys(EVENT_LABELS));
