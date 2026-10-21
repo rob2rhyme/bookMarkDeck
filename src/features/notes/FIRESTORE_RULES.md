@@ -18,7 +18,7 @@ All three are under `users/{uid}`, so the existing recursive owner rule in
 
 ```
 match /users/{uid}/{document=**} {
-  allow read, write: if request.auth != null && request.auth.uid == uid;
+  allow read, write: if isOwner(uid); // this uid AND the owner's verified email — see firestore.rules
 }
 ```
 
