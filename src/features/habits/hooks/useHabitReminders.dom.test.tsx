@@ -28,6 +28,14 @@ vi.mock("@/lib/push", () => ({
     (await Notification.requestPermission()) === "granted",
 }));
 
+const snoozes = vi.fn();
+const clearSnooze = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/snoozeRecords", () => ({
+  readSnoozes: () => snoozes(),
+  clearSnooze: (tag: string) => clearSnooze(tag),
+}));
+
+import { cancelPush } from "@/lib/push";
 import { useHabitReminders } from "./useHabitReminders";
 import type { Habit, HabitStats } from "@/features/habits/lib/types";
 
@@ -58,6 +66,9 @@ let requestPermission: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   localStorage.clear();
+  snoozes.mockReset().mockResolvedValue([]);
+  clearSnooze.mockClear();
+  vi.mocked(cancelPush).mockClear();
   requestPermission = vi.fn().mockResolvedValue("granted");
   vi.stubGlobal("Notification", {
     permission: "default",
@@ -121,5 +132,49 @@ describe("useHabitReminders reports whether push can actually work", () => {
       useHabitReminders("a@b.test", [bare], stats, "2026-01-01")
     );
     expect(result.current.hasReminders).toBe(false);
+  });
+});
+
+// Tapping "Snooze 1 hour" queues a push from the service worker, which the page
+// can't see being made. Without this sweep, finishing the habit would leave that
+// push queued and the reminder would arrive for something already done.
+describe("useHabitReminders and snoozed reminders", () => {
+  const granted = () => {
+    pushSupported.mockReturnValue(true);
+    vi.stubGlobal("Notification", { permission: "granted", requestPermission });
+  };
+  const farFuture = () => Date.now() + 30 * 60_000;
+  const run = (map = stats, habits = [habit]) =>
+    renderHook(() => useHabitReminders("a@b.test", habits, map, "2026-01-01"));
+
+  it("cancels a snoozed push once its habit is done", async () => {
+    granted();
+    snoozes.mockResolvedValue([{ tag: "habit:h1", messageId: "snz-1", fireAt: farFuture() }]);
+    run(new Map([["h1", { doneToday: true } as HabitStats]]));
+    await waitFor(() => expect(cancelPush).toHaveBeenCalledWith("snz-1"));
+    expect(clearSnooze).toHaveBeenCalledWith("habit:h1");
+  });
+
+  it("leaves a pending snooze alone while the habit is still open", async () => {
+    granted();
+    snoozes.mockResolvedValue([{ tag: "habit:h1", messageId: "snz-1", fireAt: farFuture() }]);
+    run();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(cancelPush).not.toHaveBeenCalledWith("snz-1");
+    expect(clearSnooze).not.toHaveBeenCalled();
+  });
+
+  it("drops a snooze that has already fired, and one for a deleted habit", async () => {
+    granted();
+    snoozes.mockResolvedValue([
+      { tag: "habit:h1", messageId: "old", fireAt: Date.now() - 10 * 60_000 },
+      { tag: "habit:gone", messageId: "snz-9", fireAt: farFuture() },
+      { tag: "filing-digest", messageId: "not-ours", fireAt: farFuture() },
+    ]);
+    run();
+    await waitFor(() => expect(cancelPush).toHaveBeenCalledWith("snz-9"));
+    expect(clearSnooze).toHaveBeenCalledWith("habit:h1");
+    expect(clearSnooze).toHaveBeenCalledWith("habit:gone");
+    expect(cancelPush).not.toHaveBeenCalledWith("not-ours");
   });
 });

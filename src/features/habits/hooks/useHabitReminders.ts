@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cancelPush, pushSupported, requestPushPermission, schedulePush } from "@/lib/push";
+import { clearSnooze, readSnoozes } from "@/lib/snoozeRecords";
 import { nextReminderAt, reminderBody } from "@/features/habits/lib/reminders";
 import type { Habit, HabitStats } from "@/features/habits/lib/types";
 
@@ -119,8 +120,24 @@ export function useHabitReminders(
             body: reminderBody(h, statsByHabit.get(h.id)?.currentStreak ?? 0),
             url: "/habits",
             tag: `habit:${h.id}`,
+            snoozable: true,
           });
           map[h.id] = { fireAt: desired, messageId };
+        }
+
+        // A snoozed reminder (queued by the notification's own button) goes
+        // quiet once its habit is done or gone — the worker can't hear that.
+        const nowMs = now.getTime();
+        for (const snz of await readSnoozes()) {
+          if (!snz.tag.startsWith("habit:")) continue;
+          const id = snz.tag.slice("habit:".length);
+          const done = statsByHabit.get(id)?.doneToday ?? false;
+          if (!activeIds.has(id) || done) {
+            await cancelPush(snz.messageId);
+            await clearSnooze(snz.tag);
+          } else if (snz.fireAt < nowMs - 60_000) {
+            await clearSnooze(snz.tag);
+          }
         }
 
         if (!cancelled) {

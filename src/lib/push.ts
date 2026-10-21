@@ -141,6 +141,8 @@ export async function schedulePush(opts: {
   body: string;
   url: string;
   tag: string;
+  /** Offer a "Snooze 1 hour" action on the notification (habit reminders). */
+  snoozable?: boolean;
 }): Promise<string | null> {
   const subscription = await getSubscription();
   if (!subscription) return null;
@@ -156,6 +158,7 @@ export async function schedulePush(opts: {
         body: opts.body,
         url: opts.url,
         tag: opts.tag,
+        ...(opts.snoozable ? { snooze: true } : {}),
       }),
     });
     if (!res.ok) return null;

@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 
+import { SNOOZE_CACHE } from "@/lib/snoozeRecords";
+
 // public/sw.js is a plain script the browser loads, so nothing imports it and no
 // other test reaches it. This loads the real file into a sandbox with fake
 // worker globals and dispatches events at it — it only became reachable once
@@ -61,7 +63,11 @@ function fakeCaches() {
 
 function loadWorker(
   windows: FakeWindow[] = [],
-  { caches = fakeCaches().storage, fetch = vi.fn() }: { caches?: unknown; fetch?: unknown } = {}
+  {
+    caches = fakeCaches().storage,
+    fetch = vi.fn(),
+    subscription = null,
+  }: { caches?: unknown; fetch?: unknown; subscription?: unknown } = {}
 ) {
   const handlers: Record<string, Handler> = {};
   const self = {
@@ -70,14 +76,17 @@ function loadWorker(
       handlers[type] = fn;
     },
     skipWaiting: vi.fn(),
-    registration: { showNotification: vi.fn(async () => {}) },
+    registration: {
+      showNotification: vi.fn(async () => {}),
+      pushManager: { getSubscription: vi.fn(async () => subscription) },
+    },
     clients: {
       claim: vi.fn(),
       matchAll: vi.fn(async () => windows),
       openWindow: vi.fn(async () => null),
     },
   };
-  runInNewContext(SOURCE, { self, caches, fetch, URL, console, Promise });
+  runInNewContext(SOURCE, { self, caches, fetch, URL, console, Promise, Response });
 
   async function dispatch(type: string, event: object) {
     const pending: Promise<unknown>[] = [];
@@ -141,6 +150,74 @@ describe("push", () => {
   it("uses the monochrome badge, not the opaque app icon", async () => {
     const { options } = await push({ title: "x" });
     expect(options.badge).toBe("/icons/badge-96.png");
+  });
+});
+
+describe("snooze action", () => {
+  const reminder = {
+    title: "Stretch",
+    body: "Time for Stretch.",
+    url: "/habits",
+    tag: "habit:h1",
+    snooze: true,
+  };
+  const SUB = { endpoint: "https://fcm.googleapis.com/x", toJSON: () => ({ endpoint: "https://fcm.googleapis.com/x" }) };
+
+  async function clickSnooze(opts: { fetch: unknown; windows?: FakeWindow[]; subscription?: unknown }) {
+    const store = fakeCaches();
+    const worker = loadWorker(opts.windows ?? [], {
+      caches: store.storage,
+      fetch: opts.fetch,
+      subscription: "subscription" in opts ? opts.subscription : SUB,
+    });
+    await worker.dispatch("push", { data: { json: () => reminder } });
+    const [, options] = worker.self.registration.showNotification.mock.calls[0] as unknown as [
+      string,
+      { actions?: { action: string; title: string }[]; data: object },
+    ];
+    await worker.dispatch("notificationclick", {
+      action: "snooze",
+      notification: { close: vi.fn(), data: options.data },
+    });
+    return { worker, store, options };
+  }
+
+  it("offers the action only on a message that asked for it", async () => {
+    const plain = await push({ title: "x", tag: "filing-digest" });
+    expect((plain.options as { actions?: unknown }).actions).toBeUndefined();
+    const { options } = await clickSnooze({ fetch: vi.fn(async () => ({ ok: true, json: async () => ({ messageId: "m2" }) })) });
+    expect(options.actions).toEqual([{ action: "snooze", title: "Snooze 1 hour" }]);
+  });
+
+  it("queues the same notification an hour out, records it, and opens nothing", async () => {
+    const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ messageId: "m2" }) }));
+    const { worker, store } = await clickSnooze({ fetch });
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, { body: string }];
+    expect(url).toBe("/api/push/schedule");
+    expect(JSON.parse(init.body)).toMatchObject({
+      delaySec: 3600,
+      title: "Stretch",
+      body: "Time for Stretch.",
+      url: "/habits",
+      tag: "habit:h1",
+      snooze: true,
+    });
+    expect(worker.self.clients.openWindow).not.toHaveBeenCalled();
+    const saved = store.entries.get(`${ORIGIN}/__snooze/habit%3Ah1`) as Response;
+    expect(await saved.json()).toMatchObject({ tag: "habit:h1", messageId: "m2" });
+  });
+
+  it.each([
+    ["the server refuses", { fetch: vi.fn(async () => ({ ok: false, json: async () => ({}) })), subscription: SUB }],
+    ["there is no push subscription", { fetch: vi.fn(), subscription: null }],
+  ])("opens the app instead when %s", async (_label, opts) => {
+    const { worker } = await clickSnooze(opts);
+    expect(worker.self.clients.openWindow).toHaveBeenCalledWith(`${ORIGIN}/habits`);
+  });
+
+  it("keeps its cache name in step with the page's reader, and out of activate's cleanup", () => {
+    expect(SOURCE).toContain(`const SNOOZE_CACHE = "${SNOOZE_CACHE}"`);
+    expect(SOURCE).toContain("k !== SNOOZE_CACHE");
   });
 });
 

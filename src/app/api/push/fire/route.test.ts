@@ -104,6 +104,15 @@ describe("push fire route", () => {
     });
   });
 
+  it("forwards snooze only when it is exactly true", async () => {
+    await POST(req({ ...BODY, snooze: true }));
+    const send = vi.mocked(webpush.sendNotification);
+    expect(JSON.parse(String(send.mock.calls[0][1])).snooze).toBe(true);
+    send.mockClear();
+    await POST(req({ ...BODY, snooze: "yes" }));
+    expect(JSON.parse(String(send.mock.calls[0][1]))).not.toHaveProperty("snooze");
+  });
+
   // sw.js shows the tag, and a notification replaces any other with the same
   // one — so dropping it here collapsed every pillar onto the timer's.
   it("forwards the tag to the service worker", async () => {

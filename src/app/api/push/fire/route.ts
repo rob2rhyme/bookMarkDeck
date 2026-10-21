@@ -34,6 +34,7 @@ export async function POST(req: Request) {
     body?: string;
     url?: string;
     tag?: string;
+    snooze?: boolean;
   };
   try {
     data = JSON.parse(bodyText);
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
         body: data.body ?? "",
         url: data.url ?? "/focus",
         tag: data.tag,
+        ...(data.snooze === true ? { snooze: true } : {}),
       })
     );
   } catch {
