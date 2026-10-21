@@ -11,6 +11,22 @@ export type AiProduct = {
   description?: string;
 };
 
+/**
+ * The model both AI routes call: AI_CAPTURE_MODEL if set, else the current
+ * Haiku — the cheapest vision tier. One default for both, so they can't drift.
+ */
+export const DEFAULT_AI_MODEL = "claude-haiku-5-5";
+export function aiModel(env: string | undefined = process.env.AI_CAPTURE_MODEL): string {
+  return env?.trim() || DEFAULT_AI_MODEL;
+}
+
+/**
+ * Current models think before they answer, and that thinking counts against
+ * max_tokens. These are short extraction jobs, so effort stays low and the cap
+ * leaves room for the thinking as well as the JSON — only tokens used are billed.
+ */
+export const AI_REQUEST = { maxTokens: 4000, effort: "low" } as const;
+
 /** Longest photo edge sent for identification — keeps a scan ~1–2K image
  *  tokens (fractions of a cent on the default model) without hurting accuracy. */
 export const AI_CAPTURE_MAX_EDGE = 1200;

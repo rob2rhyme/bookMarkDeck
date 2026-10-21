@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AI_REQUEST,
+  DEFAULT_AI_MODEL,
+  aiModel,
   captureInstructions,
   extractJson,
   parseAiProduct,
@@ -102,5 +105,24 @@ describe("captureInstructions", () => {
     const p = captureInstructions("EUR");
     expect(p).toContain("EUR");
     expect(p).toContain('{"name": ""}');
+  });
+});
+
+// Both AI routes read the model from one place. The default was a retired
+// generation's Haiku; current models also think before answering, which counts
+// against max_tokens — a 500-token cap could end in thinking with no JSON.
+describe("aiModel", () => {
+  it("defaults to the current Haiku", () => {
+    expect(aiModel(undefined)).toBe("claude-haiku-5-5");
+    expect(aiModel("  ")).toBe(DEFAULT_AI_MODEL);
+  });
+
+  it("takes AI_CAPTURE_MODEL when set", () => {
+    expect(aiModel(" claude-opus-5-5 ")).toBe("claude-opus-5-5");
+  });
+
+  it("leaves room for thinking as well as the answer", () => {
+    expect(AI_REQUEST.effort).toBe("low");
+    expect(AI_REQUEST.maxTokens).toBeGreaterThanOrEqual(4000);
   });
 });

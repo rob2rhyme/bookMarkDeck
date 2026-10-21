@@ -4,6 +4,8 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import {
   AI_CAPTURE_MAX_CHARS,
+  AI_REQUEST,
+  aiModel,
   captureInstructions,
   extractJson,
   parseAiProduct,
@@ -27,9 +29,9 @@ const FREE_AI_CAPTURES = 5;
 // deployment sets ANTHROPIC_API_KEY (absent → ai_unconfigured; the modal
 // explains). Session-gated (not an open proxy) and size-capped so the key
 // can't be farmed for free vision calls. Model is env-swappable; the default
-// is the cheapest vision tier — roughly $0.002–0.01 per scan — per the
+// is the cheapest vision tier (aiModel) — well under a cent per scan — per the
 // AI-capture cost analysis (set AI_CAPTURE_MODEL to change, no code edit).
-const MODEL = process.env.AI_CAPTURE_MODEL?.trim() || "claude-haiku-4-5";
+const MODEL = aiModel();
 
 export async function POST(req: NextRequest) {
   const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -82,7 +84,8 @@ export async function POST(req: NextRequest) {
   try {
     const response = await client.messages.create({
       model: MODEL,
-      max_tokens: 500,
+      max_tokens: AI_REQUEST.maxTokens,
+      output_config: { effort: AI_REQUEST.effort },
       messages: [
         {
           role: "user",
