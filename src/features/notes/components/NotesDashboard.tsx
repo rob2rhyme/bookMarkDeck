@@ -9,7 +9,6 @@ import { useSession } from "next-auth/react";
 
 import { Archive, BarChart, ClipboardPaste, Lock, Plus, Search, StickyNote, X } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { SectionLabel } from "@/components/ui/SectionLabel";
 import { useToast } from "@/components/toast/ToastProvider";
 import { NoteCard } from "@/features/notes/components/NoteCard";
 import { NotesBackupDialog } from "@/features/notes/components/NotesBackupDialog";
@@ -218,7 +217,9 @@ export function NotesDashboard({
   const hits = searchNotes(notes, query, tag);
 
   const grid = (list: NoteHit[]) => (
-    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    // As many columns as the width allows (one on a phone, four on a wide screen),
+    // so a short list sits side by side instead of stacking in the first column.
+    <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,16rem),1fr))] gap-3">
       {list.map((h) => (
         <NoteCard
           key={h.note.id}
@@ -405,21 +406,11 @@ export function NotesDashboard({
               grid(hits)
             )}
           </section>
-        ) : pinned.length > 0 ? (
-          <>
-            <section className="flex flex-col gap-2">
-              <SectionLabel>Pinned</SectionLabel>
-              {grid(pinned)}
-            </section>
-            {rest.length > 0 && (
-              <section className="flex flex-col gap-2">
-                <SectionLabel>Notes</SectionLabel>
-                {grid(rest)}
-              </section>
-            )}
-          </>
         ) : (
-          grid(rest)
+          // One flowing grid, pinned first. Two stacked sections (a "Pinned" grid,
+          // then a "Notes" grid) left a lone card at the start of each row on a wide
+          // screen; a pinned note is marked by its filled pin and blue edge instead.
+          grid([...pinned, ...rest])
         )}
       </div>
     </div>

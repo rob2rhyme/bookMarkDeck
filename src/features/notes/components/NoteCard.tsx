@@ -6,11 +6,13 @@ import { Copy, Lock, Pin } from "@/components/icons";
 import { Highlight } from "@/features/notes/components/Highlight";
 import { editedAgo, type Note } from "@/features/notes/lib/notes";
 import type { NoteHit } from "@/features/notes/lib/search";
+import { tagTone } from "@/features/notes/lib/tagColor";
 
-const MAX_CHIPS = 3;
+// The first tag is the card's ribbon; up to this many more show as chips.
+const MAX_CHIPS = 2;
 
-// The whole card opens the note; Copy, Pin and the tag chips sit above the link
-// layer so they work without opening it. The link is stretched with an ::after
+// The whole card opens the note; Copy, Pin, the ribbon and the tag chips sit above
+// the link layer so they work without opening it. The link is stretched with an ::after
 // overlay rather than wrapping the card, because a <button> inside an <a> is
 // invalid HTML.
 export function NoteCard({
@@ -29,9 +31,35 @@ export function NoteCard({
   onTagClick: (tag: string) => void;
 }) {
   const { note, title, preview } = hit;
-  const extra = note.tags.length - MAX_CHIPS;
+  const [ribbonTag, ...others] = note.tags;
+  const chips = others.slice(0, MAX_CHIPS);
+  const extra = others.length - chips.length;
+  const ribbon = ribbonTag ? tagTone(ribbonTag) : null;
   return (
-    <li className="group relative flex min-h-[7rem] flex-col gap-1.5 rounded-2xl border border-slate-800/70 bg-slate-900/70 p-4 shadow-sm transition hover:border-slate-600 focus-within:border-blue-500/60">
+    <li
+      // Every card leaves the ribbon's height at the top, tagged or not, so titles
+      // line up across a row.
+      className={`group relative flex min-h-[7.5rem] flex-col gap-1.5 rounded-2xl border bg-slate-900/70 p-4 pt-10 shadow-sm transition hover:border-slate-600 focus-within:border-blue-500/60 ${
+        note.pinned ? "border-blue-500/40" : "border-slate-800/70"
+      }`}
+    >
+      {ribbonTag && ribbon && (
+        // A tab in the top-right corner, flush with the card's rounded edge. The
+        // picked tag reads as solid; the rest as a tint. Its hit area reaches past
+        // the visible tab so it is easy to tap on a phone.
+        <button
+          type="button"
+          onClick={() => onTagClick(ribbonTag)}
+          aria-pressed={activeTag === ribbonTag}
+          aria-label={`Show notes tagged ${ribbonTag}`}
+          title={`#${ribbonTag}`}
+          className={`absolute right-0 top-0 z-10 flex max-w-[65%] items-center rounded-bl-xl rounded-tr-2xl border-b border-l px-3 py-1.5 text-[11px] font-semibold leading-none transition before:absolute before:-inset-1 before:content-[''] ${
+            activeTag === ribbonTag ? ribbon.on : ribbon.soft
+          }`}
+        >
+          <span className="truncate">#{ribbonTag}</span>
+        </button>
+      )}
       <div className="flex items-start gap-2">
         <Link
           href={`/notes/${note.id}`}
@@ -58,19 +86,17 @@ export function NoteCard({
       <p className={`line-clamp-2 text-sm ${preview.text ? "text-slate-400" : "italic text-slate-500"}`}>
         {preview.text ? <Highlight {...preview} /> : note.lock ? "Locked — open to unlock" : "No additional text"}
       </p>
-      {note.tags.length > 0 && (
+      {others.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">
-          {note.tags.slice(0, MAX_CHIPS).map((t) => (
+          {chips.map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => onTagClick(t)}
               aria-pressed={activeTag === t}
               aria-label={`Show notes tagged ${t}`}
-              className={`relative z-10 rounded-full px-2 py-0.5 text-[11px] font-medium transition ${
-                activeTag === t
-                  ? "bg-blue-500/25 text-blue-200"
-                  : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100"
+              className={`relative z-10 rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
+                activeTag === t ? tagTone(t).on : tagTone(t).soft
               }`}
             >
               #{t}

@@ -908,6 +908,17 @@ feature; nothing imports it — removable cleanly in both directions.
   `normalizeNote` re-canonicalises what it reads, so a hand-edited doc can't split a tag.
   Rename/delete across every note is `retag(from, to | null)`; delete offers Undo by
   restoring each note's previous tags.
+- **The list is one flowing grid, and a note's first tag is its ribbon.** `NotesDashboard`
+  renders pinned-then-rest in a single `auto-fill` grid (1 column on a phone, up to 4 wide).
+  It used to be a "Pinned" grid then a "Notes" grid, which left a lone card at the start of
+  each row on a wide screen; a pinned note is now marked by its filled pin and blue edge.
+  `NoteCard` puts the first tag in a corner tab (top-right, with a hit area wider than the
+  tab so it is easy to tap), shows up to two more as chips, and every card reserves the
+  ribbon's height so titles line up across a row. **A tag's colour is derived, never
+  stored** (`lib/tagColor.ts`: hash of the canonical tag → one of 8 fixed tones), so it is
+  the same on every device and in the filter row, and colour is never the only signal — the
+  tab always carries the name. The tone classes use only palette steps the theme map
+  already declares (`themeTokens.test.ts` fails on any other). `e2e/notes-cards.spec.ts`.
 - **Search** (`lib/search.ts`) is pure and client-side over the already-loaded notes —
   no index, nothing stored. Every word must match (title, body or a tag); `"quoted
   phrases"` are one term; `#tag` filters. Case- **and accent**-insensitive: matching
