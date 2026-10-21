@@ -59,7 +59,7 @@ describe("inventory JSON round-trip", () => {
       locations: [
         { id: "loc1", name: "Office", parentId: null, createdAt: null, updatedAt: null },
       ],
-      settings: { defaultCurrency: "EUR", defaultView: "list" },
+      settings: { defaultCurrency: "EUR", defaultView: "list", pushEnabled: false, pushHour: 9 },
     };
     const json = inventoryToJson(backup, "2026-07-13T00:00:00Z");
     const parsed = inventoryFromJson(json);
@@ -73,7 +73,7 @@ describe("inventory JSON round-trip", () => {
     expect(parsed!.items[0].releasedDate).toBe("2026-07-14");
     expect(parsed!.items[0].barcode).toBe("0123456789012");
     expect(parsed!.locations[0].name).toBe("Office");
-    expect(parsed!.settings).toEqual({ defaultCurrency: "EUR", defaultView: "list" });
+    expect(parsed!.settings).toEqual({ defaultCurrency: "EUR", defaultView: "list", pushEnabled: false, pushHour: 9 });
     expect(backupCount(parsed!)).toBe(2);
   });
   it("returns null for junk or empty payloads", () => {
@@ -97,7 +97,7 @@ describe("inventory JSON round-trip", () => {
         }),
       ],
       locations: [],
-      settings: { defaultCurrency: "USD", defaultView: "grid" },
+      settings: { defaultCurrency: "USD", defaultView: "grid", pushEnabled: false, pushHour: 9 },
     };
     const parsed = inventoryFromJson(inventoryToJson(backup, "2026-07-14T00:00:00Z"));
     expect(parsed!.items[0].links).toEqual([

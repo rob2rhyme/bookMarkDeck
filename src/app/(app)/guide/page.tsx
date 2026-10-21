@@ -553,7 +553,8 @@ export default function GuidePage() {
               <strong>use-by date</strong> (self-care also{" "}
               <em>opened-on + months-after-opening</em>, whichever ends
               first), and anything past or within 14 days shows up in the{" "}
-              <strong>Attention</strong> panel. <strong>Clothing</strong> gets
+              <strong>Attention</strong> panel (turn on <strong>🔔 Reminders</strong>{" "}
+              for a once-a-day notification summarising it). <strong>Clothing</strong> gets
               a size. <strong>💾 Digital</strong> covers subscriptions and
               one-time purchases: pick a billing cycle (one-time · monthly ·
               yearly), and subs get a <strong>renewal date that rolls forward

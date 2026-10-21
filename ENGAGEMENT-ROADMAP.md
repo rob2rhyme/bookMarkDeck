@@ -30,8 +30,11 @@ parity, and distribution** — not catalog features.
    (`useFocusStreakNudge`). Both ride the push infrastructure, so they stay silent
    until item 1 is turned on.
 3. **Push-when-closed reminders** (My Stuff: warranty/return/use-by/maintenance) —
-   `[planned, "Fill — high retention"]`. `lib/value.ts` `attention()` already
-   computes what to schedule.
+   `[shipped]`. One daily digest, Filing's design: `lib/digest.ts` summarises
+   `attention()` (same count as the nav badge), `useInventoryPush` re-arms it when
+   My Stuff is opened, and the 🔔 Reminders dialog holds the opt-in and the hour.
+   Same limit as Filing's: the 24 h QStash clamp means it pauses if the app isn't
+   opened for a day. Silent until item 1 is turned on.
 4. **Consumable depletion + restock loop** (My Stuff pantry/self-care) —
    `[planned, ITEM-PROFILES Phase 2]`. Add `restockAt` to `types.ts`, "–used one"
    on `ItemCard`, a new Attention bucket, one-tap wishlist re-add. The only
