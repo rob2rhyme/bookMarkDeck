@@ -173,51 +173,10 @@ export default function LoginPage() {
                         : "Continue with Google"}
                     </span>
                   </button>
-
-                  {/* Apple */}
-                  <button
-                    type="button"
-                    onClick={() => handleClick("apple")}
-                    className="hidden w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-slate-50 ring-1 ring-slate-700 transition hover:bg-slate-800 hover:ring-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                    disabled={isLoading !== null}
-                  >
-                    <span className="flex h-5 w-5 items-center justify-center">
-                      <span className="text-lg"></span>
-                    </span>
-                    <span>
-                      {isLoading === "apple"
-                        ? "Connecting to Apple…"
-                        : "Continue with Apple"}
-                    </span>
-                  </button>
-
-                  {/* Microsoft */}
-                  <button
-                    type="button"
-                    onClick={() => handleClick("microsoft")}
-                    className="hidden w-full items-center justify-center gap-2 rounded-2xl bg-sky-500/90 px-3 py-2.5 text-sm font-medium text-slate-50 shadow-sm transition hover:bg-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                    disabled={isLoading !== null}
-                  >
-                    <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-sky-700/80 text-[11px]">
-                      ☐
-                    </span>
-                    <span>
-                      {isLoading === "microsoft"
-                        ? "Connecting to Microsoft…"
-                        : "Continue with Microsoft"}
-                    </span>
-                  </button>
-                </div>
-
-                {/* Divider */}
-                <div className="my-4 flex items-center gap-3 text-[11px] text-slate-500">
-                  <div className="h-px flex-1 bg-slate-800" />
-                  <span>or</span>
-                  <div className="h-px flex-1 bg-slate-800" />
                 </div>
 
                 {/* Optional helper text */}
-                <p className="text-[11px] leading-relaxed text-slate-500">
+                <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
                   By continuing, you agree to the{" "}
                   <Link
                     href="/terms"
