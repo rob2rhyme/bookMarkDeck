@@ -43,8 +43,8 @@ parity, and distribution** — not catalog features.
   (`insights.ts`, `focusSessions`, `HabitStats`); calm dismissible cards, **no
   points economy**. Fixes Focus's gamification being trivia (`focusScores`)
   decoupled from actual output.
-- **Weekly recap card** (all pillars, `[net-new]`) — data already computed
-  (`useFocusStats` week-vs-week, `habits/lib/insights.ts`), just not surfaced.
+- ~~**Weekly recap card**~~ — **shipped** as "Your week" on the home page
+  (`WeeklyRecapCard`, `@/lib/weeklyRecap`): focus, habits, bookmarks, notes, items.
 - ~~**PWA `share_target` + save-current-page**~~ — **shipped**: `manifest.ts`
   `share_target` → `/share` (Android; iOS has no web share target). See CLAUDE.md
   → Routing & shell.

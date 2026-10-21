@@ -65,6 +65,23 @@ export function readNoteSummaries(email: string | null | undefined): NoteSummary
   }
 }
 
+/** When each of the signed-in account's cached notes was written and last edited — for the weekly recap. */
+export function readNoteDates(
+  email: string | null | undefined
+): { createdAt: string | null; updatedAt: string | null }[] {
+  if (typeof window === "undefined" || !email) return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(notesCacheKey(email)) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    const str = (v: unknown) => (typeof v === "string" ? v : null);
+    return parsed
+      .filter((n) => n && typeof n.id === "string")
+      .map((n) => ({ createdAt: str(n.createdAt), updatedAt: str(n.updatedAt) }));
+  } catch {
+    return [];
+  }
+}
+
 /* -------------------------------------------------------- new-note intent --- */
 
 const NEW_NOTE_KEY = "bd:intent:new-note";
