@@ -266,10 +266,12 @@ export function useHabits(
       if (!today) return;
       const source = resolveSource(habit);
       if (!source?.mirror) return;
-      source.mirror(
-        { email, day: today, canSync },
-        Math.max(0, Math.round(value))
-      );
+      // Callers run before the entry change renders, so the ref still holds the
+      // count being replaced: the difference is this tap's own change.
+      const prev = entriesRef.current.find((e) => e.id === entryId(habit.id, today));
+      const before = prev && prev.status === "done" ? prev.count : 0;
+      const next = Math.max(0, Math.round(value));
+      source.mirror({ email, day: today, canSync }, next, next - before);
     },
     [canSync, email, today]
   );
@@ -654,7 +656,7 @@ export function useHabits(
             createdAt: e?.createdAt ?? new Date().toISOString(),
           });
         if (r.mirror != null)
-          source.mirror?.({ email, day, canSync }, r.mirror);
+          source.mirror?.({ email, day, canSync }, r.mirror, r.mirror - (remote ?? 0));
       });
     });
     return () => unsubs.forEach((u) => u());

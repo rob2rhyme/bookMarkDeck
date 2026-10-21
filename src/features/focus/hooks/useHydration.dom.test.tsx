@@ -498,6 +498,80 @@ describe("useHydration — across midnight", () => {
   });
 });
 
+// Every cup used to be written as the day's TOTAL. Once a listener was
+// attached the last writer won: a laptop whose connection dropped kept its
+// listener, and its next drink put its stale total over the phone's newer one.
+// A cup is now sent as the change it makes, so the two compose.
+describe("useHydration — two devices", () => {
+  const synced = { ...ARGS, connected: true };
+  const flush = () => act(async () => {});
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0));
+    localStorage.clear();
+    cloud.reset();
+    vi.mocked(saveHydration).mockClear();
+    vi.mocked(addHydration).mockClear();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("keeps the phone's cups when the laptop drinks without having heard of them", async () => {
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    act(() => cloud.goSilent()); // the laptop stops hearing back; its listener stays
+    act(() => result.current.drink());
+    act(() => result.current.drink());
+    act(() => cloud.add("2026-10-11", 3)); // the phone logs 3
+    act(() => result.current.drink());
+    expect(result.current.cups).toBe(3); // the laptop hasn't heard yet…
+    expect(cloud.days.get("2026-10-11")).toBe(6); // …but nothing was lost
+    act(() => cloud.reconnect());
+    expect(result.current.cups).toBe(6);
+    expect(saveHydration).not.toHaveBeenCalled();
+  });
+
+  it("keeps the phone's cups when the laptop removes one", async () => {
+    cloud.write("2026-10-11", 4);
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    act(() => cloud.goSilent());
+    act(() => cloud.add("2026-10-11", 2)); // the phone: 6
+    act(() => result.current.removeCup()); // the laptop, still on 4
+    act(() => cloud.reconnect());
+    expect(cloud.days.get("2026-10-11")).toBe(5);
+    expect(result.current.cups).toBe(5);
+  });
+
+  it("sends nothing for a removal at 0", async () => {
+    const { result } = renderHook(() => useHydration(synced));
+    await flush();
+    act(() => result.current.removeCup());
+    expect(addHydration).not.toHaveBeenCalled();
+    expect(result.current.cups).toBe(0);
+  });
+
+  // React may run a state updater twice; an increment sent from one would count twice.
+  it("counts one tap once under StrictMode", async () => {
+    const { result } = renderHook(() => useHydration(synced), { reactStrictMode: true });
+    await flush();
+    act(() => result.current.drink());
+    expect(cloud.days.get("2026-10-11")).toBe(1);
+    expect(result.current.cups).toBe(1);
+  });
+
+  it("merges a gap drink as an increment, so a cup landing meanwhile still counts", async () => {
+    seed({ day: "2026-10-11", cups: 2 });
+    cloud.write("2026-10-11", 1);
+    const { result } = renderHook(() => useHydration(synced));
+    act(() => result.current.drink()); // before the first answer
+    await flush();
+    expect(result.current.cups).toBe(3); // max(2, 1) + this cup
+    expect(addHydration).toHaveBeenCalledWith(EMAIL, "2026-10-11", 2);
+    expect(saveHydration).not.toHaveBeenCalled();
+  });
+});
+
 // The time of the last drink is part of the record: a reload keeps it, so a
 // reminder due in 10 minutes doesn't restart at 60.
 describe("useHydration — the reminder clock", () => {
