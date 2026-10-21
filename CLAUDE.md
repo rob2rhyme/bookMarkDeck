@@ -54,7 +54,11 @@ the `signIn` callback refuses other accounts (and unverified emails); the `jwt` 
 throws for them, which makes next-auth clear the cookie, so a session minted before the
 lock reads as signed out; and `middleware.ts` checks the email itself, since the gate
 decodes the cookie without running callbacks. `e2e/allowlist.spec.ts` pins all three
-from the outside. The default lives in code so an unset variable locks to the owner
+from the outside. **Sessions last 14 idle days** (`session.maxAge`; next-auth's default is
+30): the cookie carries the Google refresh token, and the expiry slides with every visit.
+Google access is **not** revoked on sign-out on purpose — revoking the refresh token revokes
+the whole grant, which would cut Tasks/Calendar on every other signed-in device too.
+The default lives in code so an unset variable locks to the owner
 rather than failing open. **Firestore is locked the same way** (see **Firestore security
 rules**): before, anyone could sign into Firebase with the public web config and keep data
 under their *own* `users/{uid}` at the owner's cost. The Firebase project
@@ -320,6 +324,9 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   and `e2e/machine.spec.ts` asserts each is answered by its route **and** that neighbouring
   routes stay gated. **Exempting a route makes its own gate the only gate**, so any route
   added to that list needs a route test proving its check rejects a forged request.
+  The billing webhook also drops an event older than the stored entitlement (`updatedAt`,
+  from Lemon Squeezy's `updated_at`): deliveries retry and arrive out of order, and a late
+  "active" landing after "expired" used to hand pro back for good.
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
   Covers the public surface *and* all six authed pillars — signing in needs no real
   credentials, because the gate is `getServerSession`, which only verifies a

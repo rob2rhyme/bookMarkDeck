@@ -64,3 +64,9 @@ describe("firestore.rules", () => {
     expect(emails.sort()).toEqual([...DEFAULT_ALLOWED_EMAILS].map((e) => e.toLowerCase()).sort());
   });
 });
+
+describe("session lifetime", () => {
+  it("expires after 14 idle days, not next-auth's default 30", () => {
+    expect(authConfig.session).toMatchObject({ strategy: "jwt", maxAge: 14 * 24 * 60 * 60 });
+  });
+});

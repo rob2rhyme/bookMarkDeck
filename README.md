@@ -1,6 +1,6 @@
 # Bookmark Deck
 
-A calm, private home for your online life — and the life around it. Five pillars share one roof:
+A calm, private home for your online life — and the life around it. Six pillars share one roof:
 
 | Pillar | What it holds |
 |---|---|
@@ -9,8 +9,9 @@ A calm, private home for your online life — and the life around it. Five pilla
 | **Habits** (`/habits`) | The consistency you build — forgiving streaks, insights, gentle reminders |
 | **My Stuff** (`/inventory`) | The things you own — home inventory with photos, values, warranties, lending & more |
 | **Filing** (`/filing`) | Where every paper lives — cabinets, folders and papers, plus what they oblige you to do |
+| **Notes** (`/notes`) | What you jot down — smart lists, Markdown, search & tags, end-to-end encrypted locked notes, history & insights |
 
-Everything is **local-first** (saves to your device instantly, works offline, installable as a PWA) and syncs to your own Google account when you're signed in. **One sign-in connects sync for every pillar** — no per-app prompts. No analytics, no ads.
+Everything is **local-first** (saves to your device instantly, works offline, installable as a PWA) and syncs to your own Google account when you're signed in. **One sign-in connects sync for every pillar** — no per-app prompts. No analytics, no ads. **Private to its owner**: only the owner's Google account can sign in, and the database rules refuse every other account.
 
 ## What's inside
 
@@ -55,6 +56,13 @@ Everything is **local-first** (saves to your device instantly, works offline, in
 - **Linked to your bookmarks.** A paper can point at the bookmark for the account it belongs to, so the policy in Drawer 2 and the insurer's login page are one record. JSON/CSV export; importing merges and never deletes.
 - Retention and renewal periods are labelled guidance, not legal or tax advice.
 
+### Notes — jot it down, find it later
+- **Write without thinking about it**: autosave, lists that continue themselves (bullets, numbers, checkboxes), Tab to indent, ⌘B/⌘I formatting, and Markdown with a live **Preview** where ticking a box ticks it in the note. Paste-as-new-note and one-tap Copy.
+- **Find it again**: pinned first, accent-insensitive search with `"phrases"` and `#tag` filters, tags renamable across every note, and notes in **⌘K**.
+- **Locked notes, end-to-end encrypted**: lock any note with one notes passphrase (plus a recovery code shown once). The text is encrypted on your device (AES-256-GCM); nobody else can read it, including whoever stores the data. Titles and tags stay searchable.
+- **Backup & export**: a restorable JSON backup (locked notes stay encrypted) and a readable Markdown export; restore merges and never deletes.
+- **History & Insights**: each note records what happened to it and when — never what it said — and Insights shows totals, 12 weeks of activity, top tags and a recent-activity list including deletions, all computed on your device.
+
 ### Personalization
 - Appearance settings (fonts — including your own font file, kept on-device — and size tuning), decorative cursor companions, and a mobile bottom nav.
 
@@ -89,7 +97,8 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests + build on every PR.
 - **Dual-layer auth**: next-auth (Google) owns the session; Firebase Auth owns Firestore access. A silent id_token bridge connects the two, so one Google sign-in covers every pillar's sync (see `CLAUDE.md` → *Auth*).
 - **Data**: one Firestore document per user (`users/{uid}`) plus per-feature subcollections; `localStorage` is a per-user local cache. Cloud writes are optimistic and fail-safe.
 - **PWA**: manifest + conservative service worker (network-first navigations, cache-first hashed assets, `/api/*` untouched) + offline fallback.
-- Feature pillars live under `src/features/{focus,habits,inventory,filing}` and are removable; shared UI in `src/components`.
+- Feature pillars live under `src/features/{focus,habits,inventory,filing,notes}` and are removable; shared UI in `src/components`.
+- **Locked to the owner**: next-auth, the session gate and the Firestore rules all admit only the owner's verified Google account (`src/auth/allowlist.ts`, mirrored in `firestore.rules`).
 
 ### More documentation
 
@@ -98,7 +107,8 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests + build on every PR.
 
 ## Privacy summary
 
-- Local data lives in your browser; cloud data lives in Firebase Firestore scoped to your Google account alone.
+- Local data lives in your browser; cloud data lives in Firebase Firestore, which admits only the owner's verified Google account.
+- Locked notes are end-to-end encrypted; everything else is protected by sign-in and database rules.
 - Camera features (barcode, label OCR, receipt scan) run entirely on-device.
 - No analytics, tracking, or ad SDKs.
 - Leaving: export your data, delete locally, sync the empty state, and revoke access at myaccount.google.com/permissions.

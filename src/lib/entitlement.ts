@@ -9,6 +9,8 @@ export type Entitlement = {
   pro: boolean;
   status?: string; // Lemon Squeezy subscription status
   until?: string; // ISO — current period end / renewal
+  /** ISO — the Lemon Squeezy `updated_at` this state came from; orders webhooks. */
+  updatedAt?: string;
 };
 
 let _redis: Redis | null = null;

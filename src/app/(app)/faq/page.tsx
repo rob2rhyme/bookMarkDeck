@@ -18,21 +18,23 @@ function Q({ q, children }: { q: string; children: React.ReactNode }) {
 
 export default function FaqPage() {
   return (
-    <LegalPageLayout title="FAQ" lastUpdated="July 15, 2026">
+    <LegalPageLayout title="FAQ" lastUpdated="October 21, 2026">
       <section className="space-y-5 text-sm leading-relaxed text-slate-200">
         <Q q="Do I need an account to use Bookmark Deck?">
           <p>
             You sign in once with Google — that&apos;s the only account there
             is. Everything you add is saved on your device instantly, and that
             same sign-in also connects cloud sync for every pillar (Bookmarks,
-            Focus, Habits, My Stuff) so your data can follow you to another
-            device.
+            Focus, Habits, My Stuff, Filing and Notes) so your data can follow
+            you to another device. Bookmark Deck is private to its owner: only
+            the owner&apos;s Google account can sign in, and any other account
+            is told it can&apos;t.
           </p>
         </Q>
 
         <Q q="Why don't I see “Sign in to sync” buttons anymore?">
           <p>
-            One Google sign-in now connects sync for all five pillars
+            One Google sign-in now connects sync for every pillar
             automatically — no per-app taps. If the silent connection ever
             can&apos;t complete (rare), the button reappears and a single tap
             reconnects everything at once.
@@ -41,8 +43,8 @@ export default function FaqPage() {
 
         <Q q="What syncs automatically, and what's manual?">
           <p>
-            <strong>Focus, Habits, and My Stuff</strong> save to your account
-            automatically while you&apos;re signed in.{" "}
+            <strong>Focus, Habits, My Stuff, Filing and Notes</strong> save to
+            your account automatically while you&apos;re signed in.{" "}
             <strong>Bookmarks &amp; shortcuts</strong> sync only when you press{" "}
             <em>Sync to cloud</em> / <em>Sync from cloud</em> on the home page —
             explicit by design, so nothing overwrites without you asking.
@@ -54,7 +56,33 @@ export default function FaqPage() {
             Yes. Bookmark cloud sync keeps your <strong>last 7 snapshots</strong>,
             each restorable in-app or downloadable as JSON. Focus, Habits, and
             My Stuff each export a full JSON backup (plus CSV), and imports
-            merge by id — restoring never duplicates.
+            merge by id — restoring never duplicates. Notes has its own{" "}
+            <em>Backup</em> button: a JSON backup you can restore (locked notes
+            stay encrypted in it) and a Markdown export for reading elsewhere.
+          </p>
+        </Q>
+
+        <Q q="Are my notes encrypted?">
+          <p>
+            Notes you <strong>lock</strong> are encrypted on your device before
+            they&apos;re saved, so their text never reaches the cloud in a
+            readable form. Only your notes passphrase or your recovery code can
+            open them — nobody else, including whoever stores your data. Lose
+            both and the locked text is gone for good, so keep the recovery
+            code somewhere safe. Titles and tags stay readable so you can still
+            find locked notes. Unlocked notes, like the rest of your data, are
+            protected by your sign-in rather than by encryption.
+          </p>
+        </Q>
+
+        <Q q="What does a note's History show?">
+          <p>
+            When a note was created, edited, pinned, tagged, locked, unlocked
+            or restored — never what it said. Saves less than 30 minutes apart
+            count as one edit. <em>Insights</em> on the Notes page adds totals,
+            your most-used tags and a recent-activity list that includes
+            deleted notes (by title). It&apos;s all worked out on your device
+            and shown only to you.
           </p>
         </Q>
 
@@ -96,7 +124,11 @@ export default function FaqPage() {
         </Q>
 
         <Q q="Do you run analytics or ads?">
-          <p>No. There are no analytics, tracking, or ad SDKs in the app.</p>
+          <p>
+            No. There are no analytics, tracking, or ad SDKs in the app. Notes
+            Insights and History are your own records, kept in your account and
+            shown only to you.
+          </p>
         </Q>
 
         <Q q="How do I delete my data?">
@@ -125,7 +157,7 @@ export default function FaqPage() {
             <Link href="/guide" className="text-blue-300 hover:text-blue-200">
               Guide
             </Link>{" "}
-            walks through all five pillars in plain language, and{" "}
+            walks through every pillar in plain language, and{" "}
             <Link
               href="/habits/guide"
               className="text-blue-300 hover:text-blue-200"

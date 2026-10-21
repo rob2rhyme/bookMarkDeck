@@ -7,21 +7,23 @@ export const metadata: Metadata = { title: "Terms" };
 
 export default function TermsPage() {
   return (
-    <LegalPageLayout title="Terms of Service" lastUpdated="February 12, 2026">
+    <LegalPageLayout title="Terms of Service" lastUpdated="October 21, 2026">
       <section className="space-y-4 text-sm leading-relaxed text-slate-200">
         <div>
           <h2 className="text-lg font-semibold text-slate-50">Service scope</h2>
           <p>
-            Bookmark Deck lets you manage bookmarks, folders, tags, notes, and shortcuts, with optional
-            Firebase sync tied to your Google account.
+            Bookmark Deck lets you manage bookmarks and shortcuts, focus work, habits, a home inventory,
+            paper filing and notes, with Firebase sync tied to your Google account.
           </p>
         </div>
 
         <div>
           <h2 className="text-lg font-semibold text-slate-50">Accounts and access</h2>
           <p>
-            Sign-in is handled with Google authentication. You are responsible for account and device security.
-            Protected app routes require authentication.
+            Bookmark Deck is a private, single-owner app. Sign-in is with Google, and only the
+            owner&rsquo;s Google account is allowed; any other account is refused, both at sign-in and
+            by the database. Sessions end after 14 days without use. You are responsible for account and
+            device security. Every app page requires sign-in except the guide, FAQ and legal pages.
           </p>
         </div>
 
@@ -29,7 +31,8 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold text-slate-50">Data handling</h2>
           <p>
             Data is local-first in your browser. If you use sync, a cloud copy is stored in Firestore. Cloud
-            backup snapshots are retained in limited history for restore purposes.
+            backup snapshots are retained in limited history for restore purposes. Notes keep a short
+            history of what happened to each note, without its text.
           </p>
         </div>
 
@@ -61,7 +64,9 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold text-slate-50">Sensitive information</h2>
           <p>
             Do not store highly sensitive credentials (passwords, PINs, payment card data, government IDs)
-            in Bookmark Deck content fields.
+            in Bookmark Deck content fields. Locked notes are end-to-end encrypted, but a forgotten
+            passphrase and a lost recovery code mean their text cannot be recovered by anyone — keep your
+            recovery code somewhere safe.
           </p>
         </div>
 

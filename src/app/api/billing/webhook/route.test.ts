@@ -6,8 +6,8 @@ import type { NextRequest } from "next/server";
 // no cookie), so its signature check is the ONLY thing standing between the
 // internet and a write to someone's entitlement. Pinned here at route level;
 // e2e/machine.spec.ts pins that the middleware lets it through at all.
-vi.mock("@/lib/entitlement", () => ({ setEntitlement: vi.fn() }));
-import { setEntitlement } from "@/lib/entitlement";
+vi.mock("@/lib/entitlement", () => ({ setEntitlement: vi.fn(), getEntitlement: vi.fn(async () => null) }));
+import { getEntitlement, setEntitlement } from "@/lib/entitlement";
 import { POST } from "./route";
 
 const SECRET = "ls-test-secret";
@@ -32,6 +32,7 @@ const EVENT = {
 
 beforeEach(() => {
   vi.mocked(setEntitlement).mockReset();
+  vi.mocked(getEntitlement).mockReset().mockResolvedValue(null);
   vi.stubEnv("LEMONSQUEEZY_WEBHOOK_SECRET", SECRET);
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -82,5 +83,30 @@ describe("billing webhook route", () => {
     const res = await POST(req("{not json"));
     expect(res.status).toBe(400);
     expect(setEntitlement).not.toHaveBeenCalled();
+  });
+
+  describe("out-of-order deliveries", () => {
+    const at = (updated_at: string, event_name: string, status: string) => ({
+      meta: { event_name, custom_data: { email: "a@example.com" } },
+      data: { attributes: { status, updated_at } },
+    });
+
+    it("ignores an event older than the stored state (a late retry can't hand pro back)", async () => {
+      vi.mocked(getEntitlement).mockResolvedValue({ pro: false, status: "expired", updatedAt: "2026-10-20T12:00:00Z" });
+      const res = await POST(req(at("2026-10-01T12:00:00Z", "subscription_updated", "active")));
+      expect(res.status).toBe(200);
+      expect(setEntitlement).not.toHaveBeenCalled();
+    });
+
+    it("applies a newer event and records when it happened", async () => {
+      vi.mocked(getEntitlement).mockResolvedValue({ pro: true, status: "active", updatedAt: "2026-10-01T12:00:00Z" });
+      await POST(req(at("2026-10-20T12:00:00Z", "subscription_expired", "expired")));
+      expect(setEntitlement).toHaveBeenCalledWith("a@example.com", {
+        pro: false,
+        status: "expired",
+        until: undefined,
+        updatedAt: "2026-10-20T12:00:00Z",
+      });
+    });
   });
 });

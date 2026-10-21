@@ -26,7 +26,8 @@ between a bookmark *folder* and a focus session (Phase 4) matters more than any 
      `typecheck` + `test` + `build` + a manual smoke check.
   3. **PWA shipped:** dynamic `src/app/manifest.ts` + `public/sw.js` + install prompt (was
      backlog item **B4**).
-- **Do not touch** the desktop launcher (`launcher.js`) or the Google Drive sync path.
+- **Do not touch** the Google Drive sync path. (The desktop launcher, `launcher.js`, was removed in
+  October 2026 — its app-side feature had been deleted long before, in `ea46ea2`.)
 
 ## Rules of engagement (every phase)
 
@@ -39,7 +40,7 @@ between a bookmark *folder* and a focus session (Phase 4) matters more than any 
    approval before applying.**
 5. Reuse the existing session + Firestore. No second auth/db.
 6. **Verify after every phase:** `lint` + `typecheck` + `build`, then manually confirm login,
-   bookmark sync, Drive sync, and the desktop launcher still work. On any regression: **stop,
+   bookmark sync and Drive sync still work. On any regression: **stop,
    report, propose a revert** — don't push on.
 7. Keep the feature **isolated** under one folder/route namespace, removable cleanly.
 
