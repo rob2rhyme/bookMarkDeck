@@ -21,6 +21,7 @@ import {
 } from "@/hooks/useBookmarks";
 import { useRediscoverBookmark } from "@/hooks/useRediscoverBookmark";
 import { RediscoverBookmarkCard } from "@/components/RediscoverBookmarkCard";
+import { WeeklyRecapCard } from "@/components/WeeklyRecapCard";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
@@ -1456,6 +1457,9 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
             </>
           )}
         </section>
+
+        {/* Your week — this week beside last, across the pillars */}
+        <WeeklyRecapCard email={userId} bookmarks={bookmarks} />
 
         {/* Rediscover — resurface one stale-but-once-loved bookmark */}
         {rediscover.bookmark && (

@@ -134,6 +134,17 @@ export default function GuidePage() {
               shows up later under <em>Top resources</em> in Focus analysis.
             </p>
           </Sub>
+          <Sub title="Your week">
+            <p>
+              Once something has happened, a <strong>Your week</strong> card on
+              this page puts this week (since Monday) beside last week: focus
+              time, habit check-ins, bookmarks saved, notes written and edited,
+              and items added to My Stuff — each row links to its pillar. It&apos;s
+              worked out on your device from what&apos;s already there and stored
+              nowhere. Focus time appears once sync is connected, since sessions
+              live in your account. Tap ✕ to hide it until next Monday.
+            </p>
+          </Sub>
           <Sub title="Saving from other apps">
             <p>
               On Android, install Bookmark Deck (your browser&apos;s{" "}

@@ -249,6 +249,15 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   account's cache loads. **A share while signed out survives sign-in:** login and the
   gate both honour `callbackUrl` through `returnPath` (`@/utils/returnPath`), which keeps
   only a path on this site — before, login always went to `/`. `e2e/share.spec.ts`.
+- **"Your week" on the home page** (`WeeklyRecapCard` + pure `@/lib/weeklyRecap`): this week
+  (Monday → today, local days) **beside** last week — not as a change, since a young week
+  always reads as a drop. Rows appear only with activity in either week. Read from the
+  device caches (habit entries and inventory items by key, notes via `readNoteDates`,
+  bookmarks from the page's own hook), computed on render and stored nowhere; only the
+  "hidden for week X" flag is kept (`bd:recap:hidden:v1`, per device). Focus time comes
+  from `subscribeSessions`, and **only over a Firebase session that already exists for
+  this account** — subscribing without one would open the sign-in popup from the home
+  page. `e2e/recap.spec.ts`.
 
 ## Styling
 
