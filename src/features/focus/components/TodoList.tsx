@@ -16,9 +16,17 @@ import {
   toChecklistBlocks,
 } from "@/utils/noteFormat";
 import { DueField } from "@/features/focus/components/DueField";
+import { TodoOptions } from "@/features/focus/components/TodoOptions";
+import { REPEAT_LABEL, priorityRank } from "@/features/focus/lib/recurrence";
 import type { AgendaEvent } from "@/features/focus/hooks/useGoogleEvents";
 import { filterTodos } from "@/features/focus/lib/todoSearch";
-import type { Todo, TodoList as TodoListKey } from "@/features/focus/lib/types";
+import type {
+  Todo,
+  TodoEdit,
+  TodoList as TodoListKey,
+  TodoPriority,
+  TodoRepeat,
+} from "@/features/focus/lib/types";
 import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 import { todayKey } from "@/lib/dayKey";
 
@@ -32,13 +40,11 @@ type TodoListProps = {
     dueAt: string | null,
     note: string,
     list: TodoListKey,
-    project: string
+    project: string,
+    extras: { repeat?: TodoRepeat; priority?: TodoPriority }
   ) => void;
   onToggle: (todo: Todo) => void;
-  onEdit: (
-    id: string,
-    patch: { text?: string; note?: string; dueAt?: string | null; project?: string }
-  ) => void;
+  onEdit: (id: string, patch: TodoEdit) => void;
   onRemove: (todo: Todo) => void;
 };
 
@@ -256,6 +262,8 @@ export function TodoList({
   const [draftNote, setDraftNote] = useState("");
   const [draftDue, setDraftDue] = useState<string | null>(null);
   const [draftProject, setDraftProject] = useState("");
+  const [draftRepeat, setDraftRepeat] = useState<TodoRepeat | null>(null);
+  const [draftPriority, setDraftPriority] = useState<TodoPriority | null>(null);
   const [search, setSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -285,6 +293,8 @@ export function TodoList({
   const [editNote, setEditNote] = useState("");
   const [editDue, setEditDue] = useState<string | null>(null);
   const [editProject, setEditProject] = useState("");
+  const [editRepeat, setEditRepeat] = useState<TodoRepeat | null>(null);
+  const [editPriority, setEditPriority] = useState<TodoPriority | null>(null);
 
   const hasDue = activeInList.some((t) => t.dueAt);
   useEffect(() => {
@@ -296,6 +306,8 @@ export function TodoList({
   const sortedActive = useMemo(
     () =>
       [...activeInList].sort((a, b) => {
+        const byPriority = priorityRank(a) - priorityRank(b);
+        if (byPriority !== 0) return byPriority;
         if (a.dueAt && b.dueAt) return a.dueAt < b.dueAt ? -1 : 1;
         if (a.dueAt) return -1;
         if (b.dueAt) return 1;
@@ -321,10 +333,15 @@ export function TodoList({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
-    onAdd(draft, draftDue, draftNote, list, draftProject);
+    onAdd(draft, draftDue, draftNote, list, draftProject, {
+      ...(draftRepeat && draftDue ? { repeat: draftRepeat } : {}),
+      ...(draftPriority ? { priority: draftPriority } : {}),
+    });
     setDraft("");
     setDraftNote("");
     setDraftDue(null);
+    setDraftRepeat(null);
+    setDraftPriority(null);
     // Keep the project name — most project to-dos are added in batches.
   };
 
@@ -351,6 +368,8 @@ export function TodoList({
     setEditNote(todo.note ?? "");
     setEditDue(todo.dueAt);
     setEditProject(todo.project ?? "");
+    setEditRepeat(todo.repeat ?? null);
+    setEditPriority(todo.priority ?? null);
   };
   const cancelEdit = () => setEditingId(null);
   const saveEdit = () => {
@@ -360,6 +379,8 @@ export function TodoList({
       note: editNote.trim(),
       dueAt: editDue,
       project: editProject.trim(),
+      repeat: editDue ? editRepeat : null,
+      priority: editPriority,
     });
     setEditingId(null);
   };
@@ -462,6 +483,13 @@ export function TodoList({
           <NumberButton onInsert={() => setDraftNote((n) => appendNumber(n))} />
         </div>
         <DueField value={draftDue} onChange={setDraftDue} />
+        <TodoOptions
+          hasDue={Boolean(draftDue)}
+          repeat={draftRepeat}
+          priority={draftPriority}
+          onRepeat={setDraftRepeat}
+          onPriority={setDraftPriority}
+        />
       </form>
 
       {list === "personal" && todayEvents.length > 0 && (
@@ -575,6 +603,13 @@ export function TodoList({
                     />
                   </div>
                   <DueField value={editDue} onChange={setEditDue} />
+                  <TodoOptions
+                    hasDue={Boolean(editDue)}
+                    repeat={editRepeat}
+                    priority={editPriority}
+                    onRepeat={setEditRepeat}
+                    onPriority={setEditPriority}
+                  />
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
@@ -634,7 +669,28 @@ export function TodoList({
                         📁 <HighlightedText text={todo.project} query={query} />
                       </span>
                     )}
+                    {todo.priority === "high" && (
+                      <span
+                        title="High priority"
+                        className="rounded-full bg-amber-500/15 px-1.5 text-[10px] font-medium text-amber-200"
+                      >
+                        ⚑ High
+                      </span>
+                    )}
+                    {todo.priority === "low" && (
+                      <span className="rounded-full bg-slate-800 px-1.5 text-[10px] font-medium text-slate-400">
+                        Low
+                      </span>
+                    )}
                     <DueBadge todo={todo} now={now} />
+                    {todo.repeat && (
+                      <span
+                        title="Files the next one when you finish this"
+                        className="rounded-full bg-sky-500/15 px-1.5 text-[10px] font-medium text-sky-200"
+                      >
+                        ↻ {REPEAT_LABEL[todo.repeat]}
+                      </span>
+                    )}
                     {rolledOver && (
                       <span className="rounded-full bg-slate-800 px-1.5 text-[10px] font-medium text-slate-400">
                         rolled over

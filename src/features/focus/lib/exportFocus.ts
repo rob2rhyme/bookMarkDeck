@@ -5,6 +5,7 @@
 import { toCsv } from "@/utils/download";
 import { isMoodKey, type MoodKey } from "@/features/focus/lib/mood";
 import { coerceDreamFields } from "@/features/focus/lib/types";
+import { isTodoRepeat } from "@/features/focus/lib/recurrence";
 import type {
   FocusBackup,
   FocusSessionRecord,
@@ -131,9 +132,14 @@ function coerceTodo(raw: unknown): Todo | null {
     done: Boolean(r.done),
     dueAt: strOrNull(r.dueAt),
     createdAt: strOrNull(r.createdAt),
+    completedAt: strOrNull(r.completedAt),
     day: isDay(r.day) ? r.day : "",
+    list: r.list === "project" ? "project" : "personal",
+    project: str(r.project),
     googleTaskId: typeof r.googleTaskId === "string" ? r.googleTaskId : null,
     googleEventId: typeof r.googleEventId === "string" ? r.googleEventId : null,
+    ...(isTodoRepeat(r.repeat) ? { repeat: r.repeat } : {}),
+    ...(r.priority === "high" || r.priority === "low" ? { priority: r.priority } : {}),
   };
 }
 

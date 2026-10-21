@@ -62,7 +62,7 @@ parity, and distribution** — not catalog features.
 - **Bookmarks:** ~~importers (Pocket/Raindrop/Chrome)~~ — **shipped**: browser HTML
   already; Raindrop CSV/HTML and Pocket CSV/HTML added (`parseServiceCsv`,
   `parseBookmarkHtml`); read-later/reader-view + highlights; tag-browse.
-- **Focus:** recurring to-dos + priorities (`useTodos.ts`); two-way calendar
+- **Focus:** two-way calendar
   write-back (currently read-only); ambient soundscapes (Web Audio, matches
   `lib/sound.ts`).
 - **Habits:** multiple reminders per habit (snooze **shipped**: a "Snooze 1 hour" action on the notification); external auto-tracking (Google Fit/Health
