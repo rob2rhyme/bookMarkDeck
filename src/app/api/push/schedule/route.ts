@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     body?: string;
     url?: string;
     tag?: string;
+    snooze?: boolean;
   };
   try {
     payload = await req.json();
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
-  const { subscription, delaySec, title, body, url, tag } = payload;
+  const { subscription, delaySec, title, body, url, tag, snooze } = payload;
 
   // A valid Web Push subscription is an object with an https endpoint string.
   if (!isValidSubscription(subscription)) {
@@ -83,6 +84,8 @@ export async function POST(req: Request) {
         body: safeBody,
         url: safeUrl,
         tag: safeTag,
+        // Only ever true: the notification then carries a "Snooze" action.
+        ...(snooze === true ? { snooze: true } : {}),
       },
       delay,
     });

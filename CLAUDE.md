@@ -822,7 +822,13 @@ Other invariants:
   Reminders dialog; `pushEnabled`/`pushHour` on `InventorySettings`). Its count is
   `reminderCount`, so push and nav badge agree; a PIN-locked My Stuff sends counts
   only, never item names. `msUntilHour` lives in `@/lib/msUntilHour` (Filing's
-  digest re-exports it). The worker's badge is `icons/badge-96.png`,
+  digest re-exports it). **Habit reminders carry a "Snooze 1 hour" action**
+  (`schedulePush({ snoozable })` → `snooze: true` through schedule and fire →
+  `actions` in `sw.js`): the worker re-queues the same push itself and leaves a
+  record in Cache Storage (`bmd-snooze-v1`, `@/lib/snoozeRecords`, exempt from
+  `activate`'s cleanup) so `useHabitReminders` can cancel it once the habit is done
+  — the page can't see a push the worker queued. If the re-queue fails the click
+  just opens the app. iOS shows no notification actions. The worker's badge is `icons/badge-96.png`,
   white on transparent — Android draws a badge from alpha alone, and the opaque
   app icon rendered as a solid square. `src/lib/serviceWorker.test.ts` loads the
   real `public/sw.js` into a `vm` sandbox, since nothing imports it. It also pins

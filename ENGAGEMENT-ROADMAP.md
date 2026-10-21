@@ -65,7 +65,7 @@ parity, and distribution** — not catalog features.
 - **Focus:** recurring to-dos + priorities (`useTodos.ts`); two-way calendar
   write-back (currently read-only); ambient soundscapes (Web Audio, matches
   `lib/sound.ts`).
-- **Habits:** multiple/snooze reminders; external auto-tracking (Google Fit/Health
+- **Habits:** multiple reminders per habit (snooze **shipped**: a "Snooze 1 hour" action on the notification); external auto-tracking (Google Fit/Health
   → `trackableSources.ts`); a Finch-style companion (biggest lift, brand call).
 - **My Stuff:** AI photo→item capture — **already built** (`AiCaptureModal.tsx`),
   dormant behind a hidden button + missing `ANTHROPIC_API_KEY`. Ship as the

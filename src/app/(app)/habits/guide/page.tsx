@@ -113,6 +113,9 @@ export default function HabitsGuidePage() {
               Set a <strong>reminder</strong> time under <em>Add details</em> for a gentle nudge on scheduled days. The first time, tap <strong>Turn on reminders</strong> to let this device show notifications.
             </li>
             <li>
+              Not now? Tap <strong>Snooze 1 hour</strong> on the notification and it comes back — and goes quiet if you finish the habit in the meantime. Android and desktop browsers show the button; iPhones don&apos;t, so there it just opens the app.
+            </li>
+            <li>
               Filter <em>All habits</em> by <strong>area</strong>, or search by name — tap ✓ in the results to log it straight away.
             </li>
           </ul>

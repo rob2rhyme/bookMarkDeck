@@ -127,6 +127,16 @@ describe("push schedule route", () => {
     expect(published().body.url).toBe(expected);
   });
 
+  it("forwards snooze only when it is exactly true", async () => {
+    await POST(req({ subscription: SUB, snooze: true }));
+    expect((published().body as { snooze?: boolean }).snooze).toBe(true);
+    for (const snooze of [false, "true", 1, undefined]) {
+      publishJSON.mockClear();
+      await POST(req({ subscription: SUB, snooze }));
+      expect(published().body).not.toHaveProperty("snooze");
+    }
+  });
+
   // The tag decides which notifications replace which, so each pillar's survives
   // to the worker; anything that isn't a short plain identifier falls back to
   // the tag every push used to share.
