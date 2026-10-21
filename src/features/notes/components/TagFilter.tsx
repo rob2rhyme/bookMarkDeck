@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { tagTone } from "@/features/notes/lib/tagColor";
 import { normalizeTag, type TagCount } from "@/features/notes/lib/tags";
 
 const CHIP = "flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition";
@@ -36,7 +37,7 @@ export function TagFilter({
             type="button"
             onClick={() => onSelect(active === tag ? null : tag)}
             aria-pressed={active === tag}
-            className={`${CHIP} ${active === tag ? CHIP_ON : CHIP_OFF}`}
+            className={`${CHIP} ${active === tag ? tagTone(tag).on : tagTone(tag).soft}`}
           >
             #{tag} <span className="tabular-nums opacity-60">{count}</span>
           </button>

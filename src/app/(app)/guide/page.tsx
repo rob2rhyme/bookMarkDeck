@@ -868,7 +868,13 @@ export default function GuidePage() {
           </Sub>
           <Sub title="Finding">
             <p>
-              Pinned notes sit on top, then the most recently edited. Press{" "}
+              Notes sit in one grid that fits as many columns as your screen
+              has room for — pinned first (blue edge, filled pin), then the most
+              recently edited. A note&apos;s first tag is a <strong>ribbon</strong>{" "}
+              in its top-right corner, and its other tags show as chips; tap any
+              of them to show just that tag, and tap again to clear it. Each tag
+              always has the same colour, here and in the filter row, so you can
+              scan a list by colour. Press{" "}
               <K>/</K> to search: every word must match the title, text or a
               tag, <code>&quot;quoted phrases&quot;</code> stay together, and{" "}
               <code>#tag</code> filters. It ignores case and accents. Tags can
