@@ -10,12 +10,17 @@ import { useRouter } from "next/navigation";
 
 import { useState, useSyncExternalStore } from "react";
 
+import { returnPath } from "@/utils/returnPath";
+
 // next-auth sends every sign-in error back here as ?error=<code>
 // (pages.error); AccessDenied is an account not on src/auth/allowlist.ts.
 // Read from the URL rather than state, so it is right on first paint and needs
 // no effect.
 const noSubscribe = () => () => {};
 const readError = () => new URLSearchParams(window.location.search).get("error") ?? "";
+// Back to the page that sent us here (a link shared in while signed out, say).
+const afterSignIn = () =>
+  returnPath(new URLSearchParams(window.location.search).get("callbackUrl"), window.location.origin);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,12 +29,12 @@ export default function LoginPage() {
   const authError = useSyncExternalStore(noSubscribe, readError, () => "");
 
   useEffect(() => {
-    if (status === "authenticated") router.replace("/");
+    if (status === "authenticated") router.replace(afterSignIn());
   }, [status, router]);
 
   const handleClick = (provider: string) => {
     setIsLoading(provider);
-    signIn(provider, { callbackUrl: "/" }).finally(() => setIsLoading(null));
+    signIn(provider, { callbackUrl: afterSignIn() }).finally(() => setIsLoading(null));
   };
 
   // Until we know the user is signed *out*, don't flash the login form — show a

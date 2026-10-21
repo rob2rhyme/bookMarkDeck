@@ -45,9 +45,9 @@ parity, and distribution** — not catalog features.
   decoupled from actual output.
 - **Weekly recap card** (all pillars, `[net-new]`) — data already computed
   (`useFocusStats` week-vs-week, `habits/lib/insights.ts`), just not surfaced.
-- **PWA `share_target` + save-current-page** (Bookmarks, `[net-new]`) — biggest
-  bookmarks retention lever; competitors (Raindrop/Pocket/Toby) all have
-  share-to-save. Add `share_target` to `manifest.ts` + a receiver route.
+- ~~**PWA `share_target` + save-current-page**~~ — **shipped**: `manifest.ts`
+  `share_target` → `/share` (Android; iOS has no web share target). See CLAUDE.md
+  → Routing & shell.
 - **Auto-fetch title/favicon/description on add** (Bookmarks, `[net-new]`).
 - **Onboarding parity** (Bookmarks + Focus, `[net-new]`) — clone Habits'
   15-template onboarding (`HabitOnboarding.tsx`), the best first-run in the app.

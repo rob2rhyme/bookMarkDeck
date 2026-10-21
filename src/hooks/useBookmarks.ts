@@ -952,6 +952,8 @@ export function useBookmarks(userId?: string | null) {
   return {
     bookmarks,
     folders,
+    /** This account's cache has loaded; a change made before then would be lost. */
+    hydrated,
     addBookmark,
     updateBookmark,
     deleteBookmark,
