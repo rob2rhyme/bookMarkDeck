@@ -18,6 +18,7 @@ import {
   increment,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   where,
@@ -426,7 +427,13 @@ export async function saveHydration(
 /**
  * Add `delta` cups (may be negative) to a day's count on the server. Unlike
  * saveHydration it composes with other devices' writes instead of replacing
- * them, so it is safe to queue offline. Reads clamp at 0.
+ * them, so it is safe to queue offline.
+ *
+ * A removal reads the count and writes it back no lower than 0, in one
+ * transaction: as a bare increment, two devices taking away the last cup at
+ * once left the record at -1, and the next cup landed on 0. A transaction
+ * needs the server, so offline the removal falls back to the increment (reads
+ * clamp at 0, and `clampHydration` repairs the record once it is seen).
  */
 export async function addHydration(
   emailHint: string,
@@ -434,11 +441,40 @@ export async function addHydration(
   delta: number
 ): Promise<void> {
   const uid = await uidFor(emailHint);
-  await setDoc(
-    doc(hydrationCol(uid), day),
-    { cups: increment(delta), updatedAt: serverTimestamp() },
-    { merge: true }
-  );
+  const ref = doc(hydrationCol(uid), day);
+  if (delta < 0) {
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const cups = snap.exists() ? snap.data().cups : 0;
+        const current = typeof cups === "number" ? cups : 0;
+        tx.set(
+          ref,
+          { cups: Math.max(0, current + delta), updatedAt: serverTimestamp() },
+          { merge: true }
+        );
+      });
+      return;
+    } catch {
+      /* offline or contended past the SDK's retries: fall back to the increment */
+    }
+  }
+  await setDoc(ref, { cups: increment(delta), updatedAt: serverTimestamp() }, { merge: true });
+}
+
+/**
+ * Raise a record that offline removals took below 0 back to 0. A transaction,
+ * so two devices repairing at once can't both add to it.
+ */
+export async function clampHydration(uid: string, day: string): Promise<void> {
+  const ref = doc(hydrationCol(uid), day);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const cups = snap.exists() ? snap.data().cups : null;
+    if (typeof cups === "number" && cups < 0) {
+      tx.set(ref, { cups: 0, updatedAt: serverTimestamp() }, { merge: true });
+    }
+  });
 }
 
 /* ------------------------------------------------------------- activity --- */
@@ -910,7 +946,12 @@ export function subscribeHydration(
           confirmed = true;
         }
         const cups = snap.exists() ? snap.data().cups : null;
-        cb(typeof cups === "number" ? Math.max(0, cups) : null); // addHydration can undershoot
+        // An offline removal can take a record below 0: read it as 0, and
+        // repair it once the server has confirmed it.
+        if (typeof cups === "number" && cups < 0 && !snap.metadata.fromCache) {
+          clampHydration(uid, day).catch(() => {});
+        }
+        cb(typeof cups === "number" ? Math.max(0, cups) : null);
       },
       onListenError("hydration")
     );
