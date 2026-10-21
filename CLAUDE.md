@@ -586,6 +586,23 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   Optimistic
   + fail-safe. Rules: `src/features/focus/FIRESTORE_RULES.md` (deployable
   `firestore.rules`).
+- **To-dos repeat and carry a priority** (`lib/recurrence.ts`, `useTodos.toggleTodo`,
+  `TodoOptions`). Completing a repeating to-do (`repeat`: daily/weekdays/weekly/monthly,
+  which needs a due date to anchor on) leaves it in Done and files the **next**
+  occurrence: the first date on the cadence that falls after the completion day, time
+  of day kept, monthly anchored on the original day of the month. Missed occurrences
+  are not queued — finishing Monday's chore on Thursday files next week's, the opposite
+  of Filing's roll-forward-one-period, because a chore has no "still overdue" to show.
+  The next one's id is `{base}~{due day}`, so two devices completing the same to-do
+  file one record, not two. Un-completing removes that occurrence unless it was done
+  itself; `toggleTodo` returns `{ spawned, removed }` so the dashboard mirrors them to
+  Google and the Undo withdraws them. **`toggleTodo` reads `todosRef`, not the list it
+  was created with**: the Undo toast holds a callback from the completion's render,
+  and deciding from that list would complete the item again. `priority` is `high`/`low`
+  (omitted = normal) and sorts high first; `saveTodo` writes `repeat`/`priority` as
+  `null` when absent, since `merge: true` would otherwise keep a removed one. The
+  backup's `coerceTodo` also keeps `list`, `project` and `completedAt` now — it dropped
+  them, so a restore turned Project to-dos into Personal ones.
 - Tasks (`useFocusTasks`): reusable across days; an **active task** receives the
   timer's focus minutes (via `taskId` on sessions); auto-resumes the most recent;
   mark done / archive. Per-task time is derived from `focusSessions` (not stored).

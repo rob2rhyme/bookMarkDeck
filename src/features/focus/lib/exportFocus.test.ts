@@ -66,6 +66,33 @@ describe("focus export → import round-trip", () => {
     expect(parsed!.scores[0].points).toBe(10);
   });
 
+  it("keeps a to-do's repeat, priority, list and completion through a backup", () => {
+    const repeating = {
+      ...backup.todos[0],
+      id: "td2",
+      done: true,
+      dueAt: "2026-01-05T14:00:00.000Z",
+      completedAt: "2026-01-05T20:00:00.000Z",
+      list: "project" as const,
+      project: "Garden",
+      repeat: "weekly" as const,
+      priority: "high" as const,
+    };
+    const parsed = focusFromJson(focusToJson({ ...backup, todos: [repeating] }, "2026-01-03T00:00:00.000Z"));
+    expect(parsed!.todos[0]).toMatchObject({
+      repeat: "weekly",
+      priority: "high",
+      list: "project",
+      project: "Garden",
+      completedAt: "2026-01-05T20:00:00.000Z",
+    });
+    // Junk values are dropped, not carried.
+    const junk = JSON.stringify({ todos: [{ id: "x", text: "t", repeat: "hourly", priority: "urgent" }] });
+    const bad = focusFromJson(junk)!.todos[0];
+    expect(bad.repeat).toBeUndefined();
+    expect(bad.priority).toBeUndefined();
+  });
+
   it("rejects junk and empty payloads", () => {
     expect(focusFromJson("not json")).toBeNull();
     expect(focusFromJson("{}")).toBeNull();

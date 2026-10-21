@@ -242,7 +242,12 @@ export default function GuidePage() {
               (app-private, never mirrored). To-dos take a note and a due date
               with a live countdown; in Project to-dos, list lines in the note
               become a checkable mini-checklist — the to-do completes itself
-              when every line is checked.
+              when every line is checked. Mark one <strong>High</strong> or{" "}
+              <strong>Low</strong> priority — high ones sort to the top — and
+              give a dated one a <strong>repeat</strong> (daily, weekdays,
+              weekly or monthly): finishing it files the next one, due after
+              today, and the finished one stays in Done. Undo takes the next one
+              back.
             </p>
           </Sub>
           <Sub title="Journal, moods & dreams">
