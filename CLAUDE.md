@@ -238,7 +238,17 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   or this can't see it.
 - Existing pages: `/` (home), `/folders/[folderKey]`, `/folders/manage`, `/folders/unstaged`,
   `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/filing`, `/notes`, `/notes/[id]`,
-  `/guide` (site guide), `/faq`, `/privacy`, `/terms`, `/login`.
+  `/share` (Share-sheet target, below), `/guide` (site guide), `/faq`, `/privacy`, `/terms`,
+  `/login`.
+- **Saving from the Share sheet.** `manifest.ts` declares a GET `share_target` → `/share`,
+  so the installed app is offered in Android's Share menu (iOS has no web share target;
+  the guide says so). `parseSharedLink` (`@/utils/sharedLink`) takes the link from `url`,
+  else the first http(s) link in `text` — Chrome on Android sends it there — and refuses
+  any other scheme. The page saves through `useBookmarks` like ＋ Add Link (device cache;
+  cloud sync stays explicit) and waits for `hydrated`, so a save can't land before the
+  account's cache loads. **A share while signed out survives sign-in:** login and the
+  gate both honour `callbackUrl` through `returnPath` (`@/utils/returnPath`), which keeps
+  only a path on this site — before, login always went to `/`. `e2e/share.spec.ts`.
 
 ## Styling
 

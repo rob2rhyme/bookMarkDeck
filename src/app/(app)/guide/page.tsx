@@ -134,6 +134,18 @@ export default function GuidePage() {
               shows up later under <em>Top resources</em> in Focus analysis.
             </p>
           </Sub>
+          <Sub title="Saving from other apps">
+            <p>
+              On Android, install Bookmark Deck (your browser&apos;s{" "}
+              <em>Install app</em> or <em>Add to Home screen</em>), then use{" "}
+              <strong>Share → Bookmark Deck</strong> from Chrome or any app that
+              shares links. You get the link and its title ready to save — pick
+              a folder and tap <strong>Save bookmark</strong>. If it&apos;s
+              already in your deck, it says so first. iPhone and iPad
+              don&apos;t offer web apps in the Share menu, so there you paste
+              the link into <strong>＋ Add Link</strong> instead.
+            </p>
+          </Sub>
           <Sub title="Finding things">
             <p>
               The search box matches title, URL, note, folder, and tags; the

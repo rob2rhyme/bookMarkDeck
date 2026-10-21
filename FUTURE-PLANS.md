@@ -55,8 +55,6 @@ _Last reviewed: 2026-07-16._
 
 5. **`npm run audit` script** (the one unshipped piece of FOCUS-INTEGRATION
    Phase 0b — headers and `.env.example` are done).
-6. **`/habits/guide` freshness pass** — accurate today; give it the same
-   user-friendly review the main guide got when Habits next changes.
 
 ## Verification still worth a minute
 
