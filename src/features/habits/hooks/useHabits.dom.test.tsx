@@ -334,6 +334,7 @@ describe("useHabits — the water link", () => {
     });
     await flush();
     expect(hook.result.current.todayEntry("w")).toMatchObject({ status: "done", count: 2 });
+    expect(habitData.saveEntryCount).not.toHaveBeenCalled(); // queued, not sent, while offline
     hook.rerender({ c: true });
     await flush();
     expect(habitData.saveEntry).not.toHaveBeenCalled();

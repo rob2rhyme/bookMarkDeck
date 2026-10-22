@@ -292,6 +292,27 @@ describe("recordHydration", () => {
       expect(s.cups()).toBe(0);
     });
 
+    // The test above only pins memory-held ties: delivery order there comes
+    // from the forward walk of `unsent`, not the stamp. Stored ties also sort
+    // by `at`, and jsdom happens to return localStorage keys in insertion
+    // order too (the HTML spec leaves it UA-defined) — so a stored-tie
+    // delivery test alone wouldn't tell the stamp's own tie-break apart from
+    // that coincidence. This checks the stamp directly: two changes recorded
+    // in the same millisecond get distinct, increasing values once stored.
+    it("stamps stored changes in one millisecond with distinct, increasing values", async () => {
+      const s = server();
+      vi.spyOn(Date, "now").mockReturnValue(1_000);
+      p.record(EMAIL, DAY, 1, { send: false }, s.transport);
+      await settle();
+      p.record(EMAIL, DAY, 1, { send: false }, s.transport);
+      await settle();
+      const ats = entries()
+        .map((e) => e.at as number)
+        .sort((a, b) => a - b);
+      expect(ats).toHaveLength(2);
+      expect(ats[1]).toBeGreaterThan(ats[0]);
+    });
+
     it("through a clock stepped back", async () => {
       const s = server();
       const now = vi.spyOn(Date, "now").mockReturnValue(2_000);
@@ -748,6 +769,21 @@ describe("flushHydration", () => {
     g.open(EMAIL);
     await mine;
     expect(s.sent.map((x) => x.email)).toEqual([B, B, B, EMAIL]);
+  });
+
+  // ready()'s own-sending check scopes to the account it's asked about. Drop
+  // that scoping and this still passes every other outbox and hook test: a
+  // page holding one account's in-flight send would stop it from ever
+  // delivering a DIFFERENT account's change to the same day string.
+  it("delivers one account's day while another account has its own send in flight", async () => {
+    const s = server();
+    s.set("hold");
+    p.record(EMAIL, DAY, 1, { send: true }, s.transport); // never acknowledges in this test
+    await settle();
+    p.record(B, DAY, 1, { send: false }, s.transport);
+    await settle();
+    await p.flush(B, s.transport);
+    expect(s.sent).toEqual([expect.objectContaining({ email: B, delta: 1 })]);
   });
 
   it("drops a record it can't read", async () => {

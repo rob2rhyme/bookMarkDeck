@@ -644,6 +644,22 @@ describe("useHydration — every change is an increment", () => {
     expect(outbox()).toEqual([]);
   });
 
+  // The clock gates on hydrationRetryDue, not on "the outbox has something in
+  // it": nothing has tried this entry yet (first-answer already ran and found
+  // nothing), so no retry is due, and a tick alone must not flush it. Making
+  // the clock flush on every tick regardless would pass every other test here.
+  it("doesn't flush an entry nothing has tried yet, just because the clock ticked", async () => {
+    cloud.write(DAY, 3);
+    renderHook(() => useHydration(synced));
+    await flush();
+    localStorage.setItem(`${OUTBOX}x`, JSON.stringify({ day: DAY, delta: 1, at: 1 }));
+    vi.mocked(hydrationTransport.recover).mockClear();
+    act(() => void vi.advanceTimersByTime(15_000));
+    await flush();
+    expect(hydrationTransport.recover).not.toHaveBeenCalled();
+    expect(outbox()).toHaveLength(1);
+  });
+
   // The server's first answer leaves out what the outbox is still delivering,
   // so the total isn't known until it lands.
   it("doesn't log a total while the day has changes still to deliver", async () => {
