@@ -11,13 +11,28 @@ let reload: ReturnType<typeof vi.fn>;
 const show = (persisted: boolean) =>
   window.dispatchEvent(Object.assign(new Event("pageshow"), { persisted }));
 
+// Each test loads its own module, but `window` is one real jsdom window
+// shared by the whole file. recordHydration's guard registers a "pageshow"
+// listener on it that is never removed — by design, it's meant to live for
+// the page's whole lifetime — so a test whose module never settles (its send
+// never acknowledges) leaves that listener armed for every later test's own
+// `show()` calls too. Tracking and removing every "pageshow" listener added
+// during a test is the test-only fix: nothing in hydrationOutbox.ts changes.
+let pageshowListeners: EventListenerOrEventListenerObject[] = [];
 beforeEach(() => {
   localStorage.clear();
   locks = webLocksMock();
   reload = vi.fn();
   vi.spyOn(window, "location", "get").mockReturnValue({ reload } as unknown as Location);
+  const realAdd = window.addEventListener.bind(window);
+  vi.spyOn(window, "addEventListener").mockImplementation((type, listener, options) => {
+    if (type === "pageshow") pageshowListeners.push(listener as EventListenerOrEventListenerObject);
+    return realAdd(type, listener, options);
+  });
 });
 afterEach(() => {
+  pageshowListeners.forEach((l) => window.removeEventListener("pageshow", l));
+  pageshowListeners = [];
   locks.uninstall();
   vi.restoreAllMocks();
 });
@@ -84,4 +99,25 @@ it("doesn't reload while a change is held only in this page", async () => {
   expect(reload).not.toHaveBeenCalled();
   ack();
   await settle();
+});
+
+// Two tests, deliberately in this order: the first leaves a send that never
+// acknowledges — as a test that failed before calling ack() would — so its
+// module's listener is still armed when the test ends. Each test loads its
+// own module, but `window` is one real jsdom window for the whole file; the
+// second test's own, freshly reset spy must not see the first's listener fire.
+it("[setup] a page whose send never acknowledges", async () => {
+  const stale = await page();
+  const neverAcks = {
+    send: vi.fn(() => new Promise<void>(() => {})),
+    recover: vi.fn(async () => {}),
+  };
+  stale.recordHydration("a@example.com", "2026-10-11", 1, { send: true }, neverAcks);
+  await settle();
+  expect(stale.hydrationInFlight()).toBe(true);
+});
+
+it("isn't still reacting to the previous (unsettled) test's listener", () => {
+  show(true);
+  expect(reload).not.toHaveBeenCalled();
 });
