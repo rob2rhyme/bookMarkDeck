@@ -14,6 +14,7 @@ import {
   MEDITATION_GUIDES,
   type MeditationGuide,
 } from "@/features/focus/lib/meditationContent";
+import { VoiceOptions } from "@/features/focus/components/VoiceOptions";
 import { AMBIENT_OPTIONS } from "@/features/focus/lib/sound";
 import { useMeditation } from "@/features/focus/hooks/useMeditation";
 import type { ActivityType, MeditationKind } from "@/features/focus/data/focusData";
@@ -289,6 +290,7 @@ export function MeditationCard({
             <p className="mt-1 text-[11px] text-slate-500">
               Speaks each breath cue or guide step aloud.
             </p>
+            {settings.meditationVoice && <VoiceOptions />}
           </div>
 
           {/* Ambient sound */}

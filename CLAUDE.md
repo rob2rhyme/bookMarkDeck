@@ -609,6 +609,18 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
 - Timer (`useFocusTimer`): settings-driven, timestamp-based (accurate when
   backgrounded), Web Audio chimes (`lib/sound.ts`) + notifications (`lib/notify.ts`),
   auto-start; attributes blocks to the active task.
+- **The meditation voice is the browser's own speech, made less robotic** (`lib/voice.ts`,
+  `VoiceOptions`). Offline and free, so the ceiling is what the device's voices allow:
+  `scoreVoice` ranks installed English voices (neural/"Natural"/enhanced/Google above
+  the old Microsoft desktop voices, eSpeak and macOS novelty voices last), the listener
+  can pick one and a pace (slow/calm/natural) and hear it, and a guide step is spoken
+  **a sentence at a time with a pause between** rather than as one run-on line, with a
+  slight pitch/rate wobble so lines aren't stamped from one mould. The choice is
+  **per device** (`bd:meditation:voice:v1`, not synced — voice names differ by device, and
+  a name saved elsewhere falls back to the best voice here). A generation counter stops a
+  replaced or cancelled sentence chain from talking over the new line. A recorded or
+  cloud-TTS narrator would sound more human still, but needs audio files or a paid
+  API — not built.
 - **Soundscapes** (`lib/sound.ts`, `useFocusAmbient`): rain/brown noise/wind/ocean/soft
   noise/drone, generated with Web Audio (no files), played behind a running focus block
   (Pomodoro focus mode or the stopwatch — never a break or a pause) and chosen under the
