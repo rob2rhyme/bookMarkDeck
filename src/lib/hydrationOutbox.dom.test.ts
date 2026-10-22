@@ -828,6 +828,47 @@ describe("flushHydration", () => {
       expect(p.retryDue(B)).toBe(false);
     });
   });
+
+  // A THIRD page, with none of its own changes to this day, used to deliver a
+  // stored change while a DIFFERENT page's own flush was still mid-recovery of
+  // an earlier one — that flush's `ready()` is about its own page only, so a
+  // page with nothing of its own sees no reason to wait. A removal landed
+  // ahead of the cups it removed, clamped at 0: review measured 1 instead of 0.
+  it("leaves a day's other changes alone while one page's own flush holds one of them", async () => {
+    const c = cloud();
+    const mine = c.page();
+    const other = c.page();
+    const g = gates();
+    const recover = mine.transport.recover;
+    mine.transport.recover = vi.fn(async (...args: Parameters<typeof recover>) => {
+      await g.wait("w");
+      return recover(...args);
+    });
+    // W, recorded while not connected: stored, its lock released at once.
+    p.record(EMAIL, DAY, 1, { send: false }, mine.transport);
+    await settle();
+    // p's own flush claims W and starts recovering it — gated, as if its
+    // network were paused mid-transaction.
+    const delivering = p.flush(EMAIL, mine.transport);
+    await settle();
+    expect(mine.transport.recover).toHaveBeenCalledOnce();
+    // While W is in p's hands, the user removes: X goes behind it, not
+    // through p's SDK queue.
+    p.record(EMAIL, DAY, -1, { send: true }, mine.transport);
+    await settle();
+    expect(mine.transport.send).not.toHaveBeenCalled();
+    // A third, unrelated page — it never recorded W or X, so its own `ours`
+    // has nothing for this account — flushes.
+    const third = await openPage();
+    await third.flush(EMAIL, other.transport);
+    expect(other.transport.recover).not.toHaveBeenCalled(); // X stays put
+    g.open("w");
+    await delivering;
+    await p.flush(EMAIL, mine.transport); // delivers X, now that W has landed
+    expect(c.sent.map((x) => x.delta)).toEqual([1, -1]);
+    expect(c.cups()).toBe(0);
+    expect(entries()).toEqual([]);
+  });
 });
 
 describe("hydrationWaiting", () => {

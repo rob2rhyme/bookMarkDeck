@@ -279,17 +279,23 @@ export function recordHydration(
 }
 
 /** Claim a change's lock if no page holds it. */
-function claim(locks: LockManager, id: string): Promise<(() => void) | null> {
+// "blocked": a clean, confirmed answer — another live page holds this lock,
+// so its change may be mid-delivery; the whole day it belongs to is unsafe to
+// touch. "error": the request itself failed (a broken lock manager); nothing
+// is known either way, so it blocks only this one change, as it always has.
+type Claim = { release: () => void } | "blocked" | "error";
+
+function claim(locks: LockManager, id: string): Promise<Claim> {
   return new Promise((resolve) => {
     try {
       locks
         .request(lockName(id), { ifAvailable: true }, (lock) => {
-          if (!lock) return resolve(null);
-          return new Promise<void>((release) => resolve(release));
+          if (!lock) return resolve("blocked");
+          return new Promise<void>((release) => resolve({ release }));
         })
-        .catch(() => resolve(null));
+        .catch(() => resolve("error"));
     } catch {
-      resolve(null);
+      resolve("error");
     }
   });
 }
@@ -402,19 +408,24 @@ async function flushOnce(
     const [u] = unsent.splice(i, 1);
     held.push({ id: u.id, entry: u.entry, stored: false, release: () => {} });
   }
+  // A day with one change locked elsewhere (another page's own flush is mid-
+  // delivery of it) is unsafe to touch at all: this page has no way to tell
+  // whether that change is earlier or later than the ones it just claimed.
+  const blockedDays = new Set<string>();
   if (locks) {
-    const ids = stored(email).map((s) => s.id);
-    const claims = await Promise.all(ids.map((id) => claim(locks, id)));
-    ids.forEach((id, i) => {
-      const release = claims[i];
-      if (!release) return; // a live page is sending it
+    const list = stored(email);
+    const claims = await Promise.all(list.map((s) => claim(locks, s.id)));
+    list.forEach(({ id, entry: listed }, i) => {
+      const claimed = claims[i];
+      if (claimed === "blocked") return blockedDays.add(listed.day);
+      if (claimed === "error") return; // unknown either way: skip just this one
       // Read again under the lock: the page that held it may have settled it.
       const entry = read(email, id);
       if (!entry) {
         ours.delete(id);
-        return release();
+        return claimed.release();
       }
-      held.push({ id, entry, stored: true, release });
+      held.push({ id, entry, stored: true, release: claimed.release });
     });
   }
   const byDay = new Map<string, Held[]>();
@@ -422,7 +433,8 @@ async function flushOnce(
   let deferred = false;
   const results = await Promise.all(
     [...byDay].map(([day, dayHeld]) => {
-      if (ready(email, day, dayHeld)) return recoverDay(email, dayHeld, transport);
+      if (ready(email, day, dayHeld) && !blockedDays.has(day))
+        return recoverDay(email, dayHeld, transport);
       deferred = true;
       for (const h of dayHeld) {
         putBack(email, h);
