@@ -271,6 +271,17 @@ export default function GuidePage() {
               backfills a day and counts toward your streak.
             </p>
           </Sub>
+          <Sub title="Soundscapes">
+            <p>
+              Under the timer, pick a <strong>soundscape</strong> — rain,
+              brown noise, wind, ocean, soft noise or a drone — and set its
+              volume. It plays only while a focus block (or the stopwatch) is
+              running, and fades out when you pause, take a break or time runs
+              out. The sound is generated on your device, so it works offline
+              and downloads nothing. Browsers only allow audio after a tap, so
+              after a reload it starts with your next tap on Start.
+            </p>
+          </Sub>
           <Sub title="Wellbeing extras (all optional, toggled in settings)">
             <p>
               <strong>Hydration</strong>: a cup counter with gentle reminders

@@ -609,6 +609,18 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
 - Timer (`useFocusTimer`): settings-driven, timestamp-based (accurate when
   backgrounded), Web Audio chimes (`lib/sound.ts`) + notifications (`lib/notify.ts`),
   auto-start; attributes blocks to the active task.
+- **Soundscapes** (`lib/sound.ts`, `useFocusAmbient`): rain/brown noise/wind/ocean/soft
+  noise/drone, generated with Web Audio (no files), played behind a running focus block
+  (Pomodoro focus mode or the stopwatch — never a break or a pause) and chosen under the
+  timer (`focusAmbient`, `focusAmbientVolume` 10–100, default 50). The engine has **two
+  channels**, `focus` and `meditation` (the default, so `useMeditation` is unchanged):
+  one soundscape per channel, so a meditation neither cuts nor is cut by the focus one.
+  A volume change moves the running gain; it never restarts the sound. Audio needs a
+  gesture, so both Start buttons call `initAudio()`; a timer restored from a reload
+  sounds on the next tap. `sound.dom.test.ts` drives a recording fake of the Web Audio
+  graph — it can't judge how anything sounds, only that every soundscape starts a
+  source, a stop releases every source and the rain's droplet timer, and channels
+  stay independent.
 - Analysis (`useFocusStats` + `AnalysisPanel`): daily goal progress, streak,
   7-day chart + mood trend, weekly top tasks — from `focusSessions` + journal.
 - Journal (`useFocusJournal` + `JournalCard`): per-day mood (`lib/mood.ts`,
