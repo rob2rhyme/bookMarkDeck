@@ -8,7 +8,7 @@
 // either locking the owner out or letting everyone in.
 
 // firestore.rules repeats this list (rules can't read env); allowlist.test.ts keeps them equal.
-export const DEFAULT_ALLOWED_EMAILS = ["rob2rhyme@gmail.com"];
+export const DEFAULT_ALLOWED_EMAILS = ["rob2rhyme@gmail.com", "noah18thapa@gmail.com"];
 
 export function allowedEmails(): string[] {
   const fromEnv = (process.env.AUTH_ALLOWED_EMAILS ?? "")
