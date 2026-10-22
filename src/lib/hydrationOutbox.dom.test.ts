@@ -802,7 +802,7 @@ describe("flushHydration", () => {
     it("backs off after flushes that fail, up to five minutes", async () => {
       const s = server();
       let t = 1_000_000;
-      vi.spyOn(Date, "now").mockImplementation(() => t);
+      vi.spyOn(performance, "now").mockImplementation(() => t);
       orphan("x");
       s.set("offline");
       const gaps: number[] = [];
@@ -823,9 +823,25 @@ describe("flushHydration", () => {
       orphan("x");
       s.set("offline");
       await p.flush(EMAIL, s.transport);
-      vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
+      vi.spyOn(performance, "now").mockReturnValue(performance.now() + 60_000);
       expect(p.retryDue(EMAIL)).toBe(true);
       expect(p.retryDue(B)).toBe(false);
+    });
+
+    // A backward step of the wall clock (NTP correction, a manual change)
+    // used to delay the next retry by the size of the step: it was timed by
+    // Date.now(), which a backward step can push the next due time behind.
+    it("isn't delayed by a backward step of the wall clock", async () => {
+      const s = server();
+      orphan("x");
+      s.set("offline");
+      vi.spyOn(Date, "now").mockReturnValue(2_000_000);
+      await p.flush(EMAIL, s.transport);
+      expect(p.retryDue(EMAIL)).toBe(false);
+      vi.spyOn(Date, "now").mockReturnValue(1_000_000); // the wall clock steps back an hour
+      expect(p.retryDue(EMAIL)).toBe(false); // too soon either way
+      vi.spyOn(performance, "now").mockReturnValue(performance.now() + 15_000);
+      expect(p.retryDue(EMAIL)).toBe(true);
     });
   });
 

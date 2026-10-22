@@ -354,7 +354,7 @@ const retries = new Map<string, { due: number; wait: number }>();
  */
 export function hydrationRetryDue(email: string): boolean {
   const r = retries.get(email);
-  return r !== undefined && Date.now() >= r.due;
+  return r !== undefined && performance.now() >= r.due;
 }
 
 // One flush at a time per account in this page, so a day's changes go out in
@@ -446,7 +446,7 @@ async function flushOnce(
   const wait = retries.get(email)?.wait ?? 0;
   if (results.includes(false)) {
     const next = Math.min(MAX_RETRY_MS, wait ? wait * 2 : FIRST_RETRY_MS);
-    retries.set(email, { due: Date.now() + next, wait: next });
-  } else if (deferred) retries.set(email, { due: Date.now(), wait });
+    retries.set(email, { due: performance.now() + next, wait: next });
+  } else if (deferred) retries.set(email, { due: performance.now(), wait });
   else retries.delete(email);
 }
