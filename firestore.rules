@@ -29,7 +29,7 @@ service cloud.firestore {
     // Without this, anyone could sign into Firebase with the public web config
     // and keep data (at the owner's cost) under their own users/{uid}.
     function allowedEmails() {
-      return ['rob2rhyme@gmail.com'];
+      return ['rob2rhyme@gmail.com', 'noah18thapa@gmail.com'];
     }
 
     function isOwner(uid) {
