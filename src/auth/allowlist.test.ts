@@ -12,7 +12,7 @@ afterEach(() => {
 describe("sign-in allowlist", () => {
   it("defaults to the owner when the variable is unset, so a deploy can't fall open", () => {
     delete process.env.AUTH_ALLOWED_EMAILS;
-    expect(allowedEmails()).toEqual(["rob2rhyme@gmail.com"]);
+    expect(allowedEmails()).toEqual(["rob2rhyme@gmail.com", "noah18thapa@gmail.com"]);
     expect(isAllowedEmail("Rob2Rhyme@Gmail.com ")).toBe(true);
     expect(isAllowedEmail("someone@gmail.com")).toBe(false);
     expect(isAllowedEmail(undefined)).toBe(false);
