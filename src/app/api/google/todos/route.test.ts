@@ -62,3 +62,29 @@ describe("google todos route — task due date", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+// The client records what Google now holds only for a write that landed — a
+// route that swallowed a failure and answered 200 used to look like a sync.
+describe("google todos route — synced flags", () => {
+  const EVENTS = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+
+  it("says both halves landed on success", async () => {
+    const res = await POST(req({ todo: { text: "Call", dueAt: "2026-10-23T14:00:00.000Z" } }));
+    expect((await res.json()).synced).toEqual({ task: true, event: true });
+  });
+
+  it("says the event did not land when only that write failed", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).startsWith(EVENTS)
+        ? new Response("{}", { status: 500 })
+        : new Response(JSON.stringify({ id: "g1" }), { status: 200 })
+    );
+    const res = await POST(req({ todo: { text: "Call", dueAt: "2026-10-23T14:00:00.000Z" } }));
+    expect((await res.json()).synced).toEqual({ task: true, event: false });
+  });
+
+  it("counts an undated to-do's calendar side as in sync (nothing to hold)", async () => {
+    const res = await POST(req({ todo: { text: "Someday" } }));
+    expect((await res.json()).synced.event).toBe(true);
+  });
+});

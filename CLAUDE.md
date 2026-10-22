@@ -603,6 +603,24 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   `null` when absent, since `merge: true` would otherwise keep a removed one. The
   backup's `coerceTodo` also keeps `list`, `project` and `completedAt` now — it dropped
   them, so a restore turned Project to-dos into Personal ones.
+- **Google sync is two-way, with a three-way rule** (`lib/googleReconcile.ts`,
+  `useGoogleTodoPull`, `/api/google/todos/status`). A to-do is mirrored OUT whenever it
+  changes (`useGoogleTodoSync` → Tasks + a Calendar event for a timed one); the pull is the
+  way back — on enabling, on tab focus (at most once a minute) and every 5 minutes it asks
+  Google about each open, mirrored, personal to-do. Each to-do carries `gsync` (`{dueAt,
+  done}`): **what Google held when we last pushed or adopted**, recorded only for a write
+  that landed (the mirror route reports `synced.task/event`; it used to answer 200 after
+  swallowing a failure). Google differs from `gsync` while local equals it → Google changed
+  it, adopt; local differs from `gsync` → we changed it, leave it for the next mirror; both →
+  local wins, so a pull can never undo an unpushed edit. Adopted: completed in Google Tasks
+  (through the same `toggleTodoWithUndo` path, so a repeating one files its next), and a
+  moved timed event (`editTodo` without mirroring back). A Task/event deleted in Google just
+  unlinks (the to-do stays; its next mirror creates a fresh one). Not adopted: a Task
+  reopened in Google, an all-day move, or a time change on a to-do first seen without a
+  snapshot (that pull only records a baseline). The Agenda also **writes**: ＋ Add event and
+  delete (two clicks), on the **primary calendar only** — the routes hard-code `primary`, and
+  the UI offers delete only on `primary` events. The client sends the picked date and time as
+  an instant (the server can't know the zone) or a bare day for all-day.
 - Tasks (`useFocusTasks`): reusable across days; an **active task** receives the
   timer's focus minutes (via `taskId` on sessions); auto-resumes the most recent;
   mark done / archive. Per-task time is derived from `focusSessions` (not stored).

@@ -115,3 +115,105 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "fetch_failed" }, { status: 502 });
   }
 }
+
+/* ------------------------------------------------------------ write-back --- */
+// Create and delete events on the user's PRIMARY calendar only — never another
+// calendar (shared and subscribed ones are not ours to change). Both use the
+// `calendar.events` scope the sign-in already holds.
+
+const EVENTS = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+const MIN_DURATION = 5;
+const MAX_DURATION = 24 * 60;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The next calendar day, as a label. UTC arithmetic on a bare date, so no zone is involved. */
+function nextDay(date: string): string {
+  const d = new Date(`${date}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Create an event. `start` is either a bare day ("2026-10-23", an all-day event)
+ * or an instant (ISO) — the client turns the date and time the user picked into an
+ * instant, since this server can't know their zone. `durationMin` applies to timed
+ * events (default 30).
+ */
+export async function POST(req: NextRequest) {
+  const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = jwt?.accessToken;
+  if (!token) {
+    return NextResponse.json({ error: "not_connected" }, { status: 401 });
+  }
+
+  let input: { title?: unknown; start?: unknown; durationMin?: unknown; notes?: unknown };
+  try {
+    input = await req.json();
+  } catch {
+    return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  }
+
+  const title = typeof input.title === "string" ? input.title.trim().slice(0, 300) : "";
+  if (!title) return NextResponse.json({ error: "missing_title" }, { status: 400 });
+  const start = typeof input.start === "string" ? input.start : "";
+
+  const body: Record<string, unknown> = { summary: title };
+  if (typeof input.notes === "string" && input.notes.trim()) {
+    body.description = input.notes.trim().slice(0, 2000);
+  }
+  if (DATE_RE.test(start)) {
+    body.start = { date: start };
+    body.end = { date: nextDay(start) }; // the end of an all-day event is exclusive
+  } else {
+    const at = Date.parse(start);
+    if (Number.isNaN(at)) return NextResponse.json({ error: "bad_start" }, { status: 400 });
+    const minutes = Math.min(
+      MAX_DURATION,
+      Math.max(MIN_DURATION, Math.round(Number(input.durationMin) || 30))
+    );
+    body.start = { dateTime: new Date(at).toISOString() };
+    body.end = { dateTime: new Date(at + minutes * 60000).toISOString() };
+  }
+
+  try {
+    const res = await fetch(EVENTS, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`google ${res.status}`);
+    const ev = (await res.json()) as { id?: string };
+    return NextResponse.json({ id: typeof ev.id === "string" ? ev.id : null });
+  } catch {
+    return NextResponse.json({ error: "create_failed" }, { status: 502 });
+  }
+}
+
+/** Delete one event from the primary calendar (`?id=`). Already gone counts as done. */
+export async function DELETE(req: NextRequest) {
+  const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = jwt?.accessToken;
+  if (!token) {
+    return NextResponse.json({ error: "not_connected" }, { status: 401 });
+  }
+
+  const id = new URL(req.url).searchParams.get("id") ?? "";
+  // Google event ids are lowercase base32hex or similar; refuse anything that
+  // could alter the URL path.
+  if (!/^[\w-]{1,200}$/.test(id)) {
+    return NextResponse.json({ error: "bad_id" }, { status: 400 });
+  }
+
+  try {
+    const res = await fetch(`${EVENTS}/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok && res.status !== 404 && res.status !== 410) {
+      throw new Error(`google ${res.status}`);
+    }
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "delete_failed" }, { status: 502 });
+  }
+}

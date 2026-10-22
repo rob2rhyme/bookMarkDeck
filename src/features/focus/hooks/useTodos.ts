@@ -18,6 +18,7 @@ import {
   unqueueDelete,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
+import { isGoogleSnapshot } from "@/features/focus/lib/googleReconcile";
 import { isTodoRepeat, nextOccurrence } from "@/features/focus/lib/recurrence";
 import type { Todo, TodoEdit, TodoList, TodoPriority, TodoRepeat } from "@/features/focus/lib/types";
 import { todayKey } from "@/lib/dayKey";
@@ -53,6 +54,7 @@ function loadLocal(email?: string | null): Todo[] {
         googleTaskId: typeof t.googleTaskId === "string" ? t.googleTaskId : null,
         googleEventId:
           typeof t.googleEventId === "string" ? t.googleEventId : null,
+        ...(isGoogleSnapshot(t.gsync) ? { gsync: t.gsync } : {}),
         ...(isTodoRepeat(t.repeat) ? { repeat: t.repeat } : {}),
         ...(t.priority === "high" || t.priority === "low" ? { priority: t.priority as TodoPriority } : {}),
       }))
@@ -174,7 +176,14 @@ export function useTodos(
 
   // Persist the Google mapping ids without re-mirroring (called by the sync layer).
   const setGoogleIds = useCallback(
-    (id: string, ids: { googleTaskId?: string | null; googleEventId?: string | null }) => {
+    (
+      id: string,
+      ids: {
+        googleTaskId?: string | null;
+        googleEventId?: string | null;
+        gsync?: Todo["gsync"];
+      }
+    ) => {
       setTodos((prev) => {
         const next = prev.map((t) => (t.id === id ? { ...t, ...ids } : t));
         const updated = next.find((t) => t.id === id);

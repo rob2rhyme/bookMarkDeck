@@ -311,7 +311,12 @@ export default function GuidePage() {
               Turn on <em>Sync with Google</em> in Focus settings to push
               personal to-dos to Google Tasks (timed ones get Calendar events)
               and see your agenda alongside — sign out and back in once to
-              grant access. Your focus data exports as{" "}
+              grant access. It works both ways: finish a mirrored to-do in
+              Google Tasks, or move its calendar event, and the change comes
+              back here the next time you open Focus (a change you made here
+              and haven&apos;t synced yet always wins). From the agenda you can{" "}
+              <strong>＋ Add event</strong> to your own calendar, and delete
+              events on it (two clicks); shared calendars stay read-only. Your focus data exports as{" "}
               <strong>Sessions CSV</strong> or a full <strong>JSON backup</strong>,
               and imports merge by id, so restoring never duplicates.
             </p>

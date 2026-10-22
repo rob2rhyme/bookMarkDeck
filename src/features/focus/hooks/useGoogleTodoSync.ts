@@ -2,12 +2,16 @@
 
 import { useCallback } from "react";
 
-import type { Todo } from "@/features/focus/lib/types";
+import type { GoogleSnapshot, Todo } from "@/features/focus/lib/types";
 import { dayKeyOf } from "@/lib/dayKey";
 
 type SetIds = (
   id: string,
-  ids: { googleTaskId?: string | null; googleEventId?: string | null }
+  ids: {
+    googleTaskId?: string | null;
+    googleEventId?: string | null;
+    gsync?: GoogleSnapshot;
+  }
 ) => void;
 
 /**
@@ -31,10 +35,19 @@ export function useGoogleTodoSync(enabled: boolean, setIds: SetIds) {
         const data = (await res.json()) as {
           googleTaskId?: string | null;
           googleEventId?: string | null;
+          synced?: { task?: boolean; event?: boolean };
+        };
+        // What Google holds now: each half updates only if its write landed (an
+        // older server that doesn't say is treated as having landed, as before).
+        const prev = todo.gsync;
+        const gsync: GoogleSnapshot = {
+          done: data.synced?.task === false ? (prev?.done ?? false) : todo.done,
+          dueAt: data.synced?.event === false ? (prev?.dueAt ?? null) : (todo.dueAt ?? null),
         };
         setIds(todo.id, {
           googleTaskId: data.googleTaskId ?? todo.googleTaskId ?? null,
           googleEventId: data.googleEventId ?? null,
+          gsync,
         });
       } catch {
         // best-effort

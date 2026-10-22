@@ -62,9 +62,10 @@ parity, and distribution** — not catalog features.
 - **Bookmarks:** ~~importers (Pocket/Raindrop/Chrome)~~ — **shipped**: browser HTML
   already; Raindrop CSV/HTML and Pocket CSV/HTML added (`parseServiceCsv`,
   `parseBookmarkHtml`); read-later/reader-view + highlights; tag-browse.
-- **Focus:** two-way calendar
-  write-back (currently read-only). (Soundscapes **shipped**: rain, brown noise, wind,
-  ocean, soft noise, drone behind a running focus block, `lib/sound.ts`.)
+- **Focus:** (Soundscapes and two-way Google sync **shipped**: rain, brown noise, wind,
+  ocean, soft noise, drone behind a running focus block, `lib/sound.ts`; completions and
+  moves made in Google come back to mirrored to-dos, and the agenda adds/deletes events on
+  the primary calendar.)
 - **Habits:** external auto-tracking (Google Fit/Health
   → `trackableSources.ts`); a Finch-style companion (biggest lift, brand call).
 - **My Stuff:** AI photo→item capture — **already built** (`AiCaptureModal.tsx`),

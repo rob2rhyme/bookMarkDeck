@@ -43,7 +43,9 @@ import { useMeditationHistory } from "@/features/focus/hooks/useMeditationHistor
 import { useLetThemHistory } from "@/features/focus/hooks/useLetThemHistory";
 import { AgendaCard } from "@/features/focus/components/AgendaCard";
 import { useGoogleEvents } from "@/features/focus/hooks/useGoogleEvents";
+import { useGoogleTodoPull } from "@/features/focus/hooks/useGoogleTodoPull";
 import { useGoogleTodoSync } from "@/features/focus/hooks/useGoogleTodoSync";
+import type { GooglePatch } from "@/features/focus/lib/googleReconcile";
 import { useTodos } from "@/features/focus/hooks/useTodos";
 import { useUndo } from "@/features/focus/hooks/useUndo";
 import { restoreFocusBackup } from "@/features/focus/data/focusData";
@@ -326,6 +328,21 @@ export function FocusDashboard() {
     }
   };
 
+  // The way back in: what was done to a mirrored to-do in Google Tasks / Calendar.
+  // Completing goes through the same path as ticking it here (so a repeating one
+  // files its next, and the Undo works); a moved event changes the due time
+  // without mirroring it straight back; a deleted one just stops being linked.
+  const applyGooglePatch = (todo: Todo, patch: GooglePatch) => {
+    if (patch.complete) toggleTodoWithUndo(todo);
+    if (patch.dueAt) todos.editTodo(todo.id, { dueAt: patch.dueAt });
+    const ids: Parameters<typeof todos.setGoogleIds>[1] = {};
+    if (patch.unlinkTask) ids.googleTaskId = null;
+    if (patch.unlinkEvent) ids.googleEventId = null;
+    if (patch.gsync) ids.gsync = patch.gsync;
+    if (Object.keys(ids).length > 0) todos.setGoogleIds(todo.id, ids);
+  };
+  useGoogleTodoPull(settings.todoGoogleSync, todos.active, applyGooglePatch);
+
   const todayCalendarEvents = useMemo(() => {
     const today = todayKey();
     // Same rule as AgendaCard, so the two can't disagree about which day an
@@ -496,6 +513,8 @@ export function FocusDashboard() {
             canExpand={gevents.canExpand}
             canCollapse={gevents.canCollapse}
             onRefresh={gevents.refresh}
+            onCreate={gevents.create}
+            onDelete={gevents.remove}
             onExpand={gevents.expand}
             onCollapse={gevents.collapse}
           />
