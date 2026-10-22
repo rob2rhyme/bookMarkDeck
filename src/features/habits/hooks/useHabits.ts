@@ -491,9 +491,19 @@ export function useHabits(
       let restored = rec.before;
       if (source?.policy === "bidirectional") {
         const count = doneCount(current) - (rec.after - doneCount(rec.before));
-        const base = rec.before ?? current;
-        if (count > 0 && base) restored = { ...base, status: "done", count };
-        else if (count <= 0 && rec.before?.status === "done") restored = null;
+        // Before the tap there was no entry at all, so there's no note or
+        // time to put back — only a bare entry for whatever count another
+        // device still holds. Spreading `current` (the tap's own entry, kept
+        // by reference through any adoption since) kept the undone log's
+        // note, time and createdAt, which the docs promise go with it.
+        const base = rec.before ?? {
+          id: entryId(habit.id, today),
+          habitId: habit.id,
+          day: today,
+          createdAt: new Date().toISOString(),
+        };
+        if (count > 0) restored = { ...base, status: "done", count };
+        else if (rec.before?.status === "done") restored = null;
       }
       if (restored === null) removeEntry(entryId(habit.id, today));
       else upsertEntry(restored);

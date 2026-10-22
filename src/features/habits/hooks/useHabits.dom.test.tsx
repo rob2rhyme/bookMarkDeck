@@ -154,6 +154,28 @@ describe("useHabits — the water link", () => {
     expect(count()).toBe(5);
   });
 
+  // With no entry before the tap, there is no note or time to put back —
+  // only the cups another device still holds, and that device's own cups
+  // never carried the undone log's note.
+  it("undoes a log made on an empty day without keeping its note or time", async () => {
+    const { hook, habit, count } = await openHabits();
+    act(() =>
+      hook.result.current.logDetail(habit(), { status: "done", count: 2, note: "after run", at: "07:00" })
+    );
+    await flush();
+    act(() => cloud.add(DAY, 1)); // the phone, no note of its own
+    await flush();
+    expect(count()).toBe(3);
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(cloud.days.get(DAY)).toBe(1);
+    expect(count()).toBe(1);
+    const e = hook.result.current.todayEntry("w");
+    expect(e).toMatchObject({ status: "done", count: 1 });
+    expect(e?.note).toBeUndefined();
+    expect(e?.at).toBeUndefined();
+  });
+
   it("undoes only the tap when cups were removed elsewhere since", async () => {
     cloud.write(DAY, 5);
     const { hook, habit } = await openHabits();
