@@ -869,7 +869,15 @@ Other invariants:
   record in Cache Storage (`bmd-snooze-v1`, `@/lib/snoozeRecords`, exempt from
   `activate`'s cleanup) so `useHabitReminders` can cancel it once the habit is done
   — the page can't see a push the worker queued. If the re-queue fails the click
-  just opens the app. iOS shows no notification actions. The worker's badge is `icons/badge-96.png`,
+  just opens the app. iOS shows no notification actions. **A habit can remind at up to
+  four times a day** (`reminder` = the first time, `extraReminders` the rest, read through
+  `reminderTimes`: valid, unique, earliest first — two fields so a bundle or backup that
+  knows only `reminder` still reads the habit). `useHabitReminders` queues one push per
+  habit **and** time (map key `{id}@{HH:MM}`; an entry under the old bare-id key is not in
+  the desired set, so it is cancelled and re-queued), all under the habit's single `habit:{id}`
+  tag so a later one replaces an unread earlier one. A habit done today silences the rest of
+  today's times. `habitToDoc` always writes `extraReminders` (as `[]`) so a removed time
+  leaves the cloud copy too. The worker's badge is `icons/badge-96.png`,
   white on transparent — Android draws a badge from alpha alone, and the opaque
   app icon rendered as a solid square. `src/lib/serviceWorker.test.ts` loads the
   real `public/sw.js` into a `vm` sandbox, since nothing imports it. It also pins

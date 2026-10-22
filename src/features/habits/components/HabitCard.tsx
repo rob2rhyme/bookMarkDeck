@@ -1,5 +1,6 @@
 "use client";
 
+import { reminderLabel } from "@/features/habits/lib/reminders";
 import { Check, Emoji, Note, Pencil, SkipForward } from "@/components/icons";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { RowMenu, type RowMenuItem } from "@/features/habits/components/RowMenu";
@@ -44,7 +45,7 @@ export function HabitCard({
   const target = habitTarget(habit);
   const measurable = habit.type === "measurable";
   const step = habit.step ?? 1;
-  const sched = scheduleLabel(habit) + (habit.reminder ? ` · 🔔 ${habit.reminder}` : "");
+  const sched = scheduleLabel(habit) + (reminderLabel(habit) ? ` · 🔔 ${reminderLabel(habit)}` : "");
   const progress = stats.doneToday
     ? 1
     : measurable

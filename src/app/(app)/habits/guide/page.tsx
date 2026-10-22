@@ -110,7 +110,7 @@ export default function HabitsGuidePage() {
           <h2 className="text-base font-semibold text-slate-50">Reminders, areas & search</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
             <li>
-              Set a <strong>reminder</strong> time under <em>Add details</em> for a gentle nudge on scheduled days. The first time, tap <strong>Turn on reminders</strong> to let this device show notifications.
+              Set a <strong>reminder</strong> time under <em>Add details</em> for a gentle nudge on scheduled days — and tap <strong>+ Add another time</strong> for up to four a day (a morning prompt and an evening last call, say). Finishing the habit silences the rest of that day&apos;s reminders. The first time, tap <strong>Turn on reminders</strong> to let this device show notifications.
             </li>
             <li>
               Not now? Tap <strong>Snooze 1 hour</strong> on the notification and it comes back — and goes quiet if you finish the habit in the meantime. Android and desktop browsers show the button; iPhones don&apos;t, so there it just opens the app.

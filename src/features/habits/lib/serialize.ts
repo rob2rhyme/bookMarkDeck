@@ -3,6 +3,7 @@
 // Pure coercion from untrusted data (Firestore docs OR localStorage JSON) into
 // the domain types. Shared so the cloud mapping and the local cache can't drift.
 
+import { normalizeTime } from "@/features/habits/lib/reminders";
 import type {
   EntryStatus,
   Habit,
@@ -62,6 +63,9 @@ export function coerceHabit(id: string, raw: unknown): Habit | null {
         ? r.areaIcon.trim()
         : undefined,
     reminder: typeof r.reminder === "string" ? r.reminder : null,
+    extraReminders: Array.isArray(r.extraReminders)
+      ? r.extraReminders.map(normalizeTime).filter((t): t is string => t !== null)
+      : undefined,
     linkedSourceId:
       typeof r.linkedSourceId === "string" ? r.linkedSourceId : undefined,
     archived: Boolean(r.archived),
@@ -101,6 +105,8 @@ export function habitToDoc(h: Habit): Record<string, unknown> {
     archived: h.archived,
     sortOrder: h.sortOrder,
     reminder: h.reminder ?? null,
+    // Always written: a merge would otherwise keep times removed in the editor.
+    extraReminders: h.extraReminders ?? [],
   };
   if (h.direction) doc.direction = h.direction;
   if (h.unit !== undefined) doc.unit = h.unit;
