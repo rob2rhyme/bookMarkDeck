@@ -73,6 +73,44 @@ export type TrackableSource = {
   mirror?: (ctx: LinkCtx, value: number, previous: number) => void;
 };
 
+// Several habits can link to the same source for one account (two water
+// habits, say). Each used to make its own retry interval and `online`
+// listener, so a due retry ran twice back to back, and the backoff — read
+// from whatever the outbox's `retries` held at the moment — doubled twice.
+// Shared and refcounted here instead: the first subscription makes them, the
+// last one to stop tears them down.
+const hydrationRetrySlots = new Map<
+  string,
+  { refs: number; interval: ReturnType<typeof setInterval>; online: () => void }
+>();
+
+function shareHydrationRetry(email: string): () => void {
+  let slot = hydrationRetrySlots.get(email);
+  if (!slot) {
+    const flush = () => void flushHydration(email, hydrationTransport);
+    const interval = setInterval(() => {
+      if (hydrationRetryDue(email)) flush();
+    }, 15_000);
+    window.addEventListener("online", flush);
+    slot = { refs: 0, interval, online: flush };
+    hydrationRetrySlots.set(email, slot);
+  }
+  slot.refs++;
+  let released = false;
+  return () => {
+    if (released) return; // a caller's unsubscribe can run more than once
+    released = true;
+    const current = hydrationRetrySlots.get(email);
+    if (!current) return;
+    current.refs--;
+    if (current.refs <= 0) {
+      clearInterval(current.interval);
+      window.removeEventListener("online", current.online);
+      hydrationRetrySlots.delete(email);
+    }
+  };
+}
+
 const MIN_UNITS = ["min", "mins", "minute", "minutes"];
 const isMinutes = (h: Habit) =>
   h.type === "measurable" && MIN_UNITS.includes((h.unit ?? "").trim().toLowerCase());
@@ -90,10 +128,7 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
     // a Focus tab that closed offline still delivers when habits opens first —
     // and so is a retry the outbox says is due.
     subscribe: (email, day, cb) => {
-      const flush = () => void flushHydration(email, hydrationTransport);
-      const retry = setInterval(() => {
-        if (hydrationRetryDue(email)) flush();
-      }, 15_000);
+      const releaseRetry = shareHydrationRetry(email);
       let first = true;
       const unsubscribe = subscribeHydration(
         email,
@@ -102,16 +137,14 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
           cb(value);
           if (first) {
             first = false;
-            flush();
+            void flushHydration(email, hydrationTransport);
           }
         },
         { serverFirst: true }
       );
-      window.addEventListener("online", flush);
       return () => {
         unsubscribe();
-        clearInterval(retry);
-        window.removeEventListener("online", flush);
+        releaseRetry();
       };
     },
     readCache: (email, day) => readHydrationCache(email, day)?.cups ?? null,

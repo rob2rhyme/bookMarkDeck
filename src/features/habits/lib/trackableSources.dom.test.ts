@@ -177,4 +177,41 @@ describe("hydration source — subscription", () => {
       vi.useRealTimers();
     }
   });
+
+  // Two habits linked to water each used to make their own retry interval and
+  // `online` listener: a due retry ran twice back to back, and the backoff
+  // (computed from whatever `retries` held at the moment) doubled twice.
+  it("shares one retry interval and one `online` listener across several linked habits", () => {
+    vi.useFakeTimers();
+    const addSpy = vi.spyOn(window, "addEventListener");
+    const removeSpy = vi.spyOn(window, "removeEventListener");
+    try {
+      vi.mocked(flushHydration).mockClear();
+      const stopA = hydration.subscribe(EMAIL, "2026-03-15", vi.fn());
+      const stopB = hydration.subscribe(EMAIL, "2026-03-15", vi.fn());
+      const onlineAdds = addSpy.mock.calls.filter(([type]) => type === "online").length;
+      expect(onlineAdds).toBe(1);
+      vi.mocked(hydrationRetryDue).mockReturnValue(true);
+      vi.advanceTimersByTime(15_000);
+      expect(flushHydration).toHaveBeenCalledOnce();
+      // One habit unlinking (or finishing) leaves the other's retry running.
+      stopA();
+      expect(removeSpy.mock.calls.filter(([type]) => type === "online")).toHaveLength(0);
+      vi.mocked(flushHydration).mockClear();
+      vi.advanceTimersByTime(15_000);
+      expect(flushHydration).toHaveBeenCalledOnce();
+      // The last one stopping tears the shared interval and listener down.
+      stopB();
+      const onlineRemoves = removeSpy.mock.calls.filter(([type]) => type === "online").length;
+      expect(onlineRemoves).toBe(1);
+      vi.mocked(flushHydration).mockClear();
+      vi.advanceTimersByTime(60_000);
+      expect(flushHydration).not.toHaveBeenCalled();
+    } finally {
+      vi.mocked(hydrationRetryDue).mockReturnValue(false);
+      addSpy.mockRestore();
+      removeSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });
