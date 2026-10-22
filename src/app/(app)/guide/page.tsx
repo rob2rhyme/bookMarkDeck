@@ -287,7 +287,9 @@ export default function GuidePage() {
               <strong>Hydration</strong>: a cup counter with gentle reminders
               on your interval. <strong>Meditation</strong>: guided breathing
               patterns (Box, 4-7-8, Coherence and more), quiet timed sits,
-              optional voice guidance and ambient sound, plus a small library
+              optional voice guidance (pick the voice and pace, and hear it
+              first — voices named &ldquo;Natural&rdquo; or &ldquo;Enhanced&rdquo;
+              sound the most human) and ambient sound, plus a small library
               of step-by-step guided meditations. <strong>&ldquo;Let
               them&rdquo;</strong>: a 60-second reset — name what&apos;s
               pulling at you, let it go, choose one thing you control, and
