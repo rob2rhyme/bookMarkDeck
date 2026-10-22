@@ -294,7 +294,14 @@ describe("useHabits — the water link", () => {
   // Queued while not connected, an adopted count went up as the whole entry on
   // connect, and erased a note logged on another device. Linked, the habit
   // takes the record's count again once connected, so there's nothing to send.
-  it("doesn't queue a count adopted while not connected for upload", async () => {
+  // A count adopted while not connected must still reach the cloud once
+  // connected — through saveEntryCount, never saveEntry: the generic pending-
+  // upsert path (queued under "habitEntries") uploads with saveEntry, which
+  // would write back the note and time this device cached, undoing the fix
+  // above. It used to queue nothing at all, so the adoption was lost the
+  // moment a cloud entries snapshot replaced local state with the cloud's
+  // (which had never heard of it) — see the next test for a day it's lost on.
+  it("uploads a count adopted while not connected, through saveEntryCount only", async () => {
     localStorage.setItem(
       `bookmarkdeck:focus:hydration:v1:${EMAIL}`,
       JSON.stringify({ day: DAY, cups: 2, lastDrink: 1 })
@@ -307,6 +314,39 @@ describe("useHabits — the water link", () => {
     expect(hook.result.current.todayEntry("w")).toMatchObject({ status: "done", count: 2 });
     hook.rerender({ c: true });
     await flush();
+    expect(habitData.saveEntry).not.toHaveBeenCalled();
+    expect(habitData.saveEntryCount).toHaveBeenCalledWith(
+      EMAIL,
+      expect.objectContaining({ id: `w_${DAY}`, status: "done", count: 2 })
+    );
+  });
+
+  // The adoption's day can roll over to a past day before the device ever
+  // connects — habits only re-adopts "today" live, so nothing else would ever
+  // push this day's count, and the next connect's cloud snapshot (which never
+  // heard of it) replaced local state wholesale and erased it outright.
+  it("doesn't lose a count adopted on a day that rolled over before connecting", async () => {
+    const YESTERDAY = "2026-10-10";
+    vi.setSystemTime(new Date(2026, 9, 10, 9, 0)); // mount on YESTERDAY, offline
+    localStorage.setItem(
+      `bookmarkdeck:focus:hydration:v1:${EMAIL}`,
+      JSON.stringify({ day: YESTERDAY, cups: 3, lastDrink: 1 })
+    );
+    const useHabits = await habitsTab();
+    const hook = renderHook(({ c }: { c: boolean }) => useHabits(EMAIL, c), {
+      initialProps: { c: false },
+    });
+    await flush();
+    expect(hook.result.current.todayEntry("w")).toMatchObject({ status: "done", count: 3 });
+    vi.setSystemTime(new Date(2026, 9, 11, 9, 0)); // the day rolls over, still offline
+    act(() => void window.dispatchEvent(new Event("focus")));
+    await flush();
+    hook.rerender({ c: true }); // then connects
+    await flush();
+    expect(habitData.saveEntryCount).toHaveBeenCalledWith(
+      EMAIL,
+      expect.objectContaining({ id: `w_${YESTERDAY}`, status: "done", count: 3 })
+    );
     expect(habitData.saveEntry).not.toHaveBeenCalled();
   });
 

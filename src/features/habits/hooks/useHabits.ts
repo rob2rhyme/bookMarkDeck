@@ -191,8 +191,18 @@ export function useHabits(
             .filter((e) => eUps.has(e.id))
             .map((e) => saveEntry(email, e).catch(() => {}))
         );
+      // A count adopted while not connected: its own queue, replayed through
+      // saveEntryCount only — see adoptCount.
+      const ecUps = pendingUpsertIds("habitEntryCounts", email);
+      if (ecUps.size)
+        await Promise.all(
+          entries
+            .filter((e) => ecUps.has(e.id))
+            .map((e) => saveEntryCount(email, e).catch(() => {}))
+        );
       clearPendingUpserts("habits", email);
       clearPendingUpserts("habitEntries", email);
+      clearPendingUpserts("habitEntryCounts", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -237,6 +247,14 @@ export function useHabits(
     (entry: HabitEntry) => {
       commitEntries((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
       if (canSync && email) saveEntryCount(email, entry).catch(() => {});
+      // Queued separately from a manual edit's upsert: the connect effect
+      // replays THIS queue through saveEntryCount too, never saveEntry, or
+      // it would write back the note and time this device cached and undo
+      // the fix above. Without queueing at all, a day that rolls over before
+      // connecting is never revisited (the reverse-sync effect re-adopts
+      // only "today"), and the next cloud snapshot replaces local state
+      // wholesale — so the adoption was simply lost.
+      else queueUpsert("habitEntryCounts", email, entry.id);
     },
     [canSync, email, commitEntries]
   );
