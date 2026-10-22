@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cancelPush, pushSupported, requestPushPermission, schedulePush } from "@/lib/push";
 import { clearSnooze, readSnoozes } from "@/lib/snoozeRecords";
-import { nextReminderAt, reminderBody } from "@/features/habits/lib/reminders";
+import { nextReminderAt, reminderBody, reminderTimes } from "@/features/habits/lib/reminders";
 import type { Habit, HabitStats } from "@/features/habits/lib/types";
 
 type Sched = { fireAt: number; messageId: string | null };
@@ -73,7 +73,7 @@ export function useHabitReminders(
       habits
         .map(
           (h) =>
-            `${h.id}:${h.reminder ?? ""}:${
+            `${h.id}:${reminderTimes(h).join(",")}:${
               statsByHabit.get(h.id)?.doneToday ? 1 : 0
             }`
         )
@@ -92,37 +92,43 @@ export function useHabitReminders(
         const map = { ...mapRef.current };
         const activeIds = new Set(habits.map((h) => h.id));
 
-        // Drop reminders for habits that no longer exist.
-        for (const id of Object.keys(map)) {
-          if (!activeIds.has(id)) {
-            await cancelPush(map[id].messageId);
-            delete map[id];
+        // One queued push per habit AND time, keyed `{id}@{HH:MM}`. (Before
+        // several times were allowed the key was just the id; those entries are
+        // not in this set, so they are cancelled and re-queued under the new key.)
+        const desired = new Map<string, { habit: Habit; at: number }>();
+        for (const h of habits) {
+          const done = statsByHabit.get(h.id)?.doneToday ?? false;
+          for (const time of reminderTimes(h)) {
+            const at = nextReminderAt(h, now, done, time);
+            if (at !== null) desired.set(`${h.id}@${time}`, { habit: h, at });
           }
         }
 
-        for (const h of habits) {
-          const done = statsByHabit.get(h.id)?.doneToday ?? false;
-          const desired = nextReminderAt(h, now, done);
-          const cur = map[h.id];
-          if (desired === null) {
-            if (cur) {
-              await cancelPush(cur.messageId);
-              delete map[h.id];
-            }
-            continue;
+        // Drop what is no longer wanted: a deleted habit, a removed time, or a
+        // habit finished for the day.
+        for (const key of Object.keys(map)) {
+          if (!desired.has(key)) {
+            await cancelPush(map[key].messageId);
+            delete map[key];
           }
+        }
+
+        for (const [key, { habit: h, at }] of desired) {
+          const cur = map[key];
           // Already scheduled for ~the same minute — leave it.
-          if (cur && Math.abs(cur.fireAt - desired) < 60_000) continue;
+          if (cur && Math.abs(cur.fireAt - at) < 60_000) continue;
           if (cur) await cancelPush(cur.messageId);
+          // One tag per habit, not per time: a later reminder replaces an
+          // unread earlier one for the same habit rather than stacking.
           const messageId = await schedulePush({
-            endTime: desired,
+            endTime: at,
             title: `${h.emoji} ${h.name}`,
             body: reminderBody(h, statsByHabit.get(h.id)?.currentStreak ?? 0),
             url: "/habits",
             tag: `habit:${h.id}`,
             snoozable: true,
           });
-          map[h.id] = { fireAt: desired, messageId };
+          map[key] = { fireAt: at, messageId };
         }
 
         // A snoozed reminder (queued by the notification's own button) goes
@@ -159,7 +165,7 @@ export function useHabitReminders(
     setPermission(granted ? "granted" : Notification.permission);
   }, []);
 
-  const hasReminders = habits.some((h) => Boolean(h.reminder));
+  const hasReminders = habits.some((h) => reminderTimes(h).length > 0);
 
   return { permission, requestPermission, hasReminders };
 }

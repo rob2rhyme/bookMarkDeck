@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { nextReminderAt, reminderBody } from "@/features/habits/lib/reminders";
+import {
+  MAX_REMINDERS,
+  nextReminderAt,
+  normalizeTime,
+  reminderBody,
+  reminderFields,
+  reminderLabel,
+  reminderTimes,
+} from "@/features/habits/lib/reminders";
 import type { Habit } from "@/features/habits/lib/types";
 
 function habit(over: Partial<Habit> = {}): Habit {
@@ -74,5 +82,74 @@ describe("reminderBody", () => {
 
   it("falls back to plain copy below the streak threshold", () => {
     expect(reminderBody(habit({ name: "Floss" }), 1)).toBe("Time for Floss.");
+  });
+});
+
+describe("normalizeTime", () => {
+  it("zero-pads real times and rejects everything else", () => {
+    expect(normalizeTime("9:05")).toBe("09:05");
+    expect(normalizeTime("20:00")).toBe("20:00");
+    for (const bad of ["24:00", "12:60", "noon", "", "9", "09:5", null, undefined, 900]) {
+      expect(normalizeTime(bad)).toBeNull();
+    }
+  });
+});
+
+describe("reminderTimes", () => {
+  it("lists every time once, earliest first", () => {
+    expect(reminderTimes({ reminder: "20:00", extraReminders: ["8:00", "20:00", "13:30"] })).toEqual([
+      "08:00",
+      "13:30",
+      "20:00",
+    ]);
+  });
+
+  it("reads a habit that has only the single `reminder`, or none", () => {
+    expect(reminderTimes({ reminder: "09:00" })).toEqual(["09:00"]);
+    expect(reminderTimes({ reminder: null })).toEqual([]);
+    expect(reminderTimes({ reminder: null, extraReminders: ["07:00"] })).toEqual(["07:00"]);
+  });
+
+  it("drops junk and caps the count", () => {
+    expect(reminderTimes({ reminder: "09:00", extraReminders: ["junk", "25:00"] })).toEqual(["09:00"]);
+    const many = ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00"];
+    expect(reminderTimes({ reminder: "05:00", extraReminders: many })).toHaveLength(MAX_REMINDERS);
+  });
+
+  it("labels them for a card", () => {
+    expect(reminderLabel({ reminder: "20:00", extraReminders: ["08:00"] })).toBe("08:00, 20:00");
+    expect(reminderLabel({ reminder: null })).toBe("");
+  });
+});
+
+describe("reminderFields", () => {
+  it("keeps the earliest as the first time and the rest as extras", () => {
+    expect(reminderFields("20:00", ["08:00"])).toEqual({ reminder: "08:00", extraReminders: ["20:00"] });
+  });
+
+  it("stores nothing extra for a single time, and nothing at all for none", () => {
+    expect(reminderFields("09:00", [])).toEqual({ reminder: "09:00", extraReminders: undefined });
+    expect(reminderFields("", ["", "junk"])).toEqual({ reminder: null, extraReminders: undefined });
+  });
+
+  it("merges a duplicate time entered twice", () => {
+    expect(reminderFields("09:00", ["9:00"])).toEqual({ reminder: "09:00", extraReminders: undefined });
+  });
+});
+
+describe("nextReminderAt for a chosen time", () => {
+  it("uses the time it is given, not the habit's first", () => {
+    const now = new Date(2026, 5, 19, 10, 0);
+    const h = habit({ reminder: "09:00", extraReminders: ["20:00"] });
+    expect(nextReminderAt(h, now, false, "20:00")).toBe(new Date(2026, 5, 19, 20, 0).getTime());
+    // 09:00 has passed today, so its next fire is tomorrow.
+    expect(nextReminderAt(h, now, false, "09:00")).toBe(new Date(2026, 5, 20, 9, 0).getTime());
+  });
+
+  it("a habit done today skips today's later times too", () => {
+    const now = new Date(2026, 5, 19, 10, 0);
+    const h = habit({ reminder: "09:00", extraReminders: ["20:00"] });
+    // 20:00 tomorrow is 34h away: nothing within the push window.
+    expect(nextReminderAt(h, now, true, "20:00")).toBeNull();
   });
 });

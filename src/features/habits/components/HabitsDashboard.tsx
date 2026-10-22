@@ -46,6 +46,7 @@ import { downloadText } from "@/utils/download";
 import { fetchUiFlag, markUiFlag } from "@/lib/uiPrefs";
 import { useHabits } from "@/features/habits/hooks/useHabits";
 import { useHabitReminders } from "@/features/habits/hooks/useHabitReminders";
+import { reminderLabel } from "@/features/habits/lib/reminders";
 import { useHabitSync } from "@/features/habits/hooks/useHabitSync";
 import type { Habit, HabitEntry } from "@/features/habits/lib/types";
 
@@ -577,7 +578,7 @@ export function HabitsDashboard() {
                       <p className="truncate text-[11px] text-slate-500">
                         {scheduleLabel(habit)} · 🔥 {st.currentStreak} · {st.rate}%
                         {" · 💪 "}{st.strength}%
-                        {habit.reminder ? ` · 🔔 ${habit.reminder}` : ""}
+                        {reminderLabel(habit) ? ` · 🔔 ${reminderLabel(habit)}` : ""}
                         {(noteCounts.get(habit.id) ?? 0) > 0 && (
                           <>
                             {" · "}
