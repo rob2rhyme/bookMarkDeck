@@ -9,7 +9,9 @@ import {
   MODE_LABELS,
   useFocusTimer,
 } from "@/features/focus/hooks/useFocusTimer";
+import { useFocusAmbient } from "@/features/focus/hooks/useFocusAmbient";
 import { useStopwatch } from "@/features/focus/hooks/useStopwatch";
+import { AMBIENT_OPTIONS, initAudio, type AmbientId } from "@/features/focus/lib/sound";
 import type { FocusSettings } from "@/features/focus/lib/settings";
 import { todayKey } from "@/lib/dayKey";
 
@@ -43,6 +45,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 type PomodoroTimerProps = {
   settings: FocusSettings;
+  onUpdate?: (patch: Partial<FocusSettings>) => void;
   email?: string | null;
   connected?: boolean;
   activeTaskId?: string | null;
@@ -52,6 +55,7 @@ type PomodoroTimerProps = {
 
 export function PomodoroTimer({
   settings,
+  onUpdate,
   email,
   connected,
   activeTaskId,
@@ -85,6 +89,13 @@ export function PomodoroTimer({
 
   const [kind, setKind] = useState<"pomodoro" | "stopwatch">("pomodoro");
   const stopwatch = useStopwatch();
+
+  // A soundscape behind focus work only — never a break, never while paused.
+  useFocusAmbient(
+    kind === "pomodoro" ? running && mode === "focus" : stopwatch.running,
+    settings.focusAmbient,
+    settings.focusAmbientVolume
+  );
 
   // Log the open-ended block through the same path as a Pomodoro focus session.
   const finishStopwatch = () => {
@@ -263,7 +274,10 @@ export function PomodoroTimer({
           <div className="mt-6 flex items-center gap-3">
             <button
               type="button"
-              onClick={stopwatch.toggle}
+              onClick={() => {
+                initAudio(); // the soundscape needs audio unlocked by this click
+                stopwatch.toggle();
+              }}
               className="min-w-28 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
             >
               {stopwatch.running ? "Pause" : "Start"}
@@ -284,6 +298,41 @@ export function PomodoroTimer({
               : "Runs open-ended — logs whole minutes of focus when you finish."}
           </p>
         </>
+      )}
+
+      {onUpdate && (
+        <div className="mt-5 flex w-full max-w-xs flex-col gap-2 border-t border-slate-800/70 pt-4">
+          <label className="flex items-center justify-between gap-3 text-xs text-slate-400">
+            <span>🎧 Soundscape while you focus</span>
+            <select
+              value={settings.focusAmbient}
+              onChange={(e) => onUpdate({ focusAmbient: e.target.value as AmbientId })}
+              aria-label="Focus soundscape"
+              className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1 text-xs text-slate-200 focus:border-blue-400 focus:outline-none"
+            >
+              {AMBIENT_OPTIONS.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {settings.focusAmbient !== "off" && (
+            <label className="flex items-center gap-3 text-xs text-slate-400">
+              <span className="shrink-0">Volume</span>
+              <input
+                type="range"
+                min={10}
+                max={100}
+                step={5}
+                value={settings.focusAmbientVolume}
+                onChange={(e) => onUpdate({ focusAmbientVolume: Number(e.target.value) })}
+                aria-label="Soundscape volume"
+                className="min-w-0 flex-1 accent-blue-500"
+              />
+            </label>
+          )}
+        </div>
       )}
 
       <TimeUpModal

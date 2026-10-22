@@ -39,6 +39,16 @@ describe("normalizeSettings", () => {
     );
   });
 
+  it("validates the focus soundscape and clamps its volume", () => {
+    expect(normalizeSettings({}).focusAmbient).toBe("off");
+    expect(normalizeSettings({ focusAmbient: "rain" }).focusAmbient).toBe("rain");
+    expect(normalizeSettings({ focusAmbient: "thunder" }).focusAmbient).toBe("off");
+    expect(normalizeSettings({}).focusAmbientVolume).toBe(50);
+    expect(normalizeSettings({ focusAmbientVolume: 500 }).focusAmbientVolume).toBe(100);
+    expect(normalizeSettings({ focusAmbientVolume: 0 }).focusAmbientVolume).toBe(10);
+    expect(normalizeSettings({ focusAmbientVolume: "x" }).focusAmbientVolume).toBe(50);
+  });
+
   it("validates meditationAmbient, defaulting to 'off'", () => {
     expect(normalizeSettings({ meditationAmbient: "ocean" }).meditationAmbient).toBe("ocean");
     expect(normalizeSettings({ meditationAmbient: "nope" }).meditationAmbient).toBe("off");

@@ -452,6 +452,7 @@ export function FocusDashboard() {
       >
         <PomodoroTimer
           settings={settings}
+          onUpdate={update}
           email={email}
           connected={connected}
           activeTaskId={tasks.activeTaskId}

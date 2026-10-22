@@ -4,6 +4,7 @@
 import { isBreathPatternId, patternById } from "@/features/focus/lib/breathing";
 import {
   type AmbientId,
+  DEFAULT_AMBIENT_VOLUME,
   isAmbientId,
   isSoundId,
   type SoundId,
@@ -49,6 +50,9 @@ export type FocusSettings = {
   meditationPattern: string; // a breathing pattern id (see lib/breathing.ts)
   meditationVoice: boolean; // spoken phase/step cues (Web Speech API)
   meditationAmbient: AmbientId; // generated backdrop ("off" by default)
+  // Soundscape behind a running focus block ("off" by default), 10–100 loud.
+  focusAmbient: AmbientId;
+  focusAmbientVolume: number;
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
@@ -74,6 +78,8 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   meditationPattern: "box",
   meditationVoice: false,
   meditationAmbient: "off",
+  focusAmbient: "off",
+  focusAmbientVolume: DEFAULT_AMBIENT_VOLUME,
 };
 
 /** Coerce arbitrary stored/remote data into a valid, clamped settings object. */
@@ -116,5 +122,9 @@ export function normalizeSettings(raw: unknown): FocusSettings {
     meditationAmbient: isAmbientId(r.meditationAmbient)
       ? r.meditationAmbient
       : DEFAULT_SETTINGS.meditationAmbient,
+    focusAmbient: isAmbientId(r.focusAmbient) ? r.focusAmbient : DEFAULT_SETTINGS.focusAmbient,
+    focusAmbientVolume: Math.round(
+      num(r.focusAmbientVolume, DEFAULT_SETTINGS.focusAmbientVolume, 10, 100)
+    ),
   };
 }
