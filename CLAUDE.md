@@ -599,7 +599,16 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   cached when the write was made, not over the server's, so against the emulator a
   cup taken before the day was ever read showed as the day's only cup (4 → 1 → 6),
   and one taken offline hid the phone's cups until the acknowledgement came back.
-  The history chart (`subscribeHydrationHistory`) holds those back too.
+  **The history chart (`subscribeHydrationHistory`) holds back more, and for
+  longer, than that one guard suggests.** `hasPendingWrites` is a flag on the
+  whole query snapshot, not per document, so one unacknowledged write to *any*
+  day freezes the chart's view of every day in it — including a different
+  day's update that already landed on the server from another device — not
+  just a brief first-load window. It stays frozen for as long as that write is
+  outstanding (an outage can hold it for the outage's whole length), then
+  converges once the write is acknowledged. Unlike the tracker (which shows its
+  own change from `countRef` regardless), the chart shows no optimistic value
+  of its own meanwhile, this page's included.
   The hook shows its own changes itself, from a synchronous `countRef`, and makes
   its writes outside state updaters, which StrictMode runs twice. *Download*
   (`fetchHydration`) answers `undefined` while such a write is pending, and the
@@ -627,7 +636,12 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   time) from before the tap. A tap made under a link the habit no longer has, or
   without the one it now has, isn't offered for undo: as a change to Focus it
   would take back cups it never sent. (Water only: a raise-only source's undo
-  still restores the snapshot outright.) **Linking a habit** (turning sync back
+  still restores the snapshot outright.) **Undo resends the tap's own increment,
+  not the server's.** If the server clamped the tap's removal (another device had
+  already taken some or all of those cups off), undo still adds back the full
+  amount the tap asked to remove, not what the clamp actually let through — so
+  the tap and its own undo don't cancel to zero, and can hand the day a cup that
+  was never there. **Linking a habit** (turning sync back
   on, or a rename that makes it match) makes today's count Focus's: cups logged on
   the habit while it was unlinked are replaced, not added — the habit can't tell
   them from cups already on their way through the outbox, and adding those is the
@@ -679,6 +693,14 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
     it removes, still held by another page (or one that closed), leaves the day
     high by what it removed: one cup for Focus, a habit's whole count for an
     un-toggle, clear, skip or undo. Within a page the order is kept.
+  - *A change another live page's lock holds isn't this page's to retry.* A
+    flush that finds a day's stored change locked elsewhere skips it without
+    arming (or owing) a retry for it — correctly, since that other page is the
+    one delivering it. But if that page then closes mid-delivery during an
+    outage that never fires `online` (the network stays "up" to the browser),
+    the change is orphaned with no page's clock retrying it, until some other
+    event (a focus/visibility change, a new tap, a reconnect `online`) triggers
+    a fresh flush that claims it. Ten minutes of elapsed time alone does not.
   - *Display.* Offline, a tab doesn't see another tab's cups until they land, and a
     change recovered from the outbox shows only once acknowledged.
   - *Kept in memory* (no Web Locks — an insecure context, Safari before 15.4 — or

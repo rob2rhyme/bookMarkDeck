@@ -176,7 +176,10 @@ function oursWaiting(email: string, day: string): string[] {
 
 /**
  * Whether `day` has changes this page can't yet count as on the server: its
- * own waiting for a flush, or any stored by a page that isn't sending them.
+ * own waiting for a flush, or any change stored for that day. `ours` is
+ * page-local, so a stored entry this page didn't record itself counts as
+ * waiting even if another page is actually sending it right now — this page
+ * has no way to tell that apart from an orphaned one.
  */
 export function hydrationWaiting(email: string, day: string): boolean {
   if (oursWaiting(email, day).length) return true;
