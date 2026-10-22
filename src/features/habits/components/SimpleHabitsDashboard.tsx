@@ -9,9 +9,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 
 import { setFocusTaskIntent } from "@/lib/focusIntent";
+import { useStableEmail } from "@/lib/useStableEmail";
 import { HabitsViewToggle } from "@/features/habits/components/HabitsViewToggle";
 import {
   Archive,
@@ -248,8 +248,7 @@ function ManageRow({
 }
 
 export function SimpleHabitsDashboard() {
-  const { data: session } = useSession();
-  const email = session?.user?.email ?? null;
+  const email = useStableEmail();
   const router = useRouter();
   const { connected, connecting, error, connect } = useHabitSync(email);
 

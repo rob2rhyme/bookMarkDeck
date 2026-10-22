@@ -303,7 +303,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   + `test` + `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds
   previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
   backlog was cleared. It carries real weight, because `npm run lint` is only
-  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 84
+  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 85
   remaining *warnings* are **all one rule** — `react-hooks/set-state-in-effect`; only
   errors fail the build. That the set is homogeneous is the useful part: a warning from
   any other rule is new, and worth reading rather than assuming it is backlog.
@@ -316,18 +316,20 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 15 |
   | modal / panel reset on open (`[open, …]`) | 14 |
   | other storage-backed reload | 14 |
-  | **derived-state reset** | **13** |
+  | **derived-state reset** | **14** |
 
-  Hydration-shaped effects are about **29 of 84**; the biggest group is Firestore
+  Hydration-shaped effects are about **29 of 85**; the biggest group is Firestore
   subscriptions, which have nothing to do with hydration. The distinction earns its
   place because the blanket version of it is how #292's regression stayed in `main` for
   months — a deleted button whose orphaned state warned for exactly this rule, waved off
   as expected backlog.
-  **If the count ever moves, read the derived-state 13 first**: they are the ones React
+  **If the count ever moves, read the derived-state 14 first**: they are the ones React
   advises deriving during render (or resetting via `key`) instead of writing from an
-  effect. All 13 were inspected on the date above and are sound — each uses a functional
-  updater or an early-return guard, so none can loop or fight user input — but that is a
-  finding with an expiry, not a permanent property.
+  effect. All were inspected on the date above (plus one added since, `useStableEmail`'s
+  own derived-state reset — a session value is held back, not re-derived, while offline)
+  and are sound — each uses a functional updater or an early-return guard, so none can
+  loop or fight user input — but that is a finding with an expiry, not a permanent
+  property.
   **The count has moved once, and back, without a fix either way**: `useHydration`'s
   per-account cache load (an "other storage-backed reload", deps `[email]`) went quiet
   (84 → 83) when its day began flowing through `dayRef.current` — the rule exempts state
@@ -691,9 +693,18 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   - *A restore stays absolute.* A change the restoring page has sent but not had
     acknowledged lands before it and is erased; changes held elsewhere (the outbox,
     another page) land on top of it.
-  - *The session offline* is kept only when the device knows it is offline: a
-    captive portal reports online, so focusing the tab still refetches it, and a
-    sign-in or sign-out in another tab refetches it too.
+  - *The session offline.* `useStableEmail` (`src/lib/useStableEmail.ts`, used by
+    `FocusDashboard`/`HabitsDashboard`/`SimpleHabitsDashboard` in place of a bare
+    `useSession()`) keeps the last email while the device knows it's offline, so
+    the next-auth session value itself going null doesn't lose cups or stop the
+    outbox handover. The session value still does go null in every OTHER open
+    tab, not only a focused one: next-auth posts a cross-tab broadcast after
+    *every* session fetch, a failed one included, and every other tab answers
+    it unconditionally — bypassing both `refetchOnWindowFocus`'s guard and the
+    null-session skip. A captive portal (or any genuinely unreachable server
+    while `navigator.onLine` stays true) is the one case `useStableEmail` can't
+    tell from a real sign-out, so a null there still goes through — the device
+    itself can't tell the difference either.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 
