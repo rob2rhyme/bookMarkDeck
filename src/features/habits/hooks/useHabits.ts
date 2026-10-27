@@ -110,11 +110,15 @@ export function useHabits(
   );
 
   // Per-habit single-step undo: the today-entry that existed just before the
-  // most recent tap (null = there was none), the done-count the tap left, and
-  // the source the tap was linked to. Set on every logging action, consumed by
-  // undoToday, and reset when the day rolls over.
+  // most recent tap (null = there was none), the done-count the tap left, the
+  // entry the tap itself produced (afterEntry, null if it cleared the entry),
+  // and the source the tap was linked to. Set on every logging action,
+  // consumed by undoToday, and reset when the day rolls over.
   const [undoByHabit, setUndoByHabit] = useState<
-    Map<string, { before: HabitEntry | null; after: number; source: string | null }>
+    Map<
+      string,
+      { before: HabitEntry | null; after: number; afterEntry: HabitEntry | null; source: string | null }
+    >
   >(() => new Map());
 
   // Hydration-safe load (after mount only).
@@ -293,12 +297,12 @@ export function useHabits(
   // Snapshot today's entry (or null) right before a tap mutates it, with the
   // done-count the tap leaves, so the tap can be reverted.
   const recordUndo = useCallback(
-    (habit: Habit, after: number) => {
+    (habit: Habit, after: number, afterEntry: HabitEntry | null) => {
       const before = currentEntry(habit.id);
       const source = resolveSource(habit)?.id ?? null;
       setUndoByHabit((m) => {
         const next = new Map(m);
-        next.set(habit.id, { before, after, source });
+        next.set(habit.id, { before, after, afterEntry, source });
         return next;
       });
     },
@@ -327,8 +331,8 @@ export function useHabits(
       const existing = currentEntry(habit.id);
       const target = habitTarget(habit);
       const isDone = existing?.status === "done" && existing.count >= target;
-      recordUndo(habit, isDone ? 0 : target);
       if (isDone) {
+        recordUndo(habit, 0, null);
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, doneCount(existing));
         return;
@@ -341,6 +345,7 @@ export function useHabits(
         count: target,
         createdAt: new Date().toISOString(),
       };
+      recordUndo(habit, target, entry);
       upsertEntry(entry);
       mirrorLinked(habit, target, doneCount(existing));
       onLog?.("habit_done", `Completed habit: ${habit.name}`);
@@ -358,20 +363,22 @@ export function useHabits(
         existing && existing.status === "done" ? existing.count : 0;
       const wasDone = prevCount >= target;
       const count = Math.max(0, prevCount + delta);
-      recordUndo(habit, count);
       if (count === 0) {
+        recordUndo(habit, 0, null);
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, prevCount);
         return;
       }
-      upsertEntry({
+      const entry: HabitEntry = {
         id: entryId(habit.id, today),
         habitId: habit.id,
         day: today,
         status: "done",
         count,
         createdAt: existing?.createdAt ?? new Date().toISOString(),
-      });
+      };
+      recordUndo(habit, count, entry);
+      upsertEntry(entry);
       mirrorLinked(habit, count, prevCount);
       if (!wasDone && count >= target)
         onLog?.("habit_done", `Completed habit: ${habit.name}`);
@@ -383,15 +390,16 @@ export function useHabits(
     (habit: Habit) => {
       if (!today) return;
       const previous = doneCount(currentEntry(habit.id));
-      recordUndo(habit, 0);
-      upsertEntry({
+      const entry: HabitEntry = {
         id: entryId(habit.id, today),
         habitId: habit.id,
         day: today,
         status: "skipped",
         count: 0,
         createdAt: new Date().toISOString(),
-      });
+      };
+      recordUndo(habit, 0, entry);
+      upsertEntry(entry);
       mirrorLinked(habit, 0, previous);
       onLog?.("habit_skipped", `Skipped habit: ${habit.name}`);
     },
@@ -491,17 +499,32 @@ export function useHabits(
       let restored = rec.before;
       if (source?.policy === "bidirectional") {
         const count = doneCount(current) - (rec.after - doneCount(rec.before));
-        // Before the tap there was no entry at all, so there's no note or
-        // time to put back — only a bare entry for whatever count another
-        // device still holds. Spreading `current` (the tap's own entry, kept
-        // by reference through any adoption since) kept the undone log's
-        // note, time and createdAt, which the docs promise go with it.
-        const base = rec.before ?? {
-          id: entryId(habit.id, today),
-          habitId: habit.id,
-          day: today,
-          createdAt: new Date().toISOString(),
-        };
+        // The rest of the entry (note, time, createdAt) is the snapshot's —
+        // unless the cloud entries subscription has since replaced `current`
+        // wholesale with a DIFFERENT device's genuinely new entry (its own
+        // note/time), reachable independently of this habit's own adoption
+        // path. Comparing against afterEntry (what the tap itself produced)
+        // tells the two apart: unchanged, the snapshot (or a bare entry when
+        // there was none before the tap) is still right; changed, the live
+        // entry's own note/time belongs to that other device and undo must
+        // not discard it.
+        const untouched =
+          (current?.note ?? null) === (rec.afterEntry?.note ?? null) &&
+          (current?.at ?? null) === (rec.afterEntry?.at ?? null) &&
+          (current?.createdAt ?? null) === (rec.afterEntry?.createdAt ?? null);
+        const base = untouched
+          ? rec.before ?? {
+              id: entryId(habit.id, today),
+              habitId: habit.id,
+              day: today,
+              createdAt: new Date().toISOString(),
+            }
+          : current ?? {
+              id: entryId(habit.id, today),
+              habitId: habit.id,
+              day: today,
+              createdAt: new Date().toISOString(),
+            };
         if (count > 0) restored = { ...base, status: "done", count };
         else if (rec.before?.status === "done") restored = null;
       }
@@ -527,7 +550,7 @@ export function useHabits(
       if (!today) return;
       const prev = currentEntry(habit.id);
       if (detail.status === "clear") {
-        recordUndo(habit, 0);
+        recordUndo(habit, 0, null);
         removeEntry(entryId(habit.id, today));
         mirrorLinked(habit, 0, doneCount(prev));
         return;
@@ -538,9 +561,8 @@ export function useHabits(
         detail.status === "skipped"
           ? 0
           : Math.max(1, Math.round(detail.count ?? prev?.count ?? target));
-      recordUndo(habit, detail.status === "done" ? count : 0);
       const note = detail.note?.trim();
-      upsertEntry({
+      const entry: HabitEntry = {
         id: entryId(habit.id, today),
         habitId: habit.id,
         day: today,
@@ -549,7 +571,9 @@ export function useHabits(
         ...(note ? { note } : {}),
         ...(detail.at ? { at: detail.at } : {}),
         createdAt: prev?.createdAt ?? new Date().toISOString(),
-      });
+      };
+      recordUndo(habit, detail.status === "done" ? count : 0, entry);
+      upsertEntry(entry);
       mirrorLinked(habit, detail.status === "done" ? count : 0, doneCount(prev));
       if (detail.status === "done" && !wasDone)
         onLog?.("habit_done", `Completed habit: ${habit.name}`);

@@ -246,6 +246,47 @@ describe("useHabits — the water link", () => {
     expect(hook.result.current.todayEntry("w")).toEqual({ ...before, count: 5 });
   });
 
+  // The bare-base fallback (for a tap on an empty day) assumed `current` at
+  // undo time could only ever be the tap's own entry, adoption's count aside.
+  // The cloud entries subscription (commitEntries) can instead replace it
+  // wholesale with a DIFFERENT device's genuinely new entry — its own note,
+  // clock time and createdAt — and undo's bare base used to discard that.
+  it("keeps a different device's note and time instead of the bare base it would otherwise fall back to", async () => {
+    let deliver: (entries: HabitEntry[]) => void = () => {};
+    habitData.subscribeEntries.mockImplementationOnce((_e, cb) => {
+      deliver = cb;
+      return () => {};
+    });
+    const { hook, habit, count } = await openHabits();
+    act(() => hook.result.current.adjustToday(habit(), 1)); // on an empty day
+    await flush();
+    expect(count()).toBe(1);
+    const deviceB: HabitEntry = {
+      id: `w_${DAY}`,
+      habitId: "w",
+      day: DAY,
+      status: "done",
+      count: 3,
+      note: "from device B",
+      at: "08:15",
+      createdAt: "2026-10-11T08:15:00.000Z",
+    };
+    act(() => {
+      deliver([deviceB]);
+      cloud.write(DAY, 3);
+    });
+    await flush();
+    expect(hook.result.current.todayEntry("w")).toEqual(deviceB);
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(hook.result.current.todayEntry("w")).toMatchObject({
+      count: 2,
+      note: "from device B",
+      at: "08:15",
+      createdAt: "2026-10-11T08:15:00.000Z",
+    });
+  });
+
   // A tap made under one link is undone under that link or not at all: undone
   // as a change to Focus after linking, it took back cups it never sent.
   it("doesn't undo a tap made before the habit was linked", async () => {
