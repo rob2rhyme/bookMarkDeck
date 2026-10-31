@@ -723,10 +723,20 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
     tab, not only a focused one: next-auth posts a cross-tab broadcast after
     *every* session fetch, a failed one included, and every other tab answers
     it unconditionally — bypassing both `refetchOnWindowFocus`'s guard and the
-    null-session skip. A captive portal (or any genuinely unreachable server
-    while `navigator.onLine` stays true) is the one case `useStableEmail` can't
-    tell from a real sign-out, so a null there still goes through — the device
-    itself can't tell the difference either.
+    null-session skip. **The hook's own effect is keyed on next-auth's `session`
+    object, never on `online`.** Review found the bare browser `online` event
+    (from the hook's own `useSyncExternalStore`, not from next-auth) letting a
+    still-stale, offline-suppressed null through the instant connectivity
+    returns: next-auth's `online` handling only gates an unconfigured
+    `refetchInterval` poll, it never itself refetches, so there is no real
+    answer yet to trust. `session` is a fresh object reference on every actual
+    next-auth fetch — even one that reconfirms the same email — so the effect
+    only re-evaluates when next-auth has actually answered, while still reading
+    whatever `online` is current as of that render. A captive portal (or any
+    genuinely unreachable server while `navigator.onLine` stays true) is the
+    one case `useStableEmail` can't tell from a real sign-out, so a null there
+    still goes through once next-auth does fetch — the device itself can't
+    tell the difference either.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 

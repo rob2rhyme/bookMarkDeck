@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { useSession } from "next-auth/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -51,6 +51,31 @@ it("lets a null through as a real sign-out while online", () => {
   vi.mocked(useSession).mockReturnValue(sessionOf(null) as ReturnType<typeof useSession>);
   rerender();
   expect(result.current).toBeNull();
+});
+
+// next-auth's own `online` handling only gates an unconfigured
+// refetchInterval poll — it never itself refetches the session. Keying the
+// hold-the-last-email effect on `online` let a real browser 'online' event,
+// fired while the session is still the offline-suppressed null, null the
+// stable email right at reconnect, before any refetch happens.
+it("doesn't let a real 'online' event null the email while the session is still the stale offline null", () => {
+  vi.mocked(useSession).mockReturnValue(sessionOf(EMAIL) as ReturnType<typeof useSession>);
+  const { result, rerender } = renderHook(() => useStableEmail());
+  expect(result.current).toBe(EMAIL);
+
+  online = false;
+  vi.mocked(useSession).mockReturnValue(sessionOf(null) as ReturnType<typeof useSession>);
+  rerender();
+  expect(result.current).toBe(EMAIL);
+
+  // Connectivity returns — a real browser event, not just a rerender — but
+  // the session mock is deliberately left untouched: next-auth would not
+  // have refetched yet either.
+  online = true;
+  act(() => {
+    window.dispatchEvent(new Event("online"));
+  });
+  expect(result.current).toBe(EMAIL);
 });
 
 it("starts null before the first session answer, even offline", () => {
