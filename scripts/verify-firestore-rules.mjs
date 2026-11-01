@@ -40,11 +40,28 @@ const env = await initializeTestEnvironment({
   },
 });
 
+// The rules admit only the owner's verified email (allowedEmails() in
+// firestore.rules). Read it from the file under test, so this script proves the
+// ruleset as written rather than a copy of it.
+const rulesText = fs.readFileSync(path.join(root, "firestore.rules"), "utf8");
+const OWNER = /allowedEmails\(\)\s*\{\s*return\s*\['([^']+)'/.exec(rulesText)?.[1];
+if (!OWNER) throw new Error("firestore.rules: couldn't find the owner email in allowedEmails()");
+
+// ALICE and BOB are both signed in as the owner's address on different uids, so
+// every cross-uid denial below is the uid check alone, not the email check.
 const ALICE = "alice-uid";
 const BOB = "bob-uid";
-const alice = env.authenticatedContext(ALICE).firestore();
-const bob = env.authenticatedContext(BOB).firestore();
+const STRANGER = "stranger-uid";
+const owner = { email: OWNER, email_verified: true };
+const alice = env.authenticatedContext(ALICE, owner).firestore();
+const bob = env.authenticatedContext(BOB, owner).firestore();
 const anon = env.unauthenticatedContext().firestore();
+// Any other Google account, the owner's address unverified, a token with no
+// email at all (anonymous auth, phone auth), and the address in other casing.
+const stranger = env.authenticatedContext(STRANGER, { email: "someone@example.com", email_verified: true }).firestore();
+const unverified = env.authenticatedContext(STRANGER, { email: OWNER, email_verified: false }).firestore();
+const noEmail = env.authenticatedContext(STRANGER).firestore();
+const shouting = env.authenticatedContext(STRANGER, { email: OWNER.toUpperCase(), email_verified: true }).firestore();
 
 // A SAMPLE of the collections pillars write under users/{uid} — not an
 // inventory. firestore.rules is one recursive match on users/{uid}/{document=**},
@@ -94,6 +111,38 @@ for (const col of OTHERS) {
   await check(`owner writes ${col}`, assertSucceeds(setDoc(doc(alice, `users/${ALICE}/${col}/x1`), { a: 1 })));
   await check(`other uid cannot write ${col}`, assertFails(setDoc(doc(bob, `users/${ALICE}/${col}/x9`), { a: 1 })));
 }
+
+// Notes (users/{uid}/notes/{noteId}) — covered by the same recursive rule, so
+// no rule of its own; asserted in full here because notes hold free text.
+const NOTE = { title: "t", body: "b", pinned: false, tags: [] };
+await check("owner creates a note", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notes/n1`), NOTE)));
+await check("owner reads a note", assertSucceeds(getDoc(doc(alice, `users/${ALICE}/notes/n1`))));
+await check("owner updates a note", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notes/n1`), { ...NOTE, pinned: true })));
+await check("other uid cannot read a note", assertFails(getDoc(doc(bob, `users/${ALICE}/notes/n1`))));
+await check("other uid cannot overwrite a note", assertFails(setDoc(doc(bob, `users/${ALICE}/notes/n1`), NOTE)));
+await check("other uid cannot create in another's notes", assertFails(setDoc(doc(bob, `users/${ALICE}/notes/n2`), NOTE)));
+await check("other uid cannot delete a note", assertFails(deleteDoc(doc(bob, `users/${ALICE}/notes/n1`))));
+await check("anonymous cannot read a note", assertFails(getDoc(doc(anon, `users/${ALICE}/notes/n1`))));
+await check("anonymous cannot write a note", assertFails(setDoc(doc(anon, `users/${ALICE}/notes/n3`), NOTE)));
+await check("root notes collection denied", assertFails(setDoc(doc(alice, `notes/n1`), NOTE)));
+await check("owner deletes a note", assertSucceeds(deleteDoc(doc(alice, `users/${ALICE}/notes/n1`))));
+
+// Locked-notes vaults hold only wrapped keys, but they are still the owner's alone.
+const VAULT = { v: 1, pass: { salt: "s", iv: "i", ct: "c", iterations: 600000 } };
+await check("owner writes a notes vault", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notesVaults/v1`), VAULT)));
+await check("owner reads a notes vault", assertSucceeds(getDoc(doc(alice, `users/${ALICE}/notesVaults/v1`))));
+await check("other uid cannot read a notes vault", assertFails(getDoc(doc(bob, `users/${ALICE}/notesVaults/v1`))));
+await check("other uid cannot replace a notes vault", assertFails(setDoc(doc(bob, `users/${ALICE}/notesVaults/v1`), VAULT)));
+await check("anonymous cannot read a notes vault", assertFails(getDoc(doc(anon, `users/${ALICE}/notesVaults/v1`))));
+
+// Only the owner's account gets in at all — even to a users/{uid} of its own.
+// Before the lock, any Google account could keep data here at the owner's cost.
+await check("another account cannot write its own tree", assertFails(setDoc(doc(stranger, `users/${STRANGER}/notes/n1`), NOTE)));
+await check("another account cannot read its own tree", assertFails(getDoc(doc(stranger, `users/${STRANGER}/notes/n1`))));
+await check("another account cannot read the owner's", assertFails(getDoc(doc(stranger, `users/${ALICE}/notes/n1`))));
+await check("the owner's address, unverified, is refused", assertFails(setDoc(doc(unverified, `users/${STRANGER}/x/1`), { a: 1 })));
+await check("a token with no email is refused", assertFails(setDoc(doc(noEmail, `users/${STRANGER}/x/1`), { a: 1 })));
+await check("the owner's address matches in any case", assertSucceeds(setDoc(doc(shouting, `users/${STRANGER}/x/1`), { a: 1 })));
 
 // The recursive rule must not leak outside users/{uid}.
 await check("root collection denied", assertFails(setDoc(doc(alice, `filingDocuments/x1`), { a: 1 })));

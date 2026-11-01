@@ -8,20 +8,33 @@ import { useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+
+import { returnPath } from "@/utils/returnPath";
+
+// next-auth sends every sign-in error back here as ?error=<code>
+// (pages.error); AccessDenied is an account not on src/auth/allowlist.ts.
+// Read from the URL rather than state, so it is right on first paint and needs
+// no effect.
+const noSubscribe = () => () => {};
+const readError = () => new URLSearchParams(window.location.search).get("error") ?? "";
+// Back to the page that sent us here (a link shared in while signed out, say).
+const afterSignIn = () =>
+  returnPath(new URLSearchParams(window.location.search).get("callbackUrl"), window.location.origin);
 
 export default function LoginPage() {
   const router = useRouter();
   const { status } = useSession();
   const [isLoading, setIsLoading] = useState<string | null>(null);
+  const authError = useSyncExternalStore(noSubscribe, readError, () => "");
 
   useEffect(() => {
-    if (status === "authenticated") router.replace("/");
+    if (status === "authenticated") router.replace(afterSignIn());
   }, [status, router]);
 
   const handleClick = (provider: string) => {
     setIsLoading(provider);
-    signIn(provider, { callbackUrl: "/" }).finally(() => setIsLoading(null));
+    signIn(provider, { callbackUrl: afterSignIn() }).finally(() => setIsLoading(null));
   };
 
   // Until we know the user is signed *out*, don't flash the login form — show a
@@ -114,6 +127,17 @@ export default function LoginPage() {
                   </p>
                 </div>
 
+                {authError && (
+                  <p
+                    role="alert"
+                    className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-200"
+                  >
+                    {authError === "AccessDenied"
+                      ? "That account can\u2019t sign in here. Bookmark Deck is private to its owner."
+                      : "Sign-in didn\u2019t finish. Please try again."}
+                  </p>
+                )}
+
                 <div className="space-y-3">
                   {/* Google */}
                   <button
@@ -154,51 +178,10 @@ export default function LoginPage() {
                         : "Continue with Google"}
                     </span>
                   </button>
-
-                  {/* Apple */}
-                  <button
-                    type="button"
-                    onClick={() => handleClick("apple")}
-                    className="hidden w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-slate-50 ring-1 ring-slate-700 transition hover:bg-slate-800 hover:ring-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                    disabled={isLoading !== null}
-                  >
-                    <span className="flex h-5 w-5 items-center justify-center">
-                      <span className="text-lg"></span>
-                    </span>
-                    <span>
-                      {isLoading === "apple"
-                        ? "Connecting to Apple…"
-                        : "Continue with Apple"}
-                    </span>
-                  </button>
-
-                  {/* Microsoft */}
-                  <button
-                    type="button"
-                    onClick={() => handleClick("microsoft")}
-                    className="hidden w-full items-center justify-center gap-2 rounded-2xl bg-sky-500/90 px-3 py-2.5 text-sm font-medium text-slate-50 shadow-sm transition hover:bg-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                    disabled={isLoading !== null}
-                  >
-                    <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-sky-700/80 text-[11px]">
-                      ☐
-                    </span>
-                    <span>
-                      {isLoading === "microsoft"
-                        ? "Connecting to Microsoft…"
-                        : "Continue with Microsoft"}
-                    </span>
-                  </button>
-                </div>
-
-                {/* Divider */}
-                <div className="my-4 flex items-center gap-3 text-[11px] text-slate-500">
-                  <div className="h-px flex-1 bg-slate-800" />
-                  <span>or</span>
-                  <div className="h-px flex-1 bg-slate-800" />
                 </div>
 
                 {/* Optional helper text */}
-                <p className="text-[11px] leading-relaxed text-slate-500">
+                <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
                   By continuing, you agree to the{" "}
                   <Link
                     href="/terms"

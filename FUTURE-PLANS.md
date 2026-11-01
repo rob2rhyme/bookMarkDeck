@@ -16,9 +16,11 @@ _Last reviewed: 2026-07-16._
    (b) in `InventoryDashboard.tsx`, swap the AI-add button's `hidden` class
    back to `flex` (the comment above it marks the spot), then redeploy. The
    `/guide` section is written as "coming soon" — flip its title/last sentence
-   to live wording at the same time. Default model is `claude-haiku-4-5`
-   (cheapest vision tier, ~$0.002–0.01 per scan); set
-   `AI_CAPTURE_MODEL=claude-opus-4-8` for max accuracy. Later, when opening it
+   to live wording at the same time. Default model is `claude-haiku-5-5`
+   (cheapest vision tier, about a tenth of a cent per scan); set
+   `AI_CAPTURE_MODEL=claude-opus-5-5` (roughly 1–3 cents a scan) for max
+   accuracy. Both routes take the model from `aiModel()` in
+   `src/features/inventory/lib/aiCapture.ts`. Later, when opening it
    to paying users: add a per-user quota + billing gate (Track C in
    `ANALYSIS-MOBILE-APP-STRATEGY.md` §3 — billing lands *with* the metered
    feature).
@@ -49,23 +51,10 @@ _Last reviewed: 2026-07-16._
     30 days**, so start with plain tagged Amazon search links until volume
     exists. Owner currently has an Amazon Associates account only.
 
-## Code cleanups (kept intentionally for now)
-
-3. **Retired "Simple" habits dashboard.** `/habits` renders only the Classic
-   dashboard; `SimpleHabitsDashboard.tsx`, `HabitsViewToggle.tsx`, and
-   `SyncStatusChip` are unused by the route. Owner decision (2026-07-15):
-   keep as is; delete in a future cleanup pass.
-4. **Hidden Apple/Microsoft login buttons.** Present in
-   `src/app/(auth)/login/page.tsx` with `className="hidden …"` — only Google is
-   live. Keep until (if ever) those providers are added; otherwise remove in
-   the same cleanup pass.
-
 ## Small doc/tooling follow-ups
 
 5. **`npm run audit` script** (the one unshipped piece of FOCUS-INTEGRATION
    Phase 0b — headers and `.env.example` are done).
-6. **`/habits/guide` freshness pass** — accurate today; give it the same
-   user-friendly review the main guide got when Habits next changes.
 
 ## Verification still worth a minute
 

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { verifyWebhookSignature } from "@/lib/lemonsqueezy";
-import { setEntitlement } from "@/lib/entitlement";
+import { getEntitlement, setEntitlement } from "@/lib/entitlement";
 
 export const runtime = "nodejs";
 
@@ -43,6 +43,20 @@ export async function POST(req: NextRequest) {
     (ACTIVE_STATUSES.has(status) && eventName !== "subscription_expired");
   const until = String(attrs.renews_at ?? attrs.ends_at ?? "") || undefined;
 
-  await setEntitlement(email, { pro, status, until });
+  // Lemon Squeezy retries failed deliveries and doesn't promise order, so a late
+  // retry of an old "active" update could land after "expired" and hand pro back
+  // for good. Apply an event only if it is at least as new as what is stored.
+  const updatedAt =
+    typeof attrs.updated_at === "string" && !Number.isNaN(Date.parse(attrs.updated_at))
+      ? attrs.updated_at
+      : undefined;
+  if (updatedAt) {
+    const current = await getEntitlement(email);
+    if (current?.updatedAt && Date.parse(current.updatedAt) > Date.parse(updatedAt)) {
+      return NextResponse.json({ ok: true, stale: true });
+    }
+  }
+
+  await setEntitlement(email, { pro, status, until, ...(updatedAt ? { updatedAt } : {}) });
   return NextResponse.json({ ok: true });
 }

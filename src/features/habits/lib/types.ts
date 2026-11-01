@@ -33,7 +33,8 @@ export type Habit = {
   identity?: string; // "become someone who…"
   area?: string; // optional category/grouping label (e.g. "Health", "Work")
   areaIcon?: string; // emoji shown for the habit's area
-  reminder?: string | null; // "HH:MM" — stored for a later reminders pass
+  reminder?: string | null; // "HH:MM" — the first reminder time
+  extraReminders?: string[]; // further "HH:MM" times (see lib/reminders.ts reminderTimes)
   linkedSourceId?: string | null; // bound Focus trackable source (see lib/trackableSources.ts)
   archived: boolean;
   sortOrder: number;

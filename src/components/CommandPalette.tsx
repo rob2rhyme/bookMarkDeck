@@ -6,10 +6,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import { HighlightedText } from "@/components/HighlightedText";
 import { Modal } from "@/components/Modal";
 import { setFilingIntent } from "@/lib/filingIntent";
+import { readNoteSummaries, setNewNoteIntent, type NoteSummary } from "@/lib/notesIndex";
+import { isUnsafeUrl } from "@/utils/normalizeUrl";
 import {
   Bookmark,
   Cabinet,
@@ -17,7 +20,9 @@ import {
   FolderTree,
   HelpCircle,
   Plus,
+  Lock,
   Search,
+  StickyNote,
   Timer,
 } from "@/components/icons";
 
@@ -33,7 +38,7 @@ type Command = {
   id: string;
   label: string;
   hint?: string;
-  group: "Navigation" | "Actions" | "Bookmarks";
+  group: "Navigation" | "Actions" | "Notes" | "Bookmarks";
   keywords?: string;
   icon: React.ReactNode;
   run: () => void;
@@ -62,28 +67,30 @@ function Favicon({ url }: { url: string }) {
   );
 }
 
-/** Read bookmarks from every per-user localStorage cache, deduped by URL. */
-function readCachedBookmarks(): CachedBookmark[] {
-  if (typeof window === "undefined") return [];
+// Must match storageKeyV2ForUser in src/hooks/useBookmarks.ts.
+const BOOKMARKS_KEY_V2 = "bookmarkdeck:v2";
+
+/**
+ * The signed-in account's cached bookmarks, deduped by URL. Only that account's:
+ * this used to read every `bookmarkdeck:v2*` key on the device, so on a shared
+ * computer the next person to sign in could search the last one's bookmarks.
+ */
+function readCachedBookmarks(email: string | null): CachedBookmark[] {
+  if (typeof window === "undefined" || !email) return [];
   const seen = new Set<string>();
   const out: CachedBookmark[] = [];
   try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i);
-      if (!key || !key.startsWith("bookmarkdeck:v2")) continue;
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw);
-      const list = Array.isArray(parsed?.bookmarks) ? parsed.bookmarks : [];
-      for (const b of list) {
-        if (typeof b?.url !== "string" || seen.has(b.url)) continue;
-        seen.add(b.url);
-        out.push({
-          id: typeof b.id === "string" ? b.id : b.url,
-          title: typeof b.title === "string" && b.title ? b.title : b.url,
-          url: b.url,
-        });
-      }
+    const raw = window.localStorage.getItem(`${BOOKMARKS_KEY_V2}:${email}`);
+    const parsed = raw ? JSON.parse(raw) : null;
+    const list = Array.isArray(parsed?.bookmarks) ? parsed.bookmarks : [];
+    for (const b of list) {
+      if (typeof b?.url !== "string" || seen.has(b.url) || isUnsafeUrl(b.url)) continue;
+      seen.add(b.url);
+      out.push({
+        id: typeof b.id === "string" ? b.id : b.url,
+        title: typeof b.title === "string" && b.title ? b.title : b.url,
+        url: b.url,
+      });
     }
   } catch {
     /* ignore malformed cache */
@@ -93,6 +100,9 @@ function readCachedBookmarks(): CachedBookmark[] {
 
 export function CommandPalette() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const email = session?.user?.email ?? null;
+  const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -108,11 +118,12 @@ export function CommandPalette() {
   }, []);
 
   const openPalette = useCallback(() => {
-    setBookmarks(readCachedBookmarks());
+    setBookmarks(readCachedBookmarks(email));
+    setNotes(readNoteSummaries(email));
     setQuery("");
     setActive(0);
     setOpen(true);
-  }, []);
+  }, [email]);
 
   // The results list resets to the top whenever the query or open-state changes.
   useEffect(() => {
@@ -134,7 +145,8 @@ export function CommandPalette() {
         e.preventDefault();
         setOpen((v) => {
           if (!v) {
-            setBookmarks(readCachedBookmarks());
+            setBookmarks(readCachedBookmarks(email));
+            setNotes(readNoteSummaries(email));
             setQuery("");
             setActive(0);
           }
@@ -149,7 +161,7 @@ export function CommandPalette() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpen);
     };
-  }, [openPalette]);
+  }, [openPalette, email]);
 
   const commands = useMemo<Command[]>(() => {
     const go = (href: string) => () => {
@@ -161,6 +173,7 @@ export function CommandPalette() {
       { id: "nav-focus", label: "Go to Focus", group: "Navigation", icon: <Timer className="h-4 w-4" />, run: go("/focus") },
       { id: "nav-folders", label: "Manage folders", group: "Navigation", icon: <FolderTree className="h-4 w-4" />, run: go("/folders/manage") },
       { id: "nav-filing", label: "Go to Filing", hint: "where your paper lives", group: "Navigation", icon: <Cabinet className="h-4 w-4" />, run: go("/filing") },
+      { id: "nav-notes", label: "Go to Notes", group: "Navigation", icon: <StickyNote className="h-4 w-4" />, run: go("/notes") },
       { id: "nav-faq", label: "Open FAQ", group: "Navigation", icon: <HelpCircle className="h-4 w-4" />, run: go("/faq") },
     ];
     const actions: Command[] = [
@@ -207,6 +220,19 @@ export function CommandPalette() {
         },
       },
       {
+        id: "act-new-note",
+        label: "New note",
+        hint: "on Notes",
+        group: "Actions",
+        keywords: "notes write jot create",
+        icon: <Plus className="h-4 w-4" />,
+        run: () => {
+          close();
+          setNewNoteIntent();
+          router.push("/notes");
+        },
+      },
+      {
         id: "act-focus",
         label: "Start a focus session",
         group: "Actions",
@@ -223,11 +249,22 @@ export function CommandPalette() {
       icon: <Favicon url={b.url} />,
       run: () => {
         close();
-        window.open(b.url, "_blank", "noopener,noreferrer");
+        if (!isUnsafeUrl(b.url)) window.open(b.url, "_blank", "noopener,noreferrer");
       },
     }));
-    return [...nav, ...actions, ...marks];
-  }, [bookmarks, router, close]);
+    // Before bookmarks: the list is capped at 50, and a long bookmark list
+    // would otherwise crowd every note out of the results.
+    const noteCommands: Command[] = notes.map((n) => ({
+      id: `note-${n.id}`,
+      label: n.title,
+      hint: n.locked ? "Locked note" : n.preview || undefined,
+      group: "Notes",
+      keywords: n.keywords,
+      icon: n.locked ? <Lock className="h-4 w-4" /> : <StickyNote className="h-4 w-4" />,
+      run: go(`/notes/${n.id}`),
+    }));
+    return [...nav, ...actions, ...noteCommands, ...marks];
+  }, [bookmarks, notes, router, close]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -280,7 +317,7 @@ export function CommandPalette() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={onInputKey}
-        placeholder="Search actions and bookmarks…"
+        placeholder="Search actions, notes and bookmarks…"
         aria-label="Search commands"
         className="w-full shrink-0 border-b border-slate-800 bg-transparent px-5 py-4 text-[15px] text-slate-100 placeholder:text-slate-500 focus:outline-none"
       />

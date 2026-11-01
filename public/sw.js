@@ -12,6 +12,12 @@ const OFFLINE_URL = "/offline.html";
 // the old ones. Evicting a current chunk costs one refetch.
 const MAX_ENTRIES = 250;
 
+// Snoozed reminders: one record per notification tag, so the page can cancel a
+// snoozed push once its habit is done. Kept out of activate's cleanup below,
+// and named the same in src/lib/snoozeRecords.ts (serviceWorker.test.ts checks).
+const SNOOZE_CACHE = "bmd-snooze-v1";
+const SNOOZE_SEC = 60 * 60;
+
 const STATIC_PREFIXES = ["/_next/static/", "/icons/"];
 const STATIC_EXACT = ["/logo.png", "/favicon.ico"];
 
@@ -30,7 +36,7 @@ self.addEventListener("activate", (event) => {
     (async () => {
       const keys = await caches.keys();
       await Promise.all(
-        keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
+        keys.filter((k) => k !== CACHE && k !== SNOOZE_CACHE).map((k) => caches.delete(k))
       );
       await self.clients.claim();
     })()
@@ -139,35 +145,94 @@ self.addEventListener("push", (event) => {
     vibrate: [300, 150, 300, 150, 400],
     data: { url: data.url || "/focus" },
   };
+  if (data.snooze === true) {
+    options.actions = [{ action: "snooze", title: "Snooze 1 hour" }];
+    // What a snooze needs to queue the same notification again.
+    options.data = { ...options.data, snooze: true, title, body: options.body, tag: options.tag };
+  }
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+/**
+ * Queue the same notification again in an hour, through the same route the page
+ * uses (the worker's fetch carries the session cookie). Resolves false when it
+ * could not — no subscription, signed out, push not configured — so the click
+ * can open the app instead of silently doing nothing.
+ */
+async function snooze(notification) {
+  const d = notification.data || {};
+  try {
+    const sub = await self.registration.pushManager.getSubscription();
+    if (!sub) return false;
+    const res = await fetch("/api/push/schedule", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        subscription: sub.toJSON(),
+        delaySec: SNOOZE_SEC,
+        title: d.title,
+        body: d.body,
+        url: d.url,
+        tag: d.tag,
+        snooze: true,
+      }),
+    });
+    const out = res.ok ? await res.json() : null;
+    if (!out || typeof out.messageId !== "string") return false;
+    const cache = await caches.open(SNOOZE_CACHE);
+    await cache.put(
+      "/__snooze/" + encodeURIComponent(d.tag || ""),
+      new Response(
+        JSON.stringify({ tag: d.tag, messageId: out.messageId, fireAt: Date.now() + SNOOZE_SEC * 1000 }),
+        { headers: { "content-type": "application/json" } }
+      )
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = new URL(
+  if (event.action === "snooze") {
+    event.waitUntil(
+      snooze(event.notification).then((done) => {
+        if (!done) return openTarget(event);
+      })
+    );
+    return;
+  }
+  event.waitUntil(openTarget(event));
+});
+
+function openTarget(event) {
+  let target = new URL(
     (event.notification.data && event.notification.data.url) || "/",
     self.location.origin
   );
-  event.waitUntil(
-    (async () => {
-      const all = await self.clients.matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      });
-      // Exact page, not a substring: "/habits" used to match a window sitting
-      // on /habits/guide, which was focused and left on the guide.
-      const exact = all.find((c) => new URL(c.url).pathname === target.pathname);
-      if (exact) return exact.focus();
-      const other = all.find((c) => new URL(c.url).origin === target.origin);
-      if (other) {
-        try {
-          const moved = await other.navigate(target.href);
-          if (moved) return moved.focus();
-        } catch {
-          // navigate() rejects for a window this worker doesn't control.
-        }
+  // A click only ever opens this app. "/\\evil.example" resolves off-site, and
+  // the server's own check is not the last word on what reaches the worker.
+  if (target.origin !== self.location.origin) target = new URL("/", self.location.origin);
+  return (async () => {
+    const all = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
+    // Exact page, not a substring: "/habits" used to match a window sitting
+    // on /habits/guide, which was focused and left on the guide.
+    const exact = all.find((c) => new URL(c.url).pathname === target.pathname);
+    if (exact) return exact.focus();
+    const other = all.find((c) => new URL(c.url).origin === target.origin);
+    if (other) {
+      try {
+        const moved = await other.navigate(target.href);
+        if (moved) return moved.focus();
+      } catch {
+        // navigate() rejects for a window this worker doesn't control.
       }
-      return self.clients.openWindow(target.href);
-    })()
-  );
-});
+    }
+    return self.clients.openWindow(target.href);
+  })();
+}

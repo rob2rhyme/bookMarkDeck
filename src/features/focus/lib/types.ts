@@ -70,6 +70,11 @@ export function coerceDreamFields(data: unknown): DreamDetails {
  *  (never mirrored to Google Tasks/Calendar); legacy items default to "personal". */
 export type TodoList = "personal" | "project";
 
+/** How a to-do comes back once it is done (needs a due date to anchor on). */
+export type TodoRepeat = "daily" | "weekdays" | "weekly" | "monthly";
+/** Omitted = normal. */
+export type TodoPriority = "high" | "low";
+
 export type Todo = {
   id: string;
   text: string;
@@ -83,6 +88,18 @@ export type Todo = {
   project?: string; // project name for "project" to-dos (reusable label); "" = none
   googleTaskId?: string | null; // mapping to a mirrored Google Task
   googleEventId?: string | null; // mapping to a mirrored Calendar event (timed)
+  repeat?: TodoRepeat; // omitted = does not repeat; completing it files the next one
+  priority?: TodoPriority; // omitted = normal
+};
+
+/** What an edit may change; null clears repeat/priority, undefined leaves it. */
+export type TodoEdit = {
+  text?: string;
+  note?: string;
+  dueAt?: string | null;
+  project?: string;
+  repeat?: TodoRepeat | null;
+  priority?: TodoPriority | null;
 };
 
 // One answered quiz question — the input to the Scores history (points earned,

@@ -36,109 +36,101 @@ export default function HabitsGuidePage() {
 
       <section className="mt-8 space-y-6 text-sm leading-relaxed text-slate-200">
         <div>
-          <h2 className="text-base font-semibold text-slate-50">
-            Add your first habit
-          </h2>
+          <h2 className="text-base font-semibold text-slate-50">Add your first habit</h2>
           <p className="mt-1">
-            Tap <strong>+ New habit</strong> and just type a name — that&apos;s
-            enough. Everything else (icon, colour, type, schedule, reminder) is
-            tucked under <em>Add details</em> with sensible defaults, so you can
-            start in seconds and fine-tune later. Or pick a ready-made one from
-            the templates on first run.
+            Tap <strong>+ New habit</strong> and just type a name — that&apos;s enough. New habits start as a daily yes/no. An <em>Area</em> (Health, Work…) groups them, and everything else — icon, colour, build or quit, type, schedule, reminder — is under <em>Add details</em> with sensible defaults. Starting from nothing? Pick a few ready-made habits from the templates offered on first run, or <strong>Browse templates</strong> while the list is empty.
           </p>
         </div>
-
         <div>
-          <h2 className="text-base font-semibold text-slate-50">
-            Yes/no vs. measurable
-          </h2>
+          <h2 className="text-base font-semibold text-slate-50">Checking off: yes/no vs. measurable</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
             <li>
-              <strong>Yes / no</strong> — one tap: did it or not (e.g.
-              &ldquo;Meditate&rdquo;). Tap <strong>Done</strong> to check it off.
+              <strong>Yes / no</strong> — tap the ring beside the habit to check it off; tap again to un-check.
             </li>
             <li>
-              <strong>Measurable</strong> — count toward a daily target (e.g. 8
-              cups, 20 minutes). Use the <strong>− / +</strong> buttons; the ring
-              fills as you go.
+              <strong>Measurable</strong> — count toward a daily target (e.g. 8 cups, 20 minutes) with the <strong>− / +</strong> buttons, and the ring fills as you go. Tapping the ring jumps straight to the target.
+            </li>
+            <li>
+              <strong>Quit / reduce</strong> habits flip it round: a day counts when you stay at or under your daily limit.
             </li>
           </ul>
         </div>
-
         <div>
-          <h2 className="text-base font-semibold text-slate-50">
-            Skip vs. undo
-          </h2>
+          <h2 className="text-base font-semibold text-slate-50">Skip, undo and notes</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
             <li>
-              <strong>Skip</strong> (in the ⋯ menu) is for a planned rest day.
-              Skips are <strong>neutral</strong> — they never break a streak and
-              never count against you.
+              <strong>Skip today</strong> (in the ⋮ menu) is for a planned rest day. Skips are <strong>neutral</strong> — they never break a streak or pull down your rate. Tap <em>undo</em> on the card to take a skip back.
             </li>
             <li>
-              <strong>Undo</strong> reverses an accidental tap and clears
-              today&apos;s entry entirely, as if it never happened.
+              <strong>↩ Undo</strong> appears on the card right after you change it and reverses that last tap — handy for a mis-tap or one + too many.
             </li>
             <li>
-              Add a <strong>note or time</strong> from the ⋯ menu — it shows on
-              the card and in the day detail.
+              <strong>Note / time</strong> (⋮ menu) adds a note or the time you did it. It shows on the card, and the 🗒 link in <em>All habits</em> opens every note for that habit. Change the date there to log a past day.
             </li>
           </ul>
         </div>
-
         <div>
           <h2 className="text-base font-semibold text-slate-50">Streaks</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
             <li>
-              Your <strong>current streak</strong> is forgiving — today not being
-              done <em>yet</em> doesn&apos;t break it; only a missed scheduled day
-              does.
+              Your <strong>current streak</strong> (🔥) is forgiving — today not being done <em>yet</em> doesn&apos;t break it; only a missed scheduled day does.
             </li>
             <li>
-              Unscheduled days and skipped days are stepped over, so a Mon–Fri
-              habit keeps its streak across the weekend.
+              Unscheduled days and skipped days are stepped over, so a Mon–Fri habit keeps its streak across the weekend.
             </li>
             <li>
-              <strong>Times-a-week</strong> habits track a weekly streak — hit
-              your weekly target to keep the chain.
+              <strong>Times-a-week</strong> habits track a weekly streak — hit your weekly target to keep the chain; the week in progress never counts against you.
+            </li>
+            <li>
+              <strong>Strength</strong> (💪) is a slower, kinder measure: one missed day dents it rather than wiping it out.
             </li>
           </ul>
         </div>
-
         <div>
-          <h2 className="text-base font-semibold text-slate-50">
-            Insights &amp; history
-          </h2>
+          <h2 className="text-base font-semibold text-slate-50">Insights & history</h2>
           <p className="mt-1">
-            Charts stay hidden until you&apos;ve logged a few days (no wall of
-            zeros). Once they appear, expand <em>Insights &amp; history</em> for
-            your weekly bars, best weekdays, per-habit 30-day rate, and a
-            year-long consistency heatmap — tap any day to see exactly what you
-            did. Prefer the all-in-one layout? Switch to <strong>Classic</strong>
-            from the toggle at the top.
+            <em>Analysis</em> (under <em>Insights</em> in the section bar) shows your totals at a glance; tap <strong>Show charts &amp; breakdown</strong> for the weekly bars (tap a bar to see that day), your best weekdays, each habit&apos;s 30-day rate (tap one for its streaks and last 14 days), and the <em>Consistency</em> calendar — tap any day to see what you logged, remove a log, or fill in a day you forgot. <em>Habits × Focus</em> shows how your focus time differs on days you do each habit, once you have focus sessions to compare.
           </p>
         </div>
-
         <div>
-          <h2 className="text-base font-semibold text-slate-50">
-            Sync &amp; managing
-          </h2>
+          <h2 className="text-base font-semibold text-slate-50">Habits that track themselves</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
             <li>
-              <strong>Sync is automatic.</strong> Habits save on your device
-              instantly; when you&apos;re signed in they sync to your account and
-              follow you across devices. The chip up top shows the live status.
-              Your habit data is private to you.
+              Some habits fill in from the rest of the app: <strong>water</strong> follows Focus&apos;s cup counter (both ways — a cup logged in either place counts in both), and <strong>journal</strong>, <strong>meditation</strong>, <strong>focus minutes</strong>, <strong>resets</strong> and <strong>items decluttered</strong> in My Stuff mark progress for you.
             </li>
             <li>
-              <strong>Edit, archive, or delete</strong> from the ⋯ menu next to
-              each habit in <em>Your habits</em>. Archiving keeps the history;
-              restore anytime from the Classic view.
+              Templates come linked, and a habit whose name fits (&ldquo;Meditate&rdquo;, &ldquo;Deep work&rdquo;…) links itself. See or change it under <em>Add details → Focus sync</em>; <strong>Unlink</strong> stops it.
             </li>
             <li>
-              <strong>Start a focus session</strong> from the ⋯ menu — it hands
-              the habit to the Focus hub to work on now, and checks it off when
-              you finish.
+              <strong>Start focus</strong> (⋮ menu in <em>All habits</em>) hands the habit to the Focus hub. Finish a session and the habit checks itself off when you come back to Habits that day.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-slate-50">Reminders, areas & search</h2>
+          <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
+            <li>
+              Set a <strong>reminder</strong> time under <em>Add details</em> for a gentle nudge on scheduled days — and tap <strong>+ Add another time</strong> for up to four a day (a morning prompt and an evening last call, say). Finishing the habit silences the rest of that day&apos;s reminders. The first time, tap <strong>Turn on reminders</strong> to let this device show notifications.
+            </li>
+            <li>
+              Not now? Tap <strong>Snooze 1 hour</strong> on the notification and it comes back — and goes quiet if you finish the habit in the meantime. Android and desktop browsers show the button; iPhones don&apos;t, so there it just opens the app.
+            </li>
+            <li>
+              Filter <em>All habits</em> by <strong>area</strong>, or search by name — tap ✓ in the results to log it straight away.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-slate-50">Sync & managing</h2>
+          <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
+            <li>
+              <strong>Your habits save on this device instantly</strong> and sync to your account so they follow you to other devices. If sync isn&apos;t connected you&apos;ll see <em>Saved on this device · Connect to sync</em> — one tap connects it, and anything logged meanwhile goes up then. Your habit data is private to you.
+            </li>
+            <li>
+              <strong>Edit, archive or delete</strong> from the ⋮ menu in <em>All habits</em>. Archiving keeps the history: <strong>Show archived</strong> lists them, with <strong>Restore</strong> to bring one back.
+            </li>
+            <li>
+              <strong>Export</strong> your habits as CSV or JSON, and <strong>Import</strong> a JSON backup — importing only adds what&apos;s missing and never overwrites what&apos;s here.
             </li>
           </ul>
         </div>

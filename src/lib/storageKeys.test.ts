@@ -106,8 +106,16 @@ const REGISTRY: Record<string, string[]> = {
     "src/features/filing/hooks/useFilingSettings.ts",
   ],
   "bookmarkdeck:inventory:items:v1": [
+    "src/components/WeeklyRecapCard.tsx",
     "src/features/inventory/hooks/useInventory.ts",
     "src/features/inventory/hooks/useInventoryReminderCount.ts",
+  ],
+
+  // The home page's weekly recap counts habit check-ins from the habits cache
+  // without mounting useHabits (and its Firestore subscriptions).
+  "bookmarkdeck:habit-entries:v1": [
+    "src/components/WeeklyRecapCard.tsx",
+    "src/features/habits/hooks/useHabits.ts",
   ],
 
   // Read-only inbound reads of another pillar's cache — no code import and no

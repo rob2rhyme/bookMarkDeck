@@ -2,7 +2,7 @@ import { test as anon, expect as anonExpect } from "@playwright/test";
 
 import { test, expect } from "./fixtures/session";
 
-// The five pillars, and the nav label each one carries in AppShell's
+// The six pillars, and the nav label each one carries in AppShell's
 // DESTINATIONS. Labels (not copy) are what the header renders as aria-labels.
 // `title` is what each route serves in <title>. `/` has no title of its own, so
 // it falls back to the root layout's `title.default`; the rest are suffixed by
@@ -13,6 +13,7 @@ const PILLARS = [
   { path: "/habits", label: "Habits", title: "Habits · Bookmark Deck" },
   { path: "/inventory", label: "My Stuff", title: "My Stuff · Bookmark Deck" },
   { path: "/filing", label: "Filing", title: "Filing · Bookmark Deck" },
+  { path: "/notes", label: "Notes", title: "Notes · Bookmark Deck" },
 ] as const;
 
 anon.describe("auth gate", () => {
@@ -53,7 +54,7 @@ test.describe("signed in", () => {
       expect(crashes, `uncaught error on ${path}`).toEqual([]);
     });
 
-    test(`${path} header links the other four pillars, not itself`, async ({
+    test(`${path} header links the other five pillars, not itself`, async ({
       page,
     }) => {
       // AppShell builds
@@ -85,6 +86,122 @@ test.describe("signed in", () => {
     // The timer renders regardless of data, so its SectionNav id is reachable.
     await page.goto("/focus");
     await expect(page.locator("#sec-timer")).toBeAttached();
+  });
+
+  test("/notes: a new note autosaves and continues a list", async ({ page }) => {
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    await expect(page).toHaveURL(/\/notes\/[0-9a-f-]{36}$/);
+    await expect(page.getByLabel("Title", { exact: true })).toBeFocused();
+    await page.getByLabel("Title", { exact: true }).fill("Groceries");
+    const body = page.getByLabel("Note", { exact: true });
+    await body.click();
+    await body.pressSequentially("- milk");
+    await body.press("Enter");
+    await expect(body).toHaveValue("- milk\n- ");
+    // The continuation goes through execCommand, so it is on the undo stack
+    // like any keystroke — setting `value` directly would have wiped it.
+    await body.press("ControlOrMeta+z");
+    await expect(body).toHaveValue("- milk");
+    await body.press("Enter");
+    await body.pressSequentially("eggs");
+    await expect(body).toHaveValue("- milk\n- eggs");
+    await expect(page.getByRole("status")).toContainText(/Saved/);
+    await page.getByRole("link", { name: "Notes", exact: true }).first().click();
+    await expect(page.getByRole("link", { name: "Groceries" })).toBeVisible();
+  });
+
+  test("/notes: tag a note, then find it by search and by tag", async ({ page }) => {
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    await page.getByLabel("Title", { exact: true }).fill("Café list");
+    const tagBox = page.getByRole("combobox", { name: "Add tag" });
+    await tagBox.fill("Errands");
+    await tagBox.press("Enter");
+    await page.getByLabel("Note", { exact: true }).fill("oat milk\nbeans");
+    await page.getByRole("link", { name: "Notes", exact: true }).first().click();
+
+    const search = page.getByRole("searchbox", { name: "Search notes" });
+    await search.fill("cafe beans");
+    await expect(page.getByRole("status")).toHaveText(/1 note/);
+    await expect(page.locator("mark").first()).toHaveText("Café");
+    await expect(page).toHaveURL(/\?q=cafe\+beans/);
+    await search.press("Escape");
+
+    await page.getByRole("group", { name: "Filter by tag" }).getByRole("button", { name: /#errands/ }).click();
+    await expect(page.getByRole("link", { name: "Café list" })).toBeVisible();
+    await expect(page).toHaveURL(/\?tag=errands/);
+  });
+
+  test("/notes: format with the toolbar, undo it, preview and tick a box", async ({ page }) => {
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    const body = page.getByLabel("Note", { exact: true });
+    await body.click();
+    await body.pressSequentially("[ ] call the bank");
+    await body.press("Shift+Home");
+    await page.getByRole("button", { name: "Bold" }).click();
+    await expect(body).toHaveValue("**[ ] call the bank**");
+    // Formatting goes through the native undo stack, like typing.
+    await body.press("ControlOrMeta+z");
+    await expect(body).toHaveValue("[ ] call the bank");
+
+    await page.getByRole("button", { name: "preview" }).click();
+    const box = page.getByRole("checkbox", { name: "Mark as done" });
+    await box.check();
+    await page.getByRole("button", { name: "edit" }).click();
+    await expect(page.getByLabel("Note", { exact: true })).toHaveValue("[x] call the bank");
+  });
+
+  test("/notes: lock a note, reload, and unlock it with the passphrase", async ({ page }) => {
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    await page.getByLabel("Title", { exact: true }).fill("Cabin");
+    await page.getByLabel("Note", { exact: true }).fill("door code 4417");
+    await page.getByRole("button", { name: "Lock note" }).click();
+    await page.getByLabel("Passphrase", { exact: true }).fill("correct horse battery");
+    await page.getByLabel("Confirm passphrase").fill("correct horse battery");
+    await page.getByRole("button", { name: "Create passphrase" }).click();
+    await expect(page.getByTestId("recovery-code")).toHaveText(/^[0-9A-Z]{4}(-[0-9A-Z]{4}){7}$/);
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByText(/Encrypted/)).toBeVisible();
+
+    // Nothing this device stores holds the text or the passphrase.
+    const stored = await page.evaluate(() => Object.keys(localStorage).map((k) => localStorage.getItem(k)).join("\n"));
+    expect(stored).not.toContain("4417");
+    expect(stored).not.toContain("correct horse");
+
+    // A reload drops the in-memory key: the note asks for the passphrase.
+    await page.reload();
+    await expect(page.getByText("This note is locked. Enter your passphrase to open it.")).toBeVisible();
+    await page.getByLabel("Passphrase", { exact: true }).fill("correct horse battery");
+    await page.getByRole("button", { name: "Unlock" }).click();
+    await expect(page.getByLabel("Note", { exact: true })).toHaveValue("door code 4417");
+  });
+
+  test("the first-run welcome never opens on top of another dialog", async ({ page }) => {
+    // A brand-new profile: the welcome is due. Open a dialog straight away.
+    await page.goto("/notes");
+    await page.getByRole("button", { name: "New note", exact: true }).click();
+    await page.getByRole("button", { name: "Lock note" }).click();
+    await expect(page.getByRole("heading", { name: "Set a passphrase for locked notes" })).toBeVisible();
+    // Long enough for the welcome's cloud check and pause to have elapsed.
+    await page.waitForTimeout(3000);
+    await expect(page.locator('[aria-modal="true"]')).toHaveCount(1);
+    // Close the dialog: now the welcome gets its turn, alone.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "Welcome to Bookmark Deck" })).toBeVisible();
+    await expect(page.locator('[aria-modal="true"]')).toHaveCount(1);
+  });
+
+  test("mobile bottom nav omits the pillar you are on", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 740 });
+    await page.goto("/notes");
+    const nav = page.getByRole("navigation", { name: "Primary" });
+    await expect(nav.getByRole("link")).toHaveCount(5);
+    await expect(nav.getByRole("link", { name: "Notes" })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Filing" })).toBeVisible();
   });
 
   test("/habits renders its empty state", async ({ page }) => {

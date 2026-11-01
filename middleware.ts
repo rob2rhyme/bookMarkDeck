@@ -2,14 +2,19 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "next-auth/middleware";
 
+import { isAllowedEmail } from "@/auth/allowlist";
+import { returnPath } from "@/utils/returnPath";
+
 // Protect all routes except Next internals/assets and let unauthenticated users hit /login.
 export default withAuth(
   function middleware(req) {
     const isLogin = req.nextUrl.pathname === "/login";
-    const isAuthed = !!req.nextauth.token;
+    const isAuthed = !!req.nextauth.token && isAllowedEmail(req.nextauth.token.email);
 
     if (isAuthed && isLogin) {
-      return NextResponse.redirect(new URL("/", req.nextUrl));
+      // Back to the page that asked for sign-in (a shared link, say), if it's ours.
+      const next = returnPath(req.nextUrl.searchParams.get("callbackUrl"), req.nextUrl.origin);
+      return NextResponse.redirect(new URL(next, req.nextUrl));
     }
 
     return NextResponse.next();
@@ -28,7 +33,9 @@ export default withAuth(
           "/habits/guide",
         ];
         if (publicPaths.includes(req.nextUrl.pathname)) return true;
-        return !!token;
+        // The jwt callback ends a non-owner's session, but the gate reads the
+        // cookie without running it — so it checks the account itself.
+        return !!token && isAllowedEmail(token.email);
       },
     },
     pages: {

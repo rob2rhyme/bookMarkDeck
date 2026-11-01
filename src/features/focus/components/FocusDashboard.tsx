@@ -62,6 +62,9 @@ import type {
   FocusTask,
   JournalNote,
   Todo,
+  TodoEdit,
+  TodoPriority,
+  TodoRepeat,
 } from "@/features/focus/lib/types";
 
 // Stable reference for Bible mode — a fresh `["bible"]` each render would make
@@ -266,22 +269,26 @@ export function FocusDashboard() {
     dueAt: string | null,
     note: string,
     list: Todo["list"] = "personal",
-    project = ""
+    project = "",
+    extras: { repeat?: TodoRepeat; priority?: TodoPriority } = {}
   ) => {
-    const created = todos.addTodo(text, dueAt, note, list, project);
+    const created = todos.addTodo(text, dueAt, note, list, project, extras);
     if (created && created.list !== "project") gsync.mirror(created);
   };
 
   const editTodoSynced = (
     id: string,
-    patch: { text?: string; note?: string; dueAt?: string | null; project?: string }
+    patch: TodoEdit
   ) => {
     todos.editTodo(id, patch);
     const existing = todos.todos.find((t) => t.id === id);
     if (existing && existing.list !== "project") {
+      const { repeat, priority, ...rest } = patch;
+      void repeat;
+      void priority;
       gsync.mirror({
         ...existing,
-        ...patch,
+        ...rest,
         text: patch.text !== undefined ? patch.text.trim() : existing.text,
       });
     }
@@ -297,13 +304,23 @@ export function FocusDashboard() {
   };
 
   // Toggle a to-do; when marking one done, offer an undo to un-complete it.
+  // Completing a repeating one files its next occurrence, which is mirrored
+  // like any new to-do and withdrawn again by the undo.
   const toggleTodoWithUndo = (todo: Todo) => {
-    todos.toggleTodo(todo.id);
-    if (todo.list !== "project") gsync.mirror({ ...todo, done: !todo.done });
+    const mirrored = todo.list !== "project";
+    const { spawned, removed } = todos.toggleTodo(todo.id);
+    if (mirrored) {
+      gsync.mirror({ ...todo, done: !todo.done });
+      if (spawned) gsync.mirror(spawned);
+      if (removed) gsync.unmirror(removed);
+    }
     if (!todo.done) {
       undo.offer(`“${todo.text}” done`, () => {
-        todos.toggleTodo(todo.id);
-        if (todo.list !== "project") gsync.mirror(todo);
+        const back = todos.toggleTodo(todo.id);
+        if (mirrored) {
+          gsync.mirror(todo);
+          if (back.removed) gsync.unmirror(back.removed);
+        }
       });
     }
   };
@@ -434,6 +451,7 @@ export function FocusDashboard() {
       >
         <PomodoroTimer
           settings={settings}
+          onUpdate={update}
           email={email}
           connected={connected}
           activeTaskId={tasks.activeTaskId}

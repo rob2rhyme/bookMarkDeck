@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeUrl } from "./normalizeUrl";
+import { isUnsafeUrl, normalizeUrl } from "./normalizeUrl";
 
 describe("normalizeUrl", () => {
   it("prefixes https:// for a schemeless host", () => {
@@ -40,4 +40,15 @@ describe("normalizeUrl", () => {
   it("trims surrounding whitespace", () => {
     expect(normalizeUrl("  example.com  ")).toBe("https://example.com");
   });
+});
+
+describe("isUnsafeUrl", () => {
+  it.each(["javascript:alert(1)", " JAVASCRIPT:alert(1)", "java\tscript:alert(1)", "data:text/html,x", "vbscript:x"])(
+    "flags %j",
+    (url) => expect(isUnsafeUrl(url)).toBe(true)
+  );
+  it.each(["https://example.com", "http://x.test", "obsidian://open?vault=a", "mailto:a@b.c", "example.com", ""])(
+    "allows %j",
+    (url) => expect(isUnsafeUrl(url)).toBe(false)
+  );
 });

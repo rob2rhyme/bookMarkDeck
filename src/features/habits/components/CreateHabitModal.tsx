@@ -11,6 +11,7 @@ import {
   suggestAreaIcon,
 } from "@/features/habits/lib/areas";
 import { WEEKDAY_LABELS } from "@/features/habits/lib/day";
+import { MAX_REMINDERS, reminderFields } from "@/features/habits/lib/reminders";
 import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 import {
   DEFAULT_HABIT_EMOJI,
@@ -84,6 +85,7 @@ export function CreateHabitModal({
   const [perWeek, setPerWeek] = useState(3);
   const [identity, setIdentity] = useState("");
   const [reminder, setReminder] = useState("");
+  const [extraTimes, setExtraTimes] = useState<string[]>([]);
   const [linkedSourceId, setLinkedSourceId] = useState<string | null>(null);
 
   // Reset the form whenever the modal (re)opens.
@@ -103,6 +105,7 @@ export function CreateHabitModal({
       setArea(initial.area ?? "");
       setAreaIcon(initial.areaIcon?.trim() || DEFAULT_AREA_ICON);
       setReminder(initial.reminder ?? "");
+      setExtraTimes(initial.extraReminders ?? []);
       setLinkedSourceId(initial.linkedSourceId ?? null);
       setKind(initial.schedule.type);
       if (initial.schedule.type === "weekdays") setDays(initial.schedule.days);
@@ -122,6 +125,7 @@ export function CreateHabitModal({
       setArea("");
       setAreaIcon(DEFAULT_AREA_ICON);
       setReminder("");
+      setExtraTimes([]);
       setKind("daily");
       setDays([1, 2, 3, 4, 5]);
       setPerWeek(3);
@@ -175,7 +179,8 @@ export function CreateHabitModal({
       identity: identity.trim() || undefined,
       area: area.trim() || undefined,
       areaIcon: area.trim() ? areaIcon : undefined,
-      reminder: /^\d{1,2}:\d{2}$/.test(reminder) ? reminder : null,
+      // Extras hang off the first time: with it cleared they don't linger.
+      ...reminderFields(reminder, reminder ? extraTimes : []),
       linkedSourceId: linkedSourceId ?? undefined,
       archived: initial?.archived ?? false,
       sortOrder: initial?.sortOrder ?? nextSortOrder,
@@ -543,7 +548,10 @@ export function CreateHabitModal({
             {reminder && (
               <button
                 type="button"
-                onClick={() => setReminder("")}
+                onClick={() => {
+                  setReminder("");
+                  setExtraTimes([]);
+                }}
                 className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
               >
                 Off
@@ -555,6 +563,36 @@ export function CreateHabitModal({
                 : "Notifications aren’t set up on this deployment, so this time won’t send a push yet."}
             </span>
           </div>
+          {reminder &&
+            extraTimes.map((t, i) => (
+              <div key={i} className="mt-2 flex items-center gap-2">
+                <TimeInput
+                  value={t}
+                  onChange={(e) =>
+                    setExtraTimes((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))
+                  }
+                  aria-label={`Reminder time ${i + 2}`}
+                  className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setExtraTimes((prev) => prev.filter((_, j) => j !== i))}
+                  aria-label={`Remove reminder time ${i + 2}`}
+                  className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          {reminder && extraTimes.length + 1 < MAX_REMINDERS && (
+            <button
+              type="button"
+              onClick={() => setExtraTimes((prev) => [...prev, ""])}
+              className="mt-2 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+            >
+              + Add another time
+            </button>
+          )}
         </div>
       </details>
 

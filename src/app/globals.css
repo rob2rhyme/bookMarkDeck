@@ -530,6 +530,13 @@ body {
   select {
     font-size: 16px !important; /* override smaller utility classes */
   }
+
+  /* The one LARGER field: a note's title. Utilities can't beat the !important
+     above (an important base-layer rule outranks the utilities layer), so it
+     lives here, out-specifying the element selector. Still >=16px, so no zoom. */
+  .bd-note-title {
+    font-size: 1.375rem !important;
+  }
 }
 
 @layer base {

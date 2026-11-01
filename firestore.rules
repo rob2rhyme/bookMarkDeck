@@ -4,26 +4,43 @@ rules_version = '2';
 //
 // All user data lives under users/{uid}: the user document (bookmarks[],
 // folders[], shortcuts[], …), its subcollections (bookmarkBackups), and every
-// feature pillar — focus*, habit*, inventory* and filing* collections alike.
+// feature pillar — focus*, habit*, inventory*, filing* and notes* collections alike.
 //
 // One owner-scoped recursive rule covers the user document and everything
 // beneath it — current and future. That is why adding a pillar needs no rule
-// change: a new collection under users/{uid} is already covered. A signed-in
-// user can only read or write data under their own uid; everything else is
-// denied by default.
+// change: a new collection under users/{uid} is already covered. Only the
+// owner's Google account (verified email, allowedEmails() below) gets in at all,
+// and only to its own uid; everything else is denied by default.
 //
-// Verified against the Firestore emulator (44 assertions — the count is printed
+// Verified against the Firestore emulator (66 assertions — the count is printed
 // by scripts/verify-firestore-rules.mjs and repeated in CLAUDE.md, so the three
 // move together): the owner can reach
 // every pillar's collections including deeply nested paths, a second signed-in
 // uid is denied read, write and delete on all of them, unauthenticated access
-// is denied, and nothing outside users/{uid} matches any allow statement.
+// is denied, any other account (or an unverified or missing email) is denied
+// even its own users/{uid}, and nothing outside users/{uid} matches any allow
+// statement.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Bookmark Deck has one owner. Must match DEFAULT_ALLOWED_EMAILS in
+    // src/auth/allowlist.ts — src/auth/allowlist.test.ts fails if they differ.
+    // Without this, anyone could sign into Firebase with the public web config
+    // and keep data (at the owner's cost) under their own users/{uid}.
+    function allowedEmails() {
+      return ['rob2rhyme@gmail.com', 'noah18thapa@gmail.com'];
+    }
+
+    function isOwner(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in allowedEmails();
+    }
+
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isOwner(uid);
     }
 
   }

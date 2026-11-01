@@ -1,6 +1,7 @@
 // src/auth/auth.config.ts
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { isAllowedEmail } from "./allowlist";
 
 /**
  * Resolve the public origin NextAuth builds the Google callback URL from.
@@ -138,10 +139,27 @@ export const authConfig: NextAuthOptions = {
       },
     }),
   ],
-  pages: { signIn: "/login" },
+  // 14 days, not next-auth's 30. The cookie carries the Google refresh token
+  // (Tasks + Calendar), so a copied cookie is worth less for less long. The
+  // expiry slides: every visit re-issues the cookie, so this is 14 days of NOT
+  // using the app, not a fortnightly sign-in.
+  session: { strategy: "jwt", maxAge: 14 * 24 * 60 * 60 },
+  // A refused sign-in lands back on /login?error=AccessDenied, which explains
+  // why, instead of next-auth's unstyled error page.
+  pages: { signIn: "/login", error: "/login" },
   callbacks: {
+    // Only the owner's account (src/auth/allowlist.ts), and only with an email
+    // Google has verified.
+    async signIn({ user, profile }) {
+      const verified = (profile as { email_verified?: boolean } | undefined)?.email_verified;
+      return verified !== false && isAllowedEmail(user.email);
+    },
     async jwt({ token, account, profile }) {
       const t = token as RefreshableToken;
+      // Ends a session that predates the allowlist (or an account later removed
+      // from it): next-auth clears the cookie when this throws, and the session
+      // reads as signed out everywhere — client and server alike.
+      if (!isAllowedEmail(t.email)) throw new Error("account not allowed");
       // Initial sign-in — capture tokens + expiry.
       if (account) {
         t.accessToken = account.access_token;

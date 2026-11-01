@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   type ActivityType,
@@ -18,7 +18,8 @@ import {
   unqueueDelete,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import type { Todo, TodoList } from "@/features/focus/lib/types";
+import { isTodoRepeat, nextOccurrence } from "@/features/focus/lib/recurrence";
+import type { Todo, TodoEdit, TodoList, TodoPriority, TodoRepeat } from "@/features/focus/lib/types";
 import { todayKey } from "@/lib/dayKey";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
@@ -52,6 +53,8 @@ function loadLocal(email?: string | null): Todo[] {
         googleTaskId: typeof t.googleTaskId === "string" ? t.googleTaskId : null,
         googleEventId:
           typeof t.googleEventId === "string" ? t.googleEventId : null,
+        ...(isTodoRepeat(t.repeat) ? { repeat: t.repeat } : {}),
+        ...(t.priority === "high" || t.priority === "low" ? { priority: t.priority as TodoPriority } : {}),
       }))
       .filter((t) => t.text.trim().length > 0);
   } catch {
@@ -72,6 +75,13 @@ export function useTodos(
   const [todos, setTodos] = useState<Todo[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const canSync = connected && Boolean(email);
+
+  // The latest list, for callbacks that outlive a render — the Undo for a
+  // completion is called seconds later and must not see the list as it was.
+  const todosRef = useRef<Todo[]>([]);
+  useEffect(() => {
+    todosRef.current = todos;
+  }, [todos]);
 
   useEffect(() => {
     setTodos(loadLocal(email));
@@ -132,7 +142,8 @@ export function useTodos(
       dueAt: string | null,
       note = "",
       list: Todo["list"] = "personal",
-      project = ""
+      project = "",
+      extras: { repeat?: TodoRepeat; priority?: TodoPriority } = {}
     ): Todo | null => {
       const trimmed = text.trim();
       if (!trimmed) return null;
@@ -148,6 +159,9 @@ export function useTodos(
         project: list === "project" ? project.trim() : "",
         googleTaskId: null,
         googleEventId: null,
+        // A repeat needs a due date to anchor on.
+        ...(extras.repeat && dueAt ? { repeat: extras.repeat } : {}),
+        ...(extras.priority ? { priority: extras.priority } : {}),
       };
       setTodos((prev) => [todo, ...prev]);
       if (canSync && email) saveTodo(email, todo).catch(() => {});
@@ -172,26 +186,59 @@ export function useTodos(
     [canSync, email]
   );
 
+  /**
+   * Toggle done. Completing a repeating to-do files its next occurrence;
+   * un-completing removes that occurrence again unless it has been done itself.
+   * Both are returned so the caller can mirror them (Google) and undo them.
+   */
   const toggleTodo = useCallback(
-    (id: string) => {
-      setTodos((prev) => {
-        const next = prev.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                done: !t.done,
-                // Stamp the completion time so the history can chart it by day;
-                // clear it when un-completing.
-                completedAt: !t.done ? new Date().toISOString() : null,
-              }
-            : t
-        );
-        const updated = next.find((t) => t.id === id);
-        if (canSync && email && updated) saveTodo(email, updated).catch(() => {});
-        else if (updated) queueUpsert("todos", email, id);
-        if (updated?.done) onLog?.("todo_done", `Completed to-do: ${updated.text}`);
-        return next;
-      });
+    (id: string): { spawned: Todo | null; removed: Todo | null } => {
+      const list = todosRef.current;
+      const current = list.find((t) => t.id === id);
+      if (!current) return { spawned: null, removed: null };
+      const nowDone = !current.done;
+      const completedAt = nowDone ? new Date().toISOString() : null;
+
+      let spawned: Todo | null = null;
+      let removed: Todo | null = null;
+      if (nowDone) {
+        const next = nextOccurrence(current, completedAt!);
+        // Already filed (the other device got there first, or an undone
+        // completion is being redone): don't touch it.
+        if (next && !list.some((t) => t.id === next.id)) spawned = next;
+      } else if (current.completedAt) {
+        const next = nextOccurrence(current, current.completedAt);
+        const filed = next && list.find((t) => t.id === next.id);
+        if (filed && !filed.done) removed = filed;
+      }
+
+      const toggled: Todo = {
+        ...current,
+        done: nowDone,
+        // Stamp the completion time so the history can chart it by day;
+        // clear it when un-completing.
+        completedAt,
+      };
+      let nextList = list.map((t) => (t.id === id ? toggled : t));
+      if (removed) nextList = nextList.filter((t) => t.id !== removed!.id);
+      if (spawned) nextList = [spawned, ...nextList];
+      todosRef.current = nextList;
+      setTodos(nextList);
+
+      if (canSync && email) {
+        saveTodo(email, toggled).catch(() => {});
+        if (spawned) saveTodo(email, spawned).catch(() => {});
+        if (removed) deleteTodo(email, removed.id).catch(() => {});
+      } else {
+        queueUpsert("todos", email, id);
+        if (spawned) queueUpsert("todos", email, spawned.id);
+        if (removed) {
+          queueDelete("todos", email, removed.id);
+          unqueueUpsert("todos", email, removed.id);
+        }
+      }
+      if (nowDone) onLog?.("todo_done", `Completed to-do: ${current.text}`);
+      return { spawned, removed };
     },
     [canSync, email, onLog]
   );
@@ -199,19 +246,26 @@ export function useTodos(
   const editTodo = useCallback(
     (
       id: string,
-      patch: { text?: string; note?: string; dueAt?: string | null; project?: string }
+      patch: TodoEdit
     ) => {
       setTodos((prev) => {
-        const next = prev.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                ...patch,
-                text:
-                  patch.text !== undefined ? patch.text.trim() : t.text,
-              }
-            : t
-        );
+        const next = prev.map((t) => {
+          if (t.id !== id) return t;
+          const { repeat, priority, ...rest } = patch;
+          const merged: Todo = {
+            ...t,
+            ...rest,
+            text: patch.text !== undefined ? patch.text.trim() : t.text,
+          };
+          // null clears; undefined leaves as is. A repeat can't outlive its due date.
+          const wantRepeat = repeat === undefined ? t.repeat : (repeat ?? undefined);
+          const wantPriority = priority === undefined ? t.priority : (priority ?? undefined);
+          if (wantRepeat && merged.dueAt) merged.repeat = wantRepeat;
+          else delete merged.repeat;
+          if (wantPriority) merged.priority = wantPriority;
+          else delete merged.priority;
+          return merged;
+        });
         const updated = next.find((t) => t.id === id);
         if (canSync && email && updated && updated.text.length > 0) {
           saveTodo(email, updated).catch(() => {});

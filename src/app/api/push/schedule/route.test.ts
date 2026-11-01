@@ -17,7 +17,7 @@ const MAX_DELAY_SEC = 24 * 60 * 60;
 // QStash cannot reach localhost, and the route skips silently for such an
 // origin — so anything exercising the publish path needs a real-looking host.
 const LIVE = "https://app.example.com/api/push/schedule";
-const SUB = { endpoint: "https://push.example.com/abc" };
+const SUB = { endpoint: "https://fcm.googleapis.com/fcm/send/abc" };
 
 let publishJSON: ReturnType<typeof vi.fn>;
 
@@ -78,7 +78,14 @@ describe("push schedule route", () => {
       ["missing", undefined],
       ["a string", "https://push.example.com/abc"],
       ["an object with no endpoint", {}],
-      ["a non-https endpoint", { endpoint: "http://push.example.com/abc" }],
+      ["a non-https endpoint", { endpoint: "http://fcm.googleapis.com/abc" }],
+      // fire POSTs to the endpoint, so anything but a push service is a request
+      // this server would make to an address the caller chose.
+      ["a host that isn't a push service", { endpoint: "https://evil.example/abc" }],
+      ["a lookalike host", { endpoint: "https://fcm.googleapis.com.evil.example/abc" }],
+      ["an internal address", { endpoint: "https://169.254.169.254/latest" }],
+      ["credentials in the URL", { endpoint: "https://u:p@fcm.googleapis.com/abc" }],
+      ["a non-default port", { endpoint: "https://fcm.googleapis.com:8443/abc" }],
     ])("400 for %s", async (_label, subscription) => {
       const res = await POST(req({ subscription }));
       expect(res.status).toBe(400);
@@ -109,6 +116,8 @@ describe("push schedule route", () => {
   // clicked. Only same-site relative paths survive.
   it.each([
     ["a protocol-relative URL", "//evil.example/x", "/focus"],
+    ["a backslash URL the browser reads as protocol-relative", "/\\evil.example/x", "/focus"],
+    ["a backslash later in the path", "/x\\..\\y", "/focus"],
     ["an absolute URL", "https://evil.example/x", "/focus"],
     ["a non-string", 42, "/focus"],
     ["a missing url", undefined, "/focus"],
@@ -116,6 +125,16 @@ describe("push schedule route", () => {
   ])("rewrites %s", async (_label, url, expected) => {
     await POST(req({ subscription: SUB, url }));
     expect(published().body.url).toBe(expected);
+  });
+
+  it("forwards snooze only when it is exactly true", async () => {
+    await POST(req({ subscription: SUB, snooze: true }));
+    expect((published().body as { snooze?: boolean }).snooze).toBe(true);
+    for (const snooze of [false, "true", 1, undefined]) {
+      publishJSON.mockClear();
+      await POST(req({ subscription: SUB, snooze }));
+      expect(published().body).not.toHaveProperty("snooze");
+    }
   });
 
   // The tag decides which notifications replace which, so each pillar's survives
@@ -166,5 +185,23 @@ describe("push schedule route", () => {
     publishJSON.mockRejectedValue(new Error("upstream"));
     const res = await POST(req({ subscription: SUB }));
     expect(res.status).toBe(502);
+  });
+
+  it.each([
+    ["Chrome", "https://fcm.googleapis.com/fcm/send/abc"],
+    ["Firefox", "https://updates.push.services.mozilla.com/wpush/v2/abc"],
+    ["Safari", "https://web.push.apple.com/abc"],
+    ["Edge on Windows", "https://wns2-par02p.notify.windows.com/w/?token=abc"],
+  ])("accepts %s's push service", async (_label, endpoint) => {
+    await POST(req({ subscription: { endpoint } }));
+    expect(published().body.subscription).toEqual({ endpoint });
+  });
+
+  it("rate-limits one account that schedules in a loop", async () => {
+    vi.mocked(getServerSession).mockResolvedValue({ user: { email: "loop@example.com" } } as never);
+    const statuses: number[] = [];
+    for (let i = 0; i < 61; i++) statuses.push((await POST(req({ subscription: SUB }))).status);
+    expect(statuses.slice(0, 60).every((s) => s === 200)).toBe(true);
+    expect(statuses[60]).toBe(429);
   });
 });

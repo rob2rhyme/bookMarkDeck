@@ -15,7 +15,16 @@ sessions (the work) → a record of progress. *Connection over breadth.*
 - **next-auth v4** (Google provider) for the Next.js session.
 - **Firebase / Firestore (NoSQL)** for per-user cloud data, accessed **client-side**.
 - **Tailwind CSS v4** (utility classes; dark slate theme).
-- Deployed on **Vercel**. CSP + security headers set in `next.config.ts`.
+- Deployed on **Vercel**. CSP + security headers set in `next.config.ts`. **The CSP names its
+  script hosts** (`SCRIPT_HOSTS`: Google Identity Services, Firebase's gapi, jsDelivr for
+  Tesseract) instead of `https:`; a new external script needs its host added there, and
+  `e2e/csp.spec.ts` fails on any violation the pages raise. `worker-src 'self' blob:` is
+  load-bearing: Tesseract starts its OCR worker from a `blob:` URL, and while workers fell
+  back to `script-src` (no `blob:`) on-device label/receipt reading was silently refused.
+  **Stored links are untrusted**: a bookmark or shortcut can arrive from a shared file
+  or the cloud, so `isUnsafeUrl` (`@/utils/normalizeUrl`) keeps `javascript:`/`data:`/
+  `vbscript:` out of import and out of every `window.open`. `normalizeUrl` is for what
+  the user types and is stricter (it would reject an `obsidian://` shortcut).
 - Also in the repo (do **not** disturb when doing web work):
   - `src/utils/googleDriveSync.ts` — a **Google Drive sync** path.
 
@@ -27,7 +36,8 @@ Two independent auth systems, by design:
    - Server: `const session = await getServerSession(authConfig)` from `@/auth/auth.config`;
      redirect to `/login` if absent (see `src/app/(app)/page.tsx`).
    - Client: `const { data: session } = useSession()` (next-auth/react).
-   - Config: `src/auth/auth.config.ts` (Google, default scopes only — `openid email profile`).
+   - Config: `src/auth/auth.config.ts` (Google: `openid email profile` plus Google Tasks and Calendar
+     (`tasks`, `calendar.events`, `calendar.readonly`), with offline access).
      Route handler: `src/app/api/auth/[...nextauth]/route.ts`.
 2. **Firebase Auth (Google)** — owns access to *Firestore*, keyed by Firebase `uid`.
    - `ensureFirebaseGoogleAuth(emailHint)` in `src/lib/firebase.ts` signs the user into Firebase
@@ -42,6 +52,23 @@ Two independent auth systems, by design:
      `ensureFirebaseGoogleAuth` path remains the fallback (no regression). Fully zero-click requires the
      next-auth Google OAuth client ID whitelisted on the Firebase project's Google provider; otherwise
      it degrades to one tap that lights up all pillars.
+
+**Sign-in is limited to the owner** (`src/auth/allowlist.ts`; `AUTH_ALLOWED_EMAILS`,
+comma-separated, replaces the in-code default). Three checks, because each alone has a gap:
+the `signIn` callback refuses other accounts (and unverified emails); the `jwt` callback
+throws for them, which makes next-auth clear the cookie, so a session minted before the
+lock reads as signed out; and `middleware.ts` checks the email itself, since the gate
+decodes the cookie without running callbacks. `e2e/allowlist.spec.ts` pins all three
+from the outside. **Sessions last 14 idle days** (`session.maxAge`; next-auth's default is
+30): the cookie carries the Google refresh token, and the expiry slides with every visit.
+Google access is **not** revoked on sign-out on purpose — revoking the refresh token revokes
+the whole grant, which would cut Tasks/Calendar on every other signed-in device too.
+The default lives in code so an unset variable locks to the owner
+rather than failing open. **Firestore is locked the same way** (see **Firestore security
+rules**): before, anyone could sign into Firebase with the public web config and keep data
+under their *own* `users/{uid}` at the owner's cost. The Firebase project
+(`unified-project-440e5`) is single-owner by this rule — another app sharing it gets the
+same lock.
 
 **Reuse both — never add a second auth system or a second database.**
 
@@ -58,9 +85,12 @@ Two independent auth systems, by design:
 ### Firestore security rules
 Rules live in the committed **`firestore.rules`** at the repo root (wired via `firebase.json` →
 `.firebaserc`, project `unified-project-440e5`): a single owner-scoped recursive rule
-`match /users/{uid}/{document=**}` allowing read/write only when `request.auth.uid == uid` —
+`match /users/{uid}/{document=**}` allowing read/write only when `request.auth.uid == uid`
+**and** the token's email is the owner's, verified (`isOwner`; `allowedEmails()` repeats
+`DEFAULT_ALLOWED_EMAILS` from `src/auth/allowlist.ts`, and `allowlist.test.ts` fails if the
+two differ — rules can't read env, so `AUTH_ALLOWED_EMAILS` doesn't reach them) —
 which covers every collection, since all user data lives under `users/{uid}`. Per-feature notes:
-`src/features/{focus,habits,inventory}/FIRESTORE_RULES.md`. Any new collection must stay under
+`src/features/{focus,habits,inventory,notes}/FIRESTORE_RULES.md`. Any new collection must stay under
 `users/{uid}` (or get its own owner-scoped rule) — and that is **enforced**, not just asked for:
 `src/lib/firestorePaths.test.ts` scans the source for `doc(db, …)` / `collection(db, …)` and fails
 if any path is not rooted at `users` with a uid *variable*. A stray root collection would otherwise
@@ -77,7 +107,7 @@ then reads the released ruleset back to confirm the deploy landed:
 
 | Command | Answers |
 |---|---|
-| `npm run verify:rules` | is the **file** correct? (44 assertions: owner access, cross-uid denial, anonymous denial, no leak outside `users/{uid}`) — needs `FIRESTORE_EMULATOR_HOST` |
+| `npm run verify:rules` | is the **file** correct? (66 assertions: owner access, cross-uid denial, anonymous denial, other accounts and unverified/missing emails denied even their own tree, no leak outside `users/{uid}`; notes and notes vaults asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
 | `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |
@@ -88,7 +118,11 @@ account holding **both** `roles/firebaserules.admin` (create rulesets, move the 
 `roles/serviceusage.serviceUsageConsumer` (what firebase-tools needs to call project APIs as a
 service account rather than a user). Service accounts live in the Cloud console, not the Firebase
 one: console.cloud.google.com → IAM & Admin → Service Accounts, same project as `.firebaserc`.
-Full steps are in the workflow header. Without the secret the deploy job skips with a notice
+Full steps are in the workflow header. **The deploy job runs only on `main`**: the workflow is also
+dispatchable, and a dispatch on another branch would run that branch's own verify script — so
+without the ref check an unmerged branch could ship an open ruleset. For a second gate, add a
+GitHub `environment` with required reviewers holding the secret (repo settings, not YAML).
+Without the secret the deploy job skips with a notice
 rather than failing, so forks still get the verification half. The last two commands read the same credential locally
 via `GOOGLE_APPLICATION_CREDENTIALS`. `firebase-tools` is pinned in `package.json` and is
 deliberately **not** a dependency — it's fetched by `npx -y`, so it can't drag transitive
@@ -116,6 +150,19 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   and after a push another device kept its old ids beside the new ones, duplicating
   everything. An imported record keeps its own id unless that id is taken, so
   re-importing your own backup keeps those links. Undo restores the pre-import list.
+- **Other services' exports go through the same import.** `handleImport` reads a `.csv` with
+  `parseServiceCsv` (`@/utils/parseServiceCsv`, over the RFC 4180 `parseCsv`) and everything
+  else with `parseBookmarkHtml`, so Raindrop and Pocket files share the preview,
+  de-duplication, `planFolderPaths` and Undo of a browser file — no second import path.
+  Columns are found by NAME, case-insensitively; only `url` is required. Raindrop
+  (`excerpt`/`favorite` columns): collection → folder (its catch-all "Unsorted" stays
+  unfiled), comma tags, `created`, **favourite → pinned** (`ParsedBookmark.pinned`, kept by
+  `planHtmlImport`). Pocket (`time_added` + `status`): `|`-separated tags, unix dates, and
+  two lists become a "Pocket" folder with a "Read archive" subfolder (the HTML export,
+  `<h1>Unread</h1><ul>…`, is mapped the same way). Raindrop's `excerpt`, `cover` and
+  `highlights` are not imported — an excerpt is a page summary, not the reader's own note.
+  A row without a link is skipped and unsafe schemes are still dropped by
+  `planBookmarkImport`. `e2e/import.spec.ts`.
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the
@@ -190,10 +237,40 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
 - `src/app/(app)/layout.tsx` wraps pages in `<AppShell>` (`src/components/AppShell.tsx`) +
   `<GlobalClientUI>`. `AppShell` renders the header (logo + pillar nav pills + account
   menu), a mobile bottom nav (pillars + ⌘K search), and the footer
-  (Guide / Privacy / Terms / FAQ).
+  (Guide / Privacy / Terms / FAQ). **Both navs omit the pillar you are on** — that is
+  what keeps six pillars at six bottom-nav cells (the most 320px holds). Header pills
+  are icon-only below `xl`: five labelled pills plus the account menu overflow the
+  row under ~1280px.
+- **UI that opens on its own never lands on top of another dialog.** The first-run
+  welcome (`Onboarding`) opens after a cloud check, so it used to cover whatever the user
+  had just opened. It now waits until the page has been dialog-free for a moment
+  (`@/lib/dialogPresence`: any `aria-modal="true"` element — the shared `Modal` *and* the
+  hand-built overlays — plus the ⌘K palette's open event) and counts as seen only once
+  shown. Once open it stays: closing one `Modal` under another hands body-scroll
+  restoration to the wrong one. A new hand-built dialog must keep `aria-modal="true"`
+  or this can't see it.
 - Existing pages: `/` (home), `/folders/[folderKey]`, `/folders/manage`, `/folders/unstaged`,
-  `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/filing`, `/guide` (site guide),
-  `/faq`, `/privacy`, `/terms`, `/login`.
+  `/focus`, `/habits`, `/habits/guide`, `/inventory`, `/filing`, `/notes`, `/notes/[id]`,
+  `/share` (Share-sheet target, below), `/guide` (site guide), `/faq`, `/privacy`, `/terms`,
+  `/login`.
+- **Saving from the Share sheet.** `manifest.ts` declares a GET `share_target` → `/share`,
+  so the installed app is offered in Android's Share menu (iOS has no web share target;
+  the guide says so). `parseSharedLink` (`@/utils/sharedLink`) takes the link from `url`,
+  else the first http(s) link in `text` — Chrome on Android sends it there — and refuses
+  any other scheme. The page saves through `useBookmarks` like ＋ Add Link (device cache;
+  cloud sync stays explicit) and waits for `hydrated`, so a save can't land before the
+  account's cache loads. **A share while signed out survives sign-in:** login and the
+  gate both honour `callbackUrl` through `returnPath` (`@/utils/returnPath`), which keeps
+  only a path on this site — before, login always went to `/`. `e2e/share.spec.ts`.
+- **"Your week" on the home page** (`WeeklyRecapCard` + pure `@/lib/weeklyRecap`): this week
+  (Monday → today, local days) **beside** last week — not as a change, since a young week
+  always reads as a drop. Rows appear only with activity in either week. Read from the
+  device caches (habit entries and inventory items by key, notes via `readNoteDates`,
+  bookmarks from the page's own hook), computed on render and stored nowhere; only the
+  "hidden for week X" flag is kept (`bd:recap:hidden:v1`, per device). Focus time comes
+  from `subscribeSessions`, and **only over a Firebase session that already exists for
+  this account** — subscribing without one would open the sign-in popup from the home
+  page. `e2e/recap.spec.ts`.
 
 ## Styling
 
@@ -286,8 +363,11 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   and `e2e/machine.spec.ts` asserts each is answered by its route **and** that neighbouring
   routes stay gated. **Exempting a route makes its own gate the only gate**, so any route
   added to that list needs a route test proving its check rejects a forged request.
+  The billing webhook also drops an event older than the stored entitlement (`updatedAt`,
+  from Lemon Squeezy's `updated_at`): deliveries retry and arrive out of order, and a late
+  "active" landing after "expired" used to hand pro back for good.
 - `npm run e2e` → `playwright test` (`e2e/`, Chromium). Its own **blocking** CI job.
-  Covers the public surface *and* all five authed pillars — signing in needs no real
+  Covers the public surface *and* all six authed pillars — signing in needs no real
   credentials, because the gate is `getServerSession`, which only verifies a
   next-auth JWT against `NEXTAUTH_SECRET`; `e2e/fixtures/session.ts` mints a cookie
   with the same dummy secret the test server runs with. Firebase creds gate only
@@ -303,7 +383,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   + `test` + `build` (root) on PRs/pushes to `main`, with dummy env vars. Vercel builds
   previews. **`lint:eslint` is blocking** — it was `continue-on-error` while an error
   backlog was cleared. It carries real weight, because `npm run lint` is only
-  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 85
+  `tsc --noEmit`: ESLint is the sole check that catches a lint-level regression. The 84
   remaining *warnings* are **all one rule** — `react-hooks/set-state-in-effect`; only
   errors fail the build. That the set is homogeneous is the useful part: a warning from
   any other rule is new, and worth reading rather than assuming it is backlog.
@@ -313,35 +393,41 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
   | Shape | Count |
   |---|---|
   | cloud subscribe / fetch (`[canSync, email]`, `[connected, email]`) | 28 |
-  | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 15 |
+  | mount-only — the hydration read below, plus one-shots like `setMounted(true)` | 13 |
   | modal / panel reset on open (`[open, …]`) | 14 |
-  | other storage-backed reload | 14 |
-  | **derived-state reset** | **14** |
+  | other storage-backed reload (+2: `useNotes`' and `useVaults`' cache loads, `[email]`) | 16 |
+  | **derived-state reset** | **13** |
 
-  Hydration-shaped effects are about **29 of 85**; the biggest group is Firestore
+  Hydration-shaped effects are about **29 of 84**; the biggest group is Firestore
   subscriptions, which have nothing to do with hydration. The distinction earns its
   place because the blanket version of it is how #292's regression stayed in `main` for
   months — a deleted button whose orphaned state warned for exactly this rule, waved off
   as expected backlog.
-  **If the count ever moves, read the derived-state 14 first**: they are the ones React
+  **If the count ever moves, read the derived-state 13 first**: they are the ones React
   advises deriving during render (or resetting via `key`) instead of writing from an
   effect. All were inspected on the date above (plus one added since, `useStableEmail`'s
-  own derived-state reset — a session value is held back, not re-derived, while offline)
-  and are sound — each uses a functional updater or an early-return guard, so none can
-  loop or fight user input — but that is a finding with an expiry, not a permanent
-  property.
+  own derived-state reset — a session value is held back, not re-derived, while offline;
+  the retired Simple habits view's own entry left with its deletion) and are sound — each
+  uses a functional updater or an early-return guard, so none can loop or fight user input —
+  but that is a finding with an expiry, not a permanent property.
   **The count has moved once, and back, without a fix either way**: `useHydration`'s
   per-account cache load (an "other storage-backed reload", deps `[email]`) went quiet
   (84 → 83) when its day began flowing through `dayRef.current` — the rule exempts state
   set from a ref read — and warned again once the read moved into a `loadDay` callback
   beside `setHydrated`. The same load throughout. A drop is as worth explaining as a
-  rise: the rule can go quiet without the code improving.
+  rise: the rule can go quiet without the code improving. **86 → 83 was deletion,
+  not a fix:** the retired Simple habits view took three with it — its sort-mode
+  and view-setting reads (mount-only) and its selected-day reset (derived-state).
   **CI runs Node 22** (all four `setup-node` pins, across both workflows). That is
   load-bearing, not incidental: `jsdom` 30 requires `^22.22.2 || ^24.15.0 || >=26.0.0` and
   fails to load on Node 20, and `vite`/`rolldown` declare `^20.19.0 || >=22.12.0` floors.
   The trap it closed is worth remembering — a local Node of exactly `v22.22.2` ran all 785
   tests while CI on 20 reached 773, so "green locally" proves nothing about CI unless the
   runtimes match. Check `node -v` against the workflow before trusting a local run.
+  **Workflows run with `permissions: contents: read`, and every action is pinned by
+  commit SHA** with its tag in a comment (a tag can be moved); Dependabot's
+  `github-actions` entry keeps the pins current. actionlint's installer is fetched by
+  commit too.
   actionlint is blocking and pinned: an invalid workflow expression fails at *startup*,
   producing a run with no jobs and no entry in the PR's check list, so the failure looks
   like nothing ran.
@@ -504,12 +590,53 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   Optimistic
   + fail-safe. Rules: `src/features/focus/FIRESTORE_RULES.md` (deployable
   `firestore.rules`).
+- **To-dos repeat and carry a priority** (`lib/recurrence.ts`, `useTodos.toggleTodo`,
+  `TodoOptions`). Completing a repeating to-do (`repeat`: daily/weekdays/weekly/monthly,
+  which needs a due date to anchor on) leaves it in Done and files the **next**
+  occurrence: the first date on the cadence that falls after the completion day, time
+  of day kept, monthly anchored on the original day of the month. Missed occurrences
+  are not queued — finishing Monday's chore on Thursday files next week's, the opposite
+  of Filing's roll-forward-one-period, because a chore has no "still overdue" to show.
+  The next one's id is `{base}~{due day}`, so two devices completing the same to-do
+  file one record, not two. Un-completing removes that occurrence unless it was done
+  itself; `toggleTodo` returns `{ spawned, removed }` so the dashboard mirrors them to
+  Google and the Undo withdraws them. **`toggleTodo` reads `todosRef`, not the list it
+  was created with**: the Undo toast holds a callback from the completion's render,
+  and deciding from that list would complete the item again. `priority` is `high`/`low`
+  (omitted = normal) and sorts high first; `saveTodo` writes `repeat`/`priority` as
+  `null` when absent, since `merge: true` would otherwise keep a removed one. The
+  backup's `coerceTodo` also keeps `list`, `project` and `completedAt` now — it dropped
+  them, so a restore turned Project to-dos into Personal ones.
 - Tasks (`useFocusTasks`): reusable across days; an **active task** receives the
   timer's focus minutes (via `taskId` on sessions); auto-resumes the most recent;
   mark done / archive. Per-task time is derived from `focusSessions` (not stored).
 - Timer (`useFocusTimer`): settings-driven, timestamp-based (accurate when
   backgrounded), Web Audio chimes (`lib/sound.ts`) + notifications (`lib/notify.ts`),
   auto-start; attributes blocks to the active task.
+- **The meditation voice is the browser's own speech, made less robotic** (`lib/voice.ts`,
+  `VoiceOptions`). Offline and free, so the ceiling is what the device's voices allow:
+  `scoreVoice` ranks installed English voices (neural/"Natural"/enhanced/Google above
+  the old Microsoft desktop voices, eSpeak and macOS novelty voices last), the listener
+  can pick one and a pace (slow/calm/natural) and hear it, and a guide step is spoken
+  **a sentence at a time with a pause between** rather than as one run-on line, with a
+  slight pitch/rate wobble so lines aren't stamped from one mould. The choice is
+  **per device** (`bd:meditation:voice:v1`, not synced — voice names differ by device, and
+  a name saved elsewhere falls back to the best voice here). A generation counter stops a
+  replaced or cancelled sentence chain from talking over the new line. A recorded or
+  cloud-TTS narrator would sound more human still, but needs audio files or a paid
+  API — not built.
+- **Soundscapes** (`lib/sound.ts`, `useFocusAmbient`): rain/brown noise/wind/ocean/soft
+  noise/drone, generated with Web Audio (no files), played behind a running focus block
+  (Pomodoro focus mode or the stopwatch — never a break or a pause) and chosen under the
+  timer (`focusAmbient`, `focusAmbientVolume` 10–100, default 50). The engine has **two
+  channels**, `focus` and `meditation` (the default, so `useMeditation` is unchanged):
+  one soundscape per channel, so a meditation neither cuts nor is cut by the focus one.
+  A volume change moves the running gain; it never restarts the sound. Audio needs a
+  gesture, so both Start buttons call `initAudio()`; a timer restored from a reload
+  sounds on the next tap. `sound.dom.test.ts` drives a recording fake of the Web Audio
+  graph — it can't judge how anything sounds, only that every soundscape starts a
+  source, a stop releases every source and the rain's droplet timer, and channels
+  stay independent.
 - Analysis (`useFocusStats` + `AnalysisPanel`): daily goal progress, streak,
   7-day chart + mood trend, weekly top tasks — from `focusSessions` + journal.
 - Journal (`useFocusJournal` + `JournalCard`): per-day mood (`lib/mood.ts`,
@@ -716,7 +843,7 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
     acknowledged lands before it and is erased; changes held elsewhere (the outbox,
     another page) land on top of it.
   - *The session offline.* `useStableEmail` (`src/lib/useStableEmail.ts`, used by
-    `FocusDashboard`/`HabitsDashboard`/`SimpleHabitsDashboard` in place of a bare
+    `FocusDashboard`/`HabitsDashboard` in place of a bare
     `useSession()`) keeps the last email while the device knows it's offline, so
     the next-auth session value itself going null doesn't lose cups or stop the
     outbox handover. The session value still does go null in every OTHER open
@@ -888,8 +1015,27 @@ Other invariants:
   showing with its tag, and until push actually arrived (#316) nobody could see
   that every one shared `bmd-focus-timer`: two habits due at 07:00 showed as one,
   and the next timer end erased an unread digest. Tags: `bmd-focus-timer`,
-  `focus-streak`, `filing-digest`, `habit:{id}`; `/api/push/schedule` falls back
-  to the timer's for anything else. The worker's badge is `icons/badge-96.png`,
+  `focus-streak`, `filing-digest`, `inventory-digest`, `habit:{id}`; `/api/push/schedule` falls back
+  to the timer's for anything else. **My Stuff has the same daily digest**
+  (`useInventoryPush`, `features/inventory/lib/digest.ts`, opt-in from the 🔔
+  Reminders dialog; `pushEnabled`/`pushHour` on `InventorySettings`). Its count is
+  `reminderCount`, so push and nav badge agree; a PIN-locked My Stuff sends counts
+  only, never item names. `msUntilHour` lives in `@/lib/msUntilHour` (Filing's
+  digest re-exports it). **Habit reminders carry a "Snooze 1 hour" action**
+  (`schedulePush({ snoozable })` → `snooze: true` through schedule and fire →
+  `actions` in `sw.js`): the worker re-queues the same push itself and leaves a
+  record in Cache Storage (`bmd-snooze-v1`, `@/lib/snoozeRecords`, exempt from
+  `activate`'s cleanup) so `useHabitReminders` can cancel it once the habit is done
+  — the page can't see a push the worker queued. If the re-queue fails the click
+  just opens the app. iOS shows no notification actions. **A habit can remind at up to
+  four times a day** (`reminder` = the first time, `extraReminders` the rest, read through
+  `reminderTimes`: valid, unique, earliest first — two fields so a bundle or backup that
+  knows only `reminder` still reads the habit). `useHabitReminders` queues one push per
+  habit **and** time (map key `{id}@{HH:MM}`; an entry under the old bare-id key is not in
+  the desired set, so it is cancelled and re-queued), all under the habit's single `habit:{id}`
+  tag so a later one replaces an unread earlier one. A habit done today silences the rest of
+  today's times. `habitToDoc` always writes `extraReminders` (as `[]`) so a removed time
+  leaves the cloud copy too. The worker's badge is `icons/badge-96.png`,
   white on transparent — Android draws a badge from alpha alone, and the opaque
   app icon rendered as a solid square. `src/lib/serviceWorker.test.ts` loads the
   real `public/sw.js` into a `vm` sandbox, since nothing imports it. It also pins
@@ -920,7 +1066,9 @@ Other invariants:
   subscription to the same data. Keep the key in sync with
   `storageKeyV2ForUser` — and note it is **four** files, not two: `useBookmarks`
   owns it, and filing's `lib/bookmarks.ts`, inventory's `useBookmarkLibrary` and
-  `CommandPalette` all hardcode it to read the same cache.
+  `CommandPalette` all hardcode it to read the same cache. The palette reads **only
+  the signed-in account's** key — it used to read every `bookmarkdeck:v2*` key, so the
+  next person to sign in on a shared computer could search the last one's bookmarks.
   `src/lib/storageKeys.test.ts` pins that set, along with the nine other keys
   hardcoded in more than one file — bump one copy and the reader silently reads
   nothing, which no other check can see.
@@ -951,6 +1099,177 @@ Other invariants:
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`,
   `icons.tsx` (`Clock`, `BarChart`).
+
+## Notes feature (`/notes`)
+
+*Jot it down, find it later, copy it out in one tap.* A self-contained pillar under
+`src/features/notes/` + `/notes` (list) and `/notes/[id]` (editor). Imports no other
+feature; nothing imports it — removable cleanly in both directions.
+
+- **Phases.** 1: list, editor, smart lists, clipboard. 2: search + tags. 3: markdown.
+  **4: locked notes** (per-note encryption, below). All four shipped.
+- **Nothing is created before the account's cache has loaded.** The cache key is the
+  session email, which arrives after mount; a note created in that gap was filed under
+  the bare key and the editor (opening a beat later under the real one) said it didn't
+  exist. Worse, in the render between the email arriving and its cache loading, a
+  commit from the old list would replace the account's whole cache. So `useNotes`
+  tracks *which* key it has loaded (`hydrated` means "this email's cache"), any change
+  made before that reads the cache first, and the list's New/Paste/`N` wait on
+  `status !== "loading" && hydrated`.
+- Collections: `users/{uid}/notes/{noteId}` → `{ title, body, pinned, tags[], lock?,
+  activity[], createdAt, updatedAt }`, `users/{uid}/notesVaults/{id}` (wrapped keys only —
+  see locked notes below), and `users/{uid}/notesMeta/log` (the deletion log, below). Covered by the recursive owner rule; `FIRESTORE_RULES.md` says why a
+  notes-specific rule would add nothing (rules OR together). Timestamps are the
+  client's instant, not `serverTimestamp()` — a pending server time reads `null` in the
+  local snapshot and would sink the note being typed to the bottom of the list.
+- **Same sync model as filing**: per-user cache (`bookmarkdeck:notes:v1:{email}`) renders
+  at once, the live subscription takes over when connected, offline changes go through
+  `queueUpsert`/`queueDelete` and `toUpload` on connect. The cache is written
+  **synchronously** by every change (not from an effect) because the editor saves on
+  `pagehide` and unmount, which don't wait for a render. The hook adopts `storage`
+  events (other tabs) **and** a same-tab `bd:notes-cache-changed` event — the list and
+  editor are separate routes with separate hook instances, and an Undo or a blank-note
+  discard lands after one has unmounted.
+- **Order:** pinned first, then `updatedAt` desc. Pinning or tagging does **not** bump
+  `updatedAt` — organising a note isn't editing it. Tags save at once, not through the
+  autosave debounce.
+- **Tags are canonical on write** (`lib/tags.ts`, `normalizeTag`): lowercase, no `#`,
+  whitespace → `-`, only letters/digits/`-`/`_`/`/`, ≤32 chars, ≤20 per note. One form
+  everywhere means the filter, `#tag` search and counts never re-fold at read time;
+  `normalizeNote` re-canonicalises what it reads, so a hand-edited doc can't split a tag.
+  Rename/delete across every note is `retag(from, to | null)`; delete offers Undo by
+  restoring each note's previous tags.
+- **The list is one flowing grid, and a note's first tag is its ribbon.** `NotesDashboard`
+  renders pinned-then-rest in a single `auto-fill` grid (1 column on a phone, up to 4 wide).
+  It used to be a "Pinned" grid then a "Notes" grid, which left a lone card at the start of
+  each row on a wide screen; a pinned note is now marked by its filled pin and blue edge.
+  `NoteCard` puts the first tag in a corner tab (top-right, with a hit area wider than the
+  tab so it is easy to tap), shows up to two more as chips, and every card reserves the
+  ribbon's height so titles line up across a row. **A tag's colour is derived, never
+  stored** (`lib/tagColor.ts`: hash of the canonical tag → one of 8 fixed tones), so it is
+  the same on every device and in the filter row, and colour is never the only signal — the
+  tab always carries the name. The tone classes use only palette steps the theme map
+  already declares (`themeTokens.test.ts` fails on any other). `e2e/notes-cards.spec.ts`.
+- **Search** (`lib/search.ts`) is pure and client-side over the already-loaded notes —
+  no index, nothing stored. Every word must match (title, body or a tag); `"quoted
+  phrases"` are one term; `#tag` filters. Case- **and accent**-insensitive: matching
+  runs on a folded copy that maps each folded unit back to its original index, so
+  highlights land correctly even where folding changes length (`İ`). Ranked title >
+  tag > body, ties keeping display order. A card shows the body line that matched
+  (windowed), not its first line. Highlights reuse the shared `<mark>` styling but not
+  `@/components/HighlightedText`, which takes one literal phrase. The query and tag
+  live in the URL (`?q=`, `?tag=`, via `history.replaceState`) so Back from a note
+  restores the results.
+- **Editor:** autosave is debounced 800 ms and **driven imperatively** (`schedule()` from
+  change handlers), so adopting a remote change never triggers a save of its own. It
+  flushes on ⌘S, `pagehide`/hidden, and unmount. A remote change is adopted only while
+  nothing is pending locally; otherwise last writer wins, per note. A note left
+  **blank** is discarded when the editor closes — deferred a tick and cancelled by a
+  remount of the same id, so React's dev double-mount can't delete the note being opened.
+  Delete asks inline, then offers Undo.
+- **Smart text is plain text** (`lib/smartText.ts`): Enter continues `- `/`* `/`• `/`1. `/
+  `1) `/`[ ] ` items (numbers renumber the items below; a new checkbox is unticked),
+  Enter on an empty item ends the list (outdenting first if nested), Tab/Shift-Tab
+  indent — captured **only** on list lines or multi-line selections, so Tab still moves
+  focus elsewhere — and ⌘/Ctrl+Enter toggles a checkbox. Edits are applied through
+  `execCommand("insertText")` so they stay on the native undo stack (setting `value`
+  wipes it); `e2e/authed.spec.ts` pins ⌘Z in a real browser.
+- **Clipboard** (`lib/clipboard.ts`): `@capacitor/clipboard` when
+  `Capacitor.isNativePlatform()`, falling back to `navigator.clipboard` on **any**
+  native failure — the shell loads the live site, so a deploy reaches devices before a
+  rebuilt app carries the plugin (see `CAPACITOR_IOS.md` §1).
+- **The title is the one input above 16px.** `globals.css` forces every form control to
+  16px with `!important` (iOS zoom-on-focus); an important base-layer rule outranks
+  any utility, so the title's size is a `.bd-note-title` rule beside it.
+- **Markdown** (`lib/markdown.ts` → `components/Markdown.tsx`) is a small parser of our
+  own, not a library: it yields a tree the renderer turns into React elements, so **no
+  HTML string ever reaches the DOM** (a pasted `<img onerror>` is text), links render
+  only for `http(s)`/`mailto`/`tel` (`safeHref`), and no dependency is added. A
+  deliberate subset — headings, paragraphs (single newlines kept as line breaks, as
+  notes are written), fenced code, quotes, nested lists, tasks, rules, pipe tables;
+  bold/italic/strike/code/links/bare URLs/escapes. A **bare `[ ] x` line is a task**,
+  because the editor's list continuation writes it that way. Task items carry their
+  **source line**, so ticking a box in Preview flips that line (`toggleTaskLine`) and
+  autosaves like typing. Cards and search use **`toPlainText`** (syntax dropped, line
+  structure kept), so "**milk**" matches "milk" and a card reads "☐ buy milk".
+  Edit/Preview is per device (`bd:notes:view:v1`); a blank note always opens in Edit.
+  The formatting toolbar and ⌘B/⌘I/⌘⇧X go through the same `TextEdit` +
+  `execCommand` path as the list smarts, so ⌘Z undoes them. No ⌘K for links — that
+  is the app-wide command palette.
+- **Locked notes are end-to-end encrypted, per note, opt-in** (`lib/vault.ts`,
+  `lib/vaultSession.ts`, `hooks/useVaults.ts`). Owner decision: lock *selected* notes
+  with one notes passphrase, not the whole pillar — forgetting it costs only what was
+  locked. **Envelope design:** one random AES-256-GCM data key per vault encrypts note
+  bodies; the vault record (`users/{uid}/notesVaults/{id}`) stores that key only
+  *wrapped*, twice — by PBKDF2-SHA256 (600k) of the passphrase and of a 160-bit
+  recovery code shown once. A passphrase reset re-wraps; no note is re-encrypted.
+  Ciphertext is bound to its note id (GCM additional data); GCM's tag is the
+  wrong-passphrase check (nothing else stored). WebCrypto only — no dependency.
+  **The stored iteration count is untrusted** (`vaultIterationLimits`): whoever controls
+  the database controls it, and a reset used to re-wrap the new passphrase at whatever
+  count the record carried — one iteration, if someone lowered it. Records outside
+  600k–5M are refused, and every wrap uses `PBKDF2_ITERATIONS`. Not covered, by design:
+  a server can replay an older ciphertext of the same note, or drop a note's lock
+  (stated limits of a web app whose database you don't control).
+  **Invariants:** a locked note's `body` is always `""` in state, cache and Firestore
+  (`normalizeNote` blanks it on read, `updateNote` on write, and `toFirestore` *throws*
+  on a locked note with a body — the plaintext lives only in the open editor's memory).
+  Title and tags stay plaintext (stated in the setup copy) so the list and search work.
+  **Keys live in memory only** (non-extractable `CryptoKey`s): reload, tab close, "Lock
+  notes"/"Lock now" or 10 idle minutes lock again; before the keys drop, the open
+  editor's pending typing is saved encrypted (`onBeforeLock`). Encrypted saves run
+  serially, so a slow encryption can't land over a newer one, and each save records its
+  own ciphertext→plaintext so the editor never mistakes its write for a remote change.
+  **Vaults are never deleted** — a dropped vault is lost notes. Two devices that set one
+  up offline end with two; each lock names its vault (`kid`) and unlock tries every
+  vault. Setup waits for the cloud's answer (`ready`) so a second device doesn't start a
+  second vault needlessly. A locked note is never auto-discarded as blank.
+- Keys: `N` new note, `/` search, ⌘E Edit/Preview, Esc clears search or leaves the editor. An input that
+  handles Esc itself `preventDefault`s it, and the editor's window handler skips a
+  prevented Esc — that is how the tag box clears without closing the note.
+- Size cap: `MAX_NOTE_CHARS` (300k UTF-16 units ≤ 900 KB UTF-8) keeps a note inside
+  Firestore's 1 MiB document limit.
+- **⌘K finds notes without importing the feature.** `@/lib/notesIndex` owns the notes
+  cache key (`useNotes` imports it, so the two can't drift) and gives the palette a
+  read-only summary of **the signed-in account's** cache only; a locked note is listed by
+  title and tags, never body. Notes rank before bookmarks (the list is capped at 50).
+  "New note" is an intent handoff (`setNewNoteIntent` → `NotesDashboard` consumes it once
+  the cache is loaded), as `filingIntent` does.
+- **Backup & export** (`lib/notesBackup.ts`, `NotesBackupDialog`). The JSON backup carries
+  every note **as stored** — locked notes still encrypted — plus the vault records (wrapped
+  keys only), so it restores on a fresh account and unlocks with the passphrase or
+  recovery code while leaking nothing locked. Restore **merges by id and never deletes**;
+  on a shared id the backup wins only if its `updatedAt` is newer, and existing vaults are
+  never replaced. The Markdown export is for reading elsewhere, so locked notes appear by
+  title only.
+- **History and Insights** (`lib/activity.ts`, `lib/deletionLog.ts`, `lib/insights.ts`,
+  `components/NotesInsights.tsx`). Each note carries `activity[]` — created, edited,
+  pinned, tagged, locked, unlocked, restored, imported — **never content**, so it rides
+  the note's own sync, cache and backup and needs no second sync path. Autosave saves every
+  800 ms, so saves under 30 min apart fold into one "edited" entry (`n` saves, `from`);
+  capped at 100 events a note, so it is recent history, not a ledger. A deleted note takes
+  its history with it, so **deletions go to an account log** (`notesMeta/log`, mirrored in
+  the device cache) that only ever grows by union, newest 100: removing an entry on Undo
+  would be undone by another device's copy, so an undone delete stays listed and the note's
+  own history reads "Restored". Offline deletes reach the cloud on `useDeletionLog`'s next
+  merge. `computeInsights` is pure — totals, local-week buckets (Monday first; tests pin a
+  zone), tags, most-edited, longest, untouched 180+ days and the audit feed — computed when
+  the dialog opens and stored nowhere. Locked notes count, but not their words. Last
+  writer wins per note, so two devices editing one note at once can drop each other's
+  events, as with the note's text.
+- **Edited on two devices → both kept** (`lib/conflicts.ts`). Each device remembers, per
+  note, the cloud `updatedAt` it last saw (its *base*, `bookmarkdeck:notes:base:v1:{email}`,
+  refreshed from every snapshot and every confirmed write). On reconnect, `planReconnect`
+  checks each offline edit `toUpload` would push: if the cloud copy moved past this device's
+  base and the text differs, the newer version keeps the note and the older is written as a
+  new "(conflicted copy)" tagged `#conflict`, with a `conflict` history event, and the list
+  toasts (`CONFLICTS_FOUND`). Before, the upload overwrote the other device's edit. **Not
+  covered:** locked notes (ciphertext is bound to the note id, so a copy under a new id
+  couldn't decrypt — they stay last-writer-wins), notes with no recorded base (edits made
+  before this shipped), and two devices both online typing in the same note at once.
+- Shared-file touches (additive): `AppShell.tsx` (nav entry; both navs omit the active
+  pillar), `CommandPalette.tsx` + `@/lib/notesIndex` (⌘K), `icons.tsx` (`StickyNote`, `Copy`, `ClipboardPaste`, `Pin`, `Lock`, `Unlock`),
+  `globals.css` (`.bd-note-title`).
 
 ## Git & PR workflow
 

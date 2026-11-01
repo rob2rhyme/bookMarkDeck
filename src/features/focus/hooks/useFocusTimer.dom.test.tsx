@@ -8,7 +8,11 @@ vi.mock("@/features/focus/data/focusData", () => ({
   recordFocusSession: vi.fn().mockResolvedValue("session-id"),
   updateSessionMeta: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("@/features/focus/lib/sound", () => ({ initAudio: vi.fn() }));
+// Only the audio unlock is faked; the rest (ids, defaults the settings read) stays real.
+vi.mock("@/features/focus/lib/sound", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/focus/lib/sound")>()),
+  initAudio: vi.fn(),
+}));
 vi.mock("@/features/focus/lib/notify", () => ({
   notify: vi.fn(),
   requestNotificationPermission: vi.fn(),

@@ -7,7 +7,6 @@ import { AppearanceApplier } from "@/components/AppearanceApplier";
 import { ToastProvider } from "@/components/toast/ToastProvider";
 import { AppearanceProvider } from "@/lib/appearanceSettings";
 import { CursorSettingsProvider } from "@/lib/cursorSettings";
-import { HabitsViewProvider } from "@/lib/habitsViewSettings";
 
 function onConnectivity(change: () => void) {
   window.addEventListener("online", change);
@@ -40,7 +39,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               without the theme-color sync for a manual light/dark override. */}
           <AppearanceApplier />
           <CursorSettingsProvider>
-            <HabitsViewProvider>{children}</HabitsViewProvider>
+            {children}
           </CursorSettingsProvider>
         </AppearanceProvider>
       </ToastProvider>

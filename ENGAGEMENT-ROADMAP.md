@@ -23,13 +23,18 @@ parity, and distribution** — not catalog features.
 ## Tier 1 — highest impact × already-built infra
 
 1. **Turn on push** (VAPID/QStash env vars) — `[planned]`, config not code.
-2. **Streak-at-risk nudges** (Focus + Habits) — `[net-new]`. `useFocusStats.streak`
-   / `HabitStats.currentStreak` + `schedulePush` exist; reminders currently fire a
-   generic "Time for X", never streak-framed. Wire a streak-framed `reminderBody`
-   in `useHabitReminders.ts` + a Focus evening nudge.
+2. ~~**Streak-at-risk nudges** (Focus + Habits)~~ — **shipped**: habit reminders use
+   `reminderBody` with the live streak ("Keep your 12-day streak alive — Meditate
+   today.", from 2 days up; `useHabitReminders`) and Focus sends an 8 pm "keep your
+   focus streak" push while a streak is at risk and no session is logged
+   (`useFocusStreakNudge`). Both ride the push infrastructure, so they stay silent
+   until item 1 is turned on.
 3. **Push-when-closed reminders** (My Stuff: warranty/return/use-by/maintenance) —
-   `[planned, "Fill — high retention"]`. `lib/value.ts` `attention()` already
-   computes what to schedule.
+   `[shipped]`. One daily digest, Filing's design: `lib/digest.ts` summarises
+   `attention()` (same count as the nav badge), `useInventoryPush` re-arms it when
+   My Stuff is opened, and the 🔔 Reminders dialog holds the opt-in and the hour.
+   Same limit as Filing's: the 24 h QStash clamp means it pauses if the app isn't
+   opened for a day. Silent until item 1 is turned on.
 4. **Consumable depletion + restock loop** (My Stuff pantry/self-care) —
    `[planned, ITEM-PROFILES Phase 2]`. Add `restockAt` to `types.ts`, "–used one"
    on `ItemCard`, a new Attention bucket, one-tap wishlist re-add. The only
@@ -43,23 +48,24 @@ parity, and distribution** — not catalog features.
   (`insights.ts`, `focusSessions`, `HabitStats`); calm dismissible cards, **no
   points economy**. Fixes Focus's gamification being trivia (`focusScores`)
   decoupled from actual output.
-- **Weekly recap card** (all pillars, `[net-new]`) — data already computed
-  (`useFocusStats` week-vs-week, `habits/lib/insights.ts`), just not surfaced.
-- **PWA `share_target` + save-current-page** (Bookmarks, `[net-new]`) — biggest
-  bookmarks retention lever; competitors (Raindrop/Pocket/Toby) all have
-  share-to-save. Add `share_target` to `manifest.ts` + a receiver route.
+- ~~**Weekly recap card**~~ — **shipped** as "Your week" on the home page
+  (`WeeklyRecapCard`, `@/lib/weeklyRecap`): focus, habits, bookmarks, notes, items.
+- ~~**PWA `share_target` + save-current-page**~~ — **shipped**: `manifest.ts`
+  `share_target` → `/share` (Android; iOS has no web share target). See CLAUDE.md
+  → Routing & shell.
 - **Auto-fetch title/favicon/description on add** (Bookmarks, `[net-new]`).
 - **Onboarding parity** (Bookmarks + Focus, `[net-new]`) — clone Habits'
   15-template onboarding (`HabitOnboarding.tsx`), the best first-run in the app.
 
 ## Tier 3 — competitive gaps (bigger, still on-stack)
 
-- **Bookmarks:** importers (Pocket/Raindrop/Chrome via `parseBookmarkHtml.ts`);
-  read-later/reader-view + highlights; tag-browse.
-- **Focus:** recurring to-dos + priorities (`useTodos.ts`); two-way calendar
-  write-back (currently read-only); ambient soundscapes (Web Audio, matches
-  `lib/sound.ts`).
-- **Habits:** multiple/snooze reminders; external auto-tracking (Google Fit/Health
+- **Bookmarks:** ~~importers (Pocket/Raindrop/Chrome)~~ — **shipped**: browser HTML
+  already; Raindrop CSV/HTML and Pocket CSV/HTML added (`parseServiceCsv`,
+  `parseBookmarkHtml`); read-later/reader-view + highlights; tag-browse.
+- **Focus:** two-way calendar
+  write-back (currently read-only). (Soundscapes **shipped**: rain, brown noise, wind,
+  ocean, soft noise, drone behind a running focus block, `lib/sound.ts`.)
+- **Habits:** external auto-tracking (Google Fit/Health
   → `trackableSources.ts`); a Finch-style companion (biggest lift, brand call).
 - **My Stuff:** AI photo→item capture — **already built** (`AiCaptureModal.tsx`),
   dormant behind a hidden button + missing `ANTHROPIC_API_KEY`. Ship as the

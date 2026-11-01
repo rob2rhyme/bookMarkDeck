@@ -113,17 +113,24 @@ export function playChime(type: ChimeType = "session", sound: SoundId = "classic
 }
 
 /* ------------------------------------------------------ ambient soundscape ---
- * A continuous, generated backdrop for meditation sessions — filtered noise or
- * a soft drone, synthesized with Web Audio (no files). Only one runs at a time;
- * startAmbient() fades in and replaces any current one, stopAmbient() fades out.
+ * A continuous, generated backdrop — filtered noise or a soft drone, synthesized
+ * with Web Audio (no files). Used behind meditation sessions and, on its own
+ * channel, behind a running focus block. One soundscape runs per channel:
+ * startAmbient() fades in and replaces that channel's current one, stopAmbient()
+ * fades it out. Channels are independent, so starting a meditation never cuts
+ * the focus soundscape (or the reverse).
  */
 
-export type AmbientId = "off" | "noise" | "ocean" | "drone";
+export type AmbientId = "off" | "noise" | "brown" | "rain" | "wind" | "ocean" | "drone";
+export type AmbientChannel = "meditation" | "focus";
 
 export const AMBIENT_OPTIONS: { id: AmbientId; label: string }[] = [
   { id: "off", label: "Off" },
-  { id: "noise", label: "Soft noise" },
+  { id: "rain", label: "Rain" },
+  { id: "brown", label: "Brown noise" },
+  { id: "wind", label: "Wind" },
   { id: "ocean", label: "Ocean" },
+  { id: "noise", label: "Soft noise" },
   { id: "drone", label: "Drone" },
 ];
 
@@ -134,7 +141,24 @@ export function isAmbientId(value: unknown): value is AmbientId {
   );
 }
 
-let ambient: { stop: () => void } | null = null;
+/** Loudness at the default volume (50). Brown noise is quiet to the ear for its energy, drones loud. */
+const PEAK: Record<Exclude<AmbientId, "off">, number> = {
+  noise: 0.1,
+  brown: 0.16,
+  rain: 0.12,
+  wind: 0.12,
+  ocean: 0.1,
+  drone: 0.05,
+};
+
+export const DEFAULT_AMBIENT_VOLUME = 50;
+
+/** 10–100 → a gain multiplier where the default (50) is 1×. */
+const volumeFactor = (volume: number) =>
+  Math.min(100, Math.max(10, volume)) / DEFAULT_AMBIENT_VOLUME;
+
+type Running = { stop: () => void; setVolume: (volume: number) => void };
+const ambient: Partial<Record<AmbientChannel, Running>> = {};
 
 function noiseBuffer(c: AudioContext, brown: boolean): AudioBuffer {
   const len = Math.floor(c.sampleRate * 2); // 2s loop
@@ -153,20 +177,77 @@ function noiseBuffer(c: AudioContext, brown: boolean): AudioBuffer {
   return buf;
 }
 
-export function startAmbient(id: AmbientId) {
-  stopAmbient();
+export function startAmbient(
+  id: AmbientId,
+  opts: { channel?: AmbientChannel; volume?: number } = {}
+) {
+  const channel = opts.channel ?? "meditation";
+  stopAmbient(channel);
   if (id === "off") return;
   const c = getCtx();
   if (!c) return;
   if (c.state === "suspended") c.resume().catch(() => {});
 
+  const peak = PEAK[id];
   const out = c.createGain();
-  const peak = id === "drone" ? 0.05 : 0.1;
   out.gain.setValueAtTime(0.0001, c.currentTime);
-  out.gain.exponentialRampToValueAtTime(peak, c.currentTime + 1.5);
+  out.gain.exponentialRampToValueAtTime(
+    peak * volumeFactor(opts.volume ?? DEFAULT_AMBIENT_VOLUME),
+    c.currentTime + 1.5
+  );
   out.connect(c.destination);
 
   const stops: (() => void)[] = [];
+  const onStop = (fn: () => void) => stops.push(fn);
+  const quiet = (fn: () => void) => () => {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  /** A looping noise source through a filter chain into `dest`. */
+  const noise = (
+    brown: boolean,
+    filters: { type: BiquadFilterType; frequency: number; Q?: number }[],
+    dest: AudioNode = out,
+    level = 1
+  ) => {
+    const src = c.createBufferSource();
+    src.buffer = noiseBuffer(c, brown);
+    src.loop = true;
+    let node: AudioNode = src;
+    const made: BiquadFilterNode[] = [];
+    for (const f of filters) {
+      const b = c.createBiquadFilter();
+      b.type = f.type;
+      b.frequency.value = f.frequency;
+      if (f.Q !== undefined) b.Q.value = f.Q;
+      node.connect(b);
+      node = b;
+      made.push(b);
+    }
+    const g = c.createGain();
+    g.gain.value = level;
+    node.connect(g);
+    g.connect(dest);
+    src.start();
+    onStop(quiet(() => src.stop()));
+    return made;
+  };
+
+  /** A slow oscillator that moves `param` by ±`depth` — waves, gusts. */
+  const sweep = (param: AudioParam, hz: number, depth: number) => {
+    const lfo = c.createOscillator();
+    lfo.frequency.value = hz;
+    const d = c.createGain();
+    d.gain.value = depth;
+    lfo.connect(d);
+    d.connect(param);
+    lfo.start();
+    onStop(quiet(() => lfo.stop()));
+  };
 
   if (id === "drone") {
     // Two softly detuned sines a fifth apart — a calm, sustained pad.
@@ -180,52 +261,62 @@ export function startAmbient(id: AmbientId) {
       osc.connect(g);
       g.connect(out);
       osc.start();
-      stops.push(() => {
-        try {
-          osc.stop();
-        } catch {
-          /* ignore */
-        }
-      });
+      onStop(quiet(() => osc.stop()));
     });
+  } else if (id === "ocean") {
+    // Slow swell — sweep the cutoff up and down like waves (~10s period).
+    const [lp] = noise(true, [{ type: "lowpass", frequency: 500 }]);
+    sweep(lp.frequency, 0.1, 250);
+  } else if (id === "brown") {
+    noise(true, [{ type: "lowpass", frequency: 900 }]);
+  } else if (id === "wind") {
+    // Band-limited noise whose centre drifts, so it gusts rather than hisses.
+    const [bp] = noise(false, [{ type: "bandpass", frequency: 420, Q: 0.7 }], out, 1.6);
+    sweep(bp.frequency, 0.07, 260);
+  } else if (id === "rain") {
+    // A steady hiss, a low roof-rumble, and random droplets on top.
+    noise(false, [
+      { type: "highpass", frequency: 1200 },
+      { type: "lowpass", frequency: 7000 },
+    ], out, 0.55);
+    noise(true, [{ type: "lowpass", frequency: 350 }], out, 0.5);
+    const drops = c.createGain();
+    drops.gain.value = 0.9;
+    drops.connect(out);
+    const dropBuf = noiseBuffer(c, false);
+    const timer = window.setInterval(() => {
+      const src = c.createBufferSource();
+      src.buffer = dropBuf;
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = 1800 + Math.random() * 3200;
+      bp.Q.value = 6;
+      const g = c.createGain();
+      const t = c.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25 + Math.random() * 0.4, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(drops);
+      src.start(t, Math.random());
+      src.stop(t + 0.06);
+    }, 90);
+    onStop(() => window.clearInterval(timer));
   } else {
-    const ocean = id === "ocean";
-    const src = c.createBufferSource();
-    src.buffer = noiseBuffer(c, ocean);
-    src.loop = true;
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = ocean ? 500 : 1100;
-    src.connect(lp);
-    lp.connect(out);
-    src.start();
-    stops.push(() => {
+    // "noise": softly filtered white noise.
+    noise(false, [{ type: "lowpass", frequency: 1100 }]);
+  }
+
+  ambient[channel] = {
+    setVolume: (volume) => {
       try {
-        src.stop();
+        out.gain.cancelScheduledValues(c.currentTime);
+        out.gain.setTargetAtTime(peak * volumeFactor(volume), c.currentTime, 0.15);
       } catch {
         /* ignore */
       }
-    });
-    if (ocean) {
-      // Slow swell — sweep the cutoff up and down like waves (~10s period).
-      const lfo = c.createOscillator();
-      lfo.frequency.value = 0.1;
-      const depth = c.createGain();
-      depth.gain.value = 250;
-      lfo.connect(depth);
-      depth.connect(lp.frequency);
-      lfo.start();
-      stops.push(() => {
-        try {
-          lfo.stop();
-        } catch {
-          /* ignore */
-        }
-      });
-    }
-  }
-
-  ambient = {
+    },
     stop: () => {
       try {
         out.gain.cancelScheduledValues(c.currentTime);
@@ -246,9 +337,12 @@ export function startAmbient(id: AmbientId) {
   };
 }
 
-export function stopAmbient() {
-  if (ambient) {
-    ambient.stop();
-    ambient = null;
-  }
+export function stopAmbient(channel: AmbientChannel = "meditation") {
+  ambient[channel]?.stop();
+  delete ambient[channel];
+}
+
+/** Change the running soundscape's volume (10–100) without restarting it. */
+export function setAmbientVolume(volume: number, channel: AmbientChannel = "meditation") {
+  ambient[channel]?.setVolume(volume);
 }
