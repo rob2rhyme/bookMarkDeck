@@ -92,7 +92,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Google Calendar events</strong> (<code>auth/calendar.events</code>) — to create
-            timed to-dos as calendar events.
+            timed to-dos as calendar events, keep them in step, and to add or delete events on
+            your own primary calendar when you ask in the agenda.
           </li>
           <li>
             <strong>Google Calendar, read-only</strong> (<code>auth/calendar.readonly</code>) — to

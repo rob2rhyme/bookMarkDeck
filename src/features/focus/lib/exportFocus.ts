@@ -6,6 +6,7 @@ import { toCsv } from "@/utils/download";
 import { isMoodKey, type MoodKey } from "@/features/focus/lib/mood";
 import { coerceDreamFields } from "@/features/focus/lib/types";
 import { isTodoRepeat } from "@/features/focus/lib/recurrence";
+import { isGoogleSnapshot } from "@/features/focus/lib/googleReconcile";
 import type {
   FocusBackup,
   FocusSessionRecord,
@@ -138,6 +139,7 @@ function coerceTodo(raw: unknown): Todo | null {
     project: str(r.project),
     googleTaskId: typeof r.googleTaskId === "string" ? r.googleTaskId : null,
     googleEventId: typeof r.googleEventId === "string" ? r.googleEventId : null,
+    ...(isGoogleSnapshot(r.gsync) ? { gsync: r.gsync } : {}),
     ...(isTodoRepeat(r.repeat) ? { repeat: r.repeat } : {}),
     ...(r.priority === "high" || r.priority === "low" ? { priority: r.priority } : {}),
   };

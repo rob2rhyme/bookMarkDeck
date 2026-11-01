@@ -37,6 +37,7 @@ import {
 } from "@/features/focus/lib/settings";
 import { isMoodKey } from "@/features/focus/lib/mood";
 import { isTodoRepeat } from "@/features/focus/lib/recurrence";
+import { isGoogleSnapshot } from "@/features/focus/lib/googleReconcile";
 import { coerceDreamFields } from "@/features/focus/lib/types";
 import type {
   FocusBackup,
@@ -1003,6 +1004,7 @@ function mapTodo(d: { id: string; data: () => Record<string, unknown> }): Todo {
       typeof data.googleTaskId === "string" ? data.googleTaskId : null,
     googleEventId:
       typeof data.googleEventId === "string" ? data.googleEventId : null,
+    ...(isGoogleSnapshot(data.gsync) ? { gsync: data.gsync } : {}),
     ...(isTodoRepeat(data.repeat) ? { repeat: data.repeat } : {}),
     ...(data.priority === "high" || data.priority === "low" ? { priority: data.priority } : {}),
   };
@@ -1029,6 +1031,7 @@ export async function saveTodo(emailHint: string, todo: Todo): Promise<void> {
       project: todo.project ?? "",
       googleTaskId: todo.googleTaskId ?? null,
       googleEventId: todo.googleEventId ?? null,
+      gsync: todo.gsync ?? null,
       // null, not omitted: merge:true would otherwise keep a removed repeat/priority.
       repeat: todo.repeat ?? null,
       priority: todo.priority ?? null,

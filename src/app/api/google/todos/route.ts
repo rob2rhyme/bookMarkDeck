@@ -71,6 +71,10 @@ export async function POST(req: NextRequest) {
   }
 
   let googleTaskId = todo.googleTaskId ?? null;
+  // Whether each Google write actually landed. The client records what Google now
+  // holds only for a write that did, so a failed push isn't mistaken for a sync.
+  let taskSynced = false;
+  let eventSynced = false;
   try {
     if (googleTaskId) {
       await gfetch(token, `${TASKS}/${googleTaskId}`, {
@@ -84,6 +88,7 @@ export async function POST(req: NextRequest) {
       });
       googleTaskId = typeof created.id === "string" ? created.id : null;
     }
+    taskSynced = googleTaskId !== null;
   } catch {
     // leave the existing id; the local to-do is unaffected
   }
@@ -112,16 +117,24 @@ export async function POST(req: NextRequest) {
         });
         googleEventId = typeof ev.id === "string" ? ev.id : null;
       }
+      eventSynced = googleEventId !== null;
     } else if (googleEventId) {
       // Due date removed — drop the calendar block.
       await gfetch(token, `${EVENTS}/${googleEventId}`, { method: "DELETE" });
       googleEventId = null;
+      eventSynced = true;
+    } else {
+      eventSynced = true; // nothing to hold on the calendar
     }
   } catch {
     // best-effort
   }
 
-  return NextResponse.json({ googleTaskId, googleEventId });
+  return NextResponse.json({
+    googleTaskId,
+    googleEventId,
+    synced: { task: taskSynced, event: eventSynced },
+  });
 }
 
 /** Delete the mirrored Task + Calendar event. */

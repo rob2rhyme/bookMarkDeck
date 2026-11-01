@@ -57,6 +57,10 @@ const ALLOWED: Record<string, { count: number; why: string }> = {
     count: 1,
     why: "fromUtc — the label round trip behind addDays/addMonths/addYears",
   },
+  "src/app/api/google/events/route.ts [utc-slice]": {
+    count: 1,
+    why: "nextDay — exclusive end of an all-day Calendar event, from a bare date the client already named",
+  },
   "src/features/filing/lib/ics.ts [utc-slice]": {
     count: 1,
     why: "nextDay — exclusive DTEND of an all-day event",

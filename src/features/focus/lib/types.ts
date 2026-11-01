@@ -70,6 +70,8 @@ export function coerceDreamFields(data: unknown): DreamDetails {
  *  (never mirrored to Google Tasks/Calendar); legacy items default to "personal". */
 export type TodoList = "personal" | "project";
 
+export type GoogleSnapshot = { dueAt: string | null; done: boolean };
+
 /** How a to-do comes back once it is done (needs a due date to anchor on). */
 export type TodoRepeat = "daily" | "weekdays" | "weekly" | "monthly";
 /** Omitted = normal. */
@@ -88,6 +90,9 @@ export type Todo = {
   project?: string; // project name for "project" to-dos (reusable label); "" = none
   googleTaskId?: string | null; // mapping to a mirrored Google Task
   googleEventId?: string | null; // mapping to a mirrored Calendar event (timed)
+  /** What Google last held for this to-do (set when we mirror or adopt it), so a pull
+   *  can tell a change made THERE from one made here. See lib/googleReconcile.ts. */
+  gsync?: GoogleSnapshot;
   repeat?: TodoRepeat; // omitted = does not repeat; completing it files the next one
   priority?: TodoPriority; // omitted = normal
 };
