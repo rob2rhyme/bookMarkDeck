@@ -9,17 +9,19 @@
 // the bound source and applies `mergeStep` (pure, unit-tested) per snapshot.
 //
 // Merge policy keeps each link correct:
-//   • bidirectional (hydration) — count moves both ways; first snapshot
-//     max-merges, later snapshots adopt the remote, and a higher local value is
-//     pushed back via `mirror`. The cloud only ever receives the CHANGE (a
-//     Firestore increment), so a tap here composes with cups logged on another
-//     device instead of overwriting them.
+//   • bidirectional (hydration) — count moves both ways. A tap travels as the
+//     change it makes (`mirror` → @/lib/hydrationOutbox, an increment), and
+//     every snapshot is adopted. Nothing is pushed back: an increment isn't
+//     idempotent, so a count pushed back would be added a second time to cups
+//     still on their way (it was: a Focus tab that closed offline left two cups
+//     in the outbox, habits pushed its count — which already held them — and
+//     the outbox then added them again).
 //   • raiseOnly (journal, meditation, focus) — the signal can only mark progress
 //     up, never down. There's no forward write to persist a manual tap, so
 //     auto-lowering would bounce it; raise-only avoids that.
 
 import {
-  addHydration,
+  hydrationTransport,
   subscribeHydration,
   subscribeMeditationSessions,
   subscribeNotes,
@@ -35,6 +37,7 @@ import {
 } from "@/features/habits/lib/journal";
 import type { Habit, HabitType } from "@/features/habits/lib/types";
 import { readHydrationCache, writeHydrationCache } from "@/lib/focusHydrationCache";
+import { flushHydration, hydrationRetryDue, recordHydration } from "@/lib/hydrationOutbox";
 
 type Unsub = () => void;
 
@@ -64,12 +67,49 @@ export type TrackableSource = {
   /** Offline value from a local cache, or null when none exists. */
   readCache: (email: string | null | undefined, day: string) => number | null;
   /**
-   * Forward write (habit → Focus); omit for sources with no writable surface.
-   * `value` is the new count (for the device cache), `delta` the change from the
-   * count it replaces — what reaches the cloud.
+   * Forward write (habit → Focus) of a tap that took the habit's count from
+   * `previous` to `value`; omit for sources with no writable surface.
    */
-  mirror?: (ctx: LinkCtx, value: number, delta: number) => void;
+  mirror?: (ctx: LinkCtx, value: number, previous: number) => void;
 };
+
+// Several habits can link to the same source for one account (two water
+// habits, say). Each used to make its own retry interval and `online`
+// listener, so a due retry ran twice back to back, and the backoff — read
+// from whatever the outbox's `retries` held at the moment — doubled twice.
+// Shared and refcounted here instead: the first subscription makes them, the
+// last one to stop tears them down.
+const hydrationRetrySlots = new Map<
+  string,
+  { refs: number; interval: ReturnType<typeof setInterval>; online: () => void }
+>();
+
+function shareHydrationRetry(email: string): () => void {
+  let slot = hydrationRetrySlots.get(email);
+  if (!slot) {
+    const flush = () => void flushHydration(email, hydrationTransport);
+    const interval = setInterval(() => {
+      if (hydrationRetryDue(email)) flush();
+    }, 15_000);
+    window.addEventListener("online", flush);
+    slot = { refs: 0, interval, online: flush };
+    hydrationRetrySlots.set(email, slot);
+  }
+  slot.refs++;
+  let released = false;
+  return () => {
+    if (released) return; // a caller's unsubscribe can run more than once
+    released = true;
+    const current = hydrationRetrySlots.get(email);
+    if (!current) return;
+    current.refs--;
+    if (current.refs <= 0) {
+      clearInterval(current.interval);
+      window.removeEventListener("online", current.online);
+      hydrationRetrySlots.delete(email);
+    }
+  };
+}
 
 const MIN_UNITS = ["min", "mins", "minute", "minutes"];
 const isMinutes = (h: Habit) =>
@@ -83,13 +123,45 @@ export const TRACKABLE_SOURCES: readonly TrackableSource[] = [
     habitType: "measurable",
     policy: "bidirectional",
     match: isWaterHabit,
-    // Server-first, as Focus does: offline, a cache-only "missing" answer made
-    // the first merge push this habit's count over another device's.
-    subscribe: (email, day, cb) => subscribeHydration(email, day, cb, { serverFirst: true }),
+    // Server-first, as Focus does. The first answer, and the network coming
+    // back, are also when the outbox is handed over — Focus's cups included, so
+    // a Focus tab that closed offline still delivers when habits opens first —
+    // and so is a retry the outbox says is due.
+    subscribe: (email, day, cb) => {
+      const releaseRetry = shareHydrationRetry(email);
+      let first = true;
+      const unsubscribe = subscribeHydration(
+        email,
+        day,
+        (value) => {
+          cb(value);
+          if (first) {
+            first = false;
+            void flushHydration(email, hydrationTransport);
+          }
+        },
+        { serverFirst: true }
+      );
+      return () => {
+        unsubscribe();
+        releaseRetry();
+      };
+    },
     readCache: (email, day) => readHydrationCache(email, day)?.cups ?? null,
-    mirror: ({ email, day, canSync }, value, delta) => {
-      writeHydrationCache(email, day, value); // dropped unless `day` is today
-      if (canSync && email && delta !== 0) addHydration(email, day, delta).catch(() => {});
+    mirror: ({ email, day, canSync }, value, previous) => {
+      const delta = value - previous;
+      if (!delta) return;
+      // Focus's cache moves by the same change: it can hold cups the habit
+      // hasn't heard of yet. Only a cup added is a drink for Focus's reminders.
+      // (Dropped unless `day` is today.)
+      const cached = readHydrationCache(email, day);
+      writeHydrationCache(
+        email,
+        day,
+        (cached?.cups ?? previous) + delta,
+        delta > 0 ? undefined : (cached?.lastDrink ?? undefined)
+      );
+      if (email) recordHydration(email, day, delta, { send: canSync }, hydrationTransport);
     },
   },
   {
@@ -198,17 +270,13 @@ export type MergeResult = {
   set: number | null;
   /** Remove the today entry (bidirectional only, when the value falls to 0). */
   remove: boolean;
-  /** Push this value back to Focus via the source's `mirror`, or null. */
-  mirror: number | null;
 };
 
-const NOOP: MergeResult = { set: null, remove: false, mirror: null };
+const NOOP: MergeResult = { set: null, remove: false };
 
 /**
  * Pure merge decision for one snapshot. `curCount` is the habit entry's current
- * done-count (0 if none); `remote` is the source value (null = unknown);
- * `isFirst` marks the first snapshot of a subscription (matters only for the
- * bidirectional max-merge + seed). Caller applies the result and flips isFirst.
+ * done-count (0 if none); `remote` is the source value (null = unknown).
  */
 export function mergeStep(opts: {
   policy: SyncPolicy;
@@ -216,26 +284,17 @@ export function mergeStep(opts: {
   curCount: number;
   remote: number | null;
   target: number;
-  isFirst: boolean;
 }): MergeResult {
-  const { policy, habitType, curCount, remote, target, isFirst } = opts;
+  const { policy, habitType, curCount, remote, target } = opts;
 
   if (policy === "raiseOnly") {
     const val = remote == null ? 0 : remote;
     const desired = habitType === "binary" ? (val > 0 ? target : 0) : val;
-    return desired > curCount ? { set: desired, remove: false, mirror: null } : NOOP;
+    return desired > curCount ? { set: desired, remove: false } : NOOP;
   }
 
-  // bidirectional
-  if (remote == null) {
-    // No Focus doc yet: seed it from the habit's count on the first snapshot.
-    return { set: null, remove: false, mirror: isFirst && curCount > 0 ? curCount : null };
-  }
-  const resolved = isFirst ? Math.max(curCount, remote) : remote;
-  const changed = resolved !== curCount;
-  return {
-    set: changed && resolved > 0 ? resolved : null,
-    remove: changed && resolved <= 0,
-    mirror: resolved !== remote ? resolved : null,
-  };
+  // bidirectional: the source's count is the count. No record yet changes
+  // nothing — the habit's own taps are already on their way as increments.
+  if (remote == null || remote === curCount) return NOOP;
+  return { set: remote > 0 ? remote : null, remove: remote <= 0 };
 }

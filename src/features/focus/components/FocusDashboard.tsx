@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
 
 import { consumeFocusTaskIntent } from "@/lib/focusIntent";
+import { useStableEmail } from "@/lib/useStableEmail";
 
 import { Settings, Timer } from "@/components/icons";
 import {
@@ -74,8 +74,7 @@ import type {
 const BIBLE_INTERESTS: TopicId[] = ["bible"];
 
 export function FocusDashboard() {
-  const { data: session } = useSession();
-  const email = session?.user?.email ?? null;
+  const email = useStableEmail();
   const { connected, connecting, error, connect } = useFocusSync(email);
 
   const {

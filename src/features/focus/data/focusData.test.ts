@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // so the first answer said "missing" — and a merge against "missing" queued a
 // write that replaced the other device's count on reconnect. Reproduced against
 // the real SDK and the emulator; this pins the rule that closes it.
+const batch = vi.hoisted(() => ({
+  set: vi.fn(),
+  commit: vi.fn(async () => {}),
+}));
+const tx = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn() }));
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn(() => ({})),
   deleteDoc: vi.fn(),
@@ -12,26 +17,38 @@ vi.mock("firebase/firestore", () => ({
   getDoc: vi.fn(),
   getDocs: vi.fn(),
   increment: vi.fn((n: number) => ({ increment: n })),
+  maximum: vi.fn((n: number) => ({ maximum: n })),
   onSnapshot: vi.fn(() => () => {}),
   query: vi.fn(),
-  runTransaction: vi.fn(),
+  runTransaction: vi.fn(async (_db: unknown, fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
   serverTimestamp: vi.fn(() => "ts"),
   setDoc: vi.fn(),
   where: vi.fn(),
+  writeBatch: vi.fn(() => batch),
 }));
 vi.mock("@/lib/firebase", () => ({
   db: {},
   ensureFirebaseGoogleAuth: vi.fn(async () => ({ uid: "u1" })),
 }));
 
-import { onSnapshot, runTransaction, setDoc } from "firebase/firestore";
-import { addHydration, subscribeHydration } from "@/features/focus/data/focusData";
+import { getDoc, onSnapshot } from "firebase/firestore";
+import {
+  addHydration,
+  fetchHydration,
+  recoverHydration,
+  subscribeHydration,
+  subscribeHydrationHistory,
+} from "@/features/focus/data/focusData";
 
-type Snap = { exists: () => boolean; data: () => { cups: number }; metadata: { fromCache: boolean } };
-const snap = (cups: number | null, fromCache: boolean): Snap => ({
+type Snap = {
+  exists: () => boolean;
+  data: () => { cups: number };
+  metadata: { fromCache: boolean; hasPendingWrites: boolean };
+};
+const snap = (cups: number | null, fromCache: boolean, hasPendingWrites = false): Snap => ({
   exists: () => cups != null,
   data: () => ({ cups: cups as number }),
-  metadata: { fromCache },
+  metadata: { fromCache, hasPendingWrites },
 });
 
 /** Subscribe, wait for the listener to attach, and hand back its snapshot feed. */
@@ -71,24 +88,88 @@ describe("subscribeHydration — serverFirst", () => {
     expect(cb).toHaveBeenCalledExactlyOnceWith(null);
   });
 
+  // The SDK lays a pending increment over the count cached when it was made:
+  // a day never read reads as 0 + 1 until the write is acknowledged.
+  it("holds back a snapshot carrying this page's unacknowledged writes", async () => {
+    const { cb, feed } = await attach({ serverFirst: true });
+    feed(snap(1, false, true)); // the server has answered, but over a stale base
+    expect(cb).not.toHaveBeenCalled();
+    feed(snap(6, false)); // acknowledged
+    expect(cb).toHaveBeenCalledExactlyOnceWith(6);
+    feed(snap(7, true, true)); // offline, a later change of its own
+    expect(cb).toHaveBeenCalledOnce();
+  });
+
   it("passes every snapshot through when not asked to wait", async () => {
     const { cb, options, feed } = await attach();
     expect(options.includeMetadataChanges).toBe(false);
     feed(snap(null, true));
     expect(cb).toHaveBeenCalledWith(null);
+    feed(snap(2, true, true));
+    expect(cb).toHaveBeenLastCalledWith(2);
   });
 });
 
-// A change owed to a day whose record was never read goes up as an increment:
-// unlike an absolute count, it composes with what another device wrote.
+// The chart took every snapshot, including one carrying this page's
+// unacknowledged cup — laid, as subscribeHydration explains, over a stale count.
+describe("subscribeHydrationHistory", () => {
+  const days = (cups: number, hasPendingWrites: boolean) => ({
+    docs: [{ id: "2026-10-11", data: () => ({ cups }) }],
+    metadata: { fromCache: false, hasPendingWrites },
+  });
+
+  it("holds back a snapshot carrying this page's unacknowledged writes", async () => {
+    const cb = vi.fn();
+    subscribeHydrationHistory("a@example.com", cb);
+    await vi.waitFor(() => expect(onSnapshot).toHaveBeenCalled());
+    const [, options, feed] = vi.mocked(onSnapshot).mock.calls[0] as unknown as [
+      unknown,
+      { includeMetadataChanges: boolean },
+      (s: ReturnType<typeof days>) => void,
+    ];
+    // Acknowledged with the same count, only the metadata changes.
+    expect(options.includeMetadataChanges).toBe(true);
+    feed(days(1, true));
+    expect(cb).not.toHaveBeenCalled();
+    feed(days(6, false));
+    expect(cb).toHaveBeenCalledExactlyOnceWith([{ day: "2026-10-11", cups: 6 }]);
+  });
+});
+
+// Every routine change is an increment, so changes from several devices add up
+// instead of the last writer's count replacing the others'. Each carries its
+// receipt in the same atomic write, which is how a page that finds a change
+// left behind tells "landed, acknowledgement lost" from "never sent".
 describe("addHydration", () => {
-  it("writes an increment, merged into the record", async () => {
-    await addHydration("a@example.com", "2026-10-10", 2);
-    expect(setDoc).toHaveBeenCalledWith(
+  beforeEach(() => {
+    batch.set.mockClear();
+    batch.commit.mockClear();
+  });
+
+  it("adds the change and its receipt in one write", async () => {
+    await addHydration("a@example.com", "2026-10-10", 1, "op-1");
+    expect(batch.set).toHaveBeenCalledExactlyOnceWith(
       expect.anything(),
-      { cups: { increment: 2 }, updatedAt: "ts" },
+      { cups: { increment: 1 }, updatedAt: "ts", ops: { "op-1": 1 } },
       { merge: true }
     );
+    expect(batch.commit).toHaveBeenCalledOnce();
+  });
+
+  // Without the clamp a removal reaching an empty record leaves -1, and that
+  // debt silently eats the next cup anyone logs.
+  it("clamps a removal at 0 in the same write", async () => {
+    await addHydration("a@example.com", "2026-10-10", -1, "op-2");
+    expect(batch.set).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      { cups: { increment: -1 }, updatedAt: "ts", ops: { "op-2": -1 } },
+      { merge: true }
+    );
+    expect(batch.set).toHaveBeenNthCalledWith(2, expect.anything(), { cups: { maximum: 0 } }, {
+      merge: true,
+    });
+    expect(batch.commit).toHaveBeenCalledOnce();
   });
 
   it("reads a record an increment took below 0 as 0", async () => {
@@ -98,69 +179,59 @@ describe("addHydration", () => {
   });
 });
 
-// A removal used to be a bare increment too, so two devices taking away the
-// last cup at once left the record at -1 — it read as 0, but the next cup
-// landed on 0. A removal now reads and writes in one transaction, floored at 0.
-describe("addHydration — removals", () => {
-  /** A one-record store that runTransaction reads and writes. */
-  let stored: number | null;
-  const writes: unknown[] = [];
-  beforeEach(() => {
-    stored = null;
-    writes.length = 0;
-    vi.mocked(setDoc).mockClear();
-    vi.mocked(runTransaction).mockReset();
-    vi.mocked(runTransaction).mockImplementation((async (_db: unknown, fn: (tx: unknown) => unknown) =>
-      fn({
-        get: async () => ({ exists: () => stored != null, data: () => ({ cups: stored }) }),
-        set: (_ref: unknown, data: { cups: number }) => {
-          writes.push(data);
-          stored = data.cups;
-        },
-      })) as never);
-  });
+// A change found in the outbox may already have landed, its acknowledgement
+// lost. It is delivered in a transaction — a read of the server itself, not of
+// an open listener's view, which can lag the write it is looking for — and
+// only if its receipt isn't there.
+describe("recoverHydration", () => {
+  const record = (data: object | null) =>
+    tx.get.mockResolvedValueOnce({ exists: () => data != null, data: () => data });
+  beforeEach(() => tx.set.mockClear());
 
-  it("floors the count at 0 when two devices remove the last cup", async () => {
-    stored = 1;
-    await addHydration("a@example.com", "2026-10-11", -1);
-    await addHydration("a@example.com", "2026-10-11", -1); // the other device, a beat later
-    expect(stored).toBe(0);
-    await addHydration("a@example.com", "2026-10-11", 1); // the next cup
-    expect(setDoc).toHaveBeenLastCalledWith(
+  it("applies a change whose receipt isn't on the server, with its receipt", async () => {
+    record({ cups: 3, ops: { a: 1 } });
+    await recoverHydration("a@example.com", "2026-10-10", 1, "b");
+    expect(tx.set).toHaveBeenCalledExactlyOnceWith(
       expect.anything(),
-      { cups: { increment: 1 }, updatedAt: "ts" },
+      { cups: 4, updatedAt: "ts", ops: { b: 1 } },
       { merge: true }
     );
   });
 
-  it("takes a habit's clear off what is there, never below 0", async () => {
-    stored = 2;
-    await addHydration("a@example.com", "2026-10-11", -5);
-    expect(stored).toBe(0);
+  it("writes nothing when the receipt is already there", async () => {
+    record({ cups: 3, ops: { a: 1 } });
+    await recoverHydration("a@example.com", "2026-10-10", 1, "a");
+    expect(tx.set).not.toHaveBeenCalled();
   });
 
-  it("falls back to the increment when the transaction can't run (offline)", async () => {
-    vi.mocked(runTransaction).mockRejectedValueOnce(new Error("unavailable"));
-    await addHydration("a@example.com", "2026-10-11", -1);
-    expect(setDoc).toHaveBeenCalledWith(
+  it("starts a missing record from 0, and clamps a removal there", async () => {
+    record(null);
+    await recoverHydration("a@example.com", "2026-10-10", -1, "c");
+    expect(tx.set).toHaveBeenCalledWith(
       expect.anything(),
-      { cups: { increment: -1 }, updatedAt: "ts" },
+      { cups: 0, updatedAt: "ts", ops: { c: -1 } },
       { merge: true }
     );
-  });
-
-  it("adds a cup without a transaction, so it still works offline", async () => {
-    await addHydration("a@example.com", "2026-10-11", 1);
-    expect(runTransaction).not.toHaveBeenCalled();
-  });
-
-  it("repairs a record the server confirms below 0, and not a cached one", async () => {
-    stored = -1;
-    const { feed } = await attach();
-    feed(snap(-1, true));
-    expect(runTransaction).not.toHaveBeenCalled();
-    feed(snap(-1, false));
-    await vi.waitFor(() => expect(stored).toBe(0));
   });
 });
 
+describe("fetchHydration", () => {
+  const answer = (cups: number, hasPendingWrites: boolean) =>
+    vi.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ cups }),
+      metadata: { hasPendingWrites, fromCache: false },
+    } as never);
+
+  it("reads the day's count", async () => {
+    answer(5, false);
+    expect(await fetchHydration("a@example.com", "2026-10-10")).toBe(5);
+  });
+
+  // The SDK lays a pending increment over a stale count: against the emulator a
+  // day never read answered 1 with the server at 6.
+  it("answers nothing while this page has a change to the day unacknowledged", async () => {
+    answer(1, true);
+    expect(await fetchHydration("a@example.com", "2026-10-10")).toBeUndefined();
+  });
+});

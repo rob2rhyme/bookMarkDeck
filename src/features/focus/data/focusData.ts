@@ -16,15 +16,18 @@ import {
   getDoc,
   getDocs,
   increment,
+  maximum,
   onSnapshot,
   query,
   runTransaction,
   serverTimestamp,
   setDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
+import type { HydrationTransport } from "@/lib/hydrationOutbox";
 import { logActivity, type ActivityType } from "@/lib/activityLog";
 import {
   bookmarkForDay,
@@ -401,18 +404,28 @@ export async function deleteNote(
 
 /* ------------------------------------------------------------ hydration --- */
 
-/** Cups drunk on a given day, or null if no record exists yet. */
+/**
+ * Cups drunk on a given day, or null if no record exists yet. Undefined while
+ * this page has a change to the day unacknowledged: the SDK's answer is then
+ * stale, for the reason subscribeHydration gives.
+ */
 export async function fetchHydration(
   emailHint: string,
   day: string
-): Promise<number | null> {
+): Promise<number | null | undefined> {
   const uid = await uidFor(emailHint);
   const snap = await getDoc(doc(hydrationCol(uid), day));
+  if (snap.metadata.hasPendingWrites) return undefined;
   if (!snap.exists()) return null;
   const cups = snap.data().cups;
   return typeof cups === "number" ? Math.max(0, cups) : null;
 }
 
+/**
+ * Write a day's count outright. Only a backup restore does this: it replaces
+ * whatever other devices have logged, so routine changes go through
+ * addHydration.
+ */
 export async function saveHydration(
   emailHint: string,
   day: string,
@@ -427,57 +440,64 @@ export async function saveHydration(
 }
 
 /**
- * Add `delta` cups (may be negative) to a day's count on the server. Unlike
- * saveHydration it composes with other devices' writes instead of replacing
- * them, so it is safe to queue offline.
- *
- * A removal reads the count and writes it back no lower than 0, in one
- * transaction: as a bare increment, two devices taking away the last cup at
- * once left the record at -1, and the next cup landed on 0. A transaction
- * needs the server, so offline the removal falls back to the increment (reads
- * clamp at 0, and `clampHydration` repairs the record once it is seen).
+ * Add `delta` cups (a change: +1 or −1 from Focus, any count from a habit tap)
+ * to a day's count, with change `opId`'s receipt
+ * in the same atomic write (see @/lib/hydrationOutbox). An increment composes
+ * with other devices' changes instead of replacing them. A removal is clamped
+ * at 0 in the same write, so one that reaches an empty record doesn't leave a
+ * debt that eats the next cup.
  */
 export async function addHydration(
   emailHint: string,
   day: string,
-  delta: number
+  delta: number,
+  opId: string
 ): Promise<void> {
   const uid = await uidFor(emailHint);
   const ref = doc(hydrationCol(uid), day);
-  if (delta < 0) {
-    try {
-      await runTransaction(db, async (tx) => {
-        const snap = await tx.get(ref);
-        const cups = snap.exists() ? snap.data().cups : 0;
-        const current = typeof cups === "number" ? cups : 0;
-        tx.set(
-          ref,
-          { cups: Math.max(0, current + delta), updatedAt: serverTimestamp() },
-          { merge: true }
-        );
-      });
-      return;
-    } catch {
-      /* offline or contended past the SDK's retries: fall back to the increment */
-    }
-  }
-  await setDoc(ref, { cups: increment(delta), updatedAt: serverTimestamp() }, { merge: true });
+  const batch = writeBatch(db);
+  batch.set(
+    ref,
+    { cups: increment(delta), updatedAt: serverTimestamp(), ops: { [opId]: delta } },
+    { merge: true }
+  );
+  if (delta < 0) batch.set(ref, { cups: maximum(0) }, { merge: true });
+  await batch.commit();
 }
 
 /**
- * Raise a record that offline removals took below 0 back to 0. A transaction,
- * so two devices repairing at once can't both add to it.
+ * Deliver a change found in the outbox: in one transaction, read the day from
+ * the server and apply the change only if its receipt isn't there yet. Not a
+ * read and then a write: a plain read can be answered by an open listener's
+ * view, which can lag the very write whose receipt it is looking for, and a
+ * write landing between the two would be counted twice anyway. Fails offline.
  */
-export async function clampHydration(uid: string, day: string): Promise<void> {
+export async function recoverHydration(
+  emailHint: string,
+  day: string,
+  delta: number,
+  opId: string
+): Promise<void> {
+  const uid = await uidFor(emailHint);
   const ref = doc(hydrationCol(uid), day);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
-    const cups = snap.exists() ? snap.data().cups : null;
-    if (typeof cups === "number" && cups < 0) {
-      tx.set(ref, { cups: 0, updatedAt: serverTimestamp() }, { merge: true });
-    }
+    const data = snap.exists() ? snap.data() : {};
+    const ops: unknown = data.ops;
+    if (ops && typeof ops === "object" && opId in ops) return;
+    const cups = typeof data.cups === "number" ? data.cups : 0;
+    tx.set(
+      ref,
+      { cups: Math.max(0, cups + delta), updatedAt: serverTimestamp(), ops: { [opId]: delta } },
+      { merge: true }
+    );
   });
 }
+
+export const hydrationTransport: HydrationTransport = {
+  send: addHydration,
+  recover: recoverHydration,
+};
 
 /* ------------------------------------------------------------- activity --- */
 
@@ -930,6 +950,14 @@ export function subscribeScores(
  * "missing" queued a write that, on reconnect, replaced the other device's
  * count. Metadata changes are listened for so the server's confirmation still
  * arrives when the data itself hasn't changed.
+ *
+ * It also holds back every snapshot carrying this page's unacknowledged
+ * writes. The SDK lays an increment over the count it had cached when the
+ * write was made, not over the server's, so until the write is acknowledged
+ * that count is stale: against the emulator, a cup taken before the day was
+ * ever read showed as the day's only cup, and one taken offline hid the
+ * phone's cups until the acknowledgement came back. The caller shows its own
+ * changes itself.
  */
 export function subscribeHydration(
   emailHint: string,
@@ -947,20 +975,21 @@ export function subscribeHydration(
           if (snap.metadata.fromCache) return;
           confirmed = true;
         }
+        if (serverFirst && snap.metadata.hasPendingWrites) return;
         const cups = snap.exists() ? snap.data().cups : null;
-        // An offline removal can take a record below 0: read it as 0, and
-        // repair it once the server has confirmed it.
-        if (typeof cups === "number" && cups < 0 && !snap.metadata.fromCache) {
-          clampHydration(uid, day).catch(() => {});
-        }
-        cb(typeof cups === "number" ? Math.max(0, cups) : null);
+        cb(typeof cups === "number" ? Math.max(0, cups) : null); // a pre-clamp record can be < 0
       },
       onListenError("hydration")
     );
   });
 }
 
-/** Live full hydration history — every day's cup total, for the history chart. */
+/**
+ * Live full hydration history — every day's cup total, for the history chart.
+ * A snapshot carrying this page's unacknowledged writes is held back, for the
+ * reason subscribeHydration gives; metadata changes are listened for so the
+ * acknowledgement arrives even when the count it confirms hasn't changed.
+ */
 export function subscribeHydrationHistory(
   emailHint: string,
   cb: (rows: { day: string; cups: number }[]) => void
@@ -968,7 +997,9 @@ export function subscribeHydrationHistory(
   return listen(emailHint, (uid) =>
     onSnapshot(
       hydrationCol(uid),
-      (snap) =>
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
         cb(
           snap.docs
             .map((d) => ({
@@ -976,7 +1007,8 @@ export function subscribeHydrationHistory(
               cups: typeof d.data().cups === "number" ? d.data().cups : 0,
             }))
             .filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.day) && r.cups > 0)
-        ),
+        );
+      },
       onListenError("hydrationHistory")
     )
   );

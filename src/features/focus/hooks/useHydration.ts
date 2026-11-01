@@ -4,15 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   type ActivityType,
-  addHydration,
   fetchHydration,
-  saveHydration,
+  hydrationTransport,
   subscribeHydration,
 } from "@/features/focus/data/focusData";
 import { playChime } from "@/features/focus/lib/sound";
 import { notify } from "@/features/focus/lib/notify";
 import { todayKey } from "@/lib/dayKey";
 import { readHydrationCache, writeHydrationCache } from "@/lib/focusHydrationCache";
+import {
+  flushHydration,
+  hydrationRetryDue,
+  hydrationWaiting,
+  recordHydration,
+} from "@/lib/hydrationOutbox";
 
 type LogActivity = (type: ActivityType, summary: string) => void;
 
@@ -34,6 +39,12 @@ export const OZ_PER_CUP = 8;
  * 8 oz). Cached in localStorage and, when connected, synced to Firestore
  * (focusHydration/{YYYY-MM-DD}) so the count follows the account across
  * browsers. Each cup is also mirrored to the activity log.
+ *
+ * Every cup added or removed goes to the cloud as an increment, through the
+ * outbox (@/lib/hydrationOutbox), so cups taken on several devices or in
+ * several tabs add up; the count on screen takes whatever the record says and
+ * is never written back. It used to be: the last count written won, so a
+ * laptop offline for an hour replaced the phone's cups with its own number.
  */
 export function useHydration({
   email,
@@ -53,92 +64,56 @@ export function useHydration({
 
   const lastDrinkRef = useRef<number>(0);
   const dayRef = useRef<string>("");
-  const cupsRef = useRef(0);
-  // False from the moment a day's record starts being followed until the
-  // server's first answer is read. Writing before that could put this device's
-  // count over a higher one another device already logged; that first answer
-  // merges instead (see the subscription below).
-  const remoteReadyRef = useRef(false);
-  // The count a day's record merges against: what this device had for the day
-  // when it started following it. Cups added or removed after that, before the
-  // first answer, are this device's own changes and are kept on top of the
-  // merge. `loadDay` sets it, so a drink that itself rolls the day over is
-  // counted as a change, not as part of the base.
-  const baseRef = useRef<{ day: string; cups: number } | null>(null);
-  // The base the record now being followed will merge against. A Download
-  // resets it: adopting the cloud's count is not a change of this device's.
-  const mergeBaseRef = useRef(0);
-  // The day whose record is being followed right now (null when none), and the
-  // account the hook is on — so a base lands on the right gap, and a Download
-  // that resolves after an account switch is dropped.
-  const followingRef = useRef<string | null>(null);
+  // The count on screen, kept in step with it synchronously, so an action works
+  // from the latest count and makes its writes outside a state updater — which
+  // StrictMode runs twice.
+  const countRef = useRef(0);
+  // The day whose record the server has answered for since it was followed.
+  // Until it has, the total isn't known, so the log doesn't state one.
+  const answeredRef = useRef<string | null>(null);
   const emailRef = useRef(email);
   const canSync = connected && Boolean(email);
 
-  /** Set the count and its ref together, so a tap never reads a stale count. */
-  const setCount = useCallback((v: number) => {
-    cupsRef.current = v;
-    setCups(v);
-  }, []);
   useEffect(() => {
     emailRef.current = email;
   }, [email]);
 
-  /** `d`'s count is now known to be `v`: merge against it from here on. */
-  const rebase = useCallback((d: string, v: number) => {
-    if (followingRef.current === d) mergeBaseRef.current = v;
-    else baseRef.current = { day: d, cups: v };
+  const show = useCallback((n: number) => {
+    countRef.current = n;
+    setCups(n);
   }, []);
-
-  // A cup is sent as the change it makes (a Firestore increment), never as the
-  // day's total: a total from this device would replace cups another device
-  // logged meanwhile. Before the first answer nothing is sent; the merge sends
-  // what this device owes.
-  const persistRemote = useCallback(
-    (delta: number) => {
-      if (delta !== 0 && canSync && email && remoteReadyRef.current) {
-        addHydration(email, dayRef.current, delta).catch(() => {});
-      }
-    },
-    [canSync, email]
-  );
 
   /** Make `d` the current day, starting from what this device cached for it. */
   const loadDay = useCallback(
     (d: string) => {
       dayRef.current = d;
       const cached = readHydrationCache(email, d);
-      baseRef.current = { day: d, cups: cached?.cups ?? 0 };
-      setCount(cached?.cups ?? 0);
+      show(cached?.cups ?? 0);
       lastDrinkRef.current = cached?.lastDrink ?? Date.now();
       setDay(d);
     },
-    [email, setCount]
+    [email, show]
   );
 
   /**
    * Move to the new day if the date has changed. Writes nothing to the new day:
    * an absent record already reads as 0, and the new day's record may hold cups
-   * another device logged while this tab slept — it used to write 0 over them.
-   *
-   * The day being left may still owe its record a change: cups added or removed
-   * before the server answered (offline across midnight). Its count can't be
-   * merged without that answer, so the change goes up as an increment, which
-   * composes with whatever another device wrote.
+   * another device logged while this tab slept. Changes still on their way to
+   * the day being left are in the outbox under that day.
    */
   const rollIfNewDay = useCallback((): boolean => {
     const today = todayKey();
-    const leaving = dayRef.current;
-    if (today === leaving) return false;
-    if (canSync && email && !remoteReadyRef.current && followingRef.current === leaving) {
-      const owed = cupsRef.current - mergeBaseRef.current;
-      if (owed !== 0) addHydration(email, leaving, owed).catch(() => {});
-    }
-    remoteReadyRef.current = false;
+    if (today === dayRef.current) return false;
     loadDay(today);
     setReminding(false);
     return true;
-  }, [canSync, email, loadDay]);
+  }, [loadDay]);
+
+  // Hand the outbox's changes to the server. Only while connected: otherwise
+  // sending would ask to sign in.
+  const flush = useCallback(async () => {
+    if (canSync && email) await flushHydration(email, hydrationTransport);
+  }, [canSync, email]);
 
   // Load today's progress after mount (the cache is shared with habits).
   useEffect(() => {
@@ -158,62 +133,60 @@ export function useHydration({
 
   // The day rolls over on its own clock. It used to live in the reminder loop,
   // so with reminders off nothing noticed midnight; focus and visibility catch
-  // a tab whose timers slept.
+  // a tab whose timers slept. They, and the network coming back, are also when
+  // changes left in the outbox are handed over — `connected` is sign-in state,
+  // and doesn't change when the network does. A server outage fires no
+  // `online`, so the clock also retries what the outbox couldn't deliver.
   useEffect(() => {
     if (!hydrated) return;
-    const roll = () => void rollIfNewDay();
-    const id = setInterval(roll, 15000);
-    window.addEventListener("focus", roll);
-    document.addEventListener("visibilitychange", roll);
+    const tick = () => {
+      rollIfNewDay();
+      if (email && hydrationRetryDue(email)) void flush();
+    };
+    const wake = () => {
+      rollIfNewDay();
+      void flush();
+    };
+    const online = () => void flush();
+    const id = setInterval(tick, 15000);
+    window.addEventListener("focus", wake);
+    window.addEventListener("online", online);
+    document.addEventListener("visibilitychange", wake);
     return () => {
       clearInterval(id);
-      window.removeEventListener("focus", roll);
-      document.removeEventListener("visibilitychange", roll);
+      window.removeEventListener("focus", wake);
+      window.removeEventListener("online", online);
+      document.removeEventListener("visibilitychange", wake);
     };
-  }, [hydrated, rollIfNewDay]);
+  }, [hydrated, rollIfNewDay, flush, email]);
 
-  // Follow the current day's count for live cross-browser updates. The server's
-  // first answer merges: the higher of this device's base and the cloud's count
-  // (so neither an offline bump nor another device's is lost), plus whatever
-  // this device added or removed since it started following the day. Later
-  // snapshots adopt the remote value. Cache-only answers are held back until
-  // the server has answered (serverFirst): offline, a record another device
-  // wrote reads as missing from the cache.
+  // Follow the current day's count for live cross-browser updates. Every
+  // snapshot that arrives is taken as the count. serverFirst holds back the
+  // ones that would mislead: cache-only answers before the server has answered
+  // (offline, a record another device wrote reads as missing), and any carrying
+  // this page's unacknowledged changes, which the SDK lays over a stale count.
+  // This page shows its own changes itself, through `show`. The first answer is
+  // also when the outbox is handed over.
   useEffect(() => {
     if (!canSync || !email || !day) return;
-    remoteReadyRef.current = false;
-    mergeBaseRef.current =
-      baseRef.current?.day === day ? baseRef.current.cups : cupsRef.current;
-    baseRef.current = null;
-    followingRef.current = day;
-    let first = true;
     const unsubscribe = subscribeHydration(
       email,
       day,
       (remote) => {
         if (day !== dayRef.current) return; // a late snapshot of a day already left
-        if (first) {
-          first = false;
-          remoteReadyRef.current = true;
-          const base = mergeBaseRef.current;
-          const changed = cupsRef.current - base;
-          const resolved = Math.max(0, Math.max(base, remote ?? 0) + changed);
-          if (resolved !== cupsRef.current) setCount(resolved);
-          // The difference goes up as an increment, so a cup another device adds
-          // while this one is in flight still counts.
-          const owed = resolved - (remote ?? 0);
-          if (owed !== 0) addHydration(email, day, owed).catch(() => {});
-          return;
+        show(remote ?? 0);
+        if (answeredRef.current !== day) {
+          answeredRef.current = day;
+          void flushHydration(email, hydrationTransport);
         }
-        if (remote != null) setCount(remote);
       },
       { serverFirst: true }
     );
     return () => {
       unsubscribe();
-      if (followingRef.current === day) followingRef.current = null;
+      answeredRef.current = null;
     };
-  }, [canSync, email, day, setCount]);
+  }, [canSync, email, day, show]);
 
   // Reminder loop.
   useEffect(() => {
@@ -238,33 +211,34 @@ export function useHydration({
     }
   }, [reminding, enabled, soundEnabled]);
 
-  // The count is read and advanced through the ref, not inside a state updater:
-  // an updater may run twice, and an increment sent from it would count twice.
   const drink = useCallback(() => {
     rollIfNewDay();
-    const next = cupsRef.current + 1;
-    setCount(next);
-    persistRemote(1);
-    // Before the day's record has been read the total isn't known yet — the
-    // merge may raise it — so the log doesn't claim one.
-    const settled = !canSync || remoteReadyRef.current;
+    const next = countRef.current + 1;
+    // Before the day's record has been read the total isn't known — other
+    // devices' cups aren't in it yet — and nor is it while changes to the day
+    // wait in the outbox, so the log doesn't claim one.
+    const known =
+      !canSync ||
+      (answeredRef.current === dayRef.current &&
+        !(email && hydrationWaiting(email, dayRef.current)));
+    show(next);
+    if (email) recordHydration(email, dayRef.current, 1, { send: canSync }, hydrationTransport);
+    lastDrinkRef.current = Date.now();
+    setReminding(false);
     onLog?.(
       "hydration",
-      settled
+      known
         ? `Drank a cup of water (${next} ${next === 1 ? "cup" : "cups"} today)`
         : "Drank a cup of water"
     );
-    lastDrinkRef.current = Date.now();
-    setReminding(false);
-  }, [canSync, onLog, persistRemote, rollIfNewDay, setCount]);
+  }, [canSync, email, onLog, rollIfNewDay, show]);
 
   const removeCup = useCallback(() => {
     rollIfNewDay();
-    if (cupsRef.current <= 0) return;
-    const next = cupsRef.current - 1;
-    setCount(next);
-    persistRemote(-1);
-  }, [persistRemote, rollIfNewDay, setCount]);
+    if (countRef.current <= 0) return;
+    show(countRef.current - 1);
+    if (email) recordHydration(email, dayRef.current, -1, { send: canSync }, hydrationTransport);
+  }, [canSync, email, rollIfNewDay, show]);
 
   const dismiss = useCallback(() => {
     lastDrinkRef.current = Date.now();
@@ -276,21 +250,15 @@ export function useHydration({
     rollIfNewDay();
     const d = dayRef.current;
     const remote = await fetchHydration(email, d);
-    // Dropped if the day or the account changed while it was in flight.
-    if (d !== dayRef.current || email !== emailRef.current) return;
-    rebase(d, remote ?? 0); // adopting the cloud's count is not a local change
-    setCount(remote ?? 0);
-  }, [canSync, email, rebase, rollIfNewDay, setCount]);
+    // Dropped if the day or the account changed while it was in flight, or if
+    // this page's own changes to the day are unacknowledged (the answer is stale).
+    if (remote === undefined || d !== dayRef.current || email !== emailRef.current) return;
+    show(remote ?? 0);
+  }, [canSync, email, rollIfNewDay, show]);
 
-  // An explicit upload: the day and the count it writes are a pair. The count
-  // it uploads becomes the base, or the merge would add it a second time.
-  const pushToCloud = useCallback(async () => {
-    if (!canSync || !email) return;
-    const d = dayRef.current;
-    const v = cupsRef.current;
-    rebase(d, v);
-    await saveHydration(email, d, v);
-  }, [canSync, email, rebase]);
+  // "Sync to cloud" hands over what the outbox holds. It never writes the count
+  // on screen: that would replace the cups other devices have logged.
+  const pushToCloud = flush;
 
   return {
     hydrated,

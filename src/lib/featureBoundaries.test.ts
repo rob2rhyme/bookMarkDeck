@@ -87,7 +87,7 @@ const DECLARED: Record<string, { count: number; why: string }> = {
   },
   "src/features/habits/lib/trackableSources.ts → focus": {
     count: 1,
-    why: "six subscribe* fns — habits tracks focus signals as habit sources (C4)",
+    why: "five subscribe* fns + hydrationTransport — habits tracks focus signals as habit sources, and the water link sends its taps to Focus's record (C4)",
   },
   "src/features/habits/lib/trackableSources.ts → inventory": {
     count: 2,
