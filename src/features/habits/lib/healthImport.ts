@@ -30,7 +30,6 @@ export type HealthLink = { metric: HealthMetric; threshold: number };
 export type DayHealth = Partial<Record<HealthMetric, number>>;
 export type DailyHealth = Map<string, DayHealth>; // local YYYY-MM-DD → what was recorded
 
-const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 // The calendar day written at the start of a timestamp, read as text — not an instant to format.
 const DAY_AT_START = /^(\d{4}-\d{2}-\d{2})(?![\d])/;
 
