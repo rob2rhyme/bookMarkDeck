@@ -53,6 +53,25 @@ export function recordSyncedIds(
 }
 
 /**
+ * `recordSyncedIds`, but a no-op while `ids` came from this page's own
+ * unacknowledged write. A live listener's callback fires at once from the
+ * SDK's optimistic local write, before the server has actually seen it; a
+ * snapshot that still carries that pending write is not proof the cloud has
+ * the record — recording it as such let an item created offline, whose
+ * write never landed (Firestore's cache here is memory-only), silently never
+ * get re-uploaded once reconnected.
+ */
+export function recordSyncedIdsUnlessPending(
+  domain: string,
+  scope: string | null | undefined,
+  ids: Iterable<string>,
+  meta: { hasPendingWrites: boolean }
+): void {
+  if (meta.hasPendingWrites) return;
+  recordSyncedIds(domain, scope, ids);
+}
+
+/**
  * The local records the cloud lacks that it NEVER had — the only ones to upload
  * or keep. Anything else the cloud lacks was deleted on another device.
  */

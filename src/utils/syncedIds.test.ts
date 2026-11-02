@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { queueUpsert } from "@/utils/pendingDeletes";
-import { newHere, recordSyncedIds, syncedIds, toUpload } from "@/utils/syncedIds";
+import {
+  newHere,
+  recordSyncedIds,
+  recordSyncedIdsUnlessPending,
+  syncedIds,
+  toUpload,
+} from "@/utils/syncedIds";
 
 function memoryStorage(): Storage {
   const m = new Map<string, string>();
@@ -38,6 +44,34 @@ describe("syncedIds", () => {
     expect([...syncedIds("items", "a@x.com")].sort()).toEqual(["1", "2"]);
     expect(syncedIds("items", "b@x.com").size).toBe(0);
     expect(syncedIds("folders", "a@x.com").size).toBe(0);
+  });
+});
+
+// A live listener's callback fires at once from this device's own
+// unconfirmed optimistic write — before the server has seen it. Recording
+// that id as "the cloud already has this" is how an item created offline,
+// whose write never lands (the SDK's cache here is memory-only), silently
+// stops being re-uploaded: toUpload excludes anything syncedIds already
+// claims the cloud holds.
+describe("recordSyncedIdsUnlessPending", () => {
+  it("doesn't record ids from a snapshot carrying unacknowledged writes", () => {
+    recordSyncedIdsUnlessPending("items", "a@x.com", ["A"], { hasPendingWrites: true });
+    expect(syncedIds("items", "a@x.com").size).toBe(0);
+  });
+
+  it("records ids from a confirmed snapshot, same as recordSyncedIds", () => {
+    recordSyncedIdsUnlessPending("items", "a@x.com", ["A", "B"], { hasPendingWrites: false });
+    expect([...syncedIds("items", "a@x.com")].sort()).toEqual(["A", "B"]);
+  });
+
+  // The loss, traced end to end: an item created offline-but-"connected" is
+  // recorded as synced from its own pending snapshot; the write never lands
+  // (tab closes before the ack); on reconnect toUpload must still see it as
+  // never-synced, or it's lost for good.
+  it("keeps an offline-created item uploadable if its write never lands", () => {
+    recordSyncedIdsUnlessPending("items", "a@x.com", ["A"], { hasPendingWrites: true }); // the item's own pending write
+    const local = [r("A")];
+    expect(toUpload(local, new Set(), "items", "a@x.com")).toEqual([r("A")]);
   });
 });
 

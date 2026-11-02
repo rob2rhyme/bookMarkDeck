@@ -15,7 +15,7 @@ import {
   queueUpsert,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import type { InventoryLocation } from "@/features/inventory/lib/types";
 
 const BASE_KEY = "bookmarkdeck:inventory:locations:v1";
@@ -111,8 +111,8 @@ export function useInventoryLocations(email?: string | null, connected = false) 
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          unsub = subscribeLocations(email, (cloud) => {
-            recordSyncedIds("inventoryLocations", email, cloud.map((l) => l.id));
+          unsub = subscribeLocations(email, (cloud, meta) => {
+            recordSyncedIdsUnlessPending("inventoryLocations", email, cloud.map((l) => l.id), meta);
             setLocations(cloud);
           });
         }

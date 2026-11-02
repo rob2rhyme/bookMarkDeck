@@ -24,7 +24,7 @@ import {
   queueUpsert,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 
 const BASE_KEY = "bookmarkdeck:filing:documents:v1";
 const MAX_ACTIVITY = 300;
@@ -213,8 +213,8 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          unsub = subscribeDocuments(email, (cloud) => {
-            recordSyncedIds("filingDocuments", email, cloud.map((d) => d.id));
+          unsub = subscribeDocuments(email, (cloud, meta) => {
+            recordSyncedIdsUnlessPending("filingDocuments", email, cloud.map((d) => d.id), meta);
             setDocuments(cloud.map(withDerived));
             setLoadedFor(email);
           });

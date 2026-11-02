@@ -10,7 +10,7 @@ vi.mock("@/features/filing/data/filingData", () => ({
 
 import { deletePlace, fetchPlaces, savePlace, subscribePlaces } from "@/features/filing/data/filingData";
 import type { FilingPlace } from "@/features/filing/lib/types";
-import { recordSyncedIds } from "@/utils/syncedIds";
+import { recordSyncedIds, syncedIds } from "@/utils/syncedIds";
 import { useFilingPlaces } from "./useFilingPlaces";
 
 const EMAIL = "a@example.com";
@@ -43,5 +43,20 @@ describe("useFilingPlaces — offline edits", () => {
     await waitFor(() => expect(subscribePlaces).toHaveBeenCalled());
     expect(deletePlace).toHaveBeenCalledWith(EMAIL, "C");
     expect(vi.mocked(savePlace).mock.calls.map(([, p]) => [p.id, p.parentId])).toEqual([["D", null]]);
+  });
+});
+
+// A live listener fires at once from this device's own unconfirmed write,
+// before the server has seen it — recording that id as "the cloud already
+// has this" risks never re-uploading it if the write never lands.
+describe("useFilingPlaces — syncedIds", () => {
+  it("doesn't record an id from a snapshot carrying unacknowledged writes", async () => {
+    vi.mocked(subscribePlaces).mockImplementation((_e, cb) => {
+      cb([place("new")], { fromCache: false, hasPendingWrites: true });
+      return () => {};
+    });
+    renderHook(() => useFilingPlaces(EMAIL, true));
+    await waitFor(() => expect(subscribePlaces).toHaveBeenCalled());
+    expect(syncedIds("filingPlaces", EMAIL).has("new")).toBe(false);
   });
 });

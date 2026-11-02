@@ -15,7 +15,7 @@ import {
   queueUpsert,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import type {
   InventoryItem,
   ItemActivity,
@@ -159,8 +159,8 @@ export function useInventory(email?: string | null, connected = false) {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          unsub = subscribeItems(email, (cloud) => {
-            recordSyncedIds("inventoryItems", email, cloud.map((i) => i.id));
+          unsub = subscribeItems(email, (cloud, meta) => {
+            recordSyncedIdsUnlessPending("inventoryItems", email, cloud.map((i) => i.id), meta);
             setItems(cloud);
           });
         }

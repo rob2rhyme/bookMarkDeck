@@ -10,6 +10,7 @@ vi.mock("@/features/notes/data/notesData", () => ({
 import { fetchVaults, saveVault, subscribeVaults } from "@/features/notes/data/notesData";
 import { createVault, vaultIterationLimits, type VaultRecord } from "@/features/notes/lib/vault";
 import { isUnlocked, resetVaultSessionForTests } from "@/features/notes/lib/vaultSession";
+import { syncedIds } from "@/utils/syncedIds";
 import { useVaults } from "./useVaults";
 
 const EMAIL = "a@example.com";
@@ -45,7 +46,7 @@ describe("useVaults", () => {
     let push: (v: VaultRecord[]) => void = () => {};
     vi.mocked(fetchVaults).mockResolvedValue([cloudOnly]);
     vi.mocked(subscribeVaults).mockImplementation((_e, cb) => {
-      push = cb;
+      push = (v) => cb(v, { fromCache: false, hasPendingWrites: false });
       return () => {};
     });
     const { result } = renderHook(() => useVaults(EMAIL, true));
@@ -54,6 +55,20 @@ describe("useVaults", () => {
     act(() => push([cloudOnly])); // a snapshot that (momentarily) lacks the local vault
     expect(result.current.vaults.map((v) => v.id).sort()).toEqual([local.id, cloudOnly.id].sort());
     expect(result.current.ready).toBe(true);
+  });
+
+  // A live listener fires at once from this device's own unconfirmed write,
+  // before the server has seen it — recording that id as "the cloud already
+  // has this" risks never re-uploading it if the write never lands.
+  it("doesn't record an id from a snapshot carrying unacknowledged writes", async () => {
+    const local = (await createVault("offline pass", FAST)).record;
+    vi.mocked(subscribeVaults).mockImplementation((_e, cb) => {
+      cb([local], { fromCache: false, hasPendingWrites: true });
+      return () => {};
+    });
+    renderHook(() => useVaults(EMAIL, true));
+    await waitFor(() => expect(subscribeVaults).toHaveBeenCalled());
+    expect(syncedIds("notesVaults", EMAIL).has(local.id)).toBe(false);
   });
 
   it("isn't ready while connected until the cloud has answered", async () => {

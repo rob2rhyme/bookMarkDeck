@@ -12,7 +12,7 @@ import {
 } from "@/features/notes/lib/vault";
 import { addKeys, unlockedKids } from "@/features/notes/lib/vaultSession";
 import { clearPendingUpserts, queueUpsert, unqueueUpsert } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 
 // The account's vault records (lib/vault.ts), cached per user and synced like
 // notes. NOTHING HERE EVER DELETES A VAULT: a vault is the only way into the
@@ -92,8 +92,8 @@ export function useVaults(email?: string | null, connected = false) {
       .catch(() => {})
       .finally(() => {
         if (cancelled) return;
-        unsub = subscribeVaults(email, (cloud) => {
-          recordSyncedIds(DOMAIN, email, cloud.map((v) => v.id));
+        unsub = subscribeVaults(email, (cloud, meta) => {
+          recordSyncedIdsUnlessPending(DOMAIN, email, cloud.map((v) => v.id), meta);
           // Never drop a local vault the cloud lacks — see the header.
           commit(union(cloud, ref.current));
           setCloudLoaded(true);

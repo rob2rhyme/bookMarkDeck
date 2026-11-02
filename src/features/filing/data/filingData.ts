@@ -23,12 +23,12 @@ import {
   doc,
   getDoc,
   getDocs,
-  onSnapshot,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
+import { onSnapshotWithMeta, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import {
   DOC_TYPES,
   OBLIGATION_KINDS,
@@ -520,31 +520,40 @@ function listen(emailHint: string, attach: (uid: string) => Unsub): Unsub {
   };
 }
 
-export function subscribePlaces(emailHint: string, cb: (v: FilingPlace[]) => void): Unsub {
+export function subscribePlaces(
+  emailHint: string,
+  cb: (v: FilingPlace[], meta: SnapshotMeta) => void
+): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onSnapshotWithMeta(
       placesCol(uid),
-      (snap) => cb(snap.docs.map(mapPlace).filter((p) => p.name.trim().length > 0)),
+      (snap, meta) => cb(snap.docs.map(mapPlace).filter((p) => p.name.trim().length > 0), meta),
       onListenError("places")
     )
   );
 }
 
-export function subscribeParties(emailHint: string, cb: (v: FilingParty[]) => void): Unsub {
+export function subscribeParties(
+  emailHint: string,
+  cb: (v: FilingParty[], meta: SnapshotMeta) => void
+): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onSnapshotWithMeta(
       partiesCol(uid),
-      (snap) => cb(snap.docs.map(mapParty).filter((p) => p.name.trim().length > 0)),
+      (snap, meta) => cb(snap.docs.map(mapParty).filter((p) => p.name.trim().length > 0), meta),
       onListenError("parties")
     )
   );
 }
 
-export function subscribeFolders(emailHint: string, cb: (v: FilingFolder[]) => void): Unsub {
+export function subscribeFolders(
+  emailHint: string,
+  cb: (v: FilingFolder[], meta: SnapshotMeta) => void
+): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onSnapshotWithMeta(
       foldersCol(uid),
-      (snap) => cb(snap.docs.map(mapFolder).filter((f) => f.name.trim().length > 0)),
+      (snap, meta) => cb(snap.docs.map(mapFolder).filter((f) => f.name.trim().length > 0), meta),
       onListenError("folders")
     )
   );
@@ -557,18 +566,19 @@ export function subscribeFolders(emailHint: string, cb: (v: FilingFolder[]) => v
  */
 export function subscribeDocuments(
   emailHint: string,
-  cb: (v: FilingDocument[]) => void,
+  cb: (v: FilingDocument[], meta: SnapshotMeta) => void,
   folderId?: string
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onSnapshotWithMeta(
       documentsCol(uid),
-      (snap) =>
+      (snap, meta) =>
         cb(
           snap.docs
             .map(mapDocument)
             .filter((d) => d.title.trim().length > 0)
-            .filter((d) => (folderId ? d.folderId === folderId : true))
+            .filter((d) => (folderId ? d.folderId === folderId : true)),
+          meta
         ),
       onListenError("documents")
     )

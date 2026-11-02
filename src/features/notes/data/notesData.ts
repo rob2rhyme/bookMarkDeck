@@ -22,6 +22,7 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
+import { onSnapshotWithMeta, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import { normalizeNote, type Note } from "@/features/notes/lib/notes";
 import { normalizeVault, type VaultRecord } from "@/features/notes/lib/vault";
 import { normalizeDeletions, type DeletedEntry } from "@/features/notes/lib/deletionLog";
@@ -100,15 +101,18 @@ export async function deleteNote(emailHint: string, id: string): Promise<void> {
 
 type Unsub = () => void;
 
-export function subscribeNotes(emailHint: string, cb: (notes: Note[]) => void): Unsub {
+export function subscribeNotes(
+  emailHint: string,
+  cb: (notes: Note[], meta: SnapshotMeta) => void
+): Unsub {
   let unsub: Unsub = () => {};
   let cancelled = false;
   uidFor(emailHint)
     .then((uid) => {
       if (cancelled) return;
-      unsub = onSnapshot(
+      unsub = onSnapshotWithMeta(
         notesCol(uid),
-        (snap) => cb(mapAll(snap.docs)),
+        (snap, meta) => cb(mapAll(snap.docs), meta),
         (err) => console.error("[notes] listener error:", err)
       );
     })
@@ -135,15 +139,18 @@ export async function saveVault(emailHint: string, vault: VaultRecord): Promise<
   await setDoc(doc(vaultsCol(uid), id), rest);
 }
 
-export function subscribeVaults(emailHint: string, cb: (vaults: VaultRecord[]) => void): Unsub {
+export function subscribeVaults(
+  emailHint: string,
+  cb: (vaults: VaultRecord[], meta: SnapshotMeta) => void
+): Unsub {
   let unsub: Unsub = () => {};
   let cancelled = false;
   uidFor(emailHint)
     .then((uid) => {
       if (cancelled) return;
-      unsub = onSnapshot(
+      unsub = onSnapshotWithMeta(
         vaultsCol(uid),
-        (snap) => cb(mapVaults(snap.docs)),
+        (snap, meta) => cb(mapVaults(snap.docs), meta),
         (err) => console.error("[notes] vault listener error:", err)
       );
     })

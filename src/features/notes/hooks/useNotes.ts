@@ -14,7 +14,7 @@ import {
   unqueueDelete,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import { notesCacheKey } from "@/lib/notesIndex";
 import { appendEvent, tagDiff, type NoteEvent } from "@/features/notes/lib/activity";
 import { CONFLICTS_FOUND, planReconnect, readBase, recordBase } from "@/features/notes/lib/conflicts";
@@ -185,8 +185,8 @@ export function useNotes(email?: string | null, connected = false) {
       .catch(() => {})
       .finally(() => {
         if (cancelled) return;
-        unsub = subscribeNotes(email, (cloud) => {
-          recordSyncedIds(DOMAIN, email, cloud.map((n) => n.id));
+        unsub = subscribeNotes(email, (cloud, meta) => {
+          recordSyncedIdsUnlessPending(DOMAIN, email, cloud.map((n) => n.id), meta);
           recordBase(email, cloud, true);
           commit(cloud);
           setCloudLoaded(true);
