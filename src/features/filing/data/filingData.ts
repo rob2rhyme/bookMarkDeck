@@ -28,7 +28,7 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
-import { onSnapshotWithMeta, type SnapshotMeta } from "@/lib/firestoreSnapshot";
+import { onConfirmedSnapshot, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import {
   DOC_TYPES,
   OBLIGATION_KINDS,
@@ -525,7 +525,7 @@ export function subscribePlaces(
   cb: (v: FilingPlace[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshotWithMeta(
+    onConfirmedSnapshot(
       placesCol(uid),
       (snap, meta) => cb(snap.docs.map(mapPlace).filter((p) => p.name.trim().length > 0), meta),
       onListenError("places")
@@ -538,7 +538,7 @@ export function subscribeParties(
   cb: (v: FilingParty[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshotWithMeta(
+    onConfirmedSnapshot(
       partiesCol(uid),
       (snap, meta) => cb(snap.docs.map(mapParty).filter((p) => p.name.trim().length > 0), meta),
       onListenError("parties")
@@ -551,7 +551,7 @@ export function subscribeFolders(
   cb: (v: FilingFolder[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshotWithMeta(
+    onConfirmedSnapshot(
       foldersCol(uid),
       (snap, meta) => cb(snap.docs.map(mapFolder).filter((f) => f.name.trim().length > 0), meta),
       onListenError("folders")
@@ -570,7 +570,7 @@ export function subscribeDocuments(
   folderId?: string
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshotWithMeta(
+    onConfirmedSnapshot(
       documentsCol(uid),
       (snap, meta) =>
         cb(
