@@ -3,6 +3,8 @@
 // Framework-free domain types for the habit tracker. Kept dependency-light so
 // the pure streak engine + tests never import React or Firebase.
 
+import type { HealthLink } from "@/features/habits/lib/healthImport";
+
 /** Binary = one tap done/not-done. Measurable = a value toward a daily target. */
 export type HabitType = "binary" | "measurable";
 
@@ -36,6 +38,8 @@ export type Habit = {
   reminder?: string | null; // "HH:MM" — the first reminder time
   extraReminders?: string[]; // further "HH:MM" times (see lib/reminders.ts reminderTimes)
   linkedSourceId?: string | null; // bound Focus trackable source (see lib/trackableSources.ts)
+  /** Which health metric an import marks this habit from, and the bar for "done" (lib/healthImport.ts). */
+  healthLink?: HealthLink;
   archived: boolean;
   sortOrder: number;
   createdAt: string | null; // ISO

@@ -116,6 +116,9 @@ export default function HabitsGuidePage() {
               Not now? Tap <strong>Snooze 1 hour</strong> on the notification and it comes back — and goes quiet if you finish the habit in the meantime. Android and desktop browsers show the button; iPhones don&apos;t, so there it just opens the app.
             </li>
             <li>
+              <strong>Health data</strong> (under the list): import an Apple Health <code>export.zip</code> (Health app → your picture → Export All Health Data — pick the ZIP as it is), a Google Takeout Fit download, or a simple CSV, and link habits to <em>steps</em>, <em>exercise minutes</em>, <em>sleep</em> or <em>mindful minutes</em> with a bar of your choice (&ldquo;Walk&rdquo; = 8,000 steps). Days that reach it are marked done. The file is read in your browser and never uploaded, the numbers aren&apos;t kept, days you&apos;ve already logged are never touched, and <em>Undo</em> takes the marks back. It&apos;s an import, not a live feed — repeat it whenever you like.
+            </li>
+            <li>
               Filter <em>All habits</em> by <strong>area</strong>, or search by name — tap ✓ in the results to log it straight away.
             </li>
           </ul>
