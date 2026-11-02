@@ -15,7 +15,7 @@ import {
   queueUpsert,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import { alphabetSplit } from "@/features/filing/lib/drawers";
 import { buildTree, subtreeIds } from "@/features/filing/lib/tree";
 import { placePathsById } from "@/features/filing/lib/breadcrumb";
@@ -89,8 +89,8 @@ export function useFilingPlaces(email?: string | null, connected = false) {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          unsub = subscribePlaces(email, (cloud) => {
-            recordSyncedIds("filingPlaces", email, cloud.map((p) => p.id));
+          unsub = subscribePlaces(email, (cloud, meta) => {
+            recordSyncedIdsUnlessPending("filingPlaces", email, cloud.map((p) => p.id), meta);
             setPlaces(cloud);
           });
         }

@@ -15,7 +15,7 @@ import {
   queueUpsert,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import { isCheckedOut } from "@/features/filing/lib/breadcrumb";
 import { todayKey } from "@/lib/dayKey";
 import { checkOutPatch, returnPatch } from "@/features/filing/lib/custody";
@@ -100,8 +100,8 @@ export function useFilingFolders(email?: string | null, connected = false) {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          unsub = subscribeFolders(email, (cloud) => {
-            recordSyncedIds("filingFolders", email, cloud.map((f) => f.id));
+          unsub = subscribeFolders(email, (cloud, meta) => {
+            recordSyncedIdsUnlessPending("filingFolders", email, cloud.map((f) => f.id), meta);
             setFolders(cloud);
           });
         }

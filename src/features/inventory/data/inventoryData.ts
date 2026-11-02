@@ -18,7 +18,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -26,6 +25,7 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
+import { onSnapshotWithMeta, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import {
   normalizeSettings,
   type InventoryItem,
@@ -576,12 +576,12 @@ function listen(emailHint: string, attach: (uid: string) => Unsub): Unsub {
 
 export function subscribeItems(
   emailHint: string,
-  cb: (items: InventoryItem[]) => void
+  cb: (items: InventoryItem[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onSnapshotWithMeta(
       itemsCol(uid),
-      (snap) => cb(snap.docs.map(mapItem).filter((i) => i.name.trim().length > 0)),
+      (snap, meta) => cb(snap.docs.map(mapItem).filter((i) => i.name.trim().length > 0), meta),
       onListenError("items")
     )
   );
@@ -589,13 +589,13 @@ export function subscribeItems(
 
 export function subscribeLocations(
   emailHint: string,
-  cb: (locations: InventoryLocation[]) => void
+  cb: (locations: InventoryLocation[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onSnapshotWithMeta(
       locationsCol(uid),
-      (snap) =>
-        cb(snap.docs.map(mapLocation).filter((l) => l.name.trim().length > 0)),
+      (snap, meta) =>
+        cb(snap.docs.map(mapLocation).filter((l) => l.name.trim().length > 0), meta),
       onListenError("locations")
     )
   );
@@ -699,13 +699,13 @@ export async function deleteWishlist(
 
 export function subscribeWishlist(
   emailHint: string,
-  cb: (items: WishlistItem[]) => void
+  cb: (items: WishlistItem[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onSnapshotWithMeta(
       wishlistCol(uid),
-      (snap) =>
-        cb(snap.docs.map(mapWishlist).filter((w) => w.name.trim().length > 0)),
+      (snap, meta) =>
+        cb(snap.docs.map(mapWishlist).filter((w) => w.name.trim().length > 0), meta),
       onListenError("wishlist")
     )
   );

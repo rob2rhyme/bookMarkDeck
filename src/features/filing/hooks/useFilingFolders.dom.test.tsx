@@ -80,12 +80,25 @@ describe("useFilingFolders — deletions stay deleted", () => {
 
   it("remembers what each snapshot held", async () => {
     vi.mocked(subscribeFolders).mockImplementation((_e, cb) => {
-      cb([f("F1"), f("F9")]);
+      cb([f("F1"), f("F9")], { fromCache: false, hasPendingWrites: false });
       return () => {};
     });
     connectWith([], []);
     await waitFor(() => expect(subscribeFolders).toHaveBeenCalled());
     expect([...syncedIds("filingFolders", EMAIL)].sort()).toEqual(["F1", "F9"]);
+  });
+
+  // A live listener fires at once from this device's own unconfirmed write,
+  // before the server has seen it — recording that id as "the cloud already
+  // has this" risks never re-uploading it if the write never lands.
+  it("doesn't record an id from a snapshot carrying unacknowledged writes", async () => {
+    vi.mocked(subscribeFolders).mockImplementation((_e, cb) => {
+      cb([f("new")], { fromCache: false, hasPendingWrites: true });
+      return () => {};
+    });
+    connectWith([], []);
+    await waitFor(() => expect(subscribeFolders).toHaveBeenCalled());
+    expect(syncedIds("filingFolders", EMAIL).has("new")).toBe(false);
   });
 
   it("replays a delete made while disconnected, before anything else", async () => {

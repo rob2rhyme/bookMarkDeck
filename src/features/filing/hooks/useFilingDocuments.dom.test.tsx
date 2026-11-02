@@ -21,7 +21,7 @@ import {
   saveDocument,
   subscribeDocuments,
 } from "@/features/filing/data/filingData";
-import { recordSyncedIds } from "@/utils/syncedIds";
+import { recordSyncedIds, syncedIds } from "@/utils/syncedIds";
 import { useFilingDocuments } from "./useFilingDocuments";
 
 const EMAIL = "a@example.com";
@@ -47,13 +47,14 @@ const FULL: FilingDocument = {
 const SLIM = { id: FULL.id, title: FULL.title, folderId: null, tags: [] };
 
 let deliver: (docs: FilingDocument[]) => void;
+const CONFIRMED = { fromCache: false, hasPendingWrites: false };
 
 beforeEach(() => {
   window.localStorage.clear();
   vi.mocked(saveDocument).mockReset().mockResolvedValue(undefined);
   vi.mocked(fetchDocuments).mockReset().mockResolvedValue([FULL]);
   vi.mocked(subscribeDocuments).mockReset().mockImplementation((_email, cb) => {
-    deliver = cb;
+    deliver = (docs) => cb(docs, CONFIRMED);
     return () => {};
   });
 });
@@ -226,6 +227,19 @@ describe("deletions stay deleted", () => {
     rerender({ on: true });
     await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
     expect(deleteDocument).toHaveBeenCalledWith(EMAIL, FULL.id);
+  });
+
+  // A live listener fires at once from this device's own unconfirmed write,
+  // before the server has seen it — recording that id as "the cloud already
+  // has this" risks never re-uploading it if the write never lands.
+  it("doesn't record an id from a snapshot carrying unacknowledged writes", async () => {
+    vi.mocked(subscribeDocuments).mockImplementation((_e, cb) => {
+      cb([FULL], { fromCache: false, hasPendingWrites: true });
+      return () => {};
+    });
+    mount(true);
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
+    expect(syncedIds("filingDocuments", EMAIL).has(FULL.id)).toBe(false);
   });
 });
 

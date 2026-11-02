@@ -15,7 +15,7 @@ import {
   queueUpsert,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import type { WishlistItem } from "@/features/inventory/lib/types";
 
 const BASE_KEY = "bookmarkdeck:inventory:wishlist:v1";
@@ -83,8 +83,8 @@ export function useWishlist(email?: string | null, connected = false) {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          unsub = subscribeWishlist(email, (cloud) => {
-            recordSyncedIds("inventoryWishlist", email, cloud.map((w) => w.id));
+          unsub = subscribeWishlist(email, (cloud, meta) => {
+            recordSyncedIdsUnlessPending("inventoryWishlist", email, cloud.map((w) => w.id), meta);
             setItems(cloud);
           });
         }

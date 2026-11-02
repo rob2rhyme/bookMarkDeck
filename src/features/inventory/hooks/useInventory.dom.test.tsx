@@ -73,7 +73,7 @@ describe("useInventory — deletions stay deleted", () => {
 
   it("remembers what each snapshot held", async () => {
     vi.mocked(subscribeItems).mockImplementation((_e, cb) => {
-      cb([item("I7")]);
+      cb([item("I7")], { fromCache: false, hasPendingWrites: false });
       return () => {};
     });
     connectWith([], []);
@@ -169,5 +169,43 @@ describe("offline edits", () => {
       subscribeWishlist
     );
     expect(vi.mocked(saveWishlist).mock.calls.map(([, w]) => w.name)).toEqual(["Cordless drill"]);
+  });
+});
+
+// A live listener fires at once from this device's own unconfirmed write,
+// before the server has seen it — recording that id as "the cloud already
+// has this" risks never re-uploading it if the write never lands.
+describe("syncedIds — pending writes", () => {
+  it("doesn't record an item id from a snapshot carrying unacknowledged writes", async () => {
+    vi.mocked(subscribeItems).mockImplementation((_e, cb) => {
+      cb([item("new")], { fromCache: false, hasPendingWrites: true });
+      return () => {};
+    });
+    renderHook(() => useInventory(EMAIL, true));
+    await waitFor(() => expect(subscribeItems).toHaveBeenCalled());
+    expect(syncedIds("inventoryItems", EMAIL).has("new")).toBe(false);
+  });
+
+  it("doesn't record a location id from a snapshot carrying unacknowledged writes", async () => {
+    vi.mocked(subscribeLocations).mockImplementation((_e, cb) => {
+      cb([{ id: "new", name: "new", parentId: null } as InventoryLocation], {
+        fromCache: false,
+        hasPendingWrites: true,
+      });
+      return () => {};
+    });
+    renderHook(() => useInventoryLocations(EMAIL, true));
+    await waitFor(() => expect(subscribeLocations).toHaveBeenCalled());
+    expect(syncedIds("inventoryLocations", EMAIL).has("new")).toBe(false);
+  });
+
+  it("doesn't record a wishlist id from a snapshot carrying unacknowledged writes", async () => {
+    vi.mocked(subscribeWishlist).mockImplementation((_e, cb) => {
+      cb([{ id: "new", name: "new" } as WishlistItem], { fromCache: false, hasPendingWrites: true });
+      return () => {};
+    });
+    renderHook(() => useWishlist(EMAIL, true));
+    await waitFor(() => expect(subscribeWishlist).toHaveBeenCalled());
+    expect(syncedIds("inventoryWishlist", EMAIL).has("new")).toBe(false);
   });
 });

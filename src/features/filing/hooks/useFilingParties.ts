@@ -15,7 +15,7 @@ import {
   queueUpsert,
   unqueueUpsert,
 } from "@/utils/pendingDeletes";
-import { recordSyncedIds, toUpload } from "@/utils/syncedIds";
+import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import type { FilingParty, PartyKind, TabColor } from "@/features/filing/lib/types";
 
 const BASE_KEY = "bookmarkdeck:filing:parties:v1";
@@ -83,8 +83,8 @@ export function useFilingParties(email?: string | null, connected = false) {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          unsub = subscribeParties(email, (cloud) => {
-            recordSyncedIds("filingParties", email, cloud.map((p) => p.id));
+          unsub = subscribeParties(email, (cloud, meta) => {
+            recordSyncedIdsUnlessPending("filingParties", email, cloud.map((p) => p.id), meta);
             setParties(cloud);
           });
         }

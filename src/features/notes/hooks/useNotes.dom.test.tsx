@@ -13,7 +13,7 @@ vi.mock("@/features/notes/data/notesData", () => ({
 
 import { deleteNote, fetchNotes, saveNote, subscribeNotes } from "@/features/notes/data/notesData";
 import type { Note } from "@/features/notes/lib/notes";
-import { recordSyncedIds } from "@/utils/syncedIds";
+import { recordSyncedIds, syncedIds } from "@/utils/syncedIds";
 import { useNotes } from "./useNotes";
 
 const EMAIL = "a@example.com";
@@ -164,7 +164,7 @@ describe("useNotes — sync", () => {
   it("marks the cloud as loaded on the first snapshot and adopts it", async () => {
     let push: (n: Note[]) => void = () => {};
     vi.mocked(subscribeNotes).mockImplementation((_e, cb) => {
-      push = cb;
+      push = (n) => cb(n, { fromCache: false, hasPendingWrites: false });
       return () => {};
     });
     const { result } = renderHook(() => useNotes(EMAIL, true));
@@ -174,6 +174,19 @@ describe("useNotes — sync", () => {
     expect(result.current.cloudLoaded).toBe(true);
     expect(result.current.notes.map((n) => n.id)).toEqual(["remote"]);
     expect(cached().map((n) => n.id)).toEqual(["remote"]);
+  });
+
+  // A live listener fires at once from this device's own unconfirmed write,
+  // before the server has seen it — recording that id as "the cloud already
+  // has this" risks never re-uploading it if the write never lands.
+  it("doesn't record an id from a snapshot carrying unacknowledged writes", async () => {
+    vi.mocked(subscribeNotes).mockImplementation((_e, cb) => {
+      cb([note("new")], { fromCache: false, hasPendingWrites: true });
+      return () => {};
+    });
+    renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalled());
+    expect(syncedIds("notes", EMAIL).has("new")).toBe(false);
   });
 });
 
@@ -296,7 +309,7 @@ describe("useNotes — edited on two devices", () => {
   it("records the cloud version it sees, so the next reconnect can tell", async () => {
     let push: (n: Note[]) => void = () => {};
     vi.mocked(subscribeNotes).mockImplementation((_e, cb) => {
-      push = cb;
+      push = (n) => cb(n, { fromCache: false, hasPendingWrites: false });
       return () => {};
     });
     renderHook(() => useNotes(EMAIL, true));
