@@ -25,7 +25,7 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
-import { onSnapshotWithMeta, type SnapshotMeta } from "@/lib/firestoreSnapshot";
+import { onConfirmedSnapshot, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import {
   normalizeSettings,
   type InventoryItem,
@@ -579,7 +579,7 @@ export function subscribeItems(
   cb: (items: InventoryItem[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshotWithMeta(
+    onConfirmedSnapshot(
       itemsCol(uid),
       (snap, meta) => cb(snap.docs.map(mapItem).filter((i) => i.name.trim().length > 0), meta),
       onListenError("items")
@@ -592,7 +592,7 @@ export function subscribeLocations(
   cb: (locations: InventoryLocation[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshotWithMeta(
+    onConfirmedSnapshot(
       locationsCol(uid),
       (snap, meta) =>
         cb(snap.docs.map(mapLocation).filter((l) => l.name.trim().length > 0), meta),
@@ -702,7 +702,7 @@ export function subscribeWishlist(
   cb: (items: WishlistItem[], meta: SnapshotMeta) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshotWithMeta(
+    onConfirmedSnapshot(
       wishlistCol(uid),
       (snap, meta) =>
         cb(snap.docs.map(mapWishlist).filter((w) => w.name.trim().length > 0), meta),
