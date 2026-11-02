@@ -17,6 +17,21 @@ export function voiceSupported(): boolean {
   );
 }
 
+import {
+  DEFAULT_CLOUD_VOICE,
+  isCloudVoice,
+  type CloudVoiceId,
+} from "@/features/focus/lib/cloudVoiceConfig";
+import {
+  cloudVoiceKnown,
+  fetchSpeech,
+  playBlob,
+  prefetchSpeech,
+  probeCloudVoice,
+  stopPlayback,
+  unlockPlayback,
+} from "@/features/focus/lib/cloudVoice";
+
 /* ------------------------------------------------------------ voice choice --- */
 
 export type VoiceInfo = { name: string; lang: string; score: number };
@@ -97,9 +112,23 @@ export function pauseAfter(sentence: string): number {
 
 /* ------------------------------------------------------------ device prefs --- */
 
-type Prefs = { voice: string | null; pace: VoicePace };
+/**
+ * "device" speaks with the browser's own voice; "cloud" asks the server for a natural
+ * one (when the deployment has a key) and uses the device's for any line it can't get.
+ */
+export type VoiceEngine = "device" | "cloud";
+
+type Prefs = {
+  voice: string | null;
+  pace: VoicePace;
+  engine: VoiceEngine;
+  cloudVoice: CloudVoiceId;
+};
 const PREFS_KEY = "bd:meditation:voice:v1";
-const DEFAULT_PREFS: Prefs = { voice: null, pace: "calm" };
+const DEFAULT_PREFS: Prefs = { voice: null, pace: "calm", engine: "device", cloudVoice: DEFAULT_CLOUD_VOICE };
+
+/** The cloud model's speaking speed for each pace. */
+const CLOUD_SPEED: Record<VoicePace, number> = { slow: 0.8, calm: 0.9, natural: 1 };
 
 export function readVoicePrefs(): Prefs {
   if (typeof window === "undefined") return DEFAULT_PREFS;
@@ -108,6 +137,8 @@ export function readVoicePrefs(): Prefs {
     return {
       voice: raw && typeof raw.voice === "string" ? raw.voice : null,
       pace: raw && VOICE_PACES.some((p) => p.id === raw.pace) ? raw.pace : "calm",
+      engine: raw?.engine === "cloud" ? "cloud" : "device",
+      cloudVoice: isCloudVoice(raw?.cloudVoice) ? raw.cloudVoice : DEFAULT_CLOUD_VOICE,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -158,12 +189,39 @@ export function onVoicesChanged(cb: () => void): () => void {
 let generation = 0;
 let pauseTimer: number | null = null;
 
-/** A small, repeatable-free wobble so consecutive lines don't sound stamped from one mould. */
+/** A small wobble so consecutive lines don't sound stamped from one mould. */
 const wobble = (amount: number) => 1 + (Math.random() * 2 - 1) * amount;
+
+/** Say one sentence with the device's voice; `done` runs when it ends. */
+function sayWithDevice(
+  sentence: string,
+  voice: SpeechSynthesisVoice | null,
+  rate: number,
+  pitch: number,
+  done: () => void
+) {
+  try {
+    const u = new SpeechSynthesisUtterance(sentence);
+    u.rate = rate * wobble(0.03);
+    u.pitch = pitch * wobble(0.02);
+    if (voice) {
+      u.voice = voice;
+      u.lang = voice.lang;
+    }
+    u.onend = done;
+    window.speechSynthesis.speak(u);
+  } catch {
+    done();
+  }
+}
 
 /**
  * Speak calmly, a sentence at a time with a breath between. Cancels whatever is
  * being said by default. `rate`/`pitch` override the listener's pace for one call.
+ *
+ * With the cloud engine chosen each sentence is a natural-voice line (fetched, or
+ * already kept on the device); any line that can't be had is spoken by the device's
+ * voice instead, so narration never goes quiet because the network did.
  */
 export function speak(
   text: string,
@@ -175,6 +233,7 @@ export function speak(
     const interrupt = opts.interrupt !== false;
     if (interrupt) {
       synth.cancel();
+      stopPlayback();
       if (pauseTimer !== null) window.clearTimeout(pauseTimer);
       pauseTimer = null;
       generation++;
@@ -184,22 +243,30 @@ export function speak(
     const voice = chooseVoice(synth.getVoices(), prefs.voice);
     const baseRate = opts.rate ?? paceRate(prefs.pace);
     const basePitch = opts.pitch ?? 0.97; // a touch lower reads as calmer
+    // Optimistic until the server says otherwise: a 503 (no key) flips it off, and
+    // that one line falls back like any other.
+    const useCloud = prefs.engine === "cloud" && cloudVoiceKnown() !== false;
+    const speed = CLOUD_SPEED[prefs.pace];
 
     const sentences = splitSentences(text);
     const sayFrom = (i: number) => {
       if (mine !== generation || i >= sentences.length) return;
-      const u = new SpeechSynthesisUtterance(sentences[i]);
-      u.rate = baseRate * wobble(0.03);
-      u.pitch = basePitch * wobble(0.02);
-      if (voice) {
-        u.voice = voice;
-        u.lang = voice.lang;
-      }
-      u.onend = () => {
+      const sentence = sentences[i];
+      const next = () => {
         if (mine !== generation || i + 1 >= sentences.length) return;
-        pauseTimer = window.setTimeout(() => sayFrom(i + 1), pauseAfter(sentences[i]));
+        pauseTimer = window.setTimeout(() => sayFrom(i + 1), pauseAfter(sentence));
       };
-      synth.speak(u);
+      const viaDevice = () => sayWithDevice(sentence, voice, baseRate, basePitch, next);
+      if (!useCloud) return viaDevice();
+      fetchSpeech(sentence, prefs.cloudVoice, speed)
+        .then(async (blob) => {
+          if (mine !== generation) return; // replaced while it was being fetched
+          if (await playBlob(blob)) next();
+          else if (mine === generation) viaDevice(); // couldn't play it: say it by device
+        })
+        .catch(() => {
+          if (mine === generation) viaDevice();
+        });
     };
     sayFrom(0);
   } catch {
@@ -213,8 +280,29 @@ export function cancelSpeech(): void {
     generation++;
     if (pauseTimer !== null) window.clearTimeout(pauseTimer);
     pauseTimer = null;
+    stopPlayback();
     window.speechSynthesis.cancel();
   } catch {
     /* ignore */
   }
+}
+
+/* ------------------------------------------------------------ cloud narration --- */
+
+/** Is a cloud voice offered here? (False without a server key, or before the answer.) */
+export const cloudNarrationAvailable = probeCloudVoice;
+
+/**
+ * Called from the tap that starts a session: unlock audio playback for later, and, with
+ * the cloud engine chosen, fetch every line the session will say so no cue waits on the
+ * network. `lines` are the breath labels or guide steps.
+ */
+export function prepareNarration(lines: string[]): void {
+  const prefs = readVoicePrefs();
+  if (prefs.engine !== "cloud") return;
+  unlockPlayback();
+  const sentences = lines.flatMap((l) => splitSentences(l));
+  void probeCloudVoice().then((ok) => {
+    if (ok) void prefetchSpeech(sentences, prefs.cloudVoice, CLOUD_SPEED[prefs.pace]);
+  });
 }

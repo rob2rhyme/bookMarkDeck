@@ -41,6 +41,12 @@ export default function PrivacyPage() {
             Google Tasks and Google Calendar data accessed on your behalf when you use the to-do and
             agenda features (see “Google account data” below).
           </li>
+          <li>
+            Meditation cue wording (for example “Breathe in.”) sent to OpenAI to be turned into speech,
+            only if you choose the Natural voice and the deployment has a narration key. Only the
+            words of the cue are sent — no name, email or account data — and the audio is kept on your
+            device afterwards. The default device voice sends nothing anywhere.
+          </li>
         </ul>
 
         <h2 className="mt-6 text-lg font-semibold text-slate-50">Where data is stored</h2>

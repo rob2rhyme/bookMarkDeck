@@ -106,10 +106,10 @@ describe("speak", () => {
 
 describe("voice prefs", () => {
   it("defaults to the best voice at a calm pace, and ignores junk", () => {
-    expect(readVoicePrefs()).toEqual({ voice: null, pace: "calm" });
+    expect(readVoicePrefs()).toEqual({ voice: null, pace: "calm", engine: "device", cloudVoice: "coral" });
     window.localStorage.setItem("bd:meditation:voice:v1", JSON.stringify({ voice: 3, pace: "frantic" }));
-    expect(readVoicePrefs()).toEqual({ voice: null, pace: "calm" });
+    expect(readVoicePrefs()).toEqual({ voice: null, pace: "calm", engine: "device", cloudVoice: "coral" });
     window.localStorage.setItem("bd:meditation:voice:v1", "not json");
-    expect(readVoicePrefs()).toEqual({ voice: null, pace: "calm" });
+    expect(readVoicePrefs()).toEqual({ voice: null, pace: "calm", engine: "device", cloudVoice: "coral" });
   });
 });

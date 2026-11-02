@@ -289,7 +289,10 @@ export default function GuidePage() {
               patterns (Box, 4-7-8, Coherence and more), quiet timed sits,
               optional voice guidance (pick the voice and pace, and hear it
               first — voices named &ldquo;Natural&rdquo; or &ldquo;Enhanced&rdquo;
-              sound the most human) and ambient sound, plus a small library
+              sound the most human; where the app has a narration key, a
+              &ldquo;Natural&rdquo; voice type reads each cue with a human-sounding
+              cloud voice, kept on your device after the first time and falling
+              back to your device&apos;s voice if the network drops) and ambient sound, plus a small library
               of step-by-step guided meditations. <strong>&ldquo;Let
               them&rdquo;</strong>: a 60-second reset — name what&apos;s
               pulling at you, let it go, choose one thing you control, and
