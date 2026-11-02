@@ -275,6 +275,12 @@ export function useHabits(
     [canSync, email, commitEntries]
   );
 
+  /** Remove several entries at once (the undo of an import). */
+  const removeEntries = useCallback(
+    (ids: string[]) => ids.forEach((id) => removeEntry(id)),
+    [removeEntry]
+  );
+
   const entryId = (habitId: string, day: string) => `${habitId}_${day}`;
   const todayEntry = useCallback(
     (habitId: string) =>
@@ -867,6 +873,7 @@ export function useHabits(
     todayEntry,
     addHabit,
     importData,
+    removeEntries,
     updateHabit,
     removeHabit,
     setArchived,

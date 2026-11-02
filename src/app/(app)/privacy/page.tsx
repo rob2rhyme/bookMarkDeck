@@ -26,6 +26,12 @@ export default function PrivacyPage() {
             and scanned attachments.
           </li>
           <li>
+            Health files you choose to import for habits (an Apple Health export, Google Fit data or a
+            CSV) are read inside your browser and are never uploaded. Only the days they mark a habit
+            done — and which kind of data each habit is linked to — are saved; the steps, sleep and
+            other figures in the file are not kept.
+          </li>
+          <li>
             Notes you write: title, text, tags, pinned state and timestamps. Each note also keeps a short
             history of what happened to it and when (created, edited, pinned, tagged, locked, restored)
             — never its text — and deleted notes are listed by title in a deletion log (the newest 100).

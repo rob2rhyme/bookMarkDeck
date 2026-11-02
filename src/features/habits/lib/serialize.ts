@@ -3,6 +3,7 @@
 // Pure coercion from untrusted data (Firestore docs OR localStorage JSON) into
 // the domain types. Shared so the cloud mapping and the local cache can't drift.
 
+import { coerceHealthLink } from "@/features/habits/lib/healthImport";
 import { normalizeTime } from "@/features/habits/lib/reminders";
 import type {
   EntryStatus,
@@ -68,6 +69,7 @@ export function coerceHabit(id: string, raw: unknown): Habit | null {
       : undefined,
     linkedSourceId:
       typeof r.linkedSourceId === "string" ? r.linkedSourceId : undefined,
+    healthLink: coerceHealthLink(r.healthLink),
     archived: Boolean(r.archived),
     sortOrder: num(r.sortOrder, 0),
     createdAt: typeof r.createdAt === "string" ? r.createdAt : null,
@@ -116,6 +118,8 @@ export function habitToDoc(h: Habit): Record<string, unknown> {
   if (h.area !== undefined) doc.area = h.area;
   if (h.areaIcon !== undefined) doc.areaIcon = h.areaIcon;
   if (h.linkedSourceId) doc.linkedSourceId = h.linkedSourceId;
+  // null, not omitted: a merge write would otherwise keep a link removed in the dialog.
+  doc.healthLink = h.healthLink ?? null;
   if (h.createdAt) doc.createdAt = h.createdAt;
   return doc;
 }

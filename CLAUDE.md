@@ -885,6 +885,31 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 
+## Habits health import (`/habits` → "Health data")
+
+An **import, not a live link** — Google Fit's REST API ends in 2026 and Health Connect / Apple
+Health are native-only, so a website can't read them; a live feed waits for the native app
+wrapper. `lib/healthFile.ts` reads what the user picks **in the browser** (an Apple Health
+`export.zip` or `export.xml`, a Google Takeout/Fit zip or CSV, or a plain CSV) as a stream — an
+Apple export can be gigabytes — with a small ZIP/ZIP64 reader of our own and the browser's
+`DecompressionStream`; no dependency, nothing uploaded. `lib/healthImport.ts` (pure) turns it into
+days of steps / exercise minutes / sleep hours / mindful minutes. Rules that matter: **steps and
+exercise take the larger source's total per day, never the sum** (phone and watch both record the
+same walk, so a sum counts it twice); **sleep is the union of "asleep" intervals** (overlaps from
+two devices counted once, in-bed time ignored) filed under the day you woke; CSVs from several
+files combine by **larger value, not sum** (an aggregate file beside per-day files would double
+every day); a Google per-day file is summed within itself. `Habit.healthLink` (`{ metric,
+threshold }`, persisted by `serialize`, written as `null` when cleared) is what a habit is linked
+to; the dialog guesses one from the habit's name (`suggestLink`) and the user confirms. A binary
+habit is done on days the metric reaches the bar; a measurable habit takes the day's value as its
+count (no sleep — a count is a whole number). **The import only ever adds**: a day already logged,
+done or skipped, is never touched (`planHealthEntries`), it writes through `useHabits.importData`
+(append-only), and Undo removes exactly the entries it created. **The health numbers are never
+stored** — only the done-marks and the link. `e2e/health-import.spec.ts` drives a real CSV and a
+real `export.zip` (built by `src/test/makeZip.ts`) through Chromium. Not verified against a real
+Apple export or a current Takeout: the parsers follow the documented element/column names, and
+the Takeout layout in particular is matched by header names, not by folder.
+
 ## Filing feature (`/filing`)
 
 *Where every paper lives — and what's due next.* A self-contained pillar under
