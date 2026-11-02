@@ -22,6 +22,7 @@ import { todayKey } from "@/features/habits/lib/day";
 import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal";
 import { HabitCard } from "@/features/habits/components/HabitCard";
 import { HabitNotesModal } from "@/features/habits/components/HabitNotesModal";
+import { HealthImportDialog } from "@/features/habits/components/HealthImportDialog";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { InsightsPanel } from "@/features/habits/components/InsightsPanel";
@@ -108,6 +109,8 @@ export function HabitsDashboard() {
     newEntries: number;
   } | null>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [healthOpen, setHealthOpen] = useState(false);
+  const entryIds = useMemo(() => new Set(h.entries.map((e) => e.id)), [h.entries]);
 
   useEffect(() => {
     if (!importMsg) return;
@@ -489,6 +492,13 @@ export function HabitsDashboard() {
                   onChange={onImportFile}
                   className="hidden"
                 />
+                <button
+                  type="button"
+                  onClick={() => setHealthOpen(true)}
+                  className="transition hover:text-slate-300"
+                >
+                  Health data
+                </button>
                 {h.archived.length > 0 && (
                   <button
                     type="button"
@@ -738,6 +748,19 @@ export function HabitsDashboard() {
         habit={notesHabit}
         entries={h.entries}
         today={h.today}
+      />
+      <HealthImportDialog
+        open={healthOpen}
+        onClose={() => setHealthOpen(false)}
+        // "Quit" habits are less-is-better, which has no health bar to meet.
+        habits={h.habits.filter((x) => (x.direction ?? "build") !== "quit")}
+        existingEntryIds={entryIds}
+        today={h.today}
+        onApply={(entries, changed) => {
+          h.importData([], entries);
+          changed.forEach((habit) => h.updateHabit(habit));
+        }}
+        onUndo={h.removeEntries}
       />
       <Modal
         open={Boolean(importPreview)}

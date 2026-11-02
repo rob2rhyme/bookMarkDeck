@@ -55,5 +55,5 @@ heatmap) and `FocusCorrelationCard`.
 ## Verify
 
 `npm run typecheck`, `npm test`, `npm run build`, plus a manual smoke check.
-Per-habit push reminders (up to four times a day, `lib/reminders.ts`) and a focus↔habits correlation are built in; an AI
+Per-habit push reminders (up to four times a day, `lib/reminders.ts`), health-data import (`lib/healthImport.ts`, `lib/healthFile.ts`) and a focus↔habits correlation are built in; an AI
 "coach" layer was prototyped then removed to keep the app key-free.
