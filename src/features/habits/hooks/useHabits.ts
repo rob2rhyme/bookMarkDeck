@@ -338,12 +338,13 @@ export function useHabits(
         return;
       }
       const entry: HabitEntry = {
+        ...existing,
         id: entryId(habit.id, today),
         habitId: habit.id,
         day: today,
         status: "done",
         count: target,
-        createdAt: new Date().toISOString(),
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
       };
       recordUndo(habit, target, entry);
       upsertEntry(entry);
@@ -370,6 +371,7 @@ export function useHabits(
         return;
       }
       const entry: HabitEntry = {
+        ...existing,
         id: entryId(habit.id, today),
         habitId: habit.id,
         day: today,
@@ -389,14 +391,16 @@ export function useHabits(
   const skipToday = useCallback(
     (habit: Habit) => {
       if (!today) return;
-      const previous = doneCount(currentEntry(habit.id));
+      const existing = currentEntry(habit.id);
+      const previous = doneCount(existing);
       const entry: HabitEntry = {
+        ...existing,
         id: entryId(habit.id, today),
         habitId: habit.id,
         day: today,
         status: "skipped",
         count: 0,
-        createdAt: new Date().toISOString(),
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
       };
       recordUndo(habit, 0, entry);
       upsertEntry(entry);
@@ -474,10 +478,12 @@ export function useHabits(
   );
 
   /**
-   * Revert the most recent tap on a habit to the snapshot taken before it. A
-   * habit linked both ways (water) takes back only the tap's change to the
-   * count instead: it may have taken in cups from other devices since, and
-   * restoring the count from before the tap erased them. The rest of the entry
+   * Revert the most recent tap on a habit by taking back only the tap's own
+   * change to the count, never the absolute snapshot from before it: a
+   * bidirectional link (water) may have taken in cups from other devices
+   * since, and a raise-only one (journal, meditation, focus, declutter) may
+   * have raised the count from its own source's activity — either way,
+   * restoring the pre-tap count outright erased that. The rest of the entry
    * is the snapshot's. A tap made under a link the habit no longer has (or
    * without the one it now has) isn't undone: as a change to Focus it would
    * take back cups the tap never sent, or leave behind ones it did.
@@ -496,38 +502,42 @@ export function useHabits(
       const source = resolveSource(habit);
       if ((source?.id ?? null) !== rec.source) return forget();
       const current = currentEntry(habit.id);
-      let restored = rec.before;
-      if (source?.policy === "bidirectional") {
-        const count = doneCount(current) - (rec.after - doneCount(rec.before));
-        // The rest of the entry (note, time, createdAt) is the snapshot's —
-        // unless the cloud entries subscription has since replaced `current`
-        // wholesale with a DIFFERENT device's genuinely new entry (its own
-        // note/time), reachable independently of this habit's own adoption
-        // path. Comparing against afterEntry (what the tap itself produced)
-        // tells the two apart: unchanged, the snapshot (or a bare entry when
-        // there was none before the tap) is still right; changed, the live
-        // entry's own note/time belongs to that other device and undo must
-        // not discard it.
-        const untouched =
-          (current?.note ?? null) === (rec.afterEntry?.note ?? null) &&
-          (current?.at ?? null) === (rec.afterEntry?.at ?? null) &&
-          (current?.createdAt ?? null) === (rec.afterEntry?.createdAt ?? null);
-        const base = untouched
-          ? rec.before ?? {
-              id: entryId(habit.id, today),
-              habitId: habit.id,
-              day: today,
-              createdAt: new Date().toISOString(),
-            }
-          : current ?? {
-              id: entryId(habit.id, today),
-              habitId: habit.id,
-              day: today,
-              createdAt: new Date().toISOString(),
-            };
-        if (count > 0) restored = { ...base, status: "done", count };
-        else if (rec.before?.status === "done") restored = null;
-      }
+      // Take back only the tap's own change to the count, not a count a
+      // raise-only source (or another device, for an unlinked habit) added
+      // since — the same delta the bidirectional/water case already applied,
+      // generalized: when nothing else has touched the entry since the tap,
+      // this reduces to the same number as restoring `rec.before` outright.
+      const count = doneCount(current) - (rec.after - doneCount(rec.before));
+      // The rest of the entry (note, time, createdAt) is the snapshot's —
+      // unless the cloud entries subscription (or a raise-only adoption) has
+      // since replaced `current` wholesale with a DIFFERENT device's
+      // genuinely new entry (its own note/time), reachable independently of
+      // this habit's own adoption path. Comparing against afterEntry (what
+      // the tap itself produced) tells the two apart: unchanged, the
+      // snapshot (or a bare entry when there was none before the tap) is
+      // still right; changed, the live entry's own note/time belongs to that
+      // other write and undo must not discard it.
+      const untouched =
+        (current?.note ?? null) === (rec.afterEntry?.note ?? null) &&
+        (current?.at ?? null) === (rec.afterEntry?.at ?? null) &&
+        (current?.createdAt ?? null) === (rec.afterEntry?.createdAt ?? null);
+      const base = untouched
+        ? rec.before ?? {
+            id: entryId(habit.id, today),
+            habitId: habit.id,
+            day: today,
+            createdAt: new Date().toISOString(),
+          }
+        : current ?? {
+            id: entryId(habit.id, today),
+            habitId: habit.id,
+            day: today,
+            createdAt: new Date().toISOString(),
+          };
+      let restored: HabitEntry | null;
+      if (count > 0) restored = { ...base, status: "done", count };
+      else if (rec.before?.status === "done") restored = null;
+      else restored = rec.before;
       if (restored === null) removeEntry(entryId(habit.id, today));
       else upsertEntry(restored);
       mirrorLinked(habit, doneCount(restored), doneCount(current));

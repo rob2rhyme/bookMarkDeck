@@ -4,12 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cloud } from "@/test/hydrationCloud";
 import { webLocksMock, type LockManagerLike, type WebLocksMock } from "@/test/webLocksMock";
 
+// A raiseOnly source's subscribe function, individually controllable per test
+// (vi.fn, not a bare no-op) so a test can simulate another device's write.
+const trackableData = vi.hoisted(() => ({
+  subscribeNotes: vi.fn((_e: string, _cb: (notes: { day: string }[]) => void) => () => {}),
+  subscribeMeditationSessions: vi.fn(
+    (_e: string, _cb: (rows: { day: string; minutes: number }[]) => void) => () => {}
+  ),
+  subscribeSessions: vi.fn(
+    (_e: string, _cb: (rows: { day: string; focusMin: number }[]) => void) => () => {}
+  ),
+  subscribeResets: vi.fn((_e: string, _cb: (rows: { day: string }[]) => void) => () => {}),
+}));
 vi.mock("@/features/focus/data/focusData", async () => ({
   ...(await import("@/test/hydrationCloud")).hydrationData(),
-  subscribeNotes: () => () => {},
-  subscribeMeditationSessions: () => () => {},
-  subscribeSessions: () => () => {},
-  subscribeResets: () => () => {},
+  ...trackableData,
 }));
 vi.mock("@/features/inventory/data/inventoryData", () => ({ subscribeItems: () => () => {} }));
 // Hoisted, so every fresh copy of the hooks (one per tab) shares these fns.
@@ -625,6 +634,87 @@ describe("useHabits — the water link", () => {
     act(() => void window.dispatchEvent(new Event("online")));
     await flush();
     expect(cloud.days.get(DAY)).toBe(1); // unsubscribed: no longer listening
+  });
+});
+
+// A plain tap used to rebuild today's entry from scratch, dropping a note or
+// time already on it; and an undo on a raise-only linked habit (journal,
+// meditation, focus, declutter) used to restore the pre-tap snapshot
+// absolutely, erasing a count a different device raised meanwhile — the same
+// bug class already fixed for the bidirectional/water link above.
+describe("useHabits — own taps and raise-only undo", () => {
+  it("doesn't drop a note when a plain +/- tap rebuilds today's entry", async () => {
+    const { hook, habit } = await openHabits();
+    act(() => hook.result.current.adjustToday(habit(), 1));
+    act(() =>
+      hook.result.current.logDetail(habit(), { status: "done", count: 1, note: "felt great", at: "07:00" })
+    );
+    await flush();
+    expect(hook.result.current.todayEntry("w")?.note).toBe("felt great");
+    act(() => hook.result.current.adjustToday(habit(), 1));
+    await flush();
+    expect(hook.result.current.todayEntry("w")?.note).toBe("felt great");
+    expect(hook.result.current.todayEntry("w")?.at).toBe("07:00");
+  });
+
+  it("doesn't drop a note when toggling a habit done", async () => {
+    const { hook, habit } = await openHabits();
+    act(() => hook.result.current.logDetail(habit(), { status: "skipped", note: "resting" }));
+    await flush();
+    expect(hook.result.current.todayEntry("w")?.note).toBe("resting");
+    act(() => hook.result.current.toggleToday(habit()));
+    await flush();
+    expect(hook.result.current.todayEntry("w")?.note).toBe("resting");
+  });
+
+  it("doesn't drop a note when skipping", async () => {
+    const { hook, habit } = await openHabits();
+    act(() =>
+      hook.result.current.logDetail(habit(), { status: "done", count: 2, note: "logged early" })
+    );
+    await flush();
+    act(() => hook.result.current.skipToday(habit()));
+    await flush();
+    expect(hook.result.current.todayEntry("w")?.note).toBe("logged early");
+  });
+
+  // A raise-only source (meditation, here) can push a habit's count up from a
+  // DIFFERENT device's activity between a tap and its undo. Undo must take
+  // back only the tap's own 5 minutes, not the 3 the other device logged.
+  it("doesn't erase a raise-only source's adopted count when undoing a plain tap", async () => {
+    const meditationHabit: Habit = {
+      id: "m",
+      name: "Meditate",
+      emoji: "🧘",
+      hue: 200,
+      type: "measurable",
+      unit: "min",
+      target: 10,
+      schedule: { type: "daily" },
+      linkedSourceId: "meditation",
+      archived: false,
+      sortOrder: 0,
+      createdAt: null,
+    };
+    localStorage.setItem(`bookmarkdeck:habits:v1:${EMAIL}`, JSON.stringify([meditationHabit]));
+    const useHabits = await habitsTab();
+    const hook = renderHook(() => useHabits(EMAIL, true));
+    await flush();
+    const habit = () => hook.result.current.habits.find((h) => h.id === "m") as Habit;
+
+    act(() => hook.result.current.adjustToday(habit(), 5));
+    await flush();
+    expect(hook.result.current.todayEntry("m")).toMatchObject({ count: 5 });
+
+    expect(trackableData.subscribeMeditationSessions).toHaveBeenCalled();
+    const deliver = trackableData.subscribeMeditationSessions.mock.calls[0][1];
+    act(() => deliver([{ day: DAY, minutes: 8 }])); // a different device, same day
+    await flush();
+    expect(hook.result.current.todayEntry("m")).toMatchObject({ count: 8 });
+
+    act(() => hook.result.current.undoToday(habit()));
+    await flush();
+    expect(hook.result.current.todayEntry("m")).toMatchObject({ count: 3 });
   });
 });
 
