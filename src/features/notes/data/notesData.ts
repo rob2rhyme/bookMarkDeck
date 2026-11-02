@@ -22,7 +22,7 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
-import { onSnapshotWithMeta, type SnapshotMeta } from "@/lib/firestoreSnapshot";
+import { onConfirmedSnapshot, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import { normalizeNote, type Note } from "@/features/notes/lib/notes";
 import { normalizeVault, type VaultRecord } from "@/features/notes/lib/vault";
 import { normalizeDeletions, type DeletedEntry } from "@/features/notes/lib/deletionLog";
@@ -110,7 +110,7 @@ export function subscribeNotes(
   uidFor(emailHint)
     .then((uid) => {
       if (cancelled) return;
-      unsub = onSnapshotWithMeta(
+      unsub = onConfirmedSnapshot(
         notesCol(uid),
         (snap, meta) => cb(mapAll(snap.docs), meta),
         (err) => console.error("[notes] listener error:", err)
@@ -148,7 +148,7 @@ export function subscribeVaults(
   uidFor(emailHint)
     .then((uid) => {
       if (cancelled) return;
-      unsub = onSnapshotWithMeta(
+      unsub = onConfirmedSnapshot(
         vaultsCol(uid),
         (snap, meta) => cb(mapVaults(snap.docs), meta),
         (err) => console.error("[notes] vault listener error:", err)
