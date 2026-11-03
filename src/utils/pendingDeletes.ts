@@ -15,7 +15,9 @@
 //     on another device).
 //
 // `scope` is the owner key (email/userId); `domain` namespaces the queue per
-// data type (e.g. "todos", "notes", "tasks", "moods", "shortcuts").
+// data type (e.g. "todos", "notes", "tasks", "moods", "shortcuts"). A domain
+// belongs to ONE collection: Focus's journal notes and the Notes pillar once
+// shared "notes", and each connect cleared the other's queue.
 
 function delKey(domain: string, scope?: string | null): string {
   return `bookmarkdeck:pending-del:${domain}:${scope ?? ""}`;
