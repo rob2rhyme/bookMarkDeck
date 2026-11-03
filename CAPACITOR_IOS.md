@@ -176,3 +176,49 @@ If you need sound even on hardware-silent (true Garmin-style), switch
 (`com.apple.developer.usernotifications.critical-alerts`). That entitlement
 requires a paid Apple Developer account **and** Apple's approval via their
 request form — granted for legitimate can't-miss use cases.
+
+## App Review (Guideline 4.2): what's done in the web app, and what's left
+
+Apple rejects "a website in a box", and reviewers test **Airplane Mode**. See
+`ANALYSIS-MOBILE-APP-STRATEGY.md` §1 for the checklist; this is where each item stands.
+Nothing below can be built or checked from a Linux box — the native steps need a Mac,
+Xcode, and (for TestFlight / the Store) a paid Apple Developer account — so the web side
+is tested here and the native side is a checklist for the first person on a Mac.
+
+**Offline shell — web side done.** `capacitor.config.ts` sets `server.errorPath:
+"offline.html"`, so when the live site can't load the webview shows the bundled
+`public/offline.html` (it is in `webDir`, so `cap sync` copies it in) instead of a blank
+error. That page's *Try again* goes back to the live site when it is running from the app
+(a bare `location.reload()` would just reload the local page). `src/lib/capacitorShell.test.ts`
+keeps the page's address equal to `server.url`. To verify on a device: `npx cap sync ios`,
+run, enable Airplane Mode, relaunch — you should see "You're offline", and *Try again* with
+the connection back should load the app. (A service worker can't do this job here: WKWebView
+only runs one for app-bound domains.) Note this is an *offline message*, not offline use of
+the app; the app's data is local-first, but its pages still come from the network.
+
+**On-device date reminders — web side done, needs `npx cap sync ios`.**
+`@capacitor/local-notifications` is a dependency again (see the Dependency note in
+`CLAUDE.md`). In the app, *My Stuff → Reminders → "Remind me on this phone"* schedules a
+9:00 notification for each dated thing — 2 weeks before a warranty ends, 3 days before a
+use-by or renewal, the day before upkeep, the day a loan is due — through the plugin, with no
+server and weeks ahead (web push is capped at a day). The plan is pure and tested
+(`features/inventory/lib/localReminders.ts`); `lib/nativeReminders.ts` is the thin adapter and
+is a no-op on the plain web. Until the app is rebuilt with the plugin the toggle simply
+fails to schedule (every call is guarded); permission is asked from the tap, and a PIN-locked
+My Stuff keeps names off the notification. On a Mac: `npm i`, `npx cap sync ios`, run, turn
+the toggle on, add an item whose use-by is 3 days away plus a minute (or temporarily change
+`REMINDER_HOUR`) and background the app. **Not yet exercised on a device.**
+
+**Not done — needs native work and a device to verify:**
+- **Native barcode scanning** (`@capacitor-mlkit/barcode-scanning`): faster than the
+  ZXing-WASM path in `lib/barcodeEngine.ts`. Left out deliberately: it is a heavy native
+  dependency with its own iOS minimum and camera-usage string, and I couldn't build or
+  test it. Add it behind the same "native if present, else web" pattern as the clipboard.
+- **Share extension / Home-screen quick actions** (Swift).
+- **Try the official plugin for the timer too:** `@capacitor/local-notifications` is now
+  installed, so §2's custom `TimerAlert` can probably be replaced with `schedule()` +
+  `interruptionLevel: 'timeSensitive'` (8.1.0+), as the note there says.
+- **Android / Google Play** — `npx cap add android`, Android Studio, a $25 Play account;
+  the strategy doc recommends doing it first as the dress rehearsal.
+- **Store listing itself**: App Store Connect record, screenshots, privacy "nutrition
+  label" (the privacy page is the source), review notes explaining the native features.

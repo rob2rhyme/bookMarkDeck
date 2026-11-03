@@ -11,6 +11,12 @@ const config: CapacitorConfig = {
   server: {
     url: "https://bmarkdeck.rob2rhyme.app",
     cleartext: false,
+    // Airplane Mode is the first thing App Review tries. With `server.url` the
+    // webview has no page of its own, so a failed load would be a blank error;
+    // this local page (copied from `webDir`) is shown instead. Its "Try again"
+    // goes back to the live site — see public/offline.html, and
+    // src/lib/capacitorShell.test.ts, which keeps the two addresses in step.
+    errorPath: "offline.html",
   },
 };
 

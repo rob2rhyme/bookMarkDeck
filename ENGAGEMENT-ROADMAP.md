@@ -101,7 +101,7 @@ Filing, Notes and Habits; Bookmarks keeps its manual controls by design) · stil
 
 ## Distribution (your docs call it "the actual biggest gap")
 
-Being in the app stores at all beats any single feature. The Capacitor shell is
+*Status:* the web-side pieces are in (offline error page, on-device date reminders); native barcode, quick actions, the store listing itself and Android need a Mac/device and accounts — `CAPACITOR_IOS.md` → "App Review". The Capacitor shell is
 ~60% built (`capacitor.config.ts`, `CAPACITOR_IOS.md`, `nativeNotify.ts`); ~1–2
 weeks of Guideline-4.2 hardening (offline shell + native barcode + local
 notifications — reuses Tier 1 #3) gets a listing. See

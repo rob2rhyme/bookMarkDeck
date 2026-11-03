@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocalReminders, useLocalReminderSetting } from "@/features/inventory/hooks/useLocalReminders";
 import { SyncBanner } from "@/components/SyncBanner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -183,6 +184,16 @@ export function InventoryDashboard() {
     hour: settings.pushHour,
     attention: attentionNow,
     // A locked My Stuff keeps item names off the lock screen too.
+    nameItems: !lock.enabled,
+    ready: inv.hydrated && today !== "",
+  });
+  // Native app only: dated reminders scheduled on the device itself (lib/localReminders).
+  const [localRemindersOn, setLocalRemindersOn] = useLocalReminderSetting(email);
+  useLocalReminders({
+    email,
+    enabled: localRemindersOn,
+    items: inv.active,
+    today,
     nameItems: !lock.enabled,
     ready: inv.hydrated && today !== "",
   });
@@ -1154,6 +1165,7 @@ export function InventoryDashboard() {
         onClose={() => setRemindersOpen(false)}
         settings={settings}
         onChange={update}
+        localReminders={{ on: localRemindersOn, set: setLocalRemindersOn }}
       />
       <AppLockModal
         open={lockOpen}

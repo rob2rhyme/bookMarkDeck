@@ -567,13 +567,15 @@ the set is deliberately *not* on one version: `cli` 8.4.3 beside `core` 8.5.2. S
 major, no peer edge between them, `npm ci` clean, audit 0. Do not "tidy" that by lifting
 the tilde.
 
-**`@capacitor/local-notifications` was bumped in #307 and then removed as unused.** It
-had been a dependency since the shell landed (`a14b40b`, which added all four Capacitor
-packages as a set) and was never once imported — the time-sensitive timer alert is the
-hand-written Swift `TimerAlert` plugin in `CAPACITOR_IOS.md`. It may well come back: 8.1.0
-added `interruptionLevel: 'timeSensitive'`, which is the *only* reason that custom plugin
-exists, so building the iOS shell should start by trying the official plugin. Re-adding is
-one `npm i`; that note lives in `CAPACITOR_IOS.md` §2 where it will actually be read.
+**`@capacitor/local-notifications` is back** (`^8.3.1`). It was bumped in #307 and then
+removed as unused — nothing imported it, the timer alert being the hand-written Swift
+`TimerAlert` plugin. It is now imported by `features/inventory/lib/nativeReminders.ts`
+(on-device dated reminders in the native shell; a no-op on the web, dynamically imported
+behind `Capacitor.isNativePlatform()`). The custom `TimerAlert` is still there; 8.1.0's
+`interruptionLevel: 'timeSensitive'` is what could replace it (`CAPACITOR_IOS.md` §2). Its
+only peer is `@capacitor/core >=8`, so it adds no transitive packages. **When adding to the
+lockfile, check the diff:** a different npm version rewrites it wholesale (the platform
+binaries' `libc` fields vanish), which is noise to avoid, not accept.
 
 ### Dependabot: what is held back, and until when
 

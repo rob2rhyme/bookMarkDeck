@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { Modal } from "@/components/Modal";
 import { X } from "@/components/icons";
 import { Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { pushSupported, requestPushPermission, usePushPermission } from "@/lib/push";
 import type { InventorySettings } from "@/features/inventory/lib/types";
+import { nativeRemindersAvailable, requestNativeReminderPermission } from "@/features/inventory/lib/nativeReminders";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
@@ -20,14 +23,27 @@ export function RemindersModal({
   onClose,
   settings,
   onChange,
+  localReminders,
 }: {
   open: boolean;
   onClose: () => void;
   settings: InventorySettings;
   onChange: (patch: Partial<InventorySettings>) => void;
+  /** The on-device (native app) reminders' per-device switch. */
+  localReminders?: { on: boolean; set: (on: boolean) => void };
 }) {
   const canPush = pushSupported();
   const permission = usePushPermission();
+  // Offered only inside the native app, where the plugin exists; asked once.
+  const [native, setNative] = useState(false);
+  const [localDenied, setLocalDenied] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void nativeRemindersAvailable().then((ok) => alive && setNative(ok));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <Modal
@@ -70,6 +86,37 @@ export function RemindersModal({
           </span>
         </span>
       </label>
+
+      {native && localReminders && (
+        <label className="mt-5 flex items-start gap-3 border-t border-slate-800 pt-4">
+          <input
+            type="checkbox"
+            checked={localReminders.on}
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setLocalDenied(false);
+              if (!on) return localReminders.set(false);
+              // Ask here, in the tap — never when the page loads.
+              if (await requestNativeReminderPermission()) localReminders.set(true);
+              else setLocalDenied(true);
+            }}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500"
+          />
+          <span className="min-w-0">
+            <span className="text-sm font-medium text-slate-200">Remind me on this phone</span>
+            <span className="mt-0.5 block text-[12px] text-slate-500">
+              A notification at 9:00 for each date: 2 weeks before a warranty ends, 3 days before a
+              use-by or renewal, the day before upkeep, and the day a loan is due. Set on the phone
+              itself, so it works offline and weeks ahead.
+            </span>
+            {localDenied && (
+              <span className="mt-1 block text-[12px] text-amber-300/90">
+                Notifications are off for this app. Allow them in Settings, then try again.
+              </span>
+            )}
+          </span>
+        </label>
+      )}
 
       {settings.pushEnabled && canPush && (
         <div className="mt-3 pl-7">
