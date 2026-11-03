@@ -179,6 +179,19 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   new device should *Sync from cloud* first. Picks are filed into a top-level folder per
   kind (an existing one of that name is reused) and links already saved are skipped. Focus
   does the same for a task list that has never held a task (`starterTasks.ts`).
+- **Milestones are derived and celebrated once** (`@/lib/milestones` ladders →
+  `MilestoneRow`; `useMilestoneCelebration`). The badge row is computed from counts a page
+  already holds (Focus sessions/streak/minutes, the best habit streak, items, bookmarks,
+  notes, papers) and stored nowhere. The "New milestone" card is the only state: a
+  per-device, per-account set of seen rung ids (`bd:milestones:seen:v1:{email}`), written
+  as every rung **at or below** what was reached (a streak that breaks and climbs again
+  must not re-celebrate its 3-day rung). The **first look at an account celebrates
+  nothing** and just records what's earned — otherwise a long-time user gets a card per
+  milestone ever crossed. A page passes `ready` (its numbers have loaded) and the hook
+  then waits `SETTLE_MS` of **unchanged** metrics before judging, because a count passes
+  through smaller values on its way from cache to cloud; judging early records too
+  little (old milestones celebrate later) or celebrates a list loading. A card counts as
+  seen once shown, so a reload doesn't repeat it. No account, no celebration.
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the

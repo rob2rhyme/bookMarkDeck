@@ -25,6 +25,8 @@ const LADDERS: Ladder[] = [
   { metric: "habit-streak", icon: "🌱", thresholds: [7, 14, 30, 60, 100], label: (n) => `${n}-day habit streak` },
   { metric: "items", icon: "📦", thresholds: [10, 25, 50, 100, 250], label: (n) => `${n} items catalogued` },
   { metric: "bookmarks", icon: "🔖", thresholds: [25, 50, 100, 250, 500], label: (n) => `${n} bookmarks saved` },
+  { metric: "notes", icon: "📝", thresholds: [10, 25, 50, 100, 250], label: (n) => `${n} notes written` },
+  { metric: "papers", icon: "🗂️", thresholds: [10, 25, 50, 100, 250], label: (n) => `${n} papers filed` },
 ];
 
 /** Highest threshold crossed for a metric, or 0 if below the first. */
@@ -57,4 +59,38 @@ export function earnedMilestones(
     }
   }
   return out;
+}
+
+/**
+ * Every milestone id a set of metrics has reached — all the lower rungs too, not
+ * just the highest. Remembering only the highest would let a streak that broke
+ * and climbed again celebrate its 3-day rung a second time.
+ */
+export function reachedMilestoneIds(
+  metrics: Record<string, number | undefined>
+): string[] {
+  const out: string[] = [];
+  for (const ladder of LADDERS) {
+    const v = metrics[ladder.metric];
+    if (typeof v !== "number" || v <= 0) continue;
+    for (const t of ladder.thresholds) if (v >= t) out.push(`${ladder.metric}-${t}`);
+  }
+  return out;
+}
+
+/**
+ * What to celebrate now. `seen` is what this device has already been told about,
+ * or null if it has never looked. The first look celebrates nothing and records
+ * everything earned so far: a long-time user opening this for the first time
+ * would otherwise be handed a card for every milestone they ever crossed.
+ */
+export function planCelebration(
+  metrics: Record<string, number | undefined>,
+  seen: string[] | null
+): { fresh: Milestone[]; seen: string[] } {
+  const reached = reachedMilestoneIds(metrics);
+  if (seen === null) return { fresh: [], seen: reached };
+  const known = new Set(seen);
+  const fresh = earnedMilestones(metrics).filter((m) => !known.has(m.id));
+  return { fresh, seen: fresh.length ? [...new Set([...seen, ...reached])] : seen };
 }

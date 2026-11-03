@@ -545,6 +545,7 @@ export function FocusDashboard() {
         className="mt-3 grid scroll-mt-20 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
       >
         <AnalysisPanel
+          account={email}
           available={stats.available}
           loaded={stats.loaded}
           todayFocusMin={stats.todayFocusMin}

@@ -49,10 +49,11 @@ parity, and distribution** — not catalog features.
 
 ## Tier 2 — strong wins, modest effort
 
-- **Milestone badges** (all pillars, `[net-new]`) — derive from existing logs
-  (`insights.ts`, `focusSessions`, `HabitStats`); calm dismissible cards, **no
-  points economy**. Fixes Focus's gamification being trivia (`focusScores`)
-  decoupled from actual output.
+- ~~**Milestone badges**~~ — **shipped**: a points-free badge row (`MilestoneRow`,
+  `@/lib/milestones` ladders) on Focus, Habits, My Stuff, and now Bookmarks, Notes and
+  Filing, derived from counts each pillar already has, plus a one-time dismissible card
+  when a rung is crossed (`useMilestoneCelebration`). Remembered per device and account
+  as a local flag; nothing is synced or stored beyond it. `e2e/milestone.spec.ts`.
 - ~~**Weekly recap card**~~ — **shipped** as "Your week" on the home page
   (`WeeklyRecapCard`, `@/lib/weeklyRecap`): focus, habits, bookmarks, notes, items.
 - ~~**PWA `share_target` + save-current-page**~~ — **shipped**: `manifest.ts`

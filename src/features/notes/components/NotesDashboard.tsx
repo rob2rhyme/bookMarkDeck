@@ -15,6 +15,7 @@ import { NoteCard } from "@/features/notes/components/NoteCard";
 import { NotesBackupDialog } from "@/features/notes/components/NotesBackupDialog";
 import { NotesInsights } from "@/features/notes/components/NotesInsights";
 import { useDeletionLog } from "@/features/notes/hooks/useDeletionLog";
+import { MilestoneRow } from "@/components/MilestoneRow";
 import { NotesSyncBanner } from "@/features/notes/components/NotesSyncBanner";
 import { TagFilter } from "@/features/notes/components/TagFilter";
 import { useNotes } from "@/features/notes/hooks/useNotes";
@@ -321,6 +322,12 @@ export function NotesDashboard({
           const n = plan.write.length;
           toast(n ? `Restored ${n === 1 ? "1 note" : `${n} notes`}` : "Restored", { variant: "success" });
         }}
+      />
+
+      <MilestoneRow
+        className="px-3 sm:px-0"
+        celebrate={{ account: email, ready: hydrated }}
+        metrics={{ notes: notes.length }}
       />
 
       {hydrated && notes.length > 0 && (

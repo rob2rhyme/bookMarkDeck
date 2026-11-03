@@ -32,6 +32,7 @@ import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import { parseServiceCsv } from "@/utils/parseServiceCsv";
 import { fetchLinkTitle } from "@/utils/linkTitle";
 import { STARTER_GROUPS, planStarterLinks } from "@/utils/starterLinks";
+import { MilestoneRow } from "@/components/MilestoneRow";
 import { StarterPicker } from "@/components/StarterPicker";
 import { isUnsafeUrl, normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
@@ -97,6 +98,7 @@ export function HomePageClient() {
   const {
     bookmarks,
     folders: folderEntities,
+    hydrated: bookmarksHydrated,
     addBookmark,
     nameFromPage,
     addFolder,
@@ -1505,6 +1507,12 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
         {/* Your week — this week beside last, across the pillars */}
         <WeeklyRecapCard email={userId} bookmarks={bookmarks} />
+
+        <MilestoneRow
+          className="mb-4"
+          celebrate={{ account: userId, ready: bookmarksHydrated }}
+          metrics={{ bookmarks: bookmarks.length }}
+        />
 
         {/* Rediscover — resurface one stale-but-once-loved bookmark */}
         {rediscover.bookmark && (

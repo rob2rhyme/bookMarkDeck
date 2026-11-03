@@ -4,6 +4,7 @@
 // documents, with the search that is the whole point of the feature —
 // type "car title", get "Garage › Grey cabinet › Drawer 2 › Vehicles".
 
+import { MilestoneRow } from "@/components/MilestoneRow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
@@ -584,6 +585,11 @@ export function FilingDashboard() {
           onOpen={(documentId) => setObligationsFor(documentId)}
         />
       )}
+
+      <MilestoneRow
+        celebrate={{ account: email, ready: documents.hydrated }}
+        metrics={{ papers: documents.active.length }}
+      />
 
       {lens === "insights" && (
         <FilingInsights
