@@ -163,7 +163,21 @@ export default function GuidePage() {
               filter narrows to <em>Favorites only</em> or{" "}
               <em>Only with notes</em>. Results sort pinned-first, then newest.{" "}
               <strong>Trending</strong> surfaces your six most-opened bookmarks
-              automatically with usage badges — no setup.
+              automatically with usage badges — no setup. The{" "}
+              <strong>Tags</strong> row under the search box shows every tag
+              with how many bookmarks carry it; tap one to see only those.
+            </p>
+          </Sub>
+          <Sub title="Reading & highlights">
+            <p>
+              <strong>Read</strong> on a bookmark opens the page as plain text,
+              without the menus and clutter around it. Select a few words
+              inside a paragraph and press <strong>Highlight</strong> to keep
+              that passage; your highlights list under the text and come back
+              marked next time. Only the highlighted passages are saved — the
+              page itself is fetched fresh each time. Pages that need you to
+              sign in, or that build their text with scripts, can&apos;t be
+              shown this way; <strong>Open original</strong> is always there.
             </p>
           </Sub>
           <Sub title="Import, export & backups">

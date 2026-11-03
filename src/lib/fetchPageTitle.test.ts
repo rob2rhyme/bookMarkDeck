@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { gzipSync } from "node:zlib";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { fetchHtml } from "@/lib/fetchPage";
 import { fetchPageTitle } from "@/lib/fetchPageTitle";
 
 // A real server on 127.0.0.1. The default address rule refuses it — which is the
@@ -121,5 +122,25 @@ describe("fetchPageTitle", () => {
 
   it("is null for a URL that doesn't parse", async () => {
     expect(await fetchPageTitle("not a url")).toBeNull();
+  });
+});
+
+describe("fetchHtml", () => {
+  it("returns the whole page, flagged not truncated, when it fits", async () => {
+    const page = await fetchHtml(`${base}/page`, { ...loopbackOnly, maxBytes: 100_000 });
+    expect(page?.truncated).toBe(false);
+    expect(page?.html).toContain("Hello &amp; welcome");
+    expect(page?.html).toContain("<body>");
+  });
+
+  it("cuts a long page at maxBytes and says so", async () => {
+    const page = await fetchHtml(`${base}/huge`, { ...loopbackOnly, maxBytes: 100_000 });
+    expect(page?.truncated).toBe(true);
+    expect(page!.html.length).toBeLessThan(400 * 1024);
+  });
+
+  it("is still fenced: a loopback address is refused by default", async () => {
+    expect(await fetchHtml(`${base}/page`, { anyPort: true })).toBeNull();
+    expect(hits).toEqual([]);
   });
 });

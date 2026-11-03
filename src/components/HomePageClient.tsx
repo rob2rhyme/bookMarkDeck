@@ -30,6 +30,7 @@ import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import { parseServiceCsv } from "@/utils/parseServiceCsv";
+import { countTags, hasTag } from "@/utils/tagBrowse";
 import { fetchLinkTitle } from "@/utils/linkTitle";
 import { STARTER_GROUPS, planStarterLinks } from "@/utils/starterLinks";
 import { MilestoneRow } from "@/components/MilestoneRow";
@@ -90,6 +91,9 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
+
+// Tag chips shown before "Show all".
+const TAGS_SHOWN = 12;
 
 export function HomePageClient() {
   const router = useRouter();
@@ -171,6 +175,10 @@ export function HomePageClient() {
   // Default to "favorites" so only pinned bookmarks show initially
   // Start with all bookmarks so imports are visible immediately
   const [folderFilter, setFolderFilter] = useState<string>("");
+  // Browse by tag: the chosen tag's comparison key ("" = all), and whether the
+  // chip row shows every tag or just the most used.
+  const [tagFilter, setTagFilter] = useState("");
+  const [showAllTags, setShowAllTags] = useState(false);
 
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -483,6 +491,8 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     }
   }, [editUrl, editIconValue, editIconTouched, editingShortcut]);
 
+  const tagCounts = useMemo(() => countTags(bookmarks), [bookmarks]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return (
@@ -507,7 +517,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
             matchesExtra = !!b.note && b.note.trim().length > 0;
           }
 
-          return matchesSearch && matchesExtra;
+          return matchesSearch && matchesExtra && hasTag(b, tagFilter);
         })
         // NEW: surface pinned/favorite bookmarks at the top
         .sort((a, b) => {
@@ -523,7 +533,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           return aPinned ? -1 : 1;
         })
     );
-  }, [bookmarks, search, folderFilter]);
+  }, [bookmarks, search, folderFilter, tagFilter]);
 
   const folderBuckets = useMemo(() => {
     const byKey = new Map<string, Bookmark[]>();
@@ -1636,6 +1646,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               onClick={() => {
                 setSearch("");
                 setFolderFilter("");
+                setTagFilter("");
               }}
               className="h-10 flex-1 min-w-0 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-100 text-center outline-none transition hover:border-blue-500 hover:bg-slate-800 hover:text-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 lg:w-1/4 lg:flex-none"
             >
@@ -1652,6 +1663,38 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               </button>
             )}
           </div>
+          {tagCounts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Browse by tag">
+              <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Tags</span>
+              {(showAllTags || tagCounts.length <= TAGS_SHOWN
+                ? tagCounts
+                : tagCounts.filter((t, i) => i < TAGS_SHOWN || t.key === tagFilter)
+              ).map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  aria-pressed={tagFilter === t.key}
+                  onClick={() => setTagFilter((cur) => (cur === t.key ? "" : t.key))}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
+                    tagFilter === t.key
+                      ? "border-blue-400/70 bg-blue-500/10 text-blue-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                  }`}
+                >
+                  {t.label} <span className="text-slate-500">{t.count}</span>
+                </button>
+              ))}
+              {tagCounts.length > TAGS_SHOWN && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllTags((v) => !v)}
+                  className="rounded-full px-2 py-0.5 text-xs text-blue-300 underline-offset-2 hover:underline"
+                >
+                  {showAllTags ? "Show fewer" : `Show all ${tagCounts.length}`}
+                </button>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Cloud sync (Firebase) */}

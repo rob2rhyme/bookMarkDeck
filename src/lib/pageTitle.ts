@@ -27,7 +27,7 @@ const NAMED: Record<string, string> = {
   trade: "™",
 };
 
-function decodeEntities(s: string): string {
+export function decodeEntities(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, body: string) => {
     if (body[0] === "#") {
       const code =
@@ -50,7 +50,7 @@ function clean(raw: string | undefined): string | null {
 }
 
 /** The content of a `<meta>` whose property/name is `key`, in either attribute order. */
-function metaContent(html: string, key: string): string | undefined {
+export function metaContent(html: string, key: string): string | undefined {
   for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
     const name = /\b(?:property|name)\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
     if (name?.toLowerCase() !== key) continue;

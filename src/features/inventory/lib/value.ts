@@ -112,7 +112,7 @@ export function effectiveUseBy(item: InventoryItem): string | null {
 
 // "Live" for money math: not archived and not returned/given back — a
 // returned item keeps its record but drops out of every total and reminder.
-const live = (items: InventoryItem[]) =>
+export const live = (items: InventoryItem[]) =>
   items.filter((i) => !i.archived && i.status !== "returned");
 
 // Your assets: live AND owned. Borrowed/rented things aren't yours, and a

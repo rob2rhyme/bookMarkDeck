@@ -1,5 +1,6 @@
 "use client";
 
+import { cleanHighlights } from "@/utils/highlights";
 import { useEffect, useRef, useState } from "react";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
@@ -104,6 +105,7 @@ function normalizeBookmarks(raw: unknown): Bookmark[] {
         hits: typeof hitsValue === "number" ? hitsValue : 0,
         lastUsedAt:
           typeof lastUsedAtValue === "string" ? lastUsedAtValue : undefined,
+        highlights: cleanHighlights(record.highlights),
       };
     });
 }

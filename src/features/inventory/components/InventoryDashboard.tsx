@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocalReminders, useLocalReminderSetting } from "@/features/inventory/hooks/useLocalReminders";
+import { SyncBanner } from "@/components/SyncBanner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
@@ -182,6 +184,16 @@ export function InventoryDashboard() {
     hour: settings.pushHour,
     attention: attentionNow,
     // A locked My Stuff keeps item names off the lock screen too.
+    nameItems: !lock.enabled,
+    ready: inv.hydrated && today !== "",
+  });
+  // Native app only: dated reminders scheduled on the device itself (lib/localReminders).
+  const [localRemindersOn, setLocalRemindersOn] = useLocalReminderSetting(email);
+  useLocalReminders({
+    email,
+    enabled: localRemindersOn,
+    items: inv.active,
+    today,
     nameItems: !lock.enabled,
     ready: inv.hydrated && today !== "",
   });
@@ -779,46 +791,17 @@ export function InventoryDashboard() {
         </div>
       </div>
 
-      {/* Sync banner */}
-      {!connected ? (
-        <div className="mx-3 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/80 px-4 py-3 sm:mx-0 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-400">
-            Your inventory stays on this device.{" "}
-            <span className="text-slate-300">Sync to save it to your account.</span>
-            {error && <span className="block text-xs text-red-400">{error}</span>}
-          </p>
-          <button
-            type="button"
-            onClick={connect}
-            disabled={connecting || !email}
-            className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
-          >
-            {connecting ? "Connecting…" : "Sign in to sync"}
-          </button>
-        </div>
-      ) : (
-        <div className="mx-3 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/80 px-4 py-3 sm:mx-0 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-400">
-            <span className="text-emerald-400">●</span> Synced to your account — changes save automatically.
-          </p>
-          <div className="flex shrink-0 gap-2">
-            <button
-              type="button"
-              onClick={() => inv.pullFromCloud()}
-              className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
-            >
-              Sync from cloud
-            </button>
-            <button
-              type="button"
-              onClick={() => inv.pushToCloud()}
-              className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-blue-300"
-            >
-              Sync to cloud
-            </button>
-          </div>
-        </div>
-      )}
+      <SyncBanner
+        subject="inventory"
+        email={email}
+        connected={connected}
+        connecting={connecting}
+        error={error}
+        onConnect={connect}
+        onSyncFromCloud={() => inv.pullFromCloud()}
+        onSyncToCloud={() => inv.pushToCloud()}
+        className="mx-3 sm:mx-0"
+      />
 
       {starterRooms.show && (
         <StarterRoomsCard
@@ -1182,6 +1165,7 @@ export function InventoryDashboard() {
         onClose={() => setRemindersOpen(false)}
         settings={settings}
         onChange={update}
+        localReminders={{ on: localRemindersOn, set: setLocalRemindersOn }}
       />
       <AppLockModal
         open={lockOpen}

@@ -1,5 +1,6 @@
 "use client";
 
+import { SyncBanner } from "@/components/SyncBanner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ import { HabitCard } from "@/features/habits/components/HabitCard";
 import { HabitNotesModal } from "@/features/habits/components/HabitNotesModal";
 import { HealthImportDialog } from "@/features/habits/components/HealthImportDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { HabitCompanion } from "@/features/habits/components/HabitCompanion";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { InsightsPanel } from "@/features/habits/components/InsightsPanel";
@@ -209,6 +211,13 @@ export function HabitsDashboard() {
     (x) => h.statsByHabit.get(x.id)?.doneToday || isSkipped(x.id)
   );
   const dueCount = h.dueToday.length;
+  // The companion grows with every done check-in ever made (a deleted habit's
+  // history still counts) and says "welcome back" after a gap.
+  const doneEntries = useMemo(() => h.entries.filter((e) => e.status === "done"), [h.entries]);
+  const lastDoneDay = useMemo(
+    () => doneEntries.reduce<string | null>((best, e) => (best === null || e.day > best ? e.day : best), null),
+    [doneEntries]
+  );
   const progress = dueCount === 0 ? 1 : h.doneTodayCount / dueCount;
 
   const launchFocus = (habit: Habit) => {
@@ -273,15 +282,16 @@ export function HabitsDashboard() {
         </div>
       </div>
 
-      {email && !connected && (
-        <button
-          type="button"
-          onClick={connect}
-          disabled={connecting}
-          className="self-start rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50"
-        >
-          {connecting ? "Connecting…" : "Saved on this device · Connect to sync"}
-        </button>
+      {email && (
+        <SyncBanner
+          subject="habits"
+          plural
+          email={email}
+          connected={connected}
+          connecting={connecting}
+          onConnect={connect}
+          hideWhenConnected
+        />
       )}
 
       {reminders.hasReminders && reminders.permission === "default" && (
@@ -350,6 +360,16 @@ export function HabitsDashboard() {
               { id: "hsec-insights", label: "Insights" },
               { id: "hsec-focus", label: "Focus" },
             ] as SectionNavItem[]}
+          />
+
+          <HabitCompanion
+            account={email}
+            ready={h.hydrated}
+            checkins={doneEntries.length}
+            dueToday={dueCount}
+            doneToday={h.doneTodayCount}
+            lastDoneDay={lastDoneDay}
+            today={h.today}
           />
 
           {/* Summary */}

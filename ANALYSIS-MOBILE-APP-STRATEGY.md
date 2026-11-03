@@ -19,7 +19,7 @@ approval is Apple's **Guideline 4.2 (minimum functionality)**: reviewers
 reject wrappers that mirror a website, and famously test in **Airplane Mode**
 — a `server.url` shell shows a blank page offline today.
 
-**4.2 hardening checklist (feasible, ~1–2 weeks):**
+**4.2 hardening checklist (feasible, ~1–2 weeks)** — *status 2026-11: the offline error page and on-device date reminders are done web-side; the rest needs a Mac and a device — see `CAPACITOR_IOS.md` → "App Review":*
 1. **Offline shell**: cache the app shell in the wrapper (Capacitor local
    assets or SW warm-up) so Airplane Mode shows the local-first UI, not a
    browser error. The app is *already* local-first — the data story is done;

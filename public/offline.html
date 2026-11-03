@@ -46,7 +46,19 @@
       <img src="/logo.png" alt="Bookmark Deck" />
       <h1>You're offline</h1>
       <p>Bookmark Deck needs a connection to load this page. Your saved data is safe — reconnect to pick up where you left off.</p>
-      <button onclick="location.reload()">Try again</button>
+      <button id="retry" type="button">Try again</button>
     </div>
+    <script>
+      // As the browser's offline page (served by the service worker) a reload is the
+      // retry. As the native app's error page this file is local, so a reload would
+      // only reload itself: go back to the live site instead. Keep LIVE equal to
+      // server.url in capacitor.config.ts (a test checks).
+      var LIVE = "https://bmarkdeck.rob2rhyme.app/";
+      document.getElementById("retry").addEventListener("click", function () {
+        var local = location.protocol === "capacitor:" || location.hostname === "localhost";
+        if (local) location.replace(LIVE);
+        else location.reload();
+      });
+    </script>
   </body>
 </html>

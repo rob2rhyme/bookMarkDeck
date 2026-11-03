@@ -78,7 +78,7 @@ parity, and distribution** — not catalog features.
 
 - **Bookmarks:** ~~importers (Pocket/Raindrop/Chrome)~~ — **shipped**: browser HTML
   already; Raindrop CSV/HTML and Pocket CSV/HTML added (`parseServiceCsv`,
-  `parseBookmarkHtml`); read-later/reader-view + highlights; tag-browse.
+  `parseBookmarkHtml`); reader view + highlights and tag-browse **shipped** (below); read-later queue not built.
 - **Focus:** (Soundscapes and two-way Google sync **shipped**: rain, brown noise, wind,
   ocean, soft noise, drone behind a running focus block, `lib/sound.ts`; completions and
   moves made in Google come back to mirrored to-dos, and the agenda adds/deletes events on
@@ -86,7 +86,7 @@ parity, and distribution** — not catalog features.
 - **Habits:** health auto-tracking **shipped as an import** (Apple Health `export.zip`/
   `export.xml`, Google Takeout/Fit CSVs, or a plain CSV → `lib/healthImport.ts`), not a live
   link: Google Fit's API ends in 2026 and Health Connect/Apple Health are native-only, so a live
-  feed waits for the native app wrapper. A Finch-style companion (biggest lift, brand call).
+  feed waits for the native app wrapper. A Finch-style companion **shipped** as a calm plant (below).
 - **My Stuff:** AI photo→item capture — **already built** (`AiCaptureModal.tsx`),
   dormant behind a hidden button + missing `ANTHROPIC_API_KEY`. Ship as the
   premium tier **with** billing (see `MONETIZATION-PWA.md`), never ungated.
@@ -95,14 +95,13 @@ parity, and distribution** — not catalog features.
 
 ~~Un-auth-wall `/guide`+`/faq` pre-signup~~ (**done** — public in `middleware.ts`) ·
 ~~custom `not-found.tsx`~~ (**done**) · ~~`window.confirm`~~ (**done** — the last one,
-deleting a habit, now asks in `ConfirmDialog`) · still open: unify the sync UX (needs a
-product call — bookmarks sync by hand, Focus/Filing/My Stuff live, Notes has its own
-banner) and the hand-built overlays that predate the shared `Modal` (folder pages,
+deleting a habit, now asks in `ConfirmDialog`) · ~~unify the sync UX~~ (**done** — one `SyncBanner` for Focus, My Stuff,
+Filing, Notes and Habits; Bookmarks keeps its manual controls by design) · still open: the hand-built overlays that predate the shared `Modal` (folder pages,
 `RowMenu`'s sheet, `ActivityHistory`, `HomePageClient`'s add-link form).
 
 ## Distribution (your docs call it "the actual biggest gap")
 
-Being in the app stores at all beats any single feature. The Capacitor shell is
+*Status:* the web-side pieces are in (offline error page, on-device date reminders); native barcode, quick actions, the store listing itself and Android need a Mac/device and accounts — `CAPACITOR_IOS.md` → "App Review". The Capacitor shell is
 ~60% built (`capacitor.config.ts`, `CAPACITOR_IOS.md`, `nativeNotify.ts`); ~1–2
 weeks of Guideline-4.2 hardening (offline shell + native barcode + local
 notifications — reuses Tier 1 #3) gets a listing. See

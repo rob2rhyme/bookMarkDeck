@@ -42,9 +42,11 @@ export default function PrivacyPage() {
             agenda features (see “Google account data” below).
           </li>
           <li>
-            The web address of a link you add without a title: the server opens that one page to read
-            its title, and keeps nothing but the title it saves on the bookmark. Private and local
-            network addresses are never fetched. Type a title yourself and nothing is fetched.
+            The web address of a link you add without a title, or open in reader view: the server
+            opens that one page to read its title or its text. A title is saved on the bookmark; the
+            reader&rsquo;s text is shown and not kept — only the passages you highlight are saved, on that
+            bookmark. Private and local network addresses are never fetched. Type a title yourself
+            and nothing is fetched until you press Read.
           </li>
           <li>
             Meditation cue wording (for example “Breathe in.”) sent to OpenAI to be turned into speech,

@@ -124,10 +124,24 @@ export default function HabitsGuidePage() {
           </ul>
         </div>
         <div>
+          <h2 className="text-base font-semibold text-slate-50">Your companion</h2>
+          <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
+            <li>
+              A small plant at the top of the page <strong>grows with your check-ins</strong> — seed, sprout, seedling, on up to an old tree — and it only ever grows. It keeps the count of every check-in you&apos;ve made, including habits you&apos;ve since deleted.
+            </li>
+            <li>
+              Its mood follows <strong>today</strong>: delighted when everything due is done, glad when some is, waiting when none is yet, resting on a day with nothing scheduled. After a few days away it just says welcome back — it never wilts, loses anything, or counts what you missed.
+            </li>
+            <li>
+              <strong>Rename</strong> it, or <strong>Hide</strong> it (and bring it back with <em>Show</em>). Its name and whether it&apos;s hidden are kept on this device; everything else is worked out from your history.
+            </li>
+          </ul>
+        </div>
+        <div>
           <h2 className="text-base font-semibold text-slate-50">Sync & managing</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
             <li>
-              <strong>Your habits save on this device instantly</strong> and sync to your account so they follow you to other devices. If sync isn&apos;t connected you&apos;ll see <em>Saved on this device · Connect to sync</em> — one tap connects it, and anything logged meanwhile goes up then. Your habit data is private to you.
+              <strong>Your habits save on this device instantly</strong> and sync to your account so they follow you to other devices. If sync isn&apos;t connected you&apos;ll see <em>Your habits stay on this device</em> with a <em>Sign in to sync</em> button — one tap connects it, and anything logged meanwhile goes up then. Your habit data is private to you.
             </li>
             <li>
               <strong>Edit, archive or delete</strong> from the ⋮ menu in <em>All habits</em>. Archiving keeps the history: <strong>Show archived</strong> lists them, with <strong>Restore</strong> to bring one back.

@@ -192,6 +192,26 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   through smaller values on its way from cache to cloud; judging early records too
   little (old milestones celebrate later) or celebrates a list loading. A card counts as
   seen once shown, so a reload doesn't repeat it. No account, no celebration.
+- **Reader view and highlights** (`ReaderModal`, opened by a *Read* button on every
+  `BookmarkCard`, so the home, folder and Unstaged pages all get it). `GET /api/reader` fetches
+  the page through the same fenced fetcher as titles (`@/lib/fetchPage` `fetchHtml`, now
+  shared: 1.5 MB, 8 s) and `extractArticle` (`@/lib/readerExtract`) returns **plain text
+  blocks — headings, paragraphs, list items, quotes, code — never HTML**, which the dialog
+  renders as React elements, so a pasted `<img onerror>` or script is text, not DOM. It
+  prefers `<article>`, then `<main>` (only if it holds ≥400 chars, so a teaser doesn't
+  win), then the body, and drops nav/footer/aside/forms. Links and images are not carried;
+  *Open original* is the way to them. **The page is never stored** — fetched fresh each
+  time (browser-cached 10 min) — only the reader's **highlights** are, on the bookmark
+  (`Bookmark.highlights`: `{id, text, createdAt}`, ≤30 a bookmark, ≤600 chars each,
+  because bookmarks share one 1 MiB Firestore document). A highlight is found again **by
+  its text** within a single block, so one the page has since changed just isn't marked,
+  and a selection spanning paragraphs is refused with a message. Highlights are a field on
+  the record, so **every whitelist that rebuilds a bookmark must name them** —
+  `normalizeBookmarks` (device cache and JSON import) and `sanitizeBookmark` (cloud save,
+  fetch and backups) both go through `cleanHighlights`; `firestoreBookmarks.highlights.test.ts`
+  pins the cloud round trip. **Browse by tag** is a chip row on the home page
+  (`@/utils/tagBrowse`: case-insensitive counts, most used first) that narrows `filtered`,
+  so the folder view and Trending follow it.
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the
@@ -309,6 +329,14 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   what keeps six pillars at six bottom-nav cells (the most 320px holds). Header pills
   are icon-only below `xl`: five labelled pills plus the account menu overflow the
   row under ~1280px.
+- **One `SyncBanner` says the same thing on every cloud-backed page** (Focus, My Stuff,
+  Filing, Notes, Habits): not connected → "Your {subject} stay(s) on this device" and one
+  *Sign in to sync* button; connected → a "Synced" line, with the two manual buttons where
+  a page has them (`onSyncFromCloud`/`onSyncToCloud`) or hidden (`hideWhenConnected`, Notes
+  and Habits sync live). Filing replaces the connected line while papers load
+  (`connectedMessage`). It was the same markup copied into five files with drifting
+  wording; Habits had a different pill. Bookmarks is not one of them: it syncs by hand, by
+  design, with its own controls. `e2e/sync-banner.spec.ts` checks all five.
 - **UI that opens on its own never lands on top of another dialog.** The first-run
   welcome (`Onboarding`) opens after a cloud check, so it used to cover whatever the user
   had just opened. It now waits until the page has been dialog-free for a moment
@@ -517,15 +545,21 @@ patched `sharp` and `postcss`, so it holds the fix for those two. When an adviso
 a range the tree already allows (`next` asks for `sharp ^0.35.4`), `npm update <pkg>` is the
 whole fix — a lockfile change, no override.
 
-**`npm audit` is not 0, and the residual is known: `braces` (GHSA-vfj7-8cjw-p6xm, high).** It
-covers every release (`<=3.0.3`, the latest, from 2024), so there is no version to move to.
-One path only, dev-only: `eslint-config-next` → `@next/eslint-plugin-next` (pins
-`fast-glob 3.3.1`, unchanged through 16.3.8) → `micromatch` → `braces`. The DoS needs a
-deeply nested glob *pattern*; the only patterns it sees are the plugin's own, at lint time,
-over this repo — nothing user-supplied, nothing shipped. The 5 "high" lines `npm audit`
-prints are that one advisory counted once per package on the chain. Re-check when `braces`
-publishes a fix (`npm update braces` then clears it) or the plugin drops `fast-glob`; any
-*other* audit line is new and real.
+**`npm audit` is not 0, and what remains is dev-only.** As of 2026-11-03 it reports 18
+*moderate* advisories, all one chain: `eslint` / `@typescript-eslint/*` / `eslint-config-next` /
+`eslint-plugin-*` → `glob` + `minimatch` (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249). Both are
+denial-of-service through crafted glob *patterns*; the only patterns they see are the lint
+plugins' own, at lint time, over this repo — nothing user-supplied, nothing shipped. npm's
+"fix" is a nonsensical ESLint downgrade, and the real one waits on `eslint-config-next`
+supporting a newer ESLint (see the Dependabot table). The old note named `braces`
+(GHSA-vfj7-8cjw-p6xm); that advisory no longer appears. **Any `high` or `critical` line is new
+and real**: the same day, an audit found `next` 16.0.0–16.4.0 carrying two unauthenticated
+remote-code-execution advisories (image optimization with SVGs; `use cache`) and a Server
+Actions DoS, plus `zod`, `re2js` and `undici` highs — all fixed by `npm update` within the
+existing ranges (next 16.4.5). Advisories land without a code change, so **run `npm audit`
+before merging anything, not only when touching dependencies.** Update with
+`npx -y npm@11 update <pkg>` and read the lockfile diff: the sandbox's own npm 10 rewrites the
+whole file (drops the platform binaries' `libc` fields) where npm 11 changes only what moved.
 
 `@capacitor/cli` is pinned with a **tilde** (`~8.4.3`), not a caret, and that is
 load-bearing: 8.5+ adds `xcode`, which pulls `uuid@7` (GHSA-w5hq-g745-h8pq, moderate).
@@ -539,13 +573,15 @@ the set is deliberately *not* on one version: `cli` 8.4.3 beside `core` 8.5.2. S
 major, no peer edge between them, `npm ci` clean, audit 0. Do not "tidy" that by lifting
 the tilde.
 
-**`@capacitor/local-notifications` was bumped in #307 and then removed as unused.** It
-had been a dependency since the shell landed (`a14b40b`, which added all four Capacitor
-packages as a set) and was never once imported — the time-sensitive timer alert is the
-hand-written Swift `TimerAlert` plugin in `CAPACITOR_IOS.md`. It may well come back: 8.1.0
-added `interruptionLevel: 'timeSensitive'`, which is the *only* reason that custom plugin
-exists, so building the iOS shell should start by trying the official plugin. Re-adding is
-one `npm i`; that note lives in `CAPACITOR_IOS.md` §2 where it will actually be read.
+**`@capacitor/local-notifications` is back** (`^8.3.1`). It was bumped in #307 and then
+removed as unused — nothing imported it, the timer alert being the hand-written Swift
+`TimerAlert` plugin. It is now imported by `features/inventory/lib/nativeReminders.ts`
+(on-device dated reminders in the native shell; a no-op on the web, dynamically imported
+behind `Capacitor.isNativePlatform()`). The custom `TimerAlert` is still there; 8.1.0's
+`interruptionLevel: 'timeSensitive'` is what could replace it (`CAPACITOR_IOS.md` §2). Its
+only peer is `@capacitor/core >=8`, so it adds no transitive packages. **When adding to the
+lockfile, check the diff:** a different npm version rewrites it wholesale (the platform
+binaries' `libc` fields vanish), which is noise to avoid, not accept.
 
 ### Dependabot: what is held back, and until when
 
@@ -962,6 +998,23 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
     tell the difference either.
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
+
+## Habits companion (`/habits`)
+
+A small plant (`HabitCompanion`, `features/habits/lib/companion.ts`) that grows with your
+check-ins and keeps you company. The brand call, made to fit "calm, private, no points
+economy": it is **derived, not stored**, **only grows**, and **never scolds**. Its stage
+comes from the count of every `done` entry ever made (a deleted habit's history still
+counts; entries are only ever added, so it can't shrink — seven stages, Seed → Old tree at
+0/1/7/30/90/200/500). Its mood comes from today: *radiant* when everything due is done,
+*glad* when some is, *waiting* when none is, *resting* on a day with nothing scheduled, and
+*welcome back* after 3+ days without a check-in — never a penalty, no wilting, no streak
+loss, no missed-day count (a test fails if a line mentions miss/lost/wilt/streak/behind). One
+line a day, chosen from the day's hash, so it doesn't reshuffle on every render. Only its
+**name and a hidden flag** are stored, **per device and account** (`bd:companion:v1:{email}`),
+read through `useSyncExternalStore` because the Habits page renders its main branch on the
+server too and the server has no storage. The art is hand-drawn SVG (no files, no library).
+`e2e/companion.spec.ts`.
 
 ## Habits health import (`/habits` → "Health data")
 
