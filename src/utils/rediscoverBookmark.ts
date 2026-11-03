@@ -3,6 +3,7 @@
 // not a reshuffle on every render), favouring least-recently-opened links.
 // Pure — see rediscoverBookmark.test.ts.
 
+import { dayKeyFor, dayKeyOf } from "@/lib/dayKey";
 import type { Bookmark } from "@/types/bookmark";
 
 /** Stable hash of a YYYY-MM-DD day → non-negative int (rotates the pick daily). */
@@ -17,23 +18,38 @@ function touchedAt(b: Bookmark): string {
   return b.lastUsedAt ?? b.createdAt ?? "";
 }
 
+/** The local day `n` days before a YYYY-MM-DD day. */
+function daysBefore(day: string, n: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return dayKeyFor(new Date(y, m - 1, d - n));
+}
+
 /**
  * One bookmark to resurface for `day`, favouring "once-loved" links (opened at
  * least once) that are the least-recently opened. Returns null for a small
  * library (< minLibrary) so it never nags a near-empty deck. Deterministic: the
- * same day always picks the same bookmark, and it rotates day to day.
+ * same day always picks the same bookmark, and it rotates day to day. Only
+ * links untouched for `staleDays` qualify: something opened last week isn't
+ * forgotten, so a library in active use gets no card at all.
  */
 export function pickRediscoverBookmark(
   bookmarks: Bookmark[],
   day: string,
   minLibrary = 8,
-  poolSize = 15
+  poolSize = 15,
+  staleDays = 30
 ): Bookmark | null {
   if (!day) return null;
   if (bookmarks.length < minLibrary) return null;
 
-  const loved = bookmarks.filter((b) => (b.hits ?? 0) > 0);
-  const candidates = loved.length >= 3 ? loved : bookmarks;
+  // Compared as local days, never by slicing the stored UTC instant.
+  const cutoff = daysBefore(day, staleDays);
+  const stale = bookmarks.filter((b) => {
+    const touched = dayKeyOf(touchedAt(b));
+    return touched !== null && touched <= cutoff;
+  });
+  const loved = stale.filter((b) => (b.hits ?? 0) > 0);
+  const candidates = loved.length >= 3 ? loved : stale;
 
   // Oldest-touched first (forgotten), stable tiebreak by id.
   const pool = [...candidates]
