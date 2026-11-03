@@ -545,15 +545,21 @@ patched `sharp` and `postcss`, so it holds the fix for those two. When an adviso
 a range the tree already allows (`next` asks for `sharp ^0.35.4`), `npm update <pkg>` is the
 whole fix — a lockfile change, no override.
 
-**`npm audit` is not 0, and the residual is known: `braces` (GHSA-vfj7-8cjw-p6xm, high).** It
-covers every release (`<=3.0.3`, the latest, from 2024), so there is no version to move to.
-One path only, dev-only: `eslint-config-next` → `@next/eslint-plugin-next` (pins
-`fast-glob 3.3.1`, unchanged through 16.3.8) → `micromatch` → `braces`. The DoS needs a
-deeply nested glob *pattern*; the only patterns it sees are the plugin's own, at lint time,
-over this repo — nothing user-supplied, nothing shipped. The 5 "high" lines `npm audit`
-prints are that one advisory counted once per package on the chain. Re-check when `braces`
-publishes a fix (`npm update braces` then clears it) or the plugin drops `fast-glob`; any
-*other* audit line is new and real.
+**`npm audit` is not 0, and what remains is dev-only.** As of 2026-11-03 it reports 18
+*moderate* advisories, all one chain: `eslint` / `@typescript-eslint/*` / `eslint-config-next` /
+`eslint-plugin-*` → `glob` + `minimatch` (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249). Both are
+denial-of-service through crafted glob *patterns*; the only patterns they see are the lint
+plugins' own, at lint time, over this repo — nothing user-supplied, nothing shipped. npm's
+"fix" is a nonsensical ESLint downgrade, and the real one waits on `eslint-config-next`
+supporting a newer ESLint (see the Dependabot table). The old note named `braces`
+(GHSA-vfj7-8cjw-p6xm); that advisory no longer appears. **Any `high` or `critical` line is new
+and real**: the same day, an audit found `next` 16.0.0–16.4.0 carrying two unauthenticated
+remote-code-execution advisories (image optimization with SVGs; `use cache`) and a Server
+Actions DoS, plus `zod`, `re2js` and `undici` highs — all fixed by `npm update` within the
+existing ranges (next 16.4.5). Advisories land without a code change, so **run `npm audit`
+before merging anything, not only when touching dependencies.** Update with
+`npx -y npm@11 update <pkg>` and read the lockfile diff: the sandbox's own npm 10 rewrites the
+whole file (drops the platform binaries' `libc` fields) where npm 11 changes only what moved.
 
 `@capacitor/cli` is pinned with a **tilde** (`~8.4.3`), not a caret, and that is
 load-bearing: 8.5+ adds `xcode`, which pulls `uuid@7` (GHSA-w5hq-g745-h8pq, moderate).
