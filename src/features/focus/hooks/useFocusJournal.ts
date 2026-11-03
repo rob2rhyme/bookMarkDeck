@@ -17,6 +17,7 @@ import { isMoodKey, MOOD_BY_KEY, type MoodKey } from "@/features/focus/lib/mood"
 import {
   clearPendingUpserts,
   flushPendingDeletes,
+  pendingDeleteIds,
   pendingUpsertIds,
   queueDelete,
   queueUpsert,
@@ -89,6 +90,36 @@ function loadNotes(email?: string | null): JournalNote[] {
 
 const LEGACY_PREFIX = "legacy-";
 
+// The offline queue for journal notes. It used to be "notes", which is the Notes
+// pillar's: same account, same key, so each pillar's connect cleared the other's
+// queued edits and sent its queued deletes to the wrong collection.
+const NOTES_DOMAIN = "focusNotes";
+const SHARED_DOMAIN = "notes";
+
+/**
+ * Once per account, take back the journal's entries from the shared queue. An edit
+ * is ours if the note is in our cache. A queued delete can't be told apart (both
+ * pillars use random UUIDs, and the note is gone), so it is copied: sent to a
+ * collection that doesn't hold the id, a delete does nothing.
+ */
+function adoptSharedQueue(email: string | null | undefined, ownIds: Set<string>) {
+  const flag = `bookmarkdeck:pending-adopted:${NOTES_DOMAIN}:${email ?? ""}`;
+  try {
+    if (window.localStorage.getItem(flag)) return;
+  } catch {
+    return;
+  }
+  for (const id of pendingUpsertIds(SHARED_DOMAIN, email)) {
+    if (!ownIds.has(id)) continue;
+    queueUpsert(NOTES_DOMAIN, email, id);
+    unqueueUpsert(SHARED_DOMAIN, email, id);
+  }
+  for (const id of pendingDeleteIds(SHARED_DOMAIN, email)) queueDelete(NOTES_DOMAIN, email, id);
+  try {
+    window.localStorage.setItem(flag, "1");
+  } catch {}
+}
+
 /**
  * Per-day mood + multiple timestamped notes per day. Mood lives in
  * focusJournal/{day} (merge-written so notes never clobber it); notes live in
@@ -107,8 +138,10 @@ export function useFocusJournal(
   const today = todayKey();
 
   useEffect(() => {
+    const cached = loadNotes(email);
+    adoptSharedQueue(email, new Set(cached.map((n) => n.id)));
     setEntries(loadEntries(email));
-    setNotes(loadNotes(email));
+    setNotes(cached);
     setHydrated(true);
   }, [email]);
 
@@ -129,11 +162,11 @@ export function useFocusJournal(
     let unsubJournal = () => {};
     let unsubNotes = () => {};
     (async () => {
-      await flushPendingDeletes("notes", email, (id) => deleteNoteRemote(email, id));
+      await flushPendingDeletes(NOTES_DOMAIN, email, (id) => deleteNoteRemote(email, id));
       // Push ONLY what changed while offline — never blindly re-upload the whole
       // local cache (that clobbers newer cloud edits and resurrects notes deleted
       // on another device).
-      const noteUps = pendingUpsertIds("notes", email);
+      const noteUps = pendingUpsertIds(NOTES_DOMAIN, email);
       if (noteUps.size)
         await Promise.all(
           notes
@@ -147,7 +180,7 @@ export function useFocusJournal(
             .filter((e) => moodUps.has(e.day))
             .map((e) => saveMood(email, e.day, e.mood).catch(() => {}))
         );
-      clearPendingUpserts("notes", email);
+      clearPendingUpserts(NOTES_DOMAIN, email);
       clearPendingUpserts("moods", email);
     })()
       .catch(() => {})
@@ -207,7 +240,7 @@ export function useFocusJournal(
       };
       setNotes((prev) => [note, ...prev]);
       if (canSync && email) addNoteRemote(email, note).catch(() => {});
-      else queueUpsert("notes", email, note.id);
+      else queueUpsert(NOTES_DOMAIN, email, note.id);
       // Activity log is today-scoped; don't log backdated entries as "today".
       if (day === today)
         onLog?.(
@@ -240,7 +273,7 @@ export function useFocusJournal(
         const updated = next.find((n) => n.id === id);
         if (canSync && email && updated)
           addNoteRemote(email, updated).catch(() => {});
-        else if (updated) queueUpsert("notes", email, id);
+        else if (updated) queueUpsert(NOTES_DOMAIN, email, id);
         return next;
       });
     },
@@ -262,8 +295,8 @@ export function useFocusJournal(
       // Not connected → remember to delete from the cloud on next connect, and
       // drop any pending offline upsert so the flush won't re-create it.
       else {
-        queueDelete("notes", email, id);
-        unqueueUpsert("notes", email, id);
+        queueDelete(NOTES_DOMAIN, email, id);
+        unqueueUpsert(NOTES_DOMAIN, email, id);
       }
     },
     [canSync, email]
@@ -279,12 +312,12 @@ export function useFocusJournal(
         if (canSync && email) setJournalNote(email, day, note.text).catch(() => {});
         return;
       }
-      unqueueDelete("notes", email, note.id); // un-delete if it was queued
+      unqueueDelete(NOTES_DOMAIN, email, note.id); // un-delete if it was queued
       setNotes((prev) =>
         prev.some((n) => n.id === note.id) ? prev : [note, ...prev]
       );
       if (canSync && email) addNoteRemote(email, note).catch(() => {});
-      else queueUpsert("notes", email, note.id);
+      else queueUpsert(NOTES_DOMAIN, email, note.id);
     },
     [canSync, email]
   );
