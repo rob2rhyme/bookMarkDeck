@@ -991,6 +991,23 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
 - Shared-file touches (additive only): `AppShell.tsx` (Focus nav pill, mobile-safe),
   `icons.tsx` (`Timer`, `Settings`).
 
+## Habits companion (`/habits`)
+
+A small plant (`HabitCompanion`, `features/habits/lib/companion.ts`) that grows with your
+check-ins and keeps you company. The brand call, made to fit "calm, private, no points
+economy": it is **derived, not stored**, **only grows**, and **never scolds**. Its stage
+comes from the count of every `done` entry ever made (a deleted habit's history still
+counts; entries are only ever added, so it can't shrink — seven stages, Seed → Old tree at
+0/1/7/30/90/200/500). Its mood comes from today: *radiant* when everything due is done,
+*glad* when some is, *waiting* when none is, *resting* on a day with nothing scheduled, and
+*welcome back* after 3+ days without a check-in — never a penalty, no wilting, no streak
+loss, no missed-day count (a test fails if a line mentions miss/lost/wilt/streak/behind). One
+line a day, chosen from the day's hash, so it doesn't reshuffle on every render. Only its
+**name and a hidden flag** are stored, **per device and account** (`bd:companion:v1:{email}`),
+read through `useSyncExternalStore` because the Habits page renders its main branch on the
+server too and the server has no storage. The art is hand-drawn SVG (no files, no library).
+`e2e/companion.spec.ts`.
+
 ## Habits health import (`/habits` → "Health data")
 
 An **import, not a live link** — Google Fit's REST API ends in 2026 and Health Connect / Apple

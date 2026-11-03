@@ -86,7 +86,7 @@ parity, and distribution** — not catalog features.
 - **Habits:** health auto-tracking **shipped as an import** (Apple Health `export.zip`/
   `export.xml`, Google Takeout/Fit CSVs, or a plain CSV → `lib/healthImport.ts`), not a live
   link: Google Fit's API ends in 2026 and Health Connect/Apple Health are native-only, so a live
-  feed waits for the native app wrapper. A Finch-style companion (biggest lift, brand call).
+  feed waits for the native app wrapper. A Finch-style companion **shipped** as a calm plant (below).
 - **My Stuff:** AI photo→item capture — **already built** (`AiCaptureModal.tsx`),
   dormant behind a hidden button + missing `ANTHROPIC_API_KEY`. Ship as the
   premium tier **with** billing (see `MONETIZATION-PWA.md`), never ungated.
