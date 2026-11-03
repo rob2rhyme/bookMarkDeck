@@ -208,9 +208,11 @@ test.describe("signed in", () => {
     // Habits takes an empty-state branch with no habits — the SectionNav and
     // `#hsec-summary` live in the `else`, so they do not exist here. The
     // create CTA is what this pillar actually shows a new user.
+    // The header and the empty state each offer "+ New habit", so the empty state
+    // is checked by its own text: matching the button alone resolved to two
+    // elements once the cache had loaded, and passed only when it hadn't yet.
     await page.goto("/habits");
-    await expect(
-      page.getByRole("button", { name: /new habit/i })
-    ).toBeVisible();
+    await expect(page.getByText("Start with one small habit")).toBeVisible();
+    await expect(page.getByRole("button", { name: /new habit/i }).first()).toBeVisible();
   });
 });
