@@ -18,6 +18,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   query,
   serverTimestamp,
   setDoc,
@@ -369,9 +370,10 @@ function itemPayload(item: InventoryItem): Record<string, unknown> {
   });
 }
 
+/** The server's answer only — offline this rejects rather than read an empty cache (see @/utils/untilAnswered). */
 export async function fetchItems(emailHint: string): Promise<InventoryItem[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(itemsCol(uid));
+  const snap = await getDocsFromServer(itemsCol(uid));
   return snap.docs.map(mapItem).filter((i) => i.name.trim().length > 0);
 }
 
@@ -484,7 +486,7 @@ export async function fetchLocations(
   emailHint: string
 ): Promise<InventoryLocation[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(locationsCol(uid));
+  const snap = await getDocsFromServer(locationsCol(uid));
   return snap.docs.map(mapLocation).filter((l) => l.name.trim().length > 0);
 }
 
@@ -653,7 +655,7 @@ function mapWishlist(d: {
 
 export async function fetchWishlist(emailHint: string): Promise<WishlistItem[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(wishlistCol(uid));
+  const snap = await getDocsFromServer(wishlistCol(uid));
   return snap.docs.map(mapWishlist).filter((w) => w.name.trim().length > 0);
 }
 

@@ -16,6 +16,7 @@ vi.mock("firebase/firestore", () => {
     deleteDoc: vi.fn(),
     doc: vi.fn(() => ({})),
     getDocs: vi.fn(),
+    getDocsFromServer: vi.fn(),
     onSnapshot: vi.fn(),
     setDoc: vi.fn(),
   };
@@ -26,7 +27,7 @@ vi.mock("@/lib/firebase", () => ({
 }));
 
 import { collection, onSnapshot, setDoc } from "firebase/firestore";
-import { mapNote, saveNote, subscribeNotes, subscribeVaults, toFirestore } from "./notesData";
+import { mapNote, saveNote, subscribeDeletions, subscribeNotes, subscribeVaults, toFirestore } from "./notesData";
 import type { Note } from "@/features/notes/lib/notes";
 
 const NOTE: Note = {
@@ -153,5 +154,36 @@ describe.each([
     feed(snap(true)); // a later offline blip
     feed(snap(false, true)); // this page's own unacknowledged write
     expect(cb).toHaveBeenCalledTimes(3);
+  });
+});
+
+// The deletion log merges what it reads and writes the union back when this
+// device holds entries the cloud lacks. Offline, a cache-only first answer can
+// say the log is missing, so that write-back replaced the cloud's log with this
+// device's view.
+describe("subscribeDeletions — cache-only guard", () => {
+  beforeEach(() => vi.mocked(onSnapshot).mockClear().mockReturnValue(() => {}));
+  const logSnap = (fromCache: boolean, deleted: unknown[] = []) => ({
+    data: () => ({ deleted }),
+    metadata: { fromCache, hasPendingWrites: false },
+  });
+  const entry = { id: "n1", title: "Gone", at: "2026-10-01T00:00:00.000Z" };
+
+  it("holds a cache-only first snapshot back, then passes everything", async () => {
+    const cb = vi.fn();
+    subscribeDeletions("a@example.com", cb);
+    await vi.waitFor(() => expect(onSnapshot).toHaveBeenCalled());
+    const [, options, feed] = vi.mocked(onSnapshot).mock.calls.at(-1) as unknown as [
+      unknown,
+      { includeMetadataChanges: boolean },
+      (s: ReturnType<typeof logSnap>) => void,
+    ];
+    expect(options.includeMetadataChanges).toBe(true);
+    feed(logSnap(true));
+    expect(cb).not.toHaveBeenCalled();
+    feed(logSnap(false, [entry]));
+    feed(logSnap(true, [entry]));
+    expect(cb).toHaveBeenCalledTimes(2);
+    expect(cb).toHaveBeenLastCalledWith([entry]);
   });
 });

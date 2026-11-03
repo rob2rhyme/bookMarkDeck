@@ -228,6 +228,24 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   to one is still replaced by the cloud copy — PR C's rule, unchanged. It is
   last-writer-wins per record: the push overwrites any newer edit to the same
   record made elsewhere meanwhile, exactly as focus's queue does.
+- **In Notes, Inventory and Filing a write is queued FIRST, signed in or not, and
+  leaves the queue only once the server acknowledges it** (`durableSave` /
+  `durableDelete` in `@/utils/pendingDeletes`). "Connected" means signed in to
+  Firebase, not online, and Firestore's cache is memory-only: a write made signed
+  in but offline lived in that tab's memory, so a tab closed before the network
+  returned lost it — the next load's snapshot put the old copy back, or brought a
+  deleted record back. A per-record generation keeps an older write's
+  acknowledgement from un-queuing a newer one; a write refused for good
+  (`permission-denied`, `invalid-argument`) leaves the queue instead of being
+  retried forever. On connect `replayUpserts` / `flushPendingDeletes` take each id
+  off only once it lands — they used to clear the whole queue, failures included.
+  **The connect fetch is the server's answer only** (`getDocsFromServer`, retried
+  by `@/utils/untilAnswered` on `online` and every 15 s): offline, `getDocs`
+  answers from the empty memory cache, and every queued edit would read as deleted
+  on another device and be dropped. Notes' editor counts a save as done once it is
+  on the device — it used to wait for the cloud, and offline its one-at-a-time
+  saves stalled after the first. Not yet covered: Focus, Habits (next), and the
+  cloud-only logs (focus sessions, scores, activity, meditation, Let Them).
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 
@@ -946,7 +964,9 @@ multi-user, which stays ruled out. Nobody else signs in.
   copy exists elsewhere: it used to be unconditional, so an unsynced account lost
   every obligation, note and reference on each reload, and a synced one editing
   before the first snapshot wrote the stripped record over the full cloud copy
-  (`setDoc`, no merge). Before that point documents cache whole.
+  (`setDoc`, no merge). Before that point documents cache whole — and so,
+  after it, does any paper whose edit is still queued: slim, the edit itself would
+  not be on the device for the next load to send.
   `subscribeDocuments(folderId?)` exists so per-folder lazy loading is a one-line
   change past a documented threshold.
 - **A record rebuilt from the slim cache is `partial`, and a partial record is
@@ -1176,8 +1196,8 @@ feature; nothing imports it — removable cleanly in both directions.
   client's instant, not `serverTimestamp()` — a pending server time reads `null` in the
   local snapshot and would sink the note being typed to the bottom of the list.
 - **Same sync model as filing**: per-user cache (`bookmarkdeck:notes:v1:{email}`) renders
-  at once, the live subscription takes over when connected, offline changes go through
-  `queueUpsert`/`queueDelete` and `toUpload` on connect. The cache is written
+  at once, the live subscription takes over when connected, every change is queued
+  first (`durableSave`/`durableDelete`, above) and sent by `toUpload` on connect. The cache is written
   **synchronously** by every change (not from an effect) because the editor saves on
   `pagehide` and unmount, which don't wait for a render. The hook adopts `storage`
   events (other tabs) **and** a same-tab `bd:notes-cache-changed` event — the list and

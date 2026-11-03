@@ -9,12 +9,12 @@ import {
   subscribeFolders,
 } from "@/features/filing/data/filingData";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
-  queueDelete,
-  queueUpsert,
-  unqueueUpsert,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import { isCheckedOut } from "@/features/filing/lib/breadcrumb";
 import { todayKey } from "@/lib/dayKey";
@@ -88,14 +88,13 @@ export function useFilingFolders(email?: string | null, connected = false) {
       // it had at the last snapshot and lacks now was deleted on another device
       // — uploading "everything the cloud lacks" recreated it for everyone.
       await flushPendingDeletes("filingFolders", email, (id) => deleteFolder(email, id));
-      const cloud = await fetchFolders(email);
+      const cloud = await untilAnswered(() => fetchFolders(email), () => cancelled);
+      if (!cloud) return;
       const cloudIds = new Set(cloud.map((f) => f.id));
-      await Promise.all(
-        toUpload(ref.current, cloudIds, "filingFolders", email).map((f) =>
-          saveFolder(email, f).catch(() => {})
-        )
+      // Each leaves the queue once it lands; one that failed is tried again next connect.
+      await replayUpserts("filingFolders", email, toUpload(ref.current, cloudIds, "filingFolders", email), (f) =>
+        saveFolder(email, f)
       );
-      clearPendingUpserts("filingFolders", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -136,8 +135,7 @@ export function useFilingFolders(email?: string | null, connected = false) {
         updatedAt: null,
       };
       setFolders((prev) => [...prev, folder]);
-      if (canSync && email) saveFolder(email, folder).catch(onSaveError);
-      else queueUpsert("filingFolders", email, folder.id);
+      durableSave("filingFolders", email, folder.id, canSync && email ? () => saveFolder(email, folder) : null).catch(onSaveError);
       return folder;
     },
     [canSync, email, onSaveError]
@@ -150,8 +148,8 @@ export function useFilingFolders(email?: string | null, connected = false) {
           f.id === id ? { ...fn(f), updatedAt: new Date().toISOString() } : f
         );
         const updated = next.find((f) => f.id === id);
-        if (canSync && email && updated) saveFolder(email, updated).catch(onSaveError);
-        else if (updated) queueUpsert("filingFolders", email, updated.id);
+        if (updated)
+          durableSave("filingFolders", email, updated.id, canSync && email ? () => saveFolder(email, updated) : null).catch(onSaveError);
         return next;
       });
     },
@@ -230,9 +228,8 @@ export function useFilingFolders(email?: string | null, connected = false) {
   const removeFolder = useCallback(
     (id: string) => {
       setFolders((prev) => prev.filter((f) => f.id !== id));
-      unqueueUpsert("filingFolders", email, id); // an edit to it must not be pushed back
-      if (canSync && email) deleteFolder(email, id).catch(onSaveError);
-      else queueDelete("filingFolders", email, id); // replayed on connect
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete("filingFolders", email, id, canSync && email ? () => deleteFolder(email, id) : null).catch(onSaveError);
     },
     [canSync, email, onSaveError]
   );
@@ -249,8 +246,7 @@ export function useFilingFolders(email?: string | null, connected = false) {
         for (const item of incoming) {
           const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingFolder;
           byId.set(item.id, merged);
-          if (canSync && email) saveFolder(email, merged).catch(onSaveError);
-          else queueUpsert("filingFolders", email, merged.id);
+          durableSave("filingFolders", email, merged.id, canSync && email ? () => saveFolder(email, merged) : null).catch(onSaveError);
         }
         return [...byId.values()];
       });

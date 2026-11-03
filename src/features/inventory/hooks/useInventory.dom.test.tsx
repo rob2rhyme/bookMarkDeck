@@ -49,6 +49,8 @@ beforeEach(() => {
   vi.mocked(saveItem).mockClear();
   vi.mocked(deleteItem).mockReset().mockResolvedValue(undefined as never);
   vi.mocked(subscribeItems).mockReset().mockReturnValue(() => {});
+  for (const save of [saveLocation, saveWishlist]) vi.mocked(save).mockReset().mockResolvedValue();
+  for (const sub of [subscribeLocations, subscribeWishlist]) vi.mocked(sub).mockReset().mockReturnValue(() => {});
 });
 
 function connectWith(cache: InventoryItem[], cloud: InventoryItem[]) {
@@ -207,5 +209,84 @@ describe("syncedIds — pending writes", () => {
     renderHook(() => useWishlist(EMAIL, true));
     await waitFor(() => expect(subscribeWishlist).toHaveBeenCalled());
     expect(syncedIds("inventoryWishlist", EMAIL).has("new")).toBe(false);
+  });
+});
+
+// Signed in but offline, Firestore holds a write in this tab's memory until the
+// server has it: the save never settles, and a tab closed meanwhile lost it — the
+// next load's snapshot put the old copy back (an edit), or brought it back (a
+// delete). Each change is now queued first and sent again on the next load.
+describe("signed in, offline, tab closed", () => {
+  const never = () => new Promise<never>(() => {});
+
+  /** Mount connected, make `edit` with every write hanging, close the tab, and
+   *  load again with the network back. */
+  async function closeOffline<R>(
+    use: () => R,
+    ready: (r: R) => boolean,
+    edit: (r: R) => void,
+    writes: ReturnType<typeof vi.fn>[],
+    subscribed: ReturnType<typeof vi.fn>
+  ) {
+    writes.forEach((w) => w.mockImplementation(never));
+    const tab = renderHook(use);
+    await waitFor(() => expect(ready(tab.result.current)).toBe(true));
+    await waitFor(() => expect(subscribed).toHaveBeenCalled());
+    act(() => edit(tab.result.current));
+    tab.unmount();
+    writes.forEach((w) => w.mockReset().mockResolvedValue(undefined));
+    renderHook(use);
+    await waitFor(() => expect(subscribed).toHaveBeenCalledTimes(2));
+  }
+
+  it("an item edit and a delete are sent on the next load", async () => {
+    const both = [item("I1"), item("I2")];
+    recordSyncedIds("inventoryItems", EMAIL, ["I1", "I2"]);
+    localStorage.setItem(KEY, JSON.stringify(both));
+    vi.mocked(fetchItems).mockResolvedValue(both);
+    await closeOffline(
+      () => useInventory(EMAIL, true),
+      (r) => r.items.length === 2,
+      (r) => {
+        r.markUsed("I1");
+        r.removeItem("I2");
+      },
+      [vi.mocked(saveItem), vi.mocked(deleteItem)],
+      vi.mocked(subscribeItems)
+    );
+    expect(deleteItem).toHaveBeenCalledWith(EMAIL, "I2");
+    const [[, pushed]] = vi.mocked(saveItem).mock.calls;
+    expect(pushed).toMatchObject({ id: "I1" });
+    expect(pushed.activity?.map((a) => a.type)).toEqual(["used"]);
+  });
+
+  it("a location rename is sent on the next load", async () => {
+    const loc = { id: "L1", name: "Garage", parentId: null } as InventoryLocation;
+    recordSyncedIds("inventoryLocations", EMAIL, ["L1"]);
+    localStorage.setItem(`bookmarkdeck:inventory:locations:v1:${EMAIL}`, JSON.stringify([loc]));
+    vi.mocked(fetchLocations).mockResolvedValue([loc]);
+    await closeOffline(
+      () => useInventoryLocations(EMAIL, true),
+      (r) => r.locations.length === 1,
+      (r) => r.renameLocation("L1", "Shed"),
+      [vi.mocked(saveLocation)],
+      vi.mocked(subscribeLocations)
+    );
+    expect(vi.mocked(saveLocation).mock.calls.map(([, l]) => l.name)).toEqual(["Shed"]);
+  });
+
+  it("a wishlist edit is sent on the next load", async () => {
+    const wish = { id: "W1", name: "Drill" } as WishlistItem;
+    recordSyncedIds("inventoryWishlist", EMAIL, ["W1"]);
+    localStorage.setItem(`bookmarkdeck:inventory:wishlist:v1:${EMAIL}`, JSON.stringify([wish]));
+    vi.mocked(fetchWishlist).mockResolvedValue([wish]);
+    await closeOffline(
+      () => useWishlist(EMAIL, true),
+      (r) => r.items.length === 1,
+      (r) => r.upsert({ ...wish, name: "Cordless drill" }),
+      [vi.mocked(saveWishlist)],
+      vi.mocked(subscribeWishlist)
+    );
+    expect(vi.mocked(saveWishlist).mock.calls.map(([, w]) => w.name)).toEqual(["Cordless drill"]);
   });
 });

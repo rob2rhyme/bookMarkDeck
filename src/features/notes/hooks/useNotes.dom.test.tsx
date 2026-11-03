@@ -13,6 +13,7 @@ vi.mock("@/features/notes/data/notesData", () => ({
 
 import { deleteNote, fetchNotes, saveNote, subscribeNotes } from "@/features/notes/data/notesData";
 import type { Note } from "@/features/notes/lib/notes";
+import { pendingDeleteIds, pendingUpsertIds } from "@/utils/pendingDeletes";
 import { recordSyncedIds, syncedIds } from "@/utils/syncedIds";
 import { useNotes } from "./useNotes";
 
@@ -32,8 +33,8 @@ const cached = () => JSON.parse(localStorage.getItem(KEY) ?? "[]") as Note[];
 
 beforeEach(() => {
   localStorage.clear();
-  vi.mocked(saveNote).mockClear();
-  vi.mocked(deleteNote).mockClear();
+  vi.mocked(saveNote).mockReset().mockResolvedValue();
+  vi.mocked(deleteNote).mockReset().mockResolvedValue();
   vi.mocked(fetchNotes).mockReset().mockResolvedValue([]);
   vi.mocked(subscribeNotes).mockReset().mockReturnValue(() => {});
 });
@@ -318,5 +319,86 @@ describe("useNotes — edited on two devices", () => {
     expect(JSON.parse(localStorage.getItem(`bookmarkdeck:notes:base:v1:${EMAIL}`) ?? "{}")).toEqual({
       r: "2026-10-21T05:00:00.000Z",
     });
+  });
+});
+
+// Signed in but offline: Firestore holds a write in this tab's memory until the
+// server has it, so its promise never settles — and a tab closed meanwhile loses
+// it. Each change is queued first, so the next load can still send it.
+describe("useNotes — signed in, offline, tab closed", () => {
+  const never = () => new Promise<void>(() => {});
+
+  it("an edit and a delete survive the tab closing and are sent on the next load", async () => {
+    const cloud = [note("a"), note("b")];
+    recordSyncedIds("notes", EMAIL, ["a", "b"]);
+    localStorage.setItem(KEY, JSON.stringify(cloud));
+    vi.mocked(fetchNotes).mockResolvedValue(cloud);
+    vi.mocked(saveNote).mockImplementation(never);
+    vi.mocked(deleteNote).mockImplementation(never);
+
+    const tab = renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalled());
+    act(() => {
+      void tab.result.current.updateNote("a", { body: "edited offline" });
+      void tab.result.current.removeNote("b");
+    });
+    tab.unmount(); // closed before the network came back
+
+    vi.mocked(saveNote).mockReset().mockResolvedValue();
+    vi.mocked(deleteNote).mockReset().mockResolvedValue();
+    renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalledTimes(2));
+    expect(deleteNote).toHaveBeenCalledWith(EMAIL, "b");
+    expect(saveNote).toHaveBeenCalledWith(EMAIL, expect.objectContaining({ id: "a", body: "edited offline" }));
+    expect(pendingUpsertIds("notes", EMAIL).size).toBe(0);
+    expect(pendingDeleteIds("notes", EMAIL).size).toBe(0);
+  });
+
+  it("an edit leaves the queue only once the cloud has it", async () => {
+    let land: () => void = () => {};
+    vi.mocked(saveNote).mockImplementation(() => new Promise<void>((res) => (land = res)));
+    const { result } = renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalled());
+    let id = "";
+    act(() => {
+      id = result.current.createNote({ body: "x" }).id;
+    });
+    expect(pendingUpsertIds("notes", EMAIL)).toEqual(new Set([id]));
+    await act(async () => land());
+    expect(pendingUpsertIds("notes", EMAIL).size).toBe(0);
+  });
+
+  it("a save resolves once it is on this device, so the editor's next save isn't held up", async () => {
+    vi.mocked(saveNote).mockImplementation(never);
+    const { result } = renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalled());
+    let id = "";
+    act(() => {
+      id = result.current.createNote().id;
+    });
+    await act(() => result.current.updateNote(id, { body: "first" }));
+    await act(() => result.current.updateNote(id, { body: "second" }));
+    expect(cached().find((n) => n.id === id)?.body).toBe("second");
+  });
+
+  it("offline at load, waits for the server before deciding what was deleted elsewhere", async () => {
+    // Offline, a plain read answers from an empty cache: every note would look
+    // deleted on another device, and its queued edit would be dropped.
+    recordSyncedIds("notes", EMAIL, ["a"]);
+    localStorage.setItem(KEY, JSON.stringify([note("a", { body: "edited offline" })]));
+    localStorage.setItem("bookmarkdeck:pending-up:notes:" + EMAIL, JSON.stringify(["a"]));
+    vi.mocked(fetchNotes)
+      .mockRejectedValueOnce(Object.assign(new Error("offline"), { code: "unavailable" }))
+      .mockResolvedValue([note("a")]);
+
+    renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(fetchNotes).toHaveBeenCalledTimes(1));
+    expect(saveNote).not.toHaveBeenCalled();
+    // Back online (sent until the retry is listening for it).
+    await waitFor(() => {
+      window.dispatchEvent(new Event("online"));
+      expect(subscribeNotes).toHaveBeenCalled();
+    });
+    expect(saveNote).toHaveBeenCalledWith(EMAIL, expect.objectContaining({ id: "a", body: "edited offline" }));
   });
 });

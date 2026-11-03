@@ -18,12 +18,13 @@ import type {
 } from "@/features/filing/lib/types";
 import { todayKey } from "@/lib/dayKey";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
-  queueDelete,
-  queueUpsert,
-  unqueueUpsert,
+  pendingUpsertIds,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 
 const BASE_KEY = "bookmarkdeck:filing:documents:v1";
@@ -181,7 +182,11 @@ export function useFilingDocuments(email?: string | null, connected = false) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const cached = cloudLoaded ? documents.map(slim) : documents;
+      // Slim is safe only while a fuller copy exists elsewhere — so never for a
+      // paper whose edit hasn't reached the cloud yet: cached whole, a tab closed
+      // offline still has the edit to send on the next load.
+      const queued = pendingUpsertIds("filingDocuments", email);
+      const cached = cloudLoaded ? documents.map((d) => (queued.has(d.id) ? d : slim(d))) : documents;
       window.localStorage.setItem(keyFor(email), JSON.stringify(cached));
     } catch {
       /* quota — the cloud copy is still authoritative */
@@ -199,16 +204,15 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       // deleted on another device. `promote` is safe here and nowhere else,
       // because there is no fuller copy to overwrite.
       await flushPendingDeletes("filingDocuments", email, (id) => deleteDocument(email, id));
-      const cloud = await fetchDocuments(email);
+      const cloud = await untilAnswered(() => fetchDocuments(email), () => cancelled);
+      if (!cloud) return;
       const cloudIds = new Set(cloud.map((d) => d.id));
-      await Promise.all(
-        toUpload(ref.current, cloudIds, "filingDocuments", email)
-          // An offline edit to a paper the cloud holds goes up only if complete:
-          // a partial one would write its missing fields over the full copy.
-          .flatMap((d) => (!cloudIds.has(d.id) ? [promote(d)] : isComplete(d) ? [d] : []))
-          .map((d) => saveDocument(email, d).catch(() => {}))
-      );
-      clearPendingUpserts("filingDocuments", email);
+      const upload = toUpload(ref.current, cloudIds, "filingDocuments", email)
+        // An offline edit to a paper the cloud holds goes up only if complete:
+        // a partial one would write its missing fields over the full copy.
+        .flatMap((d) => (!cloudIds.has(d.id) ? [promote(d)] : isComplete(d) ? [d] : []));
+      // Each leaves the queue once it lands; one that failed is tried again next connect.
+      await replayUpserts("filingDocuments", email, upload, (d) => saveDocument(email, d));
     })()
       .catch(() => {})
       .finally(() => {
@@ -259,8 +263,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       };
       const stamped = withDerived(document);
       setDocuments((prev) => [...prev, stamped]);
-      if (canSync && email) saveDocument(email, stamped).catch(onSaveError);
-      else queueUpsert("filingDocuments", email, stamped.id);
+      durableSave("filingDocuments", email, stamped.id, canSync && email ? () => saveDocument(email, stamped) : null).catch(onSaveError);
       return stamped;
     },
     [canSync, email, onSaveError]
@@ -281,9 +284,9 @@ export function useFilingDocuments(email?: string | null, connected = false) {
         const target = prev.find((d) => d.id === id);
         if (!target || (canSync && target.partial)) return prev;
         const updated = withDerived({ ...fn(target), updatedAt: new Date().toISOString() });
-        if (canSync && email && isComplete(updated)) {
-          saveDocument(email, updated).catch(onSaveError);
-        } else if (!canSync) queueUpsert("filingDocuments", email, id);
+        if (!canSync) durableSave("filingDocuments", email, id, null);
+        else if (email && isComplete(updated))
+          durableSave("filingDocuments", email, id, () => saveDocument(email, updated)).catch(onSaveError);
         return prev.map((d) => (d.id === id ? updated : d));
       });
     },
@@ -431,9 +434,8 @@ export function useFilingDocuments(email?: string | null, connected = false) {
   const removeDocument = useCallback(
     (id: string) => {
       setDocuments((prev) => prev.filter((d) => d.id !== id));
-      unqueueUpsert("filingDocuments", email, id); // an edit to it must not be pushed back
-      if (canSync && email) deleteDocument(email, id).catch(onSaveError);
-      else queueDelete("filingDocuments", email, id); // replayed on connect
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete("filingDocuments", email, id, canSync && email ? () => deleteDocument(email, id) : null).catch(onSaveError);
     },
     [canSync, email, onSaveError]
   );
@@ -462,9 +464,10 @@ export function useFilingDocuments(email?: string | null, connected = false) {
           // Loaded and still absent: the cloud has no copy of this one.
           if (!existing && cloudLoaded) merged = promote(merged);
           byId.set(item.id, merged);
-          if (canSync && email && isComplete(merged)) {
-            saveDocument(email, merged).catch(onSaveError);
-          } else if (!canSync) queueUpsert("filingDocuments", email, merged.id);
+          const complete = isComplete(merged) ? merged : null;
+          if (!canSync) durableSave("filingDocuments", email, merged.id, null);
+          else if (email && complete)
+            durableSave("filingDocuments", email, complete.id, () => saveDocument(email, complete)).catch(onSaveError);
         }
         return [...byId.values()];
       });

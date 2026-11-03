@@ -7,26 +7,31 @@ import { mergeDeletions, readDeletions, writeDeletions } from "@/features/notes/
 import { newNote, normalizeNote, sortNotes, type Note } from "@/features/notes/lib/notes";
 import { normalizeTag, normalizeTags, renameIn } from "@/features/notes/lib/tags";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
-  queueDelete,
   queueUpsert,
+  replayUpserts,
   unqueueDelete,
-  unqueueUpsert,
 } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import { notesCacheKey } from "@/lib/notesIndex";
 import { appendEvent, tagDiff, type NoteEvent } from "@/features/notes/lib/activity";
 import { CONFLICTS_FOUND, planReconnect, readBase, recordBase } from "@/features/notes/lib/conflicts";
 
 // Same model as the filing hooks: a per-user localStorage cache renders at once,
-// a live Firestore subscription takes over once connected, and changes made while
-// disconnected are queued (queueUpsert / queueDelete) and pushed on connect.
+// a live Firestore subscription takes over once connected, and every change is
+// queued first (durableSave / durableDelete) — signed in or not — and leaves the
+// queue only once the server has it, so one made offline survives a tab close.
 //
 // The cache is written SYNCHRONOUSLY by every change, not from an effect: the
 // editor saves on pagehide and on unmount, and neither waits for another render.
 
 const DOMAIN = "notes";
+
+/** A save the cloud refused for good (detail: the note's title). The cache still has it. */
+export const SAVE_FAILED = "bd:notes-save-failed";
 // The key lives in @/lib/notesIndex, which the ⌘K palette reads too.
 const keyFor = notesCacheKey;
 
@@ -165,7 +170,8 @@ export function useNotes(email?: string | null, connected = false) {
     let unsub = () => {};
     (async () => {
       await flushPendingDeletes(DOMAIN, email, (id) => deleteNote(email, id));
-      const cloud = await fetchNotes(email);
+      const cloud = await untilAnswered(() => fetchNotes(email), () => cancelled);
+      if (!cloud) return;
       const cloudById = new Map(cloud.map((n) => [n.id, n]));
       const plan = planReconnect(
         toUpload(ref.current, new Set(cloudById.keys()), DOMAIN, email),
@@ -174,10 +180,12 @@ export function useNotes(email?: string | null, connected = false) {
         new Date()
       );
       if (plan.copies.length) commit([...current(), ...plan.copies]);
-      const written = [...plan.push, ...plan.copies];
-      await Promise.all(written.map((n) => saveNote(email, n).catch(() => {})));
-      recordBase(email, written);
-      clearPendingUpserts(DOMAIN, email);
+      // A conflicted copy is new here: queued like any other change, so a tab
+      // closed before it lands still has it to send.
+      for (const n of plan.copies) queueUpsert(DOMAIN, email, n.id);
+      await replayUpserts(DOMAIN, email, [...plan.push, ...plan.copies], (n) =>
+        saveNote(email, n).then(() => recordBase(email, [n]))
+      );
       if (plan.copies.length) {
         window.dispatchEvent(new CustomEvent(CONFLICTS_FOUND, { detail: { count: plan.copies.length } }));
       }
@@ -198,18 +206,20 @@ export function useNotes(email?: string | null, connected = false) {
     };
   }, [canSync, email, commit, current]);
 
-  /** Push one note. Resolves when the cloud has it — or at once when it was only queued. */
+  /**
+   * Push one note. Resolves once it is queued — saved on this device — and the
+   * cloud write carries on in the background. Waiting for the cloud stalled the
+   * editor offline: its saves run one after another, and the first never settled.
+   */
   const write = useCallback(
     (note: Note): Promise<void> => {
-      if (canSync && email) {
-        return saveNote(email, note).then(() => recordBase(email, [note]), (err) => {
-          // A rejected write (e.g. over Firestore's 1 MiB document cap) should be
-          // diagnosable, and the editor shows it as a failed save.
-          console.error("[notes] save failed:", err);
-          throw err;
-        });
-      }
-      queueUpsert(DOMAIN, email, note.id);
+      const send = canSync && email ? () => saveNote(email, note).then(() => recordBase(email, [note])) : null;
+      durableSave(DOMAIN, email, note.id, send).catch((err) => {
+        // Refused for good (e.g. over Firestore's 1 MiB document cap): say so.
+        // Anything else stays queued and is sent again on the next connect.
+        console.error("[notes] save failed:", err);
+        window.dispatchEvent(new CustomEvent(SAVE_FAILED, { detail: { title: note.title } }));
+      });
       return Promise.resolve();
     },
     [canSync, email]
@@ -317,17 +327,15 @@ export function useNotes(email?: string | null, connected = false) {
       const cur = list.find((n) => n.id === id) ?? null;
       if (!cur) return null;
       commit(list.filter((n) => n.id !== id));
-      unqueueUpsert(DOMAIN, email, id); // an offline edit to it must not be pushed back
       // The note's own history goes with it, so the account log records the delete.
       // Offline, the cache holds it until useDeletionLog next merges with the cloud.
       const entry = { id, title: cur.title.trim(), at: new Date().toISOString() };
       writeDeletions(email, mergeDeletions([entry], readDeletions(email)));
       if (canSync && email) appendDeletion(email, entry).catch(() => {});
-      if (canSync && email) {
-        deleteNote(email, id).catch((err) => console.error("[notes] delete failed:", err));
-      } else {
-        queueDelete(DOMAIN, email, id); // replayed on connect
-      }
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete(DOMAIN, email, id, canSync && email ? () => deleteNote(email, id) : null).catch((err) =>
+        console.error("[notes] delete failed:", err)
+      );
       return cur;
     },
     [canSync, email, commit, current]

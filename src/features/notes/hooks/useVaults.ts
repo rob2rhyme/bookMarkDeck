@@ -11,7 +11,8 @@ import {
   type VaultRecord,
 } from "@/features/notes/lib/vault";
 import { addKeys, unlockedKids } from "@/features/notes/lib/vaultSession";
-import { clearPendingUpserts, queueUpsert, unqueueUpsert } from "@/utils/pendingDeletes";
+import { durableSave, replayUpserts } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 
 // The account's vault records (lib/vault.ts), cached per user and synced like
@@ -84,10 +85,11 @@ export function useVaults(email?: string | null, connected = false) {
     let cancelled = false;
     let unsub = () => {};
     (async () => {
-      const cloud = await fetchVaults(email);
+      const cloud = await untilAnswered(() => fetchVaults(email), () => cancelled);
+      if (!cloud) return;
       const cloudIds = new Set(cloud.map((v) => v.id));
-      await Promise.all(toUpload(ref.current, cloudIds, DOMAIN, email).map((v) => saveVault(email, v).catch(() => {})));
-      clearPendingUpserts(DOMAIN, email);
+      // Each leaves the queue once it lands; one that failed is tried again next connect.
+      await replayUpserts(DOMAIN, email, toUpload(ref.current, cloudIds, DOMAIN, email), (v) => saveVault(email, v));
     })()
       .catch(() => {})
       .finally(() => {
@@ -112,11 +114,10 @@ export function useVaults(email?: string | null, connected = false) {
       // Queued first, cleared only once the cloud has it: a failed or interrupted
       // save is retried on the next connect instead of leaving the vault on one
       // device while notes locked with it sync everywhere.
-      queueUpsert(DOMAIN, email, vault.id);
-      if (!canSync || !email) return Promise.resolve();
-      return saveVault(email, vault)
-        .then(() => unqueueUpsert(DOMAIN, email, vault.id))
-        .catch((err) => console.error("[notes] vault save failed; will retry on reconnect:", err));
+      if (!canSync || !email) return durableSave(DOMAIN, email, vault.id, null);
+      return durableSave(DOMAIN, email, vault.id, () => saveVault(email, vault)).catch((err) =>
+        console.error("[notes] vault save failed; will retry on reconnect:", err)
+      );
     },
     [canSync, email, commit]
   );
