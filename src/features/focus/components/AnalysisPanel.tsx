@@ -14,6 +14,8 @@ import type { FocusSessionRecord } from "@/features/focus/lib/types";
 import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
 type AnalysisPanelProps = {
+  /** Who milestones are remembered for (this device only). */
+  account?: string | null;
   available: boolean;
   loaded: boolean;
   todayFocusMin: number;
@@ -43,6 +45,7 @@ function hours(min: number) {
 }
 
 export function AnalysisPanel({
+  account,
   available,
   loaded,
   todayFocusMin,
@@ -286,6 +289,8 @@ export function AnalysisPanel({
             streak={streak}
             totalSessions={totalSessions}
             totalFocusMin={totalFocusMin}
+            account={account}
+            ready={loaded}
           />
 
           {/* 7-day chart + mood trend (navigable into the past) */}

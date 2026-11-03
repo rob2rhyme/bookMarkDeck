@@ -387,6 +387,7 @@ export function HabitsDashboard() {
             </div>
             <MilestoneRow
               className="mt-4"
+              celebrate={{ account: email, ready: h.hydrated && h.cloudLoaded }}
               metrics={{
                 "habit-streak": Math.max(
                   0,

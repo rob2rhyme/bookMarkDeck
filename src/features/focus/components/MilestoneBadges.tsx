@@ -8,14 +8,20 @@ export function MilestoneBadges({
   streak,
   totalSessions,
   totalFocusMin,
+  account,
+  ready,
 }: {
   streak: number;
   totalSessions: number;
   totalFocusMin: number;
+  account?: string | null;
+  /** The session list has loaded, so the totals are real. */
+  ready: boolean;
 }) {
   return (
     <MilestoneRow
       className="mt-3"
+      celebrate={{ account, ready }}
       metrics={{
         "focus-streak": streak,
         "focus-sessions": totalSessions,
