@@ -51,3 +51,20 @@ export function wishlistToInventoryItem(
     updatedAt: null,
   };
 }
+
+/**
+ * "Got it" on a wish that came from an item running low: the item you already
+ * have, one more in stock — rather than a second copy of it. Null when the wish
+ * isn't a restock, or its item is gone or has been let go (then "Got it" makes a
+ * new item as usual). Clears nothing else: the item keeps its own fields.
+ */
+export function applyRestock(
+  w: WishlistItem,
+  items: InventoryItem[],
+  count = 1
+): InventoryItem | null {
+  if (!w.restockOf) return null;
+  const item = items.find((i) => i.id === w.restockOf);
+  if (!item || item.archived || item.releasedDate) return null;
+  return { ...item, quantity: Math.max(0, item.quantity || 0) + Math.max(1, count) };
+}
