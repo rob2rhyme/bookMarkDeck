@@ -4,6 +4,7 @@
 // documents, with the search that is the whole point of the feature —
 // type "car title", get "Garage › Grey cabinet › Drawer 2 › Vehicles".
 
+import { SyncBanner } from "@/components/SyncBanner";
 import { MilestoneRow } from "@/components/MilestoneRow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -451,41 +452,26 @@ export function FilingDashboard() {
         </div>
       </div>
 
-      {/* Sync banner */}
-      {!connected ? (
-        <div className="mx-3 flex flex-col gap-2 rounded-xl border border-slate-800/70 bg-slate-900/80 px-4 py-3 sm:mx-0 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-400">
-            Your filing log stays on this device.{" "}
-            <span className="text-slate-300">Sync to save it to your account.</span>
-            {error && <span className="block text-xs text-red-400">{error}</span>}
-          </p>
-          <button
-            type="button"
-            onClick={connect}
-            disabled={connecting || !email}
-            className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
-          >
-            {connecting ? "Connecting…" : "Sign in to sync"}
-          </button>
-        </div>
-      ) : (
-        <div className="mx-3 rounded-xl border border-slate-800/70 bg-slate-900/80 px-4 py-3 sm:mx-0">
-          {documents.awaitingCloud ? (
-            // Papers rebuilt from the slim on-device cache are missing their
-            // notes and reminders until the snapshot lands, so edits to them
-            // wait for it rather than overwrite the full copy.
+      <SyncBanner
+        subject="filing log"
+        email={email}
+        connected={connected}
+        connecting={connecting}
+        error={error}
+        onConnect={connect}
+        className="mx-3 sm:mx-0"
+        connectedMessage={
+          // Papers rebuilt from the slim on-device cache are missing their
+          // notes and reminders until the snapshot lands, so edits to them
+          // wait for it rather than overwrite the full copy.
+          documents.awaitingCloud ? (
             <p className="text-sm text-slate-400">
               <span className="text-amber-400">●</span> Loading your papers from your
               account — edits to them wait until they arrive.
             </p>
-          ) : (
-            <p className="text-sm text-slate-400">
-              <span className="text-emerald-400">●</span> Synced to your account —
-              changes save automatically.
-            </p>
-          )}
-        </div>
-      )}
+          ) : undefined
+        }
+      />
 
       {/* Active place filter — usually arrived at by scanning a label */}
       {placeFilter && places.nameById[placeFilter] && (

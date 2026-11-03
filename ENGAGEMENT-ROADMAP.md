@@ -95,9 +95,8 @@ parity, and distribution** — not catalog features.
 
 ~~Un-auth-wall `/guide`+`/faq` pre-signup~~ (**done** — public in `middleware.ts`) ·
 ~~custom `not-found.tsx`~~ (**done**) · ~~`window.confirm`~~ (**done** — the last one,
-deleting a habit, now asks in `ConfirmDialog`) · still open: unify the sync UX (needs a
-product call — bookmarks sync by hand, Focus/Filing/My Stuff live, Notes has its own
-banner) and the hand-built overlays that predate the shared `Modal` (folder pages,
+deleting a habit, now asks in `ConfirmDialog`) · ~~unify the sync UX~~ (**done** — one `SyncBanner` for Focus, My Stuff,
+Filing, Notes and Habits; Bookmarks keeps its manual controls by design) · still open: the hand-built overlays that predate the shared `Modal` (folder pages,
 `RowMenu`'s sheet, `ActivityHistory`, `HomePageClient`'s add-link form).
 
 ## Distribution (your docs call it "the actual biggest gap")

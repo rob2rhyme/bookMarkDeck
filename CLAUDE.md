@@ -309,6 +309,14 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   what keeps six pillars at six bottom-nav cells (the most 320px holds). Header pills
   are icon-only below `xl`: five labelled pills plus the account menu overflow the
   row under ~1280px.
+- **One `SyncBanner` says the same thing on every cloud-backed page** (Focus, My Stuff,
+  Filing, Notes, Habits): not connected → "Your {subject} stay(s) on this device" and one
+  *Sign in to sync* button; connected → a "Synced" line, with the two manual buttons where
+  a page has them (`onSyncFromCloud`/`onSyncToCloud`) or hidden (`hideWhenConnected`, Notes
+  and Habits sync live). Filing replaces the connected line while papers load
+  (`connectedMessage`). It was the same markup copied into five files with drifting
+  wording; Habits had a different pill. Bookmarks is not one of them: it syncs by hand, by
+  design, with its own controls. `e2e/sync-banner.spec.ts` checks all five.
 - **UI that opens on its own never lands on top of another dialog.** The first-run
   welcome (`Onboarding`) opens after a cloud check, so it used to cover whatever the user
   had just opened. It now waits until the page has been dialog-free for a moment

@@ -1,5 +1,6 @@
 "use client";
 
+import { SyncBanner } from "@/components/SyncBanner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -273,15 +274,16 @@ export function HabitsDashboard() {
         </div>
       </div>
 
-      {email && !connected && (
-        <button
-          type="button"
-          onClick={connect}
-          disabled={connecting}
-          className="self-start rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50"
-        >
-          {connecting ? "Connecting…" : "Saved on this device · Connect to sync"}
-        </button>
+      {email && (
+        <SyncBanner
+          subject="habits"
+          plural
+          email={email}
+          connected={connected}
+          connecting={connecting}
+          onConnect={connect}
+          hideWhenConnected
+        />
       )}
 
       {reminders.hasReminders && reminders.permission === "default" && (

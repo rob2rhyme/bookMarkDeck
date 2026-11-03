@@ -127,7 +127,7 @@ export default function HabitsGuidePage() {
           <h2 className="text-base font-semibold text-slate-50">Sync & managing</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
             <li>
-              <strong>Your habits save on this device instantly</strong> and sync to your account so they follow you to other devices. If sync isn&apos;t connected you&apos;ll see <em>Saved on this device · Connect to sync</em> — one tap connects it, and anything logged meanwhile goes up then. Your habit data is private to you.
+              <strong>Your habits save on this device instantly</strong> and sync to your account so they follow you to other devices. If sync isn&apos;t connected you&apos;ll see <em>Your habits stay on this device</em> with a <em>Sign in to sync</em> button — one tap connects it, and anything logged meanwhile goes up then. Your habit data is private to you.
             </li>
             <li>
               <strong>Edit, archive or delete</strong> from the ⋮ menu in <em>All habits</em>. Archiving keeps the history: <strong>Show archived</strong> lists them, with <strong>Restore</strong> to bring one back.
