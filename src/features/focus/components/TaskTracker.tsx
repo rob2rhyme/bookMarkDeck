@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { Check, Pencil, X } from "@/components/icons";
+import { StarterPicker } from "@/components/StarterPicker";
+import { STARTER_TASK_GROUPS, planStarterTasks } from "@/features/focus/lib/starterTasks";
 import type { FocusTask } from "@/features/focus/lib/types";
 import { EMPTY_STATE_CLASS } from "@/components/ui/EmptyState";
 
@@ -41,6 +43,10 @@ export function TaskTracker({
   const [showDone, setShowDone] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [starterOpen, setStarterOpen] = useState(false);
+  // Only a list that has never held a task gets the starters; one emptied by
+  // finishing everything just says so.
+  const firstRun = activeTasks.length === 0 && doneTasks.length === 0;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +97,15 @@ export function TaskTracker({
         {activeTasks.length === 0 ? (
           <li className={EMPTY_STATE_CLASS}>
             No tasks yet. Add one, then start the timer to log time against it.
+            {firstRun && (
+              <button
+                type="button"
+                onClick={() => setStarterOpen(true)}
+                className="mt-2 block w-full text-xs font-medium text-blue-300 underline-offset-2 hover:underline"
+              >
+                Or start with a few common ones
+              </button>
+            )}
           </li>
         ) : (
           activeTasks.map((task) => {
@@ -254,6 +269,24 @@ export function TaskTracker({
           )}
         </div>
       )}
+      <StarterPicker
+        open={starterOpen}
+        onClose={() => setStarterOpen(false)}
+        onAdd={(picked) =>
+          planStarterTasks(
+            picked,
+            activeTasks.map((t) => t.text)
+          ).forEach((text) => onAdd(text))
+        }
+        title="Start with a few tasks"
+        intro="Tasks are the kinds of work you time — pick what you do, then start the timer on one. Rename or archive them anytime."
+        noun={["task", "tasks"]}
+        sections={STARTER_TASK_GROUPS.map((g) => ({
+          name: g.name,
+          emoji: g.emoji,
+          items: g.tasks.map((t) => ({ key: t, label: t })),
+        }))}
+      />
     </div>
   );
 }

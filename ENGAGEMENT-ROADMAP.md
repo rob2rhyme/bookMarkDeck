@@ -64,8 +64,14 @@ parity, and distribution** — not catalog features.
   meanwhile. Favicons were already derived from the URL; the description is deliberately
   not stored — a page summary isn't the reader's own note (same reasoning as Raindrop's
   excerpt).
-- **Onboarding parity** (Bookmarks + Focus, `[net-new]`) — clone Habits'
-  15-template onboarding (`HabitOnboarding.tsx`), the best first-run in the app.
+- ~~**Onboarding parity** (Bookmarks + Focus)~~ — **shipped**: Habits' template-picker
+  shape as a shared `StarterPicker`. An empty library offers "start with a few popular
+  sites" (`@/utils/starterLinks`, filed into a folder per kind, reusing a same-named
+  top-level folder, skipping links already saved); a Focus task list that has never held
+  a task offers "a few common ones" (`features/focus/lib/starterTasks`). Both are offered
+  from the empty state, never opened on their own — the first-run welcome already opens
+  by itself, and a returning user on a new device should sync rather than be shown
+  templates. `e2e/starters.spec.ts`.
 
 ## Tier 3 — competitive gaps (bigger, still on-stack)
 
