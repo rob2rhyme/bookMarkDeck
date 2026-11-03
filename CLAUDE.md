@@ -174,6 +174,11 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   forms); 5 s for the chain, 256 KB read, HTML only; session-gated, 30/min. A failure is
   `{ title: null }`, never an error. `fetchPageTitle.test.ts` runs it against a real local
   server. Description and favicon are not fetched (favicons come from the URL).
+- **An empty library offers starter links** (`StarterPicker` + `@/utils/starterLinks`),
+  from a link in the empty state — never opened on its own, since a returning user on a
+  new device should *Sync from cloud* first. Picks are filed into a top-level folder per
+  kind (an existing one of that name is reused) and links already saved are skipped. Focus
+  does the same for a task list that has never held a task (`starterTasks.ts`).
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the

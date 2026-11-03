@@ -31,6 +31,8 @@ import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import { parseServiceCsv } from "@/utils/parseServiceCsv";
 import { fetchLinkTitle } from "@/utils/linkTitle";
+import { STARTER_GROUPS, planStarterLinks } from "@/utils/starterLinks";
+import { StarterPicker } from "@/components/StarterPicker";
 import { isUnsafeUrl, normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { buildBackupFile, parseBackupJson } from "@/utils/bookmarkBackupFile";
@@ -173,6 +175,7 @@ export function HomePageClient() {
   const [newFolderSelection, setNewFolderSelection] = useState("__unstaged__");
   const [newTags, setNewTags] = useState(""); // NEW
   const [showAddForm, setShowAddForm] = useState(false);
+  const [starterOpen, setStarterOpen] = useState(false);
 const [showAddShortcutForm, setShowAddShortcutForm] = useState(false);
 const [shortcutQuery, setShortcutQuery] = useState("");
 const [shortcutName, setShortcutName] = useState("");
@@ -846,6 +849,29 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setNewFolderSelection("__unstaged__");
     setNewTags("");
     setShowAddForm(false);
+  };
+
+  // Empty library → "Start with a few links": each pick filed into its group's
+  // folder (reusing a top-level folder of that name if there is one).
+  const handleStarterLinks = (urls: string[]) => {
+    const picked = STARTER_GROUPS.flatMap((g) => g.links).filter((l) => urls.includes(l.url));
+    const plan = planStarterLinks(picked, bookmarks.map((b) => b.url));
+    for (const { folder, links } of plan) {
+      const existing = folderEntities.find(
+        (f) => !f.parentId && f.name.trim().toLowerCase() === folder.toLowerCase()
+      );
+      const target = existing ?? addFolder({ name: folder, parentId: null });
+      for (const l of links) {
+        addBookmark({
+          title: l.title,
+          url: l.url,
+          note: "",
+          folderId: target?.id ?? null,
+          folder: target?.name,
+          tags: [],
+        });
+      }
+    }
   };
 
   const handleAddShortcut = () => {
@@ -1836,6 +1862,24 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           </div>
         </Modal>
 
+        <StarterPicker
+          open={starterOpen}
+          onClose={() => setStarterOpen(false)}
+          onAdd={handleStarterLinks}
+          title="Start with a few links"
+          intro="Pick the sites you already use — each lands in a folder for its kind. Rename, move or delete them anytime."
+          noun={["link", "links"]}
+          sections={STARTER_GROUPS.map((g) => ({
+            name: g.name,
+            emoji: g.emoji,
+            items: g.links.map((l) => ({
+              key: l.url,
+              label: l.title,
+              hint: new URL(l.url).hostname.replace(/^www\./, ""),
+            })),
+          }))}
+        />
+
         {/* Folders (wallet view) */}
         {bookmarks.length === 0 && rootFolders.length === 0 ? (
           <div
@@ -1888,6 +1932,13 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                   </span>
                 </label>
               </div>
+              <button
+                type="button"
+                onClick={() => setStarterOpen(true)}
+                className="text-xs font-medium text-blue-300 underline-offset-2 hover:underline"
+              >
+                Or start with a few popular sites
+              </button>
             </div>
           </div>
         ) : (
