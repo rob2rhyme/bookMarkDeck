@@ -162,7 +162,12 @@ export type NewDocument = {
 
 export function useFilingDocuments(email?: string | null, connected = false) {
   const [documents, setDocuments] = useState<FilingDocument[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [cacheFor, setCacheFor] = useState<string | null>(null);
+  const hydrated = cacheFor === (email ?? "");
   const canSync = connected && Boolean(email);
   // Which account's snapshot has arrived. Derived rather than a boolean so a
   // switch of account or a disconnect reads as "not loaded" with no reset.
@@ -176,7 +181,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
 
   useEffect(() => {
     setDocuments(loadLocal(email));
-    setHydrated(true);
+    setCacheFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -194,7 +199,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
   }, [documents, hydrated, email, cloudLoaded]);
 
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     let unsub = () => {};
     (async () => {
@@ -231,7 +236,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       unsub();
       setLoadedFor(null);
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const onSaveError = useCallback((err: unknown) => {
     console.error("[filing] document save failed:", err);

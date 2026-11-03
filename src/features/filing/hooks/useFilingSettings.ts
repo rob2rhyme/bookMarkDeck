@@ -31,11 +31,16 @@ function loadLocal(email?: string | null): FilingSettings {
 
 export function useFilingSettings(email?: string | null, connected = false) {
   const [settings, setSettings] = useState<FilingSettings>(DEFAULT_FILING_SETTINGS);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
   useEffect(() => {
     setSettings(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -50,7 +55,7 @@ export function useFilingSettings(email?: string | null, connected = false) {
   // A local edit not yet in the cloud must win, or connecting would silently
   // revert it — including one made before a reload.
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     (async () => {
       const remote = await untilAnswered(() => fetchSettings(email), () => cancelled);
@@ -63,7 +68,7 @@ export function useFilingSettings(email?: string | null, connected = false) {
     return () => {
       cancelled = true;
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const update = useCallback(
     (patch: Partial<FilingSettings>) => {

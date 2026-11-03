@@ -40,7 +40,12 @@ function loadLocal(email?: string | null): WishlistItem[] {
  *  Same shape as useInventory but lighter (no archive/photos). */
 export function useWishlist(email?: string | null, connected = false) {
   const [items, setItems] = useState<WishlistItem[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
   const ref = useRef(items);
   useEffect(() => {
@@ -49,7 +54,7 @@ export function useWishlist(email?: string | null, connected = false) {
 
   useEffect(() => {
     setItems(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export function useWishlist(email?: string | null, connected = false) {
 
   // On connect: seed local-only entries, then attach the live listener.
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     let unsub = () => {};
     (async () => {
@@ -94,7 +99,7 @@ export function useWishlist(email?: string | null, connected = false) {
       cancelled = true;
       unsub();
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const upsert = useCallback(
     (w: WishlistItem) => {

@@ -16,8 +16,8 @@ vi.mock("@/lib/firebase", () => ({
   ensureFirebaseGoogleAuth: vi.fn(async () => ({ uid: "u1" })),
 }));
 
-import { setDoc } from "firebase/firestore";
-import { saveEntryCount } from "./habitData";
+import { onSnapshot, setDoc } from "firebase/firestore";
+import { saveEntryCount, subscribeEntries, subscribeHabits } from "./habitData";
 
 const entry = {
   id: "w_2026-10-11",
@@ -41,5 +41,32 @@ describe("saveEntryCount", () => {
       { habitId: "w", day: "2026-10-11", status: "done", count: 5, updatedAt: "ts" },
       { merge: true }
     );
+  });
+});
+
+// Both lists replace the hook's cached one wholesale; offline, a cache-only first
+// answer was empty and emptied them until the server answered.
+describe.each([
+  ["subscribeHabits", subscribeHabits],
+  ["subscribeEntries", subscribeEntries],
+] as const)("%s — cache-only guard", (_name, subscribe) => {
+  beforeEach(() => vi.mocked(onSnapshot).mockClear());
+  const list = (fromCache: boolean) => ({ docs: [], metadata: { fromCache, hasPendingWrites: false } });
+
+  it("holds cache-only answers back until the server has answered", async () => {
+    const cb = vi.fn();
+    subscribe("a@example.com", cb);
+    await vi.waitFor(() => expect(onSnapshot).toHaveBeenCalled());
+    const [, options, feed] = vi.mocked(onSnapshot).mock.calls[0] as unknown as [
+      unknown,
+      { includeMetadataChanges: boolean },
+      (s: ReturnType<typeof list>) => void,
+    ];
+    expect(options.includeMetadataChanges).toBe(true);
+    feed(list(true));
+    expect(cb).not.toHaveBeenCalled();
+    feed(list(false));
+    feed(list(true));
+    expect(cb).toHaveBeenCalledTimes(2);
   });
 });

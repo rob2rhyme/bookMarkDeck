@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Signed in but offline, a save never settles; a tab closed meanwhile lost the
@@ -144,5 +145,46 @@ describe.each(cases)("filing $name — replays the device's copy, not this tab's
     await act(async () => answer([c.record]));
     await waitFor(() => expect(c.subscribe).toHaveBeenCalled());
     expect(m(c.save).mock.calls.map(([, r]) => r.name)).toEqual(["Renamed elsewhere"]);
+  });
+});
+
+// On a hard load the email arrives after mount, often after Firebase already says
+// "connected". In that commit the signed-out key's (empty) list was written over
+// the account's cache, and the connect replayed from the clobbered copy: the
+// queued edit wasn't there, so it was taken off the queue unsent. Rendered
+// without act(), as a page load runs, so the effects land as they do in a browser.
+describe.each(cases)("filing $name — the email arrives after the page loaded", (c) => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    recordSyncedIds(c.domain, EMAIL, [c.record.id]);
+    window.localStorage.setItem(`${c.key}:${EMAIL}`, JSON.stringify([{ ...c.record, name: "Edited offline" }]));
+    window.localStorage.setItem(`bookmarkdeck:pending-up:${c.domain}:${EMAIL}`, JSON.stringify([c.record.id]));
+    m(c.fetch).mockReset().mockResolvedValue([c.record]);
+    m(c.subscribe).mockReset().mockReturnValue(() => {});
+    m(c.save).mockReset().mockResolvedValue(undefined);
+    m(c.del).mockReset().mockResolvedValue(undefined);
+  });
+
+  it("still sends the queued edit", async () => {
+    const g = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const was = g.IS_REACT_ACT_ENVIRONMENT;
+    g.IS_REACT_ACT_ENVIRONMENT = false;
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    const use = c.name === "folders" ? useFilingFolders : c.name === "parties" ? useFilingParties : useFilingPlaces;
+    function Probe({ email }: { email: string | null }) {
+      use(email, true);
+      return null;
+    }
+    try {
+      root.render(<Probe email={null} />);
+      await new Promise((r) => setTimeout(r, 20));
+      root.render(<Probe email={EMAIL} />);
+      await waitFor(() => expect(c.subscribe).toHaveBeenCalled());
+      expect(m(c.save).mock.calls.map(([, r]) => r.name)).toEqual(["Edited offline"]);
+    } finally {
+      root.unmount();
+      g.IS_REACT_ACT_ENVIRONMENT = was;
+    }
   });
 });

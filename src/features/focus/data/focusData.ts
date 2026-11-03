@@ -14,6 +14,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
   increment,
   maximum,
@@ -27,6 +28,7 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
+import { onConfirmedSnapshot } from "@/lib/firestoreSnapshot";
 import type { HydrationTransport } from "@/lib/hydrationOutbox";
 import { logActivity, type ActivityType } from "@/lib/activityLog";
 import {
@@ -298,7 +300,8 @@ export async function fetchSettings(
   emailHint: string
 ): Promise<FocusSettings | null> {
   const uid = await uidFor(emailHint);
-  const snap = await getDoc(settingsDoc(uid));
+  // The server's answer only: a cached "missing" would push local settings over the cloud's.
+  const snap = await getDocFromServer(settingsDoc(uid));
   if (!snap.exists()) return null;
   return normalizeSettings(snap.data());
 }
@@ -665,7 +668,7 @@ export function subscribeTasks(
   cb: (tasks: FocusTask[]) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onConfirmedSnapshot(
       tasksCol(uid),
       (snap) =>
         cb(
@@ -837,7 +840,7 @@ export function subscribeJournal(
   cb: (entries: JournalEntry[]) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onConfirmedSnapshot(
       journalCol(uid),
       (snap) =>
         cb(
@@ -860,7 +863,7 @@ export function subscribeNotes(
   cb: (notes: JournalNote[]) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onConfirmedSnapshot(
       notesCol(uid),
       (snap) =>
         cb(
@@ -1084,7 +1087,7 @@ export function subscribeTodos(
   cb: (todos: Todo[]) => void
 ): Unsub {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onConfirmedSnapshot(
       todosCol(uid),
       (snap) => cb(snap.docs.map(mapTodo).filter((t) => t.text.trim().length > 0)),
       onListenError("todos")

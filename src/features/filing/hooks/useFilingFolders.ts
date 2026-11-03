@@ -56,7 +56,12 @@ export type NewFolder = {
 
 export function useFilingFolders(email?: string | null, connected = false) {
   const [folders, setFolders] = useState<FilingFolder[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
 
   const ref = useRef(folders);
@@ -66,7 +71,7 @@ export function useFilingFolders(email?: string | null, connected = false) {
 
   useEffect(() => {
     setFolders(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -79,7 +84,7 @@ export function useFilingFolders(email?: string | null, connected = false) {
   }, [folders, hydrated, email]);
 
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     let unsub = () => {};
     (async () => {
@@ -111,7 +116,7 @@ export function useFilingFolders(email?: string | null, connected = false) {
       cancelled = true;
       unsub();
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   // A rejected write (e.g. a doc over Firestore's 1 MiB cap) should be
   // diagnosable rather than silent.

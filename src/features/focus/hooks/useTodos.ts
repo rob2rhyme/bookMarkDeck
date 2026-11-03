@@ -10,13 +10,11 @@ import {
   subscribeTodos,
 } from "@/features/focus/data/focusData";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
   pendingUpsertIds,
-  queueDelete,
-  queueUpsert,
-  unqueueDelete,
-  unqueueUpsert,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
 import { isGoogleSnapshot } from "@/features/focus/lib/googleReconcile";
 import { isTodoRepeat, nextOccurrence } from "@/features/focus/lib/recurrence";
@@ -75,7 +73,12 @@ export function useTodos(
   onLog?: LogActivity
 ) {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
 
   // The latest list, for callbacks that outlive a render — the Undo for a
@@ -87,7 +90,7 @@ export function useTodos(
 
   useEffect(() => {
     setTodos(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -111,21 +114,19 @@ export function useTodos(
   // cloud BEFORE subscribing — otherwise the first live snapshot overwrites
   // local state (resurrecting deletes / reverting just-toggled items).
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     let unsub = () => {};
     (async () => {
       await flushPendingDeletes("todos", email, (id) => deleteTodo(email, id));
       // Push ONLY items changed while offline, not the whole local cache (which
       // would clobber newer cloud edits / resurrect cloud deletes).
+      // Each queued record is sent from the DEVICE cache (another tab may have
+      // edited it since this one loaded) and leaves the queue once it lands; one
+      // that failed is tried again next connect. A queued create goes up too.
       const ups = pendingUpsertIds("todos", email);
-      if (ups.size)
-        await Promise.all(
-          todos
-            .filter((t) => ups.has(t.id))
-            .map((t) => saveTodo(email, t).catch(() => {}))
-        );
-      clearPendingUpserts("todos", email);
+      const send = loadLocal(email).filter((t) => ups.has(t.id));
+      await replayUpserts("todos", email, send, (t) => saveTodo(email, t), { keepUnsent: true });
     })()
       .catch(() => {})
       .finally(() => {
@@ -135,8 +136,7 @@ export function useTodos(
       cancelled = true;
       unsub();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const addTodo = useCallback(
     (
@@ -166,8 +166,7 @@ export function useTodos(
         ...(extras.priority ? { priority: extras.priority } : {}),
       };
       setTodos((prev) => [todo, ...prev]);
-      if (canSync && email) saveTodo(email, todo).catch(() => {});
-      else queueUpsert("todos", email, todo.id);
+      durableSave("todos", email, todo.id, canSync && email ? () => saveTodo(email, todo) : null).catch(() => {});
       onLog?.("todo_added", `Added to-do: ${trimmed}`);
       return todo;
     },
@@ -187,8 +186,8 @@ export function useTodos(
       setTodos((prev) => {
         const next = prev.map((t) => (t.id === id ? { ...t, ...ids } : t));
         const updated = next.find((t) => t.id === id);
-        if (canSync && email && updated) saveTodo(email, updated).catch(() => {});
-        else if (updated) queueUpsert("todos", email, id);
+        if (updated)
+          durableSave("todos", email, id, canSync && email ? () => saveTodo(email, updated) : null).catch(() => {});
         return next;
       });
     },
@@ -234,18 +233,10 @@ export function useTodos(
       todosRef.current = nextList;
       setTodos(nextList);
 
-      if (canSync && email) {
-        saveTodo(email, toggled).catch(() => {});
-        if (spawned) saveTodo(email, spawned).catch(() => {});
-        if (removed) deleteTodo(email, removed.id).catch(() => {});
-      } else {
-        queueUpsert("todos", email, id);
-        if (spawned) queueUpsert("todos", email, spawned.id);
-        if (removed) {
-          queueDelete("todos", email, removed.id);
-          unqueueUpsert("todos", email, removed.id);
-        }
-      }
+      const on = canSync && email;
+      durableSave("todos", email, id, on ? () => saveTodo(email, toggled) : null).catch(() => {});
+      if (spawned) durableSave("todos", email, spawned.id, on ? () => saveTodo(email, spawned) : null).catch(() => {});
+      if (removed) durableDelete("todos", email, removed.id, on ? () => deleteTodo(email, removed.id) : null).catch(() => {});
       if (nowDone) onLog?.("todo_done", `Completed to-do: ${current.text}`);
       return { spawned, removed };
     },
@@ -276,11 +267,8 @@ export function useTodos(
           return merged;
         });
         const updated = next.find((t) => t.id === id);
-        if (canSync && email && updated && updated.text.length > 0) {
-          saveTodo(email, updated).catch(() => {});
-        } else if (updated && updated.text.length > 0) {
-          queueUpsert("todos", email, id);
-        }
+        if (updated && updated.text.length > 0)
+          durableSave("todos", email, id, canSync && email ? () => saveTodo(email, updated) : null).catch(() => {});
         return next;
       });
     },
@@ -290,25 +278,18 @@ export function useTodos(
   const removeTodo = useCallback(
     (id: string) => {
       setTodos((prev) => prev.filter((t) => t.id !== id));
-      if (canSync && email) deleteTodo(email, id).catch(() => {});
-      // Not connected → remember to delete on next connect; drop any pending
-      // offline upsert so the flush won't re-create it.
-      else {
-        queueDelete("todos", email, id);
-        unqueueUpsert("todos", email, id);
-      }
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete("todos", email, id, canSync && email ? () => deleteTodo(email, id) : null).catch(() => {});
     },
     [canSync, email]
   );
 
   const restoreTodo = useCallback(
     (todo: Todo) => {
-      unqueueDelete("todos", email, todo.id); // un-delete if it was queued
       setTodos((prev) =>
         prev.some((t) => t.id === todo.id) ? prev : [todo, ...prev]
       );
-      if (canSync && email) saveTodo(email, todo).catch(() => {});
-      else queueUpsert("todos", email, todo.id);
+      durableSave("todos", email, todo.id, canSync && email ? () => saveTodo(email, todo) : null).catch(() => {});
     },
     [canSync, email]
   );

@@ -215,12 +215,17 @@ export function durableDelete(
  * whatever else was queued, which the caller chose not to send (a record deleted
  * on another device). A save that failed stays for the next connect, and a write
  * started while this runs keeps its entry.
+ *
+ * `keepUnsent`: leave the queued ids not sent. For a caller that sends every
+ * queued record it holds (no `toUpload`), an unsent id is one it couldn't find —
+ * nothing it decided, so not something to forget.
  */
 export async function replayUpserts<T extends { id: string }>(
   domain: string,
   scope: string | null | undefined,
   records: T[],
-  send: (record: T) => Promise<unknown>
+  send: (record: T) => Promise<unknown>,
+  opts: { keepUnsent?: boolean } = {}
 ): Promise<void> {
   const key = upKey(domain, scope);
   const started = new Map(readKey(key).map((id) => [id, genOf(domain, scope, id)]));
@@ -233,6 +238,7 @@ export async function replayUpserts<T extends { id: string }>(
       if (await landed(() => send(r))) settle(r.id);
     })
   );
+  if (opts.keepUnsent) return;
   const sent = new Set(records.map((r) => r.id));
   for (const id of started.keys()) if (!sent.has(id)) settle(id);
 }

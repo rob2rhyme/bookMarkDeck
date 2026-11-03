@@ -16,12 +16,11 @@ import {
 import { todayKey } from "@/features/habits/lib/day";
 import { coerceEntry, coerceHabit } from "@/features/habits/lib/serialize";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
   pendingUpsertIds,
-  queueDelete,
-  queueUpsert,
-  unqueueUpsert,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
 import { computeStats, isDueOn } from "@/features/habits/lib/streak";
 import { getFocusWaterGoal } from "@/features/habits/lib/water";
@@ -88,7 +87,12 @@ export function useHabits(
   const [habits, setHabits] = useState<Habit[]>([]);
   const [entries, setEntries] = useState<HabitEntry[]>([]);
   const [today, setToday] = useState("");
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   // True once the cloud has had its say (first snapshot, or a timeout if no
   // session) — so callers don't mistake "still loading" for "user has no data".
   const [cloudLoaded, setCloudLoaded] = useState(false);
@@ -126,7 +130,7 @@ export function useHabits(
     setHabits(loadHabits(email));
     commitEntries(loadEntries(email));
     setToday(todayKey());
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email, commitEntries]);
 
   // Keep "today" fresh when the tab regains focus (covers crossing midnight).
@@ -172,7 +176,7 @@ export function useHabits(
   // cache — that clobbers newer cloud edits (e.g. a habit's direction) with a
   // stale local copy from another device/tab/session.
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     let unsubH = () => {};
     let unsubE = () => {};
@@ -181,32 +185,21 @@ export function useHabits(
       await flushPendingDeletes("habitEntries", email, (id) =>
         deleteEntry(email, id)
       );
-      const hUps = pendingUpsertIds("habits", email);
-      if (hUps.size)
-        await Promise.all(
-          habits
-            .filter((h) => hUps.has(h.id))
-            .map((h) => saveHabit(email, h).catch(() => {}))
-        );
-      const eUps = pendingUpsertIds("habitEntries", email);
-      if (eUps.size)
-        await Promise.all(
-          entries
-            .filter((e) => eUps.has(e.id))
-            .map((e) => saveEntry(email, e).catch(() => {}))
-        );
+      // Each queued record is sent from the DEVICE cache (another tab may have
+      // edited it since this one loaded) and leaves the queue once it lands; one
+      // that failed is tried again next connect. A queued create goes up too.
+      const queued = (domain: string) => {
+        const ids = pendingUpsertIds(domain, email);
+        return <T extends { id: string }>(list: T[]) => list.filter((r) => ids.has(r.id));
+      };
+      const keep = { keepUnsent: true };
+      await replayUpserts("habits", email, queued("habits")(loadHabits(email)), (h) => saveHabit(email, h), keep);
+      const entriesNow = loadEntries(email);
+      await replayUpserts("habitEntries", email, queued("habitEntries")(entriesNow), (e) => saveEntry(email, e), keep);
       // A count adopted while not connected: its own queue, replayed through
       // saveEntryCount only — see adoptCount.
-      const ecUps = pendingUpsertIds("habitEntryCounts", email);
-      if (ecUps.size)
-        await Promise.all(
-          entries
-            .filter((e) => ecUps.has(e.id))
-            .map((e) => saveEntryCount(email, e).catch(() => {}))
-        );
-      clearPendingUpserts("habits", email);
-      clearPendingUpserts("habitEntries", email);
-      clearPendingUpserts("habitEntryCounts", email);
+      const counts = queued("habitEntryCounts")(entriesNow);
+      await replayUpserts("habitEntryCounts", email, counts, (e) => saveEntryCount(email, e), keep);
     })()
       .catch(() => {})
       .finally(() => {
@@ -223,7 +216,7 @@ export function useHabits(
       unsubE();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const pullFromCloud = useCallback(async () => {
     if (!canSync || !email) return;
@@ -237,20 +230,16 @@ export function useHabits(
   const upsertEntry = useCallback(
     (entry: HabitEntry) => {
       commitEntries((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
-      if (canSync && email) saveEntry(email, entry).catch(() => {});
-      else queueUpsert("habitEntries", email, entry.id);
+      durableSave("habitEntries", email, entry.id, canSync && email ? () => saveEntry(email, entry) : null).catch(() => {});
     },
     [canSync, email, commitEntries]
   );
 
   // A count taken from a linked source writes only the count: this copy of the
   // entry may not have the note and time another device logged on it yet.
-  // Nothing is queued while not connected — a queued entry goes up whole on
-  // connect — since once connected the habit takes the source's count again.
   const adoptCount = useCallback(
     (entry: HabitEntry) => {
       commitEntries((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
-      if (canSync && email) saveEntryCount(email, entry).catch(() => {});
       // Queued separately from a manual edit's upsert: the connect effect
       // replays THIS queue through saveEntryCount too, never saveEntry, or
       // it would write back the note and time this device cached and undo
@@ -258,7 +247,9 @@ export function useHabits(
       // connecting is never revisited (the reverse-sync effect re-adopts
       // only "today"), and the next cloud snapshot replaces local state
       // wholesale — so the adoption was simply lost.
-      else queueUpsert("habitEntryCounts", email, entry.id);
+      durableSave("habitEntryCounts", email, entry.id, canSync && email ? () => saveEntryCount(email, entry) : null).catch(
+        () => {}
+      );
     },
     [canSync, email, commitEntries]
   );
@@ -266,11 +257,8 @@ export function useHabits(
   const removeEntry = useCallback(
     (id: string) => {
       commitEntries((prev) => prev.filter((e) => e.id !== id));
-      if (canSync && email) deleteEntry(email, id).catch(() => {});
-      else {
-        queueDelete("habitEntries", email, id);
-        unqueueUpsert("habitEntries", email, id);
-      }
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete("habitEntries", email, id, canSync && email ? () => deleteEntry(email, id) : null).catch(() => {});
     },
     [canSync, email, commitEntries]
   );
@@ -604,8 +592,7 @@ export function useHabits(
   const addHabit = useCallback(
     (habit: Habit) => {
       setHabits((prev) => [...prev, habit]);
-      if (canSync && email) saveHabit(email, habit).catch(() => {});
-      else queueUpsert("habits", email, habit.id);
+      durableSave("habits", email, habit.id, canSync && email ? () => saveHabit(email, habit) : null).catch(() => {});
     },
     [canSync, email]
   );
@@ -633,13 +620,11 @@ export function useHabits(
           const ids = new Set(prev.map((e) => e.id));
           return [...prev, ...newE.filter((e) => !ids.has(e.id))];
         });
-      if (canSync && email) {
-        newH.forEach((h) => saveHabit(email, h).catch(() => {}));
-        newE.forEach((e) => saveEntry(email, e).catch(() => {}));
-      } else {
-        newH.forEach((h) => queueUpsert("habits", email, h.id));
-        newE.forEach((e) => queueUpsert("habitEntries", email, e.id));
-      }
+      const on = canSync && email;
+      newH.forEach((h) => durableSave("habits", email, h.id, on ? () => saveHabit(email, h) : null).catch(() => {}));
+      newE.forEach((e) =>
+        durableSave("habitEntries", email, e.id, on ? () => saveEntry(email, e) : null).catch(() => {})
+      );
       return {
         addedHabits: newH.length,
         addedEntries: newE.length,
@@ -653,8 +638,7 @@ export function useHabits(
   const updateHabit = useCallback(
     (habit: Habit) => {
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? habit : h)));
-      if (canSync && email) saveHabit(email, habit).catch(() => {});
-      else queueUpsert("habits", email, habit.id);
+      durableSave("habits", email, habit.id, canSync && email ? () => saveHabit(email, habit) : null).catch(() => {});
     },
     [canSync, email]
   );
@@ -662,11 +646,8 @@ export function useHabits(
   const removeHabit = useCallback(
     (id: string) => {
       setHabits((prev) => prev.filter((h) => h.id !== id));
-      if (canSync && email) deleteHabit(email, id).catch(() => {});
-      else {
-        queueDelete("habits", email, id);
-        unqueueUpsert("habits", email, id);
-      }
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete("habits", email, id, canSync && email ? () => deleteHabit(email, id) : null).catch(() => {});
     },
     [canSync, email]
   );
@@ -676,8 +657,8 @@ export function useHabits(
       setHabits((prev) => {
         const next = prev.map((h) => (h.id === id ? { ...h, archived } : h));
         const target = next.find((h) => h.id === id);
-        if (canSync && email && target) saveHabit(email, target).catch(() => {});
-        else if (target) queueUpsert("habits", email, id);
+        if (target)
+          durableSave("habits", email, id, canSync && email ? () => saveHabit(email, target) : null).catch(() => {});
         return next;
       });
     },
@@ -694,8 +675,7 @@ export function useHabits(
         for (const id of orderedIds) {
           const t = next.find((h) => h.id === id);
           if (!t) continue;
-          if (canSync && email) saveHabit(email, t).catch(() => {});
-          else queueUpsert("habits", email, id);
+          durableSave("habits", email, id, canSync && email ? () => saveHabit(email, t) : null).catch(() => {});
         }
         return next;
       });
