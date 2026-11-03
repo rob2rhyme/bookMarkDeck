@@ -482,3 +482,13 @@ export function Unlock({ className }: IconProps) {
     </svg>
   );
 }
+
+export function BookOpen({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps(className)}>
+      <path d="M12 7v13" />
+      <path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H4.5A1.5 1.5 0 0 1 3 16z" />
+      <path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5h5a1.5 1.5 0 0 0 1.5-1.5z" />
+    </svg>
+  );
+}

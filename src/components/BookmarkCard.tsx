@@ -10,6 +10,7 @@ import { NoteText } from "@/components/NoteText";
 import { BulletButton, NumberButton } from "@/components/BulletButton";
 import { appendBullet, appendNumber } from "@/utils/noteFormat";
 import {
+  BookOpen,
   Check,
   Emoji,
   Eye,
@@ -27,6 +28,7 @@ import { normalizeUrl } from "@/utils/normalizeUrl";
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { setBookmarkFocusLink } from "@/lib/bookmarkFocusLink";
 import { useToast } from "@/components/toast/ToastProvider";
+import { ReaderModal } from "@/components/ReaderModal";
 
 function safeParseUrl(rawUrl: string): URL | null {
   try {
@@ -119,6 +121,7 @@ export function BookmarkCard({
   const [showNote, setShowNote] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const [readerOpen, setReaderOpen] = useState(false);
 
   const faviconCandidates = getFaviconCandidates(bookmark.url);
   const [faviconState, setFaviconState] = useState<{
@@ -626,6 +629,15 @@ export function BookmarkCard({
               icon={<ExternalLink className="h-4 w-4" />}
             />
             <IconAction
+              label={bookmark.highlights?.length ? `Read (${bookmark.highlights.length} highlighted)` : "Read"}
+              onClick={() => {
+                hapticTap();
+                setReaderOpen(true);
+              }}
+              disabled={selectMode || isEditing}
+              icon={<BookOpen className="h-4 w-4" />}
+            />
+            <IconAction
               label="Work on this in Focus"
               onClick={() => {
                 hapticTap();
@@ -943,6 +955,15 @@ export function BookmarkCard({
                 icon={<ExternalLink className="h-4 w-4" />}
               />
               <IconAction
+                label={bookmark.highlights?.length ? `Read (${bookmark.highlights.length} highlighted)` : "Read"}
+                onClick={() => {
+                  hapticTap();
+                  setReaderOpen(true);
+                }}
+                disabled={selectMode || isEditing}
+                icon={<BookOpen className="h-4 w-4" />}
+              />
+              <IconAction
                 label="Work on this in Focus"
                 onClick={() => {
                   hapticTap();
@@ -998,6 +1019,12 @@ export function BookmarkCard({
           </span>
         </div>
       </div>
+      <ReaderModal
+        bookmark={bookmark}
+        open={readerOpen}
+        onClose={() => setReaderOpen(false)}
+        onHighlightsChange={(next) => onUpdate(bookmark.id, { highlights: next })}
+      />
     </div>
   );
 }

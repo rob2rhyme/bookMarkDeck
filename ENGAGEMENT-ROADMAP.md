@@ -78,7 +78,7 @@ parity, and distribution** — not catalog features.
 
 - **Bookmarks:** ~~importers (Pocket/Raindrop/Chrome)~~ — **shipped**: browser HTML
   already; Raindrop CSV/HTML and Pocket CSV/HTML added (`parseServiceCsv`,
-  `parseBookmarkHtml`); read-later/reader-view + highlights; tag-browse.
+  `parseBookmarkHtml`); reader view + highlights and tag-browse **shipped** (below); read-later queue not built.
 - **Focus:** (Soundscapes and two-way Google sync **shipped**: rain, brown noise, wind,
   ocean, soft noise, drone behind a running focus block, `lib/sound.ts`; completions and
   moves made in Google come back to mirrored to-dos, and the agenda adds/deletes events on

@@ -576,3 +576,34 @@ describe("naming a bookmark from its page", () => {
     expect(result.current.bookmarks).toHaveLength(0);
   });
 });
+
+describe("highlights on a bookmark", () => {
+  const H = [{ id: "h1", text: "a marked passage", createdAt: "2026-01-02T00:00:00.000Z" }];
+
+  it("survive the device cache across a reload, and clear when removed", () => {
+    const first = renderHook(() => useBookmarks("test-user"));
+    let id = "";
+    act(() => {
+      id = first.result.current.addBookmark({ title: "T", url: "https://example.com", note: "", folderId: null, tags: [] });
+    });
+    act(() => first.result.current.updateBookmark(id, { highlights: H }));
+    first.unmount();
+
+    const second = renderHook(() => useBookmarks("test-user"));
+    expect(second.result.current.bookmarks.find((b) => b.id === id)?.highlights).toEqual(H);
+
+    act(() => second.result.current.updateBookmark(id, { highlights: undefined }));
+    second.unmount();
+    const third = renderHook(() => useBookmarks("test-user"));
+    expect(third.result.current.bookmarks.find((b) => b.id === id)?.highlights).toBeUndefined();
+  });
+
+  it("come along when a JSON backup is imported", () => {
+    const { result } = renderHook(() => useBookmarks("test-user"));
+    const { additions } = planBookmarkImport(result.current.bookmarks, [
+      { id: "x1", title: "From a backup", url: "https://backup.example.com", createdAt: "2026-01-01T00:00:00Z", highlights: H },
+    ]);
+    act(() => result.current.importBookmarks(additions));
+    expect(result.current.bookmarks.find((b) => b.id === "x1")?.highlights).toEqual(H);
+  });
+});

@@ -192,6 +192,26 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   through smaller values on its way from cache to cloud; judging early records too
   little (old milestones celebrate later) or celebrates a list loading. A card counts as
   seen once shown, so a reload doesn't repeat it. No account, no celebration.
+- **Reader view and highlights** (`ReaderModal`, opened by a *Read* button on every
+  `BookmarkCard`, so the home, folder and Unstaged pages all get it). `GET /api/reader` fetches
+  the page through the same fenced fetcher as titles (`@/lib/fetchPage` `fetchHtml`, now
+  shared: 1.5 MB, 8 s) and `extractArticle` (`@/lib/readerExtract`) returns **plain text
+  blocks — headings, paragraphs, list items, quotes, code — never HTML**, which the dialog
+  renders as React elements, so a pasted `<img onerror>` or script is text, not DOM. It
+  prefers `<article>`, then `<main>` (only if it holds ≥400 chars, so a teaser doesn't
+  win), then the body, and drops nav/footer/aside/forms. Links and images are not carried;
+  *Open original* is the way to them. **The page is never stored** — fetched fresh each
+  time (browser-cached 10 min) — only the reader's **highlights** are, on the bookmark
+  (`Bookmark.highlights`: `{id, text, createdAt}`, ≤30 a bookmark, ≤600 chars each,
+  because bookmarks share one 1 MiB Firestore document). A highlight is found again **by
+  its text** within a single block, so one the page has since changed just isn't marked,
+  and a selection spanning paragraphs is refused with a message. Highlights are a field on
+  the record, so **every whitelist that rebuilds a bookmark must name them** —
+  `normalizeBookmarks` (device cache and JSON import) and `sanitizeBookmark` (cloud save,
+  fetch and backups) both go through `cleanHighlights`; `firestoreBookmarks.highlights.test.ts`
+  pins the cloud round trip. **Browse by tag** is a chip row on the home page
+  (`@/utils/tagBrowse`: case-insensitive counts, most used first) that narrows `filtered`,
+  so the folder view and Trending follow it.
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the
