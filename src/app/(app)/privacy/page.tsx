@@ -42,6 +42,11 @@ export default function PrivacyPage() {
             agenda features (see “Google account data” below).
           </li>
           <li>
+            The web address of a link you add without a title: the server opens that one page to read
+            its title, and keeps nothing but the title it saves on the bookmark. Private and local
+            network addresses are never fetched. Type a title yourself and nothing is fetched.
+          </li>
+          <li>
             Meditation cue wording (for example “Breathe in.”) sent to OpenAI to be turned into speech,
             only if you choose the Natural voice and the deployment has a narration key. Only the
             words of the cue are sent — no name, email or account data — and the audio is kept on your

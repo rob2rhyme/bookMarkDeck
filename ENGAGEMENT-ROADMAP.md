@@ -58,7 +58,12 @@ parity, and distribution** — not catalog features.
 - ~~**PWA `share_target` + save-current-page**~~ — **shipped**: `manifest.ts`
   `share_target` → `/share` (Android; iOS has no web share target). See CLAUDE.md
   → Routing & shell.
-- **Auto-fetch title/favicon/description on add** (Bookmarks, `[net-new]`).
+- ~~**Auto-fetch title/favicon/description on add**~~ — **shipped (title)**: a link added
+  without a title is saved at once under its URL, then takes the page's own title
+  (`og:title` → `twitter:title` → `<title>`) from `/api/link-title`, unless you named it
+  meanwhile. Favicons were already derived from the URL; the description is deliberately
+  not stored — a page summary isn't the reader's own note (same reasoning as Raindrop's
+  excerpt).
 - **Onboarding parity** (Bookmarks + Focus, `[net-new]`) — clone Habits'
   15-template onboarding (`HabitOnboarding.tsx`), the best first-run in the app.
 
