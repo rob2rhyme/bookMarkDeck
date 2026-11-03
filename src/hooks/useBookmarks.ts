@@ -635,6 +635,18 @@ export function useBookmarks(userId?: string | null) {
       pinned: partial.pinned ?? false,
     };
     setBookmarks((prev) => [newBookmark, ...prev]);
+    return newBookmark.id;
+  };
+
+  /**
+   * Give a bookmark saved under its own URL the page's title, once that arrives.
+   * Only while it still reads as its URL: a name the user typed in the meantime
+   * (or a delete) wins over a title fetched in the background.
+   */
+  const nameFromPage = (id: string, title: string) => {
+    setBookmarks((prev) =>
+      prev.map((b) => (b.id === id && b.title === b.url ? { ...b, title } : b))
+    );
   };
 
   const updateBookmark = (id: string, data: Partial<Bookmark>) => {
@@ -956,6 +968,7 @@ export function useBookmarks(userId?: string | null) {
     /** This account's cache has loaded; a change made before then would be lost. */
     hydrated,
     addBookmark,
+    nameFromPage,
     updateBookmark,
     deleteBookmark,
     clearAll,

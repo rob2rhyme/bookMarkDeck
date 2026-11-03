@@ -30,6 +30,7 @@ import { bookmarksToNetscapeHtml } from "@/utils/bookmarksToHtml";
 import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import { parseServiceCsv } from "@/utils/parseServiceCsv";
+import { fetchLinkTitle } from "@/utils/linkTitle";
 import { isUnsafeUrl, normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { buildBackupFile, parseBackupJson } from "@/utils/bookmarkBackupFile";
@@ -95,6 +96,7 @@ export function HomePageClient() {
     bookmarks,
     folders: folderEntities,
     addBookmark,
+    nameFromPage,
     addFolder,
     updateFolder: updateFolderEntity,
     deleteFolder: deleteFolderEntity,
@@ -823,14 +825,21 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       .map((t) => t.trim())
       .filter(Boolean);
 
-    addBookmark({
-      title: newTitle.trim() || url,
+    const typedTitle = newTitle.trim();
+    const id = addBookmark({
+      title: typedTitle || url,
       url,
       note: "",
       folderId,
       folder: folderName,
       tags,
     });
+    // Left untitled: save now under its URL, then take the page's own title.
+    if (!typedTitle) {
+      void fetchLinkTitle(url).then((title) => {
+        if (title) nameFromPage(id, title);
+      });
+    }
 
     setNewTitle("");
     setNewUrl("");
@@ -1232,7 +1241,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <input
                     type="text"
-                    placeholder="Title (optional)"
+                    placeholder="Title (optional — taken from the page)"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"

@@ -543,3 +543,36 @@ describe("deletions made on another device", () => {
     expect(ids(result.current.bookmarks)).toEqual(["A", "B"]);
   });
 });
+
+describe("naming a bookmark from its page", () => {
+  const add = (result: { current: ReturnType<typeof useBookmarks> }, title: string) => {
+    let id = "";
+    act(() => {
+      id = result.current.addBookmark({ title, url: "https://example.com", note: "", folderId: null, tags: [] });
+    });
+    return id;
+  };
+
+  it("takes the page's title for a bookmark still named by its URL", () => {
+    const { result } = renderHook(() => useBookmarks("test-user"));
+    const id = add(result, "https://example.com");
+    act(() => result.current.nameFromPage(id, "Example Domain"));
+    expect(result.current.bookmarks.find((b) => b.id === id)?.title).toBe("Example Domain");
+  });
+
+  it("never replaces a name the user gave it meanwhile", () => {
+    const { result } = renderHook(() => useBookmarks("test-user"));
+    const id = add(result, "https://example.com");
+    act(() => result.current.updateBookmark(id, { title: "My name" }));
+    act(() => result.current.nameFromPage(id, "Example Domain"));
+    expect(result.current.bookmarks.find((b) => b.id === id)?.title).toBe("My name");
+  });
+
+  it("does nothing for a bookmark deleted before the title arrived", () => {
+    const { result } = renderHook(() => useBookmarks("test-user"));
+    const id = add(result, "https://example.com");
+    act(() => result.current.deleteBookmark(id));
+    act(() => result.current.nameFromPage(id, "Example Domain"));
+    expect(result.current.bookmarks).toHaveLength(0);
+  });
+});

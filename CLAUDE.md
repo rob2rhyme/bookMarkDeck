@@ -163,6 +163,17 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   `highlights` are not imported — an excerpt is a page summary, not the reader's own note.
   A row without a link is skipped and unsafe schemes are still dropped by
   `planBookmarkImport`. `e2e/import.spec.ts`.
+- **A link added without a title takes the page's own** (`nameFromPage` in `useBookmarks`,
+  `@/utils/linkTitle` → `GET /api/link-title` → `@/lib/fetchPageTitle`). Add Link saves at
+  once under the URL, then sets the fetched title only while the bookmark still reads as
+  its URL, so a name typed meanwhile wins. The server fetch is the SSRF surface, so it is
+  fenced: http(s) on default ports, no credentials, every resolved address checked **at
+  connect time** (a `lookup` hook — a separate check would pass DNS rebinding) and every
+  redirect re-checked (≤3), against `isPublicAddress` (`@/lib/pageTitle`: no loopback,
+  private, link-local/metadata, CGNAT, multicast, or those behind IPv4-mapped/NAT64
+  forms); 5 s for the chain, 256 KB read, HTML only; session-gated, 30/min. A failure is
+  `{ title: null }`, never an error. `fetchPageTitle.test.ts` runs it against a real local
+  server. Description and favicon are not fetched (favicons come from the URL).
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the
