@@ -23,6 +23,7 @@ import { CreateHabitModal } from "@/features/habits/components/CreateHabitModal"
 import { HabitCard } from "@/features/habits/components/HabitCard";
 import { HabitNotesModal } from "@/features/habits/components/HabitNotesModal";
 import { HealthImportDialog } from "@/features/habits/components/HealthImportDialog";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { HabitOnboarding } from "@/features/habits/components/HabitOnboarding";
 import { HabitRing } from "@/features/habits/components/HabitRing";
 import { InsightsPanel } from "@/features/habits/components/InsightsPanel";
@@ -225,14 +226,9 @@ export function HabitsDashboard() {
     setCreateOpen(true);
   };
 
-  const removeHabitConfirmed = (habit: Habit) => {
-    const ok =
-      typeof window === "undefined" ||
-      window.confirm(
-        `Delete “${habit.name}”? This removes the habit for good. Its history is left untouched.`
-      );
-    if (ok) h.removeHabit(habit.id);
-  };
+  // Asked in the page's own dialog, not the browser's: it themes, and it works
+  // where `window.confirm` is blocked.
+  const [deleting, setDeleting] = useState<Habit | null>(null);
 
   const cardHandlers = {
     onToggle: h.toggleToday,
@@ -645,7 +641,7 @@ export function HabitsDashboard() {
                         {
                           label: "Delete",
                           icon: <Trash className="h-4 w-4" />,
-                          onClick: () => removeHabitConfirmed(habit),
+                          onClick: () => setDeleting(habit),
                           danger: true,
                         },
                       ]}
@@ -717,6 +713,17 @@ export function HabitsDashboard() {
         existingAreas={areas.map((a) => a.name)}
         areaIcons={areaIcons}
         canRemind={reminders.permission !== "unsupported"}
+      />
+      <ConfirmDialog
+        open={deleting !== null}
+        title={deleting ? `Delete “${deleting.name}”?` : "Delete habit?"}
+        body="This removes the habit for good. Its history is left untouched."
+        confirmLabel="Delete"
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => {
+          if (deleting) h.removeHabit(deleting.id);
+          setDeleting(null);
+        }}
       />
       <HabitOnboarding
         open={onboardOpen}
