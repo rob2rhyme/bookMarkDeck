@@ -18,6 +18,7 @@ import {
 } from "@/features/focus/lib/sound";
 import {
   cancelSpeech,
+  prepareNarration,
   primeVoices,
   speak,
 } from "@/features/focus/lib/voice";
@@ -195,7 +196,16 @@ export function useMeditation({
         playChime("break", chimeSound); // a soft tone to begin
       }
       requestNotificationPermission();
-      if (voiceRef.current) primeVoices();
+      if (voiceRef.current) {
+        primeVoices();
+        // With the cloud voice chosen: unlock playback now (this is the tap) and fetch every
+        // line the session will say, so no cue waits on the network.
+        prepareNarration(
+          opts.kind === "breath"
+            ? patternById(opts.patternId ?? "box").phases.map((p) => p.label)
+            : opts.steps ?? []
+        );
+      }
       startAmbient(ambientRef.current);
       kindRef.current = opts.kind;
       patternRef.current = opts.kind === "breath" ? opts.patternId ?? "box" : null;

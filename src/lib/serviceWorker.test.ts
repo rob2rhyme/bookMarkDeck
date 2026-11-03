@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 
+import { TTS_CACHE } from "@/features/focus/lib/cloudVoice";
 import { SNOOZE_CACHE } from "@/lib/snoozeRecords";
 
 // public/sw.js is a plain script the browser loads, so nothing imports it and no
@@ -213,6 +214,11 @@ describe("snooze action", () => {
   ])("opens the app instead when %s", async (_label, opts) => {
     const { worker } = await clickSnooze(opts);
     expect(worker.self.clients.openWindow).toHaveBeenCalledWith(`${ORIGIN}/habits`);
+  });
+
+  it("keeps the cloud narration cache out of activate's cleanup, under the name the page uses", () => {
+    expect(SOURCE).toContain(`const TTS_CACHE = "${TTS_CACHE}"`);
+    expect(SOURCE).toContain("k !== TTS_CACHE");
   });
 
   it("keeps its cache name in step with the page's reader, and out of activate's cleanup", () => {

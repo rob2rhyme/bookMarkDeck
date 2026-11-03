@@ -640,9 +640,19 @@ A **task-centric work tracker + journal** (not coupled to bookmarks).
   slight pitch/rate wobble so lines aren't stamped from one mould. The choice is
   **per device** (`bd:meditation:voice:v1`, not synced — voice names differ by device, and
   a name saved elsewhere falls back to the best voice here). A generation counter stops a
-  replaced or cancelled sentence chain from talking over the new line. A recorded or
-  cloud-TTS narrator would sound more human still, but needs audio files or a paid
-  API — not built.
+  replaced or cancelled sentence chain from talking over the new line. **An optional
+  "Natural" engine** (`engine: "cloud"`, listener's choice, only offered when `GET
+  /api/tts` says `OPENAI_API_KEY` is set) sends each sentence to `POST /api/tts`
+  (`gpt-4o-mini-tts`; model via `TTS_MODEL`), which is session-gated, rate-limited (60/min)
+  and capped monthly (`withinFreeQuota(email, "tts", 5000)`, fails open without Redis). The
+  manner (`NARRATOR_INSTRUCTIONS`), model and format are fixed server-side — the client
+  picks only text (≤500 chars), one of the listed voices and a clamped speed — and a
+  provider error is never relayed. `lib/cloudVoice.ts` keeps each clip in memory and in
+  Cache Storage (`bmd-tts-v1`, newest 300, exempted from `sw.js`'s cleanup — a test pins
+  the two names together), prefetches a session's lines at Start (`prepareNarration`,
+  from the tap that also unlocks the reused `Audio` element), and `speak()` falls back to
+  the device voice **per line** when a clip can't be fetched or played, so narration never
+  goes quiet. Only cue wording leaves the device (privacy page says so).
 - **Soundscapes** (`lib/sound.ts`, `useFocusAmbient`): rain/brown noise/wind/ocean/soft
   noise/drone, generated with Web Audio (no files), played behind a running focus block
   (Pomodoro focus mode or the stopwatch — never a break or a pause) and chosen under the

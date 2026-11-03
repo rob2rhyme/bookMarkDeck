@@ -17,6 +17,9 @@ const MAX_ENTRIES = 250;
 // and named the same in src/lib/snoozeRecords.ts (serviceWorker.test.ts checks).
 const SNOOZE_CACHE = "bmd-snooze-v1";
 const SNOOZE_SEC = 60 * 60;
+// Cloud narration audio, kept on the device so a line is only ever generated once
+// (src/features/focus/lib/cloudVoice.ts names it too; serviceWorker.test.ts checks).
+const TTS_CACHE = "bmd-tts-v1";
 
 const STATIC_PREFIXES = ["/_next/static/", "/icons/"];
 const STATIC_EXACT = ["/logo.png", "/favicon.ico"];
@@ -36,7 +39,7 @@ self.addEventListener("activate", (event) => {
     (async () => {
       const keys = await caches.keys();
       await Promise.all(
-        keys.filter((k) => k !== CACHE && k !== SNOOZE_CACHE).map((k) => caches.delete(k))
+        keys.filter((k) => k !== CACHE && k !== SNOOZE_CACHE && k !== TTS_CACHE).map((k) => caches.delete(k))
       );
       await self.clients.claim();
     })()
