@@ -35,10 +35,12 @@ parity, and distribution** — not catalog features.
    My Stuff is opened, and the 🔔 Reminders dialog holds the opt-in and the hour.
    Same limit as Filing's: the 24 h QStash clamp means it pauses if the app isn't
    opened for a day. Silent until item 1 is turned on.
-4. **Consumable depletion + restock loop** (My Stuff pantry/self-care) —
-   `[planned, ITEM-PROFILES Phase 2]`. Add `restockAt` to `types.ts`, "–used one"
-   on `ItemCard`, a new Attention bucket, one-tap wishlist re-add. The only
-   mechanic that gives food/self-care a **daily** reason to open the app.
+4. ~~**Consumable depletion + restock loop**~~ — **shipped**: `restockAt`, "used one" on
+   cards, the *running low* Attention bucket (counted in the badge and digest), and
+   one-tap "+ Wishlist". The loop closes on **Got it**: a wish made from an item that
+   is running low carries `restockOf`, and "Got it" adds one to that item (with Undo)
+   instead of creating a second copy — `applyRestock`. The only mechanic that gives
+   food/self-care a **daily** reason to open the app.
 5. **Bookmarks "Rediscover" nudge** — `[net-new]`. Reuse `hits`/`lastUsedAt`,
    mirror inventory's `rediscover.ts`.
 
