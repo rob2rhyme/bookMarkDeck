@@ -11,13 +11,11 @@ import {
   touchTask,
 } from "@/features/focus/data/focusData";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
   pendingUpsertIds,
-  queueDelete,
-  queueUpsert,
-  unqueueDelete,
-  unqueueUpsert,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
 import type { FocusTask } from "@/features/focus/lib/types";
 
@@ -87,14 +85,11 @@ export function useFocusTasks(
       await flushPendingDeletes("tasks", email, (id) => deleteTask(email, id));
       // Push ONLY tasks changed while offline, not the whole local cache (which
       // would clobber newer cloud edits / resurrect cloud deletes).
+      // Each queued record is sent from the DEVICE cache (another tab may have
+      // edited it since this one loaded) and leaves the queue once it lands; one
+      // that failed is tried again next connect. A queued create goes up too.
       const ups = pendingUpsertIds("tasks", email);
-      if (ups.size)
-        await Promise.all(
-          tasks
-            .filter((t) => ups.has(t.id))
-            .map((t) => saveTask(email, t).catch(() => {}))
-        );
-      clearPendingUpserts("tasks", email);
+      await replayUpserts("tasks", email, loadLocal(email).filter((t) => ups.has(t.id)), (t) => saveTask(email, t));
     })()
       .catch(() => {})
       .finally(() => {
@@ -104,7 +99,6 @@ export function useFocusTasks(
       cancelled = true;
       unsub();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
   const pullFromCloud = useCallback(async () => {
@@ -143,8 +137,7 @@ export function useFocusTasks(
       };
       setTasks((prev) => [...prev, task]);
       setActiveTaskId(task.id);
-      if (canSync && email) saveTask(email, task).catch(() => {});
-      else queueUpsert("tasks", email, task.id);
+      durableSave("tasks", email, task.id, canSync && email ? () => saveTask(email, task) : null).catch(() => {});
       onLog?.("task_added", `Added task: ${trimmed}`);
     },
     [canSync, email, onLog]
@@ -159,8 +152,8 @@ export function useFocusTasks(
           t.id === id ? { ...t, text: trimmed } : t
         );
         const updated = next.find((t) => t.id === id);
-        if (canSync && email && updated) saveTask(email, updated).catch(() => {});
-        else if (updated) queueUpsert("tasks", email, id);
+        if (updated)
+          durableSave("tasks", email, id, canSync && email ? () => saveTask(email, updated) : null).catch(() => {});
         return next;
       });
     },
@@ -174,8 +167,8 @@ export function useFocusTasks(
           t.id === id ? { ...t, done: !t.done } : t
         );
         const updated = next.find((t) => t.id === id);
-        if (canSync && email && updated) saveTask(email, updated).catch(() => {});
-        else if (updated) queueUpsert("tasks", email, id);
+        if (updated)
+          durableSave("tasks", email, id, canSync && email ? () => saveTask(email, updated) : null).catch(() => {});
         if (updated?.done) onLog?.("task_done", `Completed: ${updated.text}`);
         return next;
       });
@@ -186,22 +179,16 @@ export function useFocusTasks(
   const removeTask = useCallback(
     (id: string) => {
       setTasks((prev) => prev.filter((t) => t.id !== id));
-      if (canSync && email) deleteTask(email, id).catch(() => {});
-      // Offline → replay the delete on next connect; drop any pending upsert.
-      else {
-        queueDelete("tasks", email, id);
-        unqueueUpsert("tasks", email, id);
-      }
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete("tasks", email, id, canSync && email ? () => deleteTask(email, id) : null).catch(() => {});
     },
     [canSync, email]
   );
 
   const restoreTask = useCallback(
     (task: FocusTask) => {
-      unqueueDelete("tasks", email, task.id);
       setTasks((prev) => (prev.some((t) => t.id === task.id) ? prev : [...prev, task]));
-      if (canSync && email) saveTask(email, task).catch(() => {});
-      else queueUpsert("tasks", email, task.id);
+      durableSave("tasks", email, task.id, canSync && email ? () => saveTask(email, task) : null).catch(() => {});
     },
     [canSync, email]
   );
@@ -211,8 +198,8 @@ export function useFocusTasks(
       setTasks((prev) =>
         prev.map((t) => (t.id === id ? { ...t, lastUsedAt: isoTime } : t))
       );
-      if (canSync && email) touchTask(email, id, isoTime).catch(() => {});
-      else queueUpsert("tasks", email, id);
+      // Sent as a touch; a replay on the next connect sends the whole task.
+      durableSave("tasks", email, id, canSync && email ? () => touchTask(email, id, isoTime) : null).catch(() => {});
     },
     [canSync, email]
   );

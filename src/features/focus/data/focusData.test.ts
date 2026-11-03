@@ -38,6 +38,10 @@ import {
   recoverHydration,
   subscribeHydration,
   subscribeHydrationHistory,
+  subscribeJournal,
+  subscribeNotes,
+  subscribeTasks,
+  subscribeTodos,
 } from "@/features/focus/data/focusData";
 
 type Snap = {
@@ -233,5 +237,34 @@ describe("fetchHydration", () => {
   it("answers nothing while this page has a change to the day unacknowledged", async () => {
     answer(1, true);
     expect(await fetchHydration("a@example.com", "2026-10-10")).toBeUndefined();
+  });
+});
+
+// Each of these lists replaces the hook's cached one wholesale. Offline, the
+// first answer is the memory cache's — empty on a fresh load — and it emptied
+// the list (and the device cache with it) until the server answered.
+describe.each([
+  ["subscribeTasks", subscribeTasks],
+  ["subscribeJournal", subscribeJournal],
+  ["subscribeNotes", subscribeNotes],
+  ["subscribeTodos", subscribeTodos],
+] as const)("%s — cache-only guard", (_name, subscribe) => {
+  const list = (fromCache: boolean) => ({ docs: [], metadata: { fromCache, hasPendingWrites: false } });
+
+  it("holds cache-only answers back until the server has answered", async () => {
+    const cb = vi.fn();
+    (subscribe as (e: string, cb: () => void) => unknown)("a@example.com", cb);
+    await vi.waitFor(() => expect(onSnapshot).toHaveBeenCalled());
+    const [, options, feed] = vi.mocked(onSnapshot).mock.calls[0] as unknown as [
+      unknown,
+      { includeMetadataChanges: boolean },
+      (s: ReturnType<typeof list>) => void,
+    ];
+    expect(options.includeMetadataChanges).toBe(true);
+    feed(list(true));
+    expect(cb).not.toHaveBeenCalled();
+    feed(list(false));
+    feed(list(true));
+    expect(cb).toHaveBeenCalledTimes(2);
   });
 });

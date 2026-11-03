@@ -12,7 +12,6 @@ import {
   deleteDoc,
   doc,
   getDocs,
-  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -20,6 +19,7 @@ import {
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
+import { onConfirmedSnapshot } from "@/lib/firestoreSnapshot";
 import { addDays, todayKey } from "@/features/habits/lib/day";
 import {
   coerceEntry,
@@ -70,7 +70,7 @@ export function subscribeHabits(
   cb: (habits: Habit[]) => void
 ): () => void {
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onConfirmedSnapshot(
       habitsCol(uid),
       (snap) =>
         cb(
@@ -150,7 +150,7 @@ export function subscribeEntries(
 ): () => void {
   const cutoff = entriesCutoff();
   return listen(emailHint, (uid) =>
-    onSnapshot(
+    onConfirmedSnapshot(
       query(entriesCol(uid), where("day", ">=", cutoff)),
       (snap) =>
         cb(

@@ -8,8 +8,14 @@ import {
   type FocusSettings,
   normalizeSettings,
 } from "@/features/focus/lib/settings";
+import { durableSave, pendingUpsertIds } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 
 const STORAGE_KEY = "bookmarkdeck:focus:settings:v1";
+// A change not yet in the cloud is queued under this one id at once — before the
+// debounce — so it outlives a reload or a tab closed inside the 600 ms.
+const DOMAIN = "focusSettings";
+const ID = "settings";
 
 function storageKeyFor(email?: string | null) {
   return email ? `${STORAGE_KEY}:${email}` : STORAGE_KEY;
@@ -34,13 +40,9 @@ export function useFocusSettings(email?: string | null, connected = false) {
   const [hydrated, setHydrated] = useState(false);
   const canSync = connected && Boolean(email);
 
-  // Track latest settings + whether the user changed them before connecting,
-  // so connecting never clobbers a fresh local change with stale remote.
-  const settingsRef = useRef(settings);
+  // Whether the user changed settings this session, so connecting never
+  // clobbers a fresh local change with stale remote (the queue covers reloads).
   const dirtyRef = useRef(false);
-  useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
 
   // Load localStorage after mount.
   useEffect(() => {
@@ -59,18 +61,22 @@ export function useFocusSettings(email?: string | null, connected = false) {
     } catch {}
   }, [settings, hydrated, email]);
 
-  // On connect: if the user already changed settings locally this session, push
-  // those up (local wins) instead of pulling — otherwise adopt remote.
+  // On connect: a local change still waiting for the cloud (queued, even from
+  // before a reload) or made this session wins and goes up — otherwise adopt remote.
   useEffect(() => {
     if (!canSync || !email) return;
     let cancelled = false;
-    if (dirtyRef.current) {
-      saveSettings(email, settingsRef.current).catch(() => {});
+    const waiting = () => dirtyRef.current || pendingUpsertIds(DOMAIN, email).has(ID);
+    const push = () => durableSave(DOMAIN, email, ID, () => saveSettings(email, loadLocal(email))).catch(() => {});
+    if (waiting()) {
+      push();
       return;
     }
-    fetchSettings(email)
+    untilAnswered(() => fetchSettings(email), () => cancelled)
       .then((remote) => {
-        if (!cancelled && remote && !dirtyRef.current) setSettings(remote);
+        if (cancelled) return;
+        if (waiting()) push();
+        else if (remote) setSettings(remote);
       })
       .catch(() => {});
     return () => {
@@ -82,10 +88,11 @@ export function useFocusSettings(email?: string | null, connected = false) {
   const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistRemote = useCallback(
     (next: FocusSettings) => {
+      durableSave(DOMAIN, email, ID, null);
       if (!canSync || !email) return;
       if (writeTimer.current) clearTimeout(writeTimer.current);
       writeTimer.current = setTimeout(() => {
-        saveSettings(email, next).catch(() => {});
+        durableSave(DOMAIN, email, ID, () => saveSettings(email, next)).catch(() => {});
       }, 600);
     },
     [canSync, email]
