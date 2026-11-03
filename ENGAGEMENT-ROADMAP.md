@@ -41,8 +41,11 @@ parity, and distribution** — not catalog features.
    is running low carries `restockOf`, and "Got it" adds one to that item (with Undo)
    instead of creating a second copy — `applyRestock`. The only mechanic that gives
    food/self-care a **daily** reason to open the app.
-5. **Bookmarks "Rediscover" nudge** — `[net-new]`. Reuse `hits`/`lastUsedAt`,
-   mirror inventory's `rediscover.ts`.
+5. ~~**Bookmarks "Rediscover" nudge**~~ — **shipped**: `RediscoverBookmarkCard` on the
+   home page (`pickRediscoverBookmark` + `useRediscoverBookmark`), one pick a day from the
+   least-recently opened links, favouring ones opened before, with a per-day "Not now".
+   Only links untouched for 30+ local days qualify, so a library in active use shows no
+   card rather than "rediscovering" yesterday's link.
 
 ## Tier 2 — strong wins, modest effort
 

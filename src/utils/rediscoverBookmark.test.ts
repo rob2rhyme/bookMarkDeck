@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { pickRediscoverBookmark } from "./rediscoverBookmark";
 import type { Bookmark } from "@/types/bookmark";
 
@@ -47,5 +47,41 @@ describe("pickRediscoverBookmark", () => {
     const days = ["2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04", "2026-07-05"];
     const picks = new Set(days.map((d) => pickRediscoverBookmark(list, d)?.id));
     expect(picks.size).toBeGreaterThan(1);
+  });
+});
+
+describe("pickRediscoverBookmark — only what's been forgotten", () => {
+  const prevTz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "America/Los_Angeles";
+  });
+  afterAll(() => {
+    process.env.TZ = prevTz;
+  });
+
+  it("shows nothing when every link was opened in the last 30 days", () => {
+    const recent = many(10, (i) => ({ hits: 2, lastUsedAt: `2026-07-${10 + i}T12:00:00Z` }));
+    expect(pickRediscoverBookmark(recent, "2026-07-24")).toBeNull();
+  });
+
+  it("picks only from links untouched for 30+ days", () => {
+    const recent = many(9, (i) => ({ hits: 4, lastUsedAt: `2026-07-${10 + i}T12:00:00Z` }));
+    const old = bm({ id: "old", hits: 1, lastUsedAt: "2026-05-01T12:00:00Z" });
+    for (const day of ["2026-07-24", "2026-07-25", "2026-07-26"]) {
+      expect(pickRediscoverBookmark([...recent, old], day)?.id).toBe("old");
+    }
+  });
+
+  it("judges the 30 days by the local day, not the UTC instant", () => {
+    // 2026-06-25T03:00Z is still 24 June in Los Angeles: exactly 30 days before 24 July.
+    const edge = bm({ id: "edge", hits: 1, lastUsedAt: "2026-06-25T03:00:00Z" });
+    const recent = many(9, () => ({ hits: 1, lastUsedAt: "2026-07-20T12:00:00Z" }));
+    expect(pickRediscoverBookmark([...recent, edge], "2026-07-24")?.id).toBe("edge");
+  });
+
+  it("uses the created date for a link never opened", () => {
+    const fresh = many(9, () => ({ createdAt: "2026-07-20T12:00:00Z" }));
+    const saved = bm({ id: "saved", createdAt: "2026-03-01T12:00:00Z" });
+    expect(pickRediscoverBookmark([...fresh, saved], "2026-07-24")?.id).toBe("saved");
   });
 });
