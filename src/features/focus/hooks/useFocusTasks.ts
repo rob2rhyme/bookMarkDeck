@@ -59,12 +59,17 @@ export function useFocusTasks(
 ) {
   const [tasks, setTasks] = useState<FocusTask[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
 
   useEffect(() => {
     setTasks(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -75,7 +80,7 @@ export function useFocusTasks(
   }, [tasks, hydrated, email]);
 
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     // Replay offline deletions and seed local-only tasks to the cloud BEFORE
     // subscribing — otherwise the first live snapshot resurrects deleted tasks
     // or reverts edits made before the connection settled.
@@ -89,7 +94,8 @@ export function useFocusTasks(
       // edited it since this one loaded) and leaves the queue once it lands; one
       // that failed is tried again next connect. A queued create goes up too.
       const ups = pendingUpsertIds("tasks", email);
-      await replayUpserts("tasks", email, loadLocal(email).filter((t) => ups.has(t.id)), (t) => saveTask(email, t));
+      const send = loadLocal(email).filter((t) => ups.has(t.id));
+      await replayUpserts("tasks", email, send, (t) => saveTask(email, t), { keepUnsent: true });
     })()
       .catch(() => {})
       .finally(() => {
@@ -99,7 +105,7 @@ export function useFocusTasks(
       cancelled = true;
       unsub();
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const pullFromCloud = useCallback(async () => {
     if (!canSync || !email) return;

@@ -42,7 +42,12 @@ function loadLocal(email?: string | null): FilingPlace[] {
 
 export function useFilingPlaces(email?: string | null, connected = false) {
   const [places, setPlaces] = useState<FilingPlace[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
 
   const ref = useRef(places);
@@ -52,7 +57,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
 
   useEffect(() => {
     setPlaces(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -68,7 +73,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
   // live listener — so the first snapshot can't drop records created before
   // connecting.
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     let unsub = () => {};
     (async () => {
@@ -100,7 +105,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
       cancelled = true;
       unsub();
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   // A rejected write (e.g. a doc over Firestore's 1 MiB cap) should be
   // diagnosable rather than silent — same as the folders/documents hooks and

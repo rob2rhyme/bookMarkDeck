@@ -38,12 +38,17 @@ function loadLocal(email?: string | null): InventorySettings {
  */
 export function useInventorySettings(email?: string | null, connected = false) {
   const [settings, setSettings] = useState<InventorySettings>(DEFAULT_INVENTORY_SETTINGS);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
 
   useEffect(() => {
     setSettings(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -56,7 +61,7 @@ export function useInventorySettings(email?: string | null, connected = false) {
   // On connect: adopt remote settings unless a local change is still waiting to
   // reach the cloud (queued), in which case push the device's copy up.
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     (async () => {
       const remote = await untilAnswered(() => fetchSettings(email), () => cancelled);
@@ -71,7 +76,7 @@ export function useInventorySettings(email?: string | null, connected = false) {
     return () => {
       cancelled = true;
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const update = useCallback(
     (patch: Partial<InventorySettings>) => {

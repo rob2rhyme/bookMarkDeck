@@ -137,7 +137,12 @@ export function useFocusJournal(
 ) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [notes, setNotes] = useState<JournalNote[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
   const today = todayKey();
 
@@ -146,7 +151,7 @@ export function useFocusJournal(
     adoptSharedQueue(email, new Set(cached.map((n) => n.id)));
     setEntries(loadEntries(email));
     setNotes(cached);
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -158,7 +163,7 @@ export function useFocusJournal(
   }, [entries, notes, hydrated, email]);
 
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     // Replay offline note deletions and seed local-only entries to the cloud
     // BEFORE subscribing — otherwise the first live snapshot resurrects deleted
     // notes and drops local-only entries.
@@ -174,16 +179,15 @@ export function useFocusJournal(
       // this one loaded) and leaves the queue once it lands; one that failed is
       // tried again next connect.
       const noteUps = pendingUpsertIds(NOTES_DOMAIN, email);
-      await replayUpserts(NOTES_DOMAIN, email, loadNotes(email).filter((n) => noteUps.has(n.id)), (n) =>
-        addNoteRemote(email, n)
-      );
+      const notesToSend = loadNotes(email).filter((n) => noteUps.has(n.id));
+      await replayUpserts(NOTES_DOMAIN, email, notesToSend, (n) => addNoteRemote(email, n), { keepUnsent: true });
       const days = loadEntries(email).map((e) => ({ ...e, id: e.day }));
       const moodUps = pendingUpsertIds("moods", email);
-      await replayUpserts("moods", email, days.filter((e) => moodUps.has(e.id)), (e) => saveMood(email, e.day, e.mood));
+      const moods = days.filter((e) => moodUps.has(e.id));
+      await replayUpserts("moods", email, moods, (e) => saveMood(email, e.day, e.mood), { keepUnsent: true });
       const legacyUps = pendingUpsertIds(LEGACY_DOMAIN, email);
-      await replayUpserts(LEGACY_DOMAIN, email, days.filter((e) => legacyUps.has(e.id)), (e) =>
-        setJournalNote(email, e.day, e.note)
-      );
+      const legacy = days.filter((e) => legacyUps.has(e.id));
+      await replayUpserts(LEGACY_DOMAIN, email, legacy, (e) => setJournalNote(email, e.day, e.note), { keepUnsent: true });
     })()
       .catch(() => {})
       .finally(() => {
@@ -196,7 +200,7 @@ export function useFocusJournal(
       unsubJournal();
       unsubNotes();
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   // Mood (one per day) — merge-written so it never wipes notes.
   const setMood = useCallback(

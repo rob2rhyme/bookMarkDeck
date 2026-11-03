@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Signed in but offline, Firestore holds a write in this tab's memory until the
@@ -175,5 +176,64 @@ describe("to-dos — replays the device's copy, not this tab's", () => {
     rerender({ on: true });
     await waitFor(() => expect(data.subscribeTodos).toHaveBeenCalled());
     expect(vi.mocked(data.saveTodo).mock.calls.map(([, t]) => t.text)).toEqual(["Renamed elsewhere"]);
+  });
+});
+
+// On a hard load the email arrives after the page has mounted (and Firebase may
+// already say "connected"). In that render the state in hand is the signed-out
+// key's: writing it put that over the account's cache, and the connect in the
+// same commit replayed from the clobbered copy — pushing default settings over
+// the queued change, and taking queued records off the queue unsent.
+describe("the email arrives after the page loaded", () => {
+  it("settings: the queued change is what goes up", async () => {
+    online();
+    window.localStorage.setItem(
+      `bookmarkdeck:focus:settings:v1:${EMAIL}`,
+      JSON.stringify({ ...DEFAULT_SETTINGS, dailyGoalHours: 9 })
+    );
+    window.localStorage.setItem(`bookmarkdeck:pending-up:focusSettings:${EMAIL}`, JSON.stringify(["settings"]));
+    const { rerender, result } = renderHook(({ e }) => useFocusSettings(e, true), {
+      initialProps: { e: null as string | null },
+    });
+    await act(async () => {});
+    rerender({ e: EMAIL });
+    await waitFor(() => expect(data.saveSettings).toHaveBeenCalled());
+    expect(vi.mocked(data.saveSettings).mock.calls[0][1]).toMatchObject({ dailyGoalHours: 9 });
+    expect(result.current.settings.dailyGoalHours).toBe(9);
+  });
+
+  it("to-dos: a queued record the replay can't find stays queued", async () => {
+    online();
+    window.localStorage.setItem(`bookmarkdeck:pending-up:todos:${EMAIL}`, JSON.stringify(["T-missing"]));
+    renderHook(() => useTodos(EMAIL, true));
+    await waitFor(() => expect(data.subscribeTodos).toHaveBeenCalled());
+    expect(pendingUpsertIds("todos", EMAIL)).toEqual(new Set(["T-missing"]));
+  });
+});
+
+describe("to-dos — the email arrives after the page loaded (no act, as a page load runs)", () => {
+  it("still sends the queued create", async () => {
+    online();
+    const row = { id: "T1", text: "Made offline", note: "", done: false, dueAt: null, day: "" };
+    window.localStorage.setItem(`bookmarkdeck:focus:todos:v1:${EMAIL}`, JSON.stringify([row]));
+    window.localStorage.setItem(`bookmarkdeck:pending-up:todos:${EMAIL}`, JSON.stringify(["T1"]));
+    const g = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const was = g.IS_REACT_ACT_ENVIRONMENT;
+    g.IS_REACT_ACT_ENVIRONMENT = false;
+    const root = createRoot(document.createElement("div"));
+    function Probe({ email }: { email: string | null }) {
+      useTodos(email, true);
+      return null;
+    }
+    try {
+      root.render(<Probe email={null} />);
+      await new Promise((r) => setTimeout(r, 20));
+      root.render(<Probe email={EMAIL} />);
+      await waitFor(() => expect(data.subscribeTodos).toHaveBeenCalled());
+      expect(vi.mocked(data.saveTodo).mock.calls.map(([, t]) => t.id)).toEqual(["T1"]);
+    } finally {
+      root.unmount();
+      g.IS_REACT_ACT_ENVIRONMENT = was;
+    }
   });
 });

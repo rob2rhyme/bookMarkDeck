@@ -73,7 +73,12 @@ export function useTodos(
   onLog?: LogActivity
 ) {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
 
   // The latest list, for callbacks that outlive a render — the Undo for a
@@ -85,7 +90,7 @@ export function useTodos(
 
   useEffect(() => {
     setTodos(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   useEffect(() => {
@@ -109,7 +114,7 @@ export function useTodos(
   // cloud BEFORE subscribing — otherwise the first live snapshot overwrites
   // local state (resurrecting deletes / reverting just-toggled items).
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     let unsub = () => {};
     (async () => {
@@ -120,7 +125,8 @@ export function useTodos(
       // edited it since this one loaded) and leaves the queue once it lands; one
       // that failed is tried again next connect. A queued create goes up too.
       const ups = pendingUpsertIds("todos", email);
-      await replayUpserts("todos", email, loadLocal(email).filter((t) => ups.has(t.id)), (t) => saveTodo(email, t));
+      const send = loadLocal(email).filter((t) => ups.has(t.id));
+      await replayUpserts("todos", email, send, (t) => saveTodo(email, t), { keepUnsent: true });
     })()
       .catch(() => {})
       .finally(() => {
@@ -130,7 +136,7 @@ export function useTodos(
       cancelled = true;
       unsub();
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const addTodo = useCallback(
     (

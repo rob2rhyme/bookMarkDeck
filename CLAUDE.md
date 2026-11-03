@@ -228,7 +228,7 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   to one is still replaced by the cloud copy — PR C's rule, unchanged. It is
   last-writer-wins per record: the push overwrites any newer edit to the same
   record made elsewhere meanwhile, exactly as focus's queue does.
-- **In every record pillar (Notes, Inventory, Filing, Habits, Focus) a write is queued FIRST, signed in or not, and
+- **In Notes, Inventory, Filing, Habits and Focus's records a write is queued FIRST, signed in or not, and
   leaves the queue only once the server acknowledges it** (`durableSave` /
   `durableDelete` in `@/utils/pendingDeletes`). "Connected" means signed in to
   Firebase, not online, and Firestore's cache is memory-only: a write made signed
@@ -260,7 +260,13 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   once, before their 600 ms save delay. Their record subscriptions take the
   cache-only guard too (`onConfirmedSnapshot`). Not covered: the cloud-only logs
   (focus sessions, scores, activity, meditation, Let Them), which keep no device
-  copy to send.
+  copy to send. (Bookmarks and shortcuts sync by hand; Focus's cups have their own
+  outbox.) **A hook replays only once THIS account's cache has loaded**
+  (`loadedFor === email`): on a hard load the email arrives after mount, and in
+  that render the signed-out key's state was written over the account's cache
+  while the connect in the same commit replayed from it — pushing default Focus
+  settings over a queued change, and un-queuing records it couldn't find. Habits
+  and Focus also leave a queued id the replay can't find (`keepUnsent`).
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 

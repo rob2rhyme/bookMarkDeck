@@ -37,7 +37,12 @@ function loadLocal(email?: string | null): FocusSettings {
  */
 export function useFocusSettings(email?: string | null, connected = false) {
   const [settings, setSettings] = useState<FocusSettings>(DEFAULT_SETTINGS);
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   const canSync = connected && Boolean(email);
 
   // Whether the user changed settings this session, so connecting never
@@ -47,7 +52,7 @@ export function useFocusSettings(email?: string | null, connected = false) {
   // Load localStorage after mount.
   useEffect(() => {
     setSettings(loadLocal(email));
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email]);
 
   // Persist to localStorage after hydration.
@@ -64,7 +69,7 @@ export function useFocusSettings(email?: string | null, connected = false) {
   // On connect: a local change still waiting for the cloud (queued, even from
   // before a reload) or made this session wins and goes up — otherwise adopt remote.
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     const waiting = () => dirtyRef.current || pendingUpsertIds(DOMAIN, email).has(ID);
     const push = () => durableSave(DOMAIN, email, ID, () => saveSettings(email, loadLocal(email))).catch(() => {});
@@ -82,14 +87,15 @@ export function useFocusSettings(email?: string | null, connected = false) {
     return () => {
       cancelled = true;
     };
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   // Debounce writes so dragging a number field doesn't spam Firestore.
   const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistRemote = useCallback(
     (next: FocusSettings) => {
+      if (!email) return; // no account yet: nothing to queue it under
       durableSave(DOMAIN, email, ID, null);
-      if (!canSync || !email) return;
+      if (!canSync) return;
       if (writeTimer.current) clearTimeout(writeTimer.current);
       writeTimer.current = setTimeout(() => {
         durableSave(DOMAIN, email, ID, () => saveSettings(email, next)).catch(() => {});

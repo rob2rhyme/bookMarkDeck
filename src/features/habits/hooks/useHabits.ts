@@ -87,7 +87,12 @@ export function useHabits(
   const [habits, setHabits] = useState<Habit[]>([]);
   const [entries, setEntries] = useState<HabitEntry[]>([]);
   const [today, setToday] = useState("");
-  const [hydrated, setHydrated] = useState(false);
+  // WHICH account's cache has loaded, not just whether one has. In the render
+  // where the email arrives the state in hand is still the signed-out key's:
+  // writing it then put that list over the account's cache, and a connect in the
+  // same commit replayed from the clobbered copy and dropped what was queued.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const hydrated = loadedFor === (email ?? "");
   // True once the cloud has had its say (first snapshot, or a timeout if no
   // session) — so callers don't mistake "still loading" for "user has no data".
   const [cloudLoaded, setCloudLoaded] = useState(false);
@@ -125,7 +130,7 @@ export function useHabits(
     setHabits(loadHabits(email));
     commitEntries(loadEntries(email));
     setToday(todayKey());
-    setHydrated(true);
+    setLoadedFor(email ?? "");
   }, [email, commitEntries]);
 
   // Keep "today" fresh when the tab regains focus (covers crossing midnight).
@@ -171,7 +176,7 @@ export function useHabits(
   // cache — that clobbers newer cloud edits (e.g. a habit's direction) with a
   // stale local copy from another device/tab/session.
   useEffect(() => {
-    if (!canSync || !email) return;
+    if (!canSync || !email || !hydrated) return;
     let cancelled = false;
     let unsubH = () => {};
     let unsubE = () => {};
@@ -187,15 +192,14 @@ export function useHabits(
         const ids = pendingUpsertIds(domain, email);
         return <T extends { id: string }>(list: T[]) => list.filter((r) => ids.has(r.id));
       };
-      await replayUpserts("habits", email, queued("habits")(loadHabits(email)), (h) => saveHabit(email, h));
-      await replayUpserts("habitEntries", email, queued("habitEntries")(loadEntries(email)), (e) =>
-        saveEntry(email, e)
-      );
+      const keep = { keepUnsent: true };
+      await replayUpserts("habits", email, queued("habits")(loadHabits(email)), (h) => saveHabit(email, h), keep);
+      const entriesNow = loadEntries(email);
+      await replayUpserts("habitEntries", email, queued("habitEntries")(entriesNow), (e) => saveEntry(email, e), keep);
       // A count adopted while not connected: its own queue, replayed through
       // saveEntryCount only — see adoptCount.
-      await replayUpserts("habitEntryCounts", email, queued("habitEntryCounts")(loadEntries(email)), (e) =>
-        saveEntryCount(email, e)
-      );
+      const counts = queued("habitEntryCounts")(entriesNow);
+      await replayUpserts("habitEntryCounts", email, counts, (e) => saveEntryCount(email, e), keep);
     })()
       .catch(() => {})
       .finally(() => {
@@ -212,7 +216,7 @@ export function useHabits(
       unsubE();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSync, email]);
+  }, [canSync, email, hydrated]);
 
   const pullFromCloud = useCallback(async () => {
     if (!canSync || !email) return;
@@ -233,8 +237,6 @@ export function useHabits(
 
   // A count taken from a linked source writes only the count: this copy of the
   // entry may not have the note and time another device logged on it yet.
-  // Nothing is queued while not connected — a queued entry goes up whole on
-  // connect — since once connected the habit takes the source's count again.
   const adoptCount = useCallback(
     (entry: HabitEntry) => {
       commitEntries((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
