@@ -119,3 +119,30 @@ describe.each(cases)("filing $name — signed in, offline, tab closed", (c) => {
     expect(c.del).toHaveBeenCalledWith(EMAIL, c.record.id);
   });
 });
+
+// Another tab renamed a queued record after this one loaded. The replay used to
+// send this tab's copy from load time, landing after the rename and undoing it.
+describe.each(cases)("filing $name — replays the device's copy, not this tab's", (c) => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    recordSyncedIds(c.domain, EMAIL, [c.record.id]);
+    window.localStorage.setItem(`${c.key}:${EMAIL}`, JSON.stringify([c.record]));
+    m(c.subscribe).mockReset().mockReturnValue(() => {});
+    m(c.save).mockReset().mockResolvedValue(undefined);
+    m(c.del).mockReset().mockResolvedValue(undefined);
+  });
+
+  it("sends the other tab's later edit", async () => {
+    let answer: (v: unknown) => void = () => {};
+    m(c.fetch).mockReset().mockImplementation(() => new Promise((res) => (answer = res)));
+    const tab = renderHook(c.use);
+    await waitFor(() => expect(tab.result.current.list).toHaveLength(1));
+    await waitFor(() => expect(c.fetch).toHaveBeenCalled());
+    // The other tab: its edit in the shared cache, and queued.
+    window.localStorage.setItem(`${c.key}:${EMAIL}`, JSON.stringify([{ ...c.record, name: "Renamed elsewhere" }]));
+    window.localStorage.setItem(`bookmarkdeck:pending-up:${c.domain}:${EMAIL}`, JSON.stringify([c.record.id]));
+    await act(async () => answer([c.record]));
+    await waitFor(() => expect(c.subscribe).toHaveBeenCalled());
+    expect(m(c.save).mock.calls.map(([, r]) => r.name)).toEqual(["Renamed elsewhere"]);
+  });
+});

@@ -151,7 +151,9 @@ export function useInventory(email?: string | null, connected = false) {
       if (!cloud) return;
       const cloudIds = new Set(cloud.map((i) => i.id));
       // Each leaves the queue once it lands; one that failed is tried again next connect.
-      await replayUpserts("inventoryItems", email, toUpload(itemsRef.current, cloudIds, "inventoryItems", email), (i) =>
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("inventoryItems", email, toUpload(loadLocal(email), cloudIds, "inventoryItems", email), (i) =>
         saveItem(email, i)
       );
     })()

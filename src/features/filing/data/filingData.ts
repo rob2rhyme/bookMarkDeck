@@ -21,7 +21,7 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
+  getDocFromServer,
   getDocs,
   getDocsFromServer,
   serverTimestamp,
@@ -424,7 +424,8 @@ export async function deleteDocument(emailHint: string, id: string): Promise<voi
 
 export async function fetchSettings(emailHint: string): Promise<FilingSettings | null> {
   const uid = await uidFor(emailHint);
-  const snap = await getDoc(settingsDoc(uid));
+  // The server's answer only: a cached "missing" would push local settings over the cloud's.
+  const snap = await getDocFromServer(settingsDoc(uid));
   return snap.exists() ? normalizeSettings(snap.data()) : null;
 }
 

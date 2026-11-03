@@ -239,12 +239,19 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   (`permission-denied`, `invalid-argument`) leaves the queue instead of being
   retried forever. On connect `replayUpserts` / `flushPendingDeletes` take each id
   off only once it lands — they used to clear the whole queue, failures included.
-  **The connect fetch is the server's answer only** (`getDocsFromServer`, retried
-  by `@/utils/untilAnswered` on `online` and every 15 s): offline, `getDocs`
-  answers from the empty memory cache, and every queued edit would read as deleted
-  on another device and be dropped. Notes' editor counts a save as done once it is
+  **The connect fetch is the server's answer only** (`getDocsFromServer`, and
+  `getDocFromServer` for settings; retried by `@/utils/untilAnswered` on `online`
+  and every 15 s, thrown on a refusal): offline, `getDocs` answers from the empty
+  memory cache, and every queued edit would read as deleted on another device and
+  be dropped. The replay sends each record **from the device cache**, not the
+  tab's own copy: another tab may have edited a queued record since this one
+  loaded, and its load-time copy landed after that edit and undid it. Notes' editor counts a save as done once it is
   on the device — it used to wait for the cloud, and offline its one-at-a-time
-  saves stalled after the first. Not yet covered: Focus, Habits (next), and the
+  saves stalled after the first. Notes' conflict base is not taken from a snapshot
+  carrying this page's own unsent edit (that hid a conflict). Known limit: a record
+  deleted, then restored before the delete was acknowledged, with the tab closed
+  before the restore lands, reads as deleted elsewhere next load and stays deleted.
+  Not yet covered: Focus, Habits (next), and the
   cloud-only logs (focus sessions, scores, activity, meditation, Let Them).
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.

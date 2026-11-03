@@ -75,7 +75,9 @@ export function useWishlist(email?: string | null, connected = false) {
       if (!cloud) return;
       const cloudIds = new Set(cloud.map((w) => w.id));
       // Each leaves the queue once it lands; one that failed is tried again next connect.
-      await replayUpserts("inventoryWishlist", email, toUpload(ref.current, cloudIds, "inventoryWishlist", email), (w) =>
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("inventoryWishlist", email, toUpload(loadLocal(email), cloudIds, "inventoryWishlist", email), (w) =>
         saveWishlist(email, w)
       );
     })()

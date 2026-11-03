@@ -92,7 +92,9 @@ export function useFilingFolders(email?: string | null, connected = false) {
       if (!cloud) return;
       const cloudIds = new Set(cloud.map((f) => f.id));
       // Each leaves the queue once it lands; one that failed is tried again next connect.
-      await replayUpserts("filingFolders", email, toUpload(ref.current, cloudIds, "filingFolders", email), (f) =>
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("filingFolders", email, toUpload(loadLocal(email), cloudIds, "filingFolders", email), (f) =>
         saveFolder(email, f)
       );
     })()

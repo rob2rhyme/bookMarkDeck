@@ -12,9 +12,11 @@ vi.mock("@/features/notes/data/notesData", () => ({
 }));
 
 import { deleteNote, fetchNotes, saveNote, subscribeNotes } from "@/features/notes/data/notesData";
+import { SAVE_FAILED } from "./useNotes";
 import type { Note } from "@/features/notes/lib/notes";
 import { pendingDeleteIds, pendingUpsertIds } from "@/utils/pendingDeletes";
 import { recordSyncedIds, syncedIds } from "@/utils/syncedIds";
+import { readBase } from "@/features/notes/lib/conflicts";
 import { useNotes } from "./useNotes";
 
 const EMAIL = "a@example.com";
@@ -400,5 +402,47 @@ describe("useNotes — signed in, offline, tab closed", () => {
       expect(subscribeNotes).toHaveBeenCalled();
     });
     expect(saveNote).toHaveBeenCalledWith(EMAIL, expect.objectContaining({ id: "a", body: "edited offline" }));
+  });
+});
+
+// The base is the cloud version this device last saw, and it is how a reconnect
+// tells that another device edited a note too. A snapshot carrying this page's own
+// unsent edit isn't the cloud's, and recorded as the base it hid the conflict.
+describe("useNotes — the base for conflicts", () => {
+  it("isn't taken from a snapshot carrying this page's own unsent edit", async () => {
+    let push: (n: Note[], pending: boolean) => void = () => {};
+    vi.mocked(subscribeNotes).mockImplementation((_e, cb) => {
+      push = (n, pending) => cb(n, { fromCache: false, hasPendingWrites: pending });
+      return () => {};
+    });
+    renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalled());
+    act(() => push([note("a", { updatedAt: "2026-03-01T00:00:00.000Z" })], false));
+    act(() => push([note("a", { updatedAt: "2026-03-02T00:00:00.000Z" })], true));
+    expect(readBase(EMAIL)).toEqual({ a: "2026-03-01T00:00:00.000Z" });
+  });
+});
+
+describe("useNotes — a save the cloud refuses", () => {
+  it("is announced once, only for a refusal", async () => {
+    const heard = vi.fn();
+    window.addEventListener(SAVE_FAILED, heard);
+    const denied = Object.assign(new Error("too big"), { code: "invalid-argument" });
+    const offline = Object.assign(new Error("offline"), { code: "unavailable" });
+    const { result } = renderHook(() => useNotes(EMAIL, true));
+    await waitFor(() => expect(subscribeNotes).toHaveBeenCalled());
+    let id = "";
+    vi.mocked(saveNote).mockRejectedValue(offline);
+    act(() => {
+      id = result.current.createNote({ body: "a" }).id;
+    });
+    await act(async () => {});
+    expect(heard).not.toHaveBeenCalled();
+    vi.mocked(saveNote).mockRejectedValue(denied);
+    await act(() => result.current.updateNote(id, { body: "b" }));
+    await act(() => result.current.updateNote(id, { body: "c" }));
+    await act(async () => {});
+    expect(heard).toHaveBeenCalledTimes(1);
+    window.removeEventListener(SAVE_FAILED, heard);
   });
 });

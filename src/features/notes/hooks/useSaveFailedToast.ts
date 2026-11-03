@@ -13,8 +13,8 @@ export function useSaveFailedToast() {
       const title = (e as CustomEvent<{ title?: string }>).detail?.title?.trim();
       toast(
         title
-          ? `Couldn't save “${title}” to the cloud. It's still on this device.`
-          : "Couldn't save a note to the cloud. It's still on this device.",
+          ? `Couldn't save “${title}” — the cloud refused it.`
+          : "Couldn't save a note — the cloud refused it.",
         { variant: "error" }
       );
     };

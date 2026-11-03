@@ -147,7 +147,7 @@ function bump(domain: string, scope: string | null | undefined, id: string): num
 }
 
 /** Refused for good (the rules, a malformed document): retrying can't help. */
-function isPermanent(err: unknown): boolean {
+export function isPermanentWriteError(err: unknown): boolean {
   const code = (err as { code?: unknown } | null)?.code;
   return code === "permission-denied" || code === "invalid-argument";
 }
@@ -158,7 +158,7 @@ async function landed(send: () => Promise<unknown>): Promise<boolean> {
     await send();
     return true;
   } catch (err) {
-    return isPermanent(err);
+    return isPermanentWriteError(err);
   }
 }
 
@@ -179,7 +179,7 @@ function durable(
       if (genOf(domain, scope, id) === gen) drop(queue, id);
     },
     (err) => {
-      if (isPermanent(err) && genOf(domain, scope, id) === gen) drop(queue, id);
+      if (isPermanentWriteError(err) && genOf(domain, scope, id) === gen) drop(queue, id);
       throw err;
     }
   );

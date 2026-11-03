@@ -10,6 +10,7 @@ import {
   durableDelete,
   durableSave,
   flushPendingDeletes,
+  isPermanentWriteError,
   queueUpsert,
   replayUpserts,
   unqueueDelete,
@@ -30,8 +31,10 @@ import { CONFLICTS_FOUND, planReconnect, readBase, recordBase } from "@/features
 
 const DOMAIN = "notes";
 
-/** A save the cloud refused for good (detail: the note's title). The cache still has it. */
+/** A save the cloud refused for good (detail: the note's title). */
 export const SAVE_FAILED = "bd:notes-save-failed";
+// Said once per note: autosave would otherwise repeat it every 800 ms.
+const refused = new Set<string>();
 // The key lives in @/lib/notesIndex, which the ⌘K palette reads too.
 const keyFor = notesCacheKey;
 
@@ -195,7 +198,10 @@ export function useNotes(email?: string | null, connected = false) {
         if (cancelled) return;
         unsub = subscribeNotes(email, (cloud, meta) => {
           recordSyncedIdsUnlessPending(DOMAIN, email, cloud.map((n) => n.id), meta);
-          recordBase(email, cloud, true);
+          // Not from a snapshot carrying this page's own unsent edit: that edit's
+          // updatedAt isn't a version the cloud has, and recorded as one it hid
+          // a conflict with another device's edit on the next reconnect.
+          if (!meta.hasPendingWrites) recordBase(email, cloud, true);
           commit(cloud);
           setCloudLoaded(true);
         });
@@ -215,9 +221,13 @@ export function useNotes(email?: string | null, connected = false) {
     (note: Note): Promise<void> => {
       const send = canSync && email ? () => saveNote(email, note).then(() => recordBase(email, [note])) : null;
       durableSave(DOMAIN, email, note.id, send).catch((err) => {
-        // Refused for good (e.g. over Firestore's 1 MiB document cap): say so.
-        // Anything else stays queued and is sent again on the next connect.
         console.error("[notes] save failed:", err);
+        // Anything but a refusal stays queued and is sent again on the next
+        // connect. A refusal (e.g. over Firestore's 1 MiB document cap) is rolled
+        // back by Firestore, and the next snapshot takes the change off the device
+        // too — so say so, once.
+        if (!isPermanentWriteError(err) || refused.has(note.id)) return;
+        refused.add(note.id);
         window.dispatchEvent(new CustomEvent(SAVE_FAILED, { detail: { title: note.title } }));
       });
       return Promise.resolve();

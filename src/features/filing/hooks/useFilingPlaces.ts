@@ -81,7 +81,9 @@ export function useFilingPlaces(email?: string | null, connected = false) {
       if (!cloud) return;
       const cloudIds = new Set(cloud.map((p) => p.id));
       // Each leaves the queue once it lands; one that failed is tried again next connect.
-      await replayUpserts("filingPlaces", email, toUpload(ref.current, cloudIds, "filingPlaces", email), (p) =>
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("filingPlaces", email, toUpload(loadLocal(email), cloudIds, "filingPlaces", email), (p) =>
         savePlace(email, p)
       );
     })()

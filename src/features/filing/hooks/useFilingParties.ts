@@ -75,7 +75,9 @@ export function useFilingParties(email?: string | null, connected = false) {
       if (!cloud) return;
       const cloudIds = new Set(cloud.map((p) => p.id));
       // Each leaves the queue once it lands; one that failed is tried again next connect.
-      await replayUpserts("filingParties", email, toUpload(ref.current, cloudIds, "filingParties", email), (p) =>
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("filingParties", email, toUpload(loadLocal(email), cloudIds, "filingParties", email), (p) =>
         saveParty(email, p)
       );
     })()

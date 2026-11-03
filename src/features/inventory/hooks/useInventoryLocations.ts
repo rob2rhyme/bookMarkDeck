@@ -103,7 +103,9 @@ export function useInventoryLocations(email?: string | null, connected = false) 
       if (!cloud) return;
       const cloudIds = new Set(cloud.map((l) => l.id));
       // Each leaves the queue once it lands; one that failed is tried again next connect.
-      await replayUpserts("inventoryLocations", email, toUpload(ref.current, cloudIds, "inventoryLocations", email), (l) =>
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("inventoryLocations", email, toUpload(loadLocal(email), cloudIds, "inventoryLocations", email), (l) =>
         saveLocation(email, l)
       );
     })()

@@ -45,3 +45,14 @@ describe("untilAnswered", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("untilAnswered — refused for good", () => {
+  it("throws rather than asking again forever", async () => {
+    const denied = Object.assign(new Error("denied"), { code: "permission-denied" });
+    const fetch = vi.fn(async () => {
+      throw denied;
+    });
+    await expect(untilAnswered(fetch, () => false, 60_000)).rejects.toBe(denied);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});

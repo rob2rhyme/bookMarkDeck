@@ -16,7 +16,7 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
+  getDocFromServer,
   getDocs,
   getDocsFromServer,
   query,
@@ -522,7 +522,8 @@ export async function fetchSettings(
   emailHint: string
 ): Promise<InventorySettings | null> {
   const uid = await uidFor(emailHint);
-  const snap = await getDoc(settingsDoc(uid));
+  // The server's answer only: a cached "missing" would push local settings over the cloud's.
+  const snap = await getDocFromServer(settingsDoc(uid));
   if (!snap.exists()) return null;
   return normalizeSettings(snap.data());
 }

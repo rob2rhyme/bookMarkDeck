@@ -207,7 +207,9 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       const cloud = await untilAnswered(() => fetchDocuments(email), () => cancelled);
       if (!cloud) return;
       const cloudIds = new Set(cloud.map((d) => d.id));
-      const upload = toUpload(ref.current, cloudIds, "filingDocuments", email)
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      const upload = toUpload(loadLocal(email), cloudIds, "filingDocuments", email)
         // An offline edit to a paper the cloud holds goes up only if complete:
         // a partial one would write its missing fields over the full copy.
         .flatMap((d) => (!cloudIds.has(d.id) ? [promote(d)] : isComplete(d) ? [d] : []));
