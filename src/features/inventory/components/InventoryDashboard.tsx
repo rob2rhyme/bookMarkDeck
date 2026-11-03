@@ -54,7 +54,7 @@ import { BorrowedLedgerModal } from "@/features/inventory/components/BorrowedLed
 import { SubscriptionsModal } from "@/features/inventory/components/SubscriptionsModal";
 import type { AiProduct } from "@/features/inventory/lib/aiCapture";
 import { WishlistModal } from "@/features/inventory/components/WishlistModal";
-import { wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
+import { applyRestock, wishlistToInventoryItem } from "@/features/inventory/lib/wishlist";
 import { MaintenanceCalendarModal } from "@/features/inventory/components/MaintenanceCalendarModal";
 import { upkeepCount } from "@/features/inventory/lib/maintenanceCalendar";
 import { StarterRoomsCard } from "@/features/inventory/components/StarterRoomsCard";
@@ -282,6 +282,24 @@ export function InventoryDashboard() {
   // Wishlist → My Stuff: bought it, so make it a real item and clear the wish.
   // Undoable — an accidental tap restores the wish and removes the new item.
   const gotItFromWishlist = (w: WishlistItem) => {
+    // A restock wish tops up the item that ran low instead of adding a copy.
+    const restocked = applyRestock(w, inv.items);
+    if (restocked) {
+      const before = inv.items.find((i) => i.id === restocked.id);
+      saveItem(restocked);
+      wishlist.remove(w.id);
+      toast(`Restocked “${restocked.name}” — now ${restocked.quantity}.`, {
+        duration: UNDO_DELETE_MS,
+        action: {
+          label: "Undo",
+          onClick: () => {
+            if (before) saveItem(before);
+            wishlist.upsert(w);
+          },
+        },
+      });
+      return;
+    }
     const item = wishlistToInventoryItem(w, settings.defaultCurrency);
     saveItem(item);
     wishlist.remove(w.id);
@@ -313,7 +331,9 @@ export function InventoryDashboard() {
   // (photo, price as the estimate, barcode + compare links for price checks).
   const wishFromItem = (item: InventoryItem) => {
     const dup = wishlist.items.find(
-      (x) => x.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+      (x) =>
+        x.restockOf === item.id ||
+        x.name.trim().toLowerCase() === item.name.trim().toLowerCase()
     );
     if (dup) {
       toast(`“${item.name}” is already on your wishlist.`);
@@ -327,6 +347,9 @@ export function InventoryDashboard() {
       category: item.category,
       barcode: item.barcode,
       imageUrl: item.photos[0]?.url,
+      // Running low → this wish restocks the item rather than adding another.
+      restockOf:
+        item.restockAt != null && item.quantity <= item.restockAt ? item.id : undefined,
       compareLinks: item.compareLinks?.length ? item.compareLinks : undefined,
       link: item.storeUrl
         ? { id: item.id, title: item.name, url: item.storeUrl }

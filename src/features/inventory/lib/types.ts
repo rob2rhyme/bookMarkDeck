@@ -275,6 +275,8 @@ export type WishlistItem = {
   // capture (compressed data: URL) — shown as the wish's thumbnail and carried
   // into the item's photos on "Got it".
   imageUrl?: string;
+  /** Set when the wish came from an item running low: "Got it" tops that item up. */
+  restockOf?: string;
   createdAt: string | null;
 };
 

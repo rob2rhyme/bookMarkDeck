@@ -535,7 +535,7 @@ export function WishlistModal({
                 <button
                   type="button"
                   onClick={() => onGotIt(w)}
-                  title="Got it — move into My Stuff"
+                  title={w.restockOf ? "Got it — add one to the item you already have" : "Got it — move into My Stuff"}
                   className="shrink-0 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Got it
