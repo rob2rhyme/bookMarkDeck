@@ -9,12 +9,12 @@ import {
   subscribeItems,
 } from "@/features/inventory/data/inventoryData";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
-  queueDelete,
-  queueUpsert,
-  unqueueUpsert,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import type {
   InventoryItem,
@@ -147,14 +147,15 @@ export function useInventory(email?: string | null, connected = false) {
       // — uploading "everything the cloud lacks" recreated it for everyone (an
       // item pointing at photos already purged).
       await flushPendingDeletes("inventoryItems", email, (id) => deleteItem(email, id));
-      const cloud = await fetchItems(email);
+      const cloud = await untilAnswered(() => fetchItems(email), () => cancelled);
+      if (!cloud) return;
       const cloudIds = new Set(cloud.map((i) => i.id));
-      await Promise.all(
-        toUpload(itemsRef.current, cloudIds, "inventoryItems", email).map((i) =>
-          saveItem(email, i).catch(() => {})
-        )
+      // Each leaves the queue once it lands; one that failed is tried again next connect.
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("inventoryItems", email, toUpload(loadLocal(email), cloudIds, "inventoryItems", email), (i) =>
+        saveItem(email, i)
       );
-      clearPendingUpserts("inventoryItems", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -182,8 +183,7 @@ export function useInventory(email?: string | null, connected = false) {
           ? prev.map((i) => (i.id === clean.id ? clean : i))
           : [clean, ...prev];
       });
-      if (canSync && email) saveItem(email, clean).catch(onSaveError);
-      else queueUpsert("inventoryItems", email, clean.id);
+      durableSave("inventoryItems", email, clean.id, canSync && email ? () => saveItem(email, clean) : null).catch(onSaveError);
     },
     [canSync, email]
   );
@@ -191,9 +191,8 @@ export function useInventory(email?: string | null, connected = false) {
   const removeItem = useCallback(
     (id: string) => {
       setItems((prev) => prev.filter((i) => i.id !== id));
-      unqueueUpsert("inventoryItems", email, id); // an edit to it must not be pushed back
-      if (canSync && email) deleteItem(email, id).catch(() => {});
-      else queueDelete("inventoryItems", email, id); // replayed on connect
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete("inventoryItems", email, id, canSync && email ? () => deleteItem(email, id) : null).catch(() => {});
     },
     [canSync, email]
   );
@@ -206,8 +205,8 @@ export function useInventory(email?: string | null, connected = false) {
           i.id === id ? { ...i, archived, updatedAt: new Date().toISOString() } : i
         );
         const updated = next.find((i) => i.id === id);
-        if (canSync && email && updated) saveItem(email, updated).catch(onSaveError);
-        else if (updated) queueUpsert("inventoryItems", email, updated.id);
+        if (updated)
+          durableSave("inventoryItems", email, updated.id, canSync && email ? () => saveItem(email, updated) : null).catch(onSaveError);
         return next;
       });
     },
@@ -222,8 +221,8 @@ export function useInventory(email?: string | null, connected = false) {
           i.id === id ? { ...fn(i), updatedAt: new Date().toISOString() } : i
         );
         const updated = next.find((i) => i.id === id);
-        if (canSync && email && updated) saveItem(email, updated).catch(onSaveError);
-        else if (updated) queueUpsert("inventoryItems", email, updated.id);
+        if (updated)
+          durableSave("inventoryItems", email, updated.id, canSync && email ? () => saveItem(email, updated) : null).catch(onSaveError);
         return next;
       });
     },
@@ -296,8 +295,8 @@ export function useInventory(email?: string | null, connected = false) {
             : i
         );
         const updated = next.find((i) => i.id === id);
-        if (canSync && email && updated) saveItem(email, updated).catch(onSaveError);
-        else if (updated) queueUpsert("inventoryItems", email, updated.id);
+        if (updated)
+          durableSave("inventoryItems", email, updated.id, canSync && email ? () => saveItem(email, updated) : null).catch(onSaveError);
         return next;
       });
     },

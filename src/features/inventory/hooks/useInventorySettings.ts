@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { fetchSettings, saveSettings } from "@/features/inventory/data/inventoryData";
 import {
@@ -8,8 +8,14 @@ import {
   normalizeSettings,
   type InventorySettings,
 } from "@/features/inventory/lib/types";
+import { durableSave, pendingUpsertIds } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 
 const STORAGE_KEY = "bookmarkdeck:inventory:settings:v1";
+// A local change not yet in the cloud is queued under this one id — it outlives a
+// reload, where the in-memory flag it replaces did not.
+const DOMAIN = "inventorySettings";
+const ID = "settings";
 
 function keyFor(email?: string | null) {
   return email ? `${STORAGE_KEY}:${email}` : STORAGE_KEY;
@@ -35,8 +41,6 @@ export function useInventorySettings(email?: string | null, connected = false) {
   const [hydrated, setHydrated] = useState(false);
   const canSync = connected && Boolean(email);
 
-  const dirtyRef = useRef(false);
-
   useEffect(() => {
     setSettings(loadLocal(email));
     setHydrated(true);
@@ -49,16 +53,17 @@ export function useInventorySettings(email?: string | null, connected = false) {
     } catch {}
   }, [settings, hydrated, email]);
 
-  // On connect: adopt remote settings only if the user hasn't changed anything
-  // locally this session; otherwise push the local change up.
+  // On connect: adopt remote settings unless a local change is still waiting to
+  // reach the cloud (queued), in which case push the device's copy up.
   useEffect(() => {
     if (!canSync || !email) return;
     let cancelled = false;
     (async () => {
-      const remote = await fetchSettings(email);
+      const remote = await untilAnswered(() => fetchSettings(email), () => cancelled);
       if (cancelled) return;
-      if (dirtyRef.current || !remote) {
-        await saveSettings(email, settings);
+      if (pendingUpsertIds(DOMAIN, email).has(ID) || !remote) {
+        const local = loadLocal(email);
+        await durableSave(DOMAIN, email, ID, () => saveSettings(email, local));
       } else {
         setSettings(remote);
       }
@@ -66,15 +71,13 @@ export function useInventorySettings(email?: string | null, connected = false) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSync, email]);
 
   const update = useCallback(
     (patch: Partial<InventorySettings>) => {
-      dirtyRef.current = true;
       setSettings((prev) => {
         const next = { ...prev, ...patch };
-        if (canSync && email) saveSettings(email, next).catch(() => {});
+        durableSave(DOMAIN, email, ID, canSync && email ? () => saveSettings(email, next) : null).catch(() => {});
         return next;
       });
     },

@@ -21,8 +21,9 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
+  getDocFromServer,
   getDocs,
+  getDocsFromServer,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
@@ -123,9 +124,10 @@ function mapPlace(d: { id: string; data: () => Record<string, unknown> }): Filin
   });
 }
 
+/** The server's answer only — offline this rejects rather than read an empty cache (see @/utils/untilAnswered). */
 export async function fetchPlaces(emailHint: string): Promise<FilingPlace[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(placesCol(uid));
+  const snap = await getDocsFromServer(placesCol(uid));
   return snap.docs.map(mapPlace).filter((p) => p.name.trim().length > 0);
 }
 
@@ -175,7 +177,7 @@ function mapParty(d: { id: string; data: () => Record<string, unknown> }): Filin
 
 export async function fetchParties(emailHint: string): Promise<FilingParty[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(partiesCol(uid));
+  const snap = await getDocsFromServer(partiesCol(uid));
   return snap.docs.map(mapParty).filter((p) => p.name.trim().length > 0);
 }
 
@@ -268,7 +270,7 @@ function folderPayload(f: FilingFolder) {
 
 export async function fetchFolders(emailHint: string): Promise<FilingFolder[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(foldersCol(uid));
+  const snap = await getDocsFromServer(foldersCol(uid));
   return snap.docs.map(mapFolder).filter((f) => f.name.trim().length > 0);
 }
 
@@ -396,7 +398,7 @@ function documentPayload(d: FilingDocument) {
 
 export async function fetchDocuments(emailHint: string): Promise<FilingDocument[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(documentsCol(uid));
+  const snap = await getDocsFromServer(documentsCol(uid));
   return snap.docs.map(mapDocument).filter((d) => d.title.trim().length > 0);
 }
 
@@ -422,7 +424,8 @@ export async function deleteDocument(emailHint: string, id: string): Promise<voi
 
 export async function fetchSettings(emailHint: string): Promise<FilingSettings | null> {
   const uid = await uidFor(emailHint);
-  const snap = await getDoc(settingsDoc(uid));
+  // The server's answer only: a cached "missing" would push local settings over the cloud's.
+  const snap = await getDocFromServer(settingsDoc(uid));
   return snap.exists() ? normalizeSettings(snap.data()) : null;
 }
 

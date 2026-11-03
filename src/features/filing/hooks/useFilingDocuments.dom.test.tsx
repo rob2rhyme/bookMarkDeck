@@ -271,3 +271,44 @@ describe("offline edits", () => {
     expect(saveDocument).not.toHaveBeenCalled();
   });
 });
+
+// Signed in but offline, the save never settles, and a tab closed meanwhile lost
+// the edit. Worse here than elsewhere: once the cloud copy has loaded the cache is
+// slim, so the edit — and every field outside the slim set — wasn't on the device
+// either. A paper with an edit still on its way is now cached whole.
+describe("signed in, offline, tab closed", () => {
+  it("an edit to a loaded paper survives in full and is sent on the next load", async () => {
+    recordSyncedIds("filingDocuments", EMAIL, [FULL.id]);
+    vi.mocked(saveDocument).mockImplementation(() => new Promise<never>(() => {}));
+    const tab = mount(true);
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
+    act(() => deliver([FULL])); // the cloud copy has loaded: the cache goes slim
+    act(() => tab.result.current.setArchived(FULL.id, true));
+    tab.unmount();
+
+    const [cached] = JSON.parse(window.localStorage.getItem(KEY) ?? "[]");
+    expect(cached).toMatchObject({ archived: true, note: FULL.note, obligations: FULL.obligations });
+
+    vi.mocked(saveDocument).mockReset().mockResolvedValue(undefined);
+    mount(true);
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalledTimes(2));
+    expect(saved()).toHaveLength(1);
+    expect(saved()[0]).toMatchObject({ archived: true, note: FULL.note, reference: FULL.reference });
+    expect(saved()[0].obligations).toEqual(FULL.obligations);
+  });
+
+  it("a delete is sent on the next load", async () => {
+    recordSyncedIds("filingDocuments", EMAIL, [FULL.id]);
+    vi.mocked(deleteDocument).mockImplementation(() => new Promise<never>(() => {}));
+    const tab = mount(true);
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
+    act(() => deliver([FULL]));
+    act(() => tab.result.current.removeDocument(FULL.id));
+    tab.unmount();
+
+    vi.mocked(deleteDocument).mockReset().mockResolvedValue(undefined);
+    mount(true);
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalledTimes(2));
+    expect(deleteDocument).toHaveBeenCalledWith(EMAIL, FULL.id);
+  });
+});

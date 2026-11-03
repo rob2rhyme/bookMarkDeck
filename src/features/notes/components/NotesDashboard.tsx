@@ -10,6 +10,7 @@ import { useSession } from "next-auth/react";
 import { Archive, BarChart, ClipboardPaste, Lock, Plus, Search, StickyNote, X } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/toast/ToastProvider";
+import { useSaveFailedToast } from "@/features/notes/hooks/useSaveFailedToast";
 import { NoteCard } from "@/features/notes/components/NoteCard";
 import { NotesBackupDialog } from "@/features/notes/components/NotesBackupDialog";
 import { NotesInsights } from "@/features/notes/components/NotesInsights";
@@ -53,6 +54,7 @@ export function NotesDashboard({
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  useSaveFailedToast();
   const { data: session, status } = useSession();
   const email = session?.user?.email ?? null;
   const sync = useNotesSync(email);

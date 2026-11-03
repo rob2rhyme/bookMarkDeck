@@ -13,6 +13,7 @@ import { IconAction } from "@/components/IconAction";
 import { Modal } from "@/components/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/toast/ToastProvider";
+import { useSaveFailedToast } from "@/features/notes/hooks/useSaveFailedToast";
 import { Markdown } from "@/features/notes/components/Markdown";
 import { NoteHistory } from "@/features/notes/components/NotesInsights";
 import { historyOf } from "@/features/notes/lib/insights";
@@ -46,6 +47,7 @@ type Draft = { title: string; body: string };
 export function NoteEditorScreen({ id }: { id: string }) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
+  useSaveFailedToast();
   const email = session?.user?.email ?? null;
   const sync = useNotesSync(email);
   const api = useNotes(email, sync.connected);

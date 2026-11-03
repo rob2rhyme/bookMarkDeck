@@ -9,12 +9,12 @@ import {
   subscribeWishlist,
 } from "@/features/inventory/data/inventoryData";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
-  queueDelete,
-  queueUpsert,
-  unqueueUpsert,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import type { WishlistItem } from "@/features/inventory/lib/types";
 
@@ -71,14 +71,15 @@ export function useWishlist(email?: string | null, connected = false) {
       // — uploading "everything the cloud lacks" recreated it for everyone (an
       // item pointing at photos already purged).
       await flushPendingDeletes("inventoryWishlist", email, (id) => deleteWishlist(email, id));
-      const cloud = await fetchWishlist(email);
+      const cloud = await untilAnswered(() => fetchWishlist(email), () => cancelled);
+      if (!cloud) return;
       const cloudIds = new Set(cloud.map((w) => w.id));
-      await Promise.all(
-        toUpload(ref.current, cloudIds, "inventoryWishlist", email).map((w) =>
-          saveWishlist(email, w).catch(() => {})
-        )
+      // Each leaves the queue once it lands; one that failed is tried again next connect.
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("inventoryWishlist", email, toUpload(loadLocal(email), cloudIds, "inventoryWishlist", email), (w) =>
+        saveWishlist(email, w)
       );
-      clearPendingUpserts("inventoryWishlist", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -104,8 +105,7 @@ export function useWishlist(email?: string | null, connected = false) {
           ? prev.map((x) => (x.id === clean.id ? clean : x))
           : [clean, ...prev]
       );
-      if (canSync && email) saveWishlist(email, clean).catch(() => {});
-      else queueUpsert("inventoryWishlist", email, clean.id);
+      durableSave("inventoryWishlist", email, clean.id, canSync && email ? () => saveWishlist(email, clean) : null).catch(() => {});
     },
     [canSync, email]
   );
@@ -113,9 +113,8 @@ export function useWishlist(email?: string | null, connected = false) {
   const remove = useCallback(
     (id: string) => {
       setItems((prev) => prev.filter((w) => w.id !== id));
-      unqueueUpsert("inventoryWishlist", email, id); // an edit to it must not be pushed back
-      if (canSync && email) deleteWishlist(email, id).catch(() => {});
-      else queueDelete("inventoryWishlist", email, id); // replayed on connect
+      // Queued until it lands; this also drops a queued edit, which must not be pushed back.
+      durableDelete("inventoryWishlist", email, id, canSync && email ? () => deleteWishlist(email, id) : null).catch(() => {});
     },
     [canSync, email]
   );

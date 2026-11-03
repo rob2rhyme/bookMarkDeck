@@ -16,8 +16,9 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
+  getDocFromServer,
   getDocs,
+  getDocsFromServer,
   query,
   serverTimestamp,
   setDoc,
@@ -369,9 +370,10 @@ function itemPayload(item: InventoryItem): Record<string, unknown> {
   });
 }
 
+/** The server's answer only — offline this rejects rather than read an empty cache (see @/utils/untilAnswered). */
 export async function fetchItems(emailHint: string): Promise<InventoryItem[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(itemsCol(uid));
+  const snap = await getDocsFromServer(itemsCol(uid));
   return snap.docs.map(mapItem).filter((i) => i.name.trim().length > 0);
 }
 
@@ -484,7 +486,7 @@ export async function fetchLocations(
   emailHint: string
 ): Promise<InventoryLocation[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(locationsCol(uid));
+  const snap = await getDocsFromServer(locationsCol(uid));
   return snap.docs.map(mapLocation).filter((l) => l.name.trim().length > 0);
 }
 
@@ -520,7 +522,8 @@ export async function fetchSettings(
   emailHint: string
 ): Promise<InventorySettings | null> {
   const uid = await uidFor(emailHint);
-  const snap = await getDoc(settingsDoc(uid));
+  // The server's answer only: a cached "missing" would push local settings over the cloud's.
+  const snap = await getDocFromServer(settingsDoc(uid));
   if (!snap.exists()) return null;
   return normalizeSettings(snap.data());
 }
@@ -653,7 +656,7 @@ function mapWishlist(d: {
 
 export async function fetchWishlist(emailHint: string): Promise<WishlistItem[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(wishlistCol(uid));
+  const snap = await getDocsFromServer(wishlistCol(uid));
   return snap.docs.map(mapWishlist).filter((w) => w.name.trim().length > 0);
 }
 

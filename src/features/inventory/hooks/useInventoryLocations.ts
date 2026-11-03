@@ -9,12 +9,12 @@ import {
   subscribeLocations,
 } from "@/features/inventory/data/inventoryData";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
-  queueDelete,
-  queueUpsert,
-  unqueueUpsert,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import type { InventoryLocation } from "@/features/inventory/lib/types";
 
@@ -99,14 +99,15 @@ export function useInventoryLocations(email?: string | null, connected = false) 
       // — uploading "everything the cloud lacks" recreated it for everyone (an
       // item pointing at photos already purged).
       await flushPendingDeletes("inventoryLocations", email, (id) => deleteLocation(email, id));
-      const cloud = await fetchLocations(email);
+      const cloud = await untilAnswered(() => fetchLocations(email), () => cancelled);
+      if (!cloud) return;
       const cloudIds = new Set(cloud.map((l) => l.id));
-      await Promise.all(
-        toUpload(ref.current, cloudIds, "inventoryLocations", email).map((l) =>
-          saveLocation(email, l).catch(() => {})
-        )
+      // Each leaves the queue once it lands; one that failed is tried again next connect.
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("inventoryLocations", email, toUpload(loadLocal(email), cloudIds, "inventoryLocations", email), (l) =>
+        saveLocation(email, l)
       );
-      clearPendingUpserts("inventoryLocations", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -136,8 +137,7 @@ export function useInventoryLocations(email?: string | null, connected = false) 
         updatedAt: null,
       };
       setLocations((prev) => [...prev, loc]);
-      if (canSync && email) saveLocation(email, loc).catch(() => {});
-      else queueUpsert("inventoryLocations", email, loc.id);
+      durableSave("inventoryLocations", email, loc.id, canSync && email ? () => saveLocation(email, loc) : null).catch(() => {});
       return loc;
     },
     [canSync, email]
@@ -150,8 +150,8 @@ export function useInventoryLocations(email?: string | null, connected = false) 
       setLocations((prev) => {
         const next = prev.map((l) => (l.id === id ? { ...l, name: trimmed } : l));
         const updated = next.find((l) => l.id === id);
-        if (canSync && email && updated) saveLocation(email, updated).catch(() => {});
-        else if (updated) queueUpsert("inventoryLocations", email, updated.id);
+        if (updated)
+          durableSave("inventoryLocations", email, updated.id, canSync && email ? () => saveLocation(email, updated) : null).catch(() => {});
         return next;
       });
     },
@@ -170,14 +170,12 @@ export function useInventoryLocations(email?: string | null, connected = false) 
         const orphans = reparented.filter(
           (l) => l.parentId === null && prev.find((p) => p.id === l.id)?.parentId === id
         );
-        unqueueUpsert("inventoryLocations", email, id); // an edit to it must not be pushed back
-        if (canSync && email) {
-          deleteLocation(email, id).catch(() => {});
-          orphans.forEach((l) => saveLocation(email, l).catch(() => {}));
-        } else {
-          queueDelete("inventoryLocations", email, id); // replayed on connect
-          orphans.forEach((l) => queueUpsert("inventoryLocations", email, l.id));
-        }
+        // Queued until each lands; the delete also drops a queued edit to it.
+        const on = canSync && email;
+        durableDelete("inventoryLocations", email, id, on ? () => deleteLocation(email, id) : null).catch(() => {});
+        orphans.forEach((l) =>
+          durableSave("inventoryLocations", email, l.id, on ? () => saveLocation(email, l) : null).catch(() => {})
+        );
         return next;
       });
     },

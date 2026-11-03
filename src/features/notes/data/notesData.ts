@@ -16,7 +16,7 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
+  getDocsFromServer,
   onSnapshot,
   setDoc,
 } from "firebase/firestore";
@@ -82,9 +82,10 @@ export function toFirestore(note: Note) {
 const mapAll = (docs: { id: string; data: () => Record<string, unknown> }[]) =>
   docs.map(mapNote).filter((n): n is Note => n !== null);
 
+/** The server's answer only — offline this rejects rather than read an empty cache (see @/utils/untilAnswered). */
 export async function fetchNotes(emailHint: string): Promise<Note[]> {
   const uid = await uidFor(emailHint);
-  const snap = await getDocs(notesCol(uid));
+  const snap = await getDocsFromServer(notesCol(uid));
   return mapAll(snap.docs);
 }
 
@@ -130,7 +131,7 @@ const mapVaults = (docs: { id: string; data: () => Record<string, unknown> }[]) 
 
 export async function fetchVaults(emailHint: string): Promise<VaultRecord[]> {
   const uid = await uidFor(emailHint);
-  return mapVaults((await getDocs(vaultsCol(uid))).docs);
+  return mapVaults((await getDocsFromServer(vaultsCol(uid))).docs);
 }
 
 export async function saveVault(emailHint: string, vault: VaultRecord): Promise<void> {
@@ -183,9 +184,19 @@ export function subscribeDeletions(emailHint: string, cb: (deleted: DeletedEntry
   uidFor(emailHint)
     .then((uid) => {
       if (cancelled) return;
+      // Not before the server has answered: offline, the cache can say the log is
+      // missing, and the hook would write this device's view over the cloud's.
+      let confirmed = false;
       unsub = onSnapshot(
         logDoc(uid),
-        (snap) => cb(normalizeDeletions(snap.data()?.deleted)),
+        { includeMetadataChanges: true },
+        (snap) => {
+          if (!confirmed) {
+            if (snap.metadata.fromCache) return;
+            confirmed = true;
+          }
+          cb(normalizeDeletions(snap.data()?.deleted));
+        },
         (err) => console.error("[notes] deletion log listener error:", err)
       );
     })

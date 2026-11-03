@@ -9,12 +9,12 @@ import {
   subscribePlaces,
 } from "@/features/filing/data/filingData";
 import {
-  clearPendingUpserts,
+  durableDelete,
+  durableSave,
   flushPendingDeletes,
-  queueDelete,
-  queueUpsert,
-  unqueueUpsert,
+  replayUpserts,
 } from "@/utils/pendingDeletes";
+import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
 import { alphabetSplit } from "@/features/filing/lib/drawers";
 import { buildTree, subtreeIds } from "@/features/filing/lib/tree";
@@ -77,14 +77,15 @@ export function useFilingPlaces(email?: string | null, connected = false) {
       // it had at the last snapshot and lacks now was deleted on another device
       // — uploading "everything the cloud lacks" recreated it for everyone.
       await flushPendingDeletes("filingPlaces", email, (id) => deletePlace(email, id));
-      const cloud = await fetchPlaces(email);
+      const cloud = await untilAnswered(() => fetchPlaces(email), () => cancelled);
+      if (!cloud) return;
       const cloudIds = new Set(cloud.map((p) => p.id));
-      await Promise.all(
-        toUpload(ref.current, cloudIds, "filingPlaces", email).map((p) =>
-          savePlace(email, p).catch(() => {})
-        )
+      // Each leaves the queue once it lands; one that failed is tried again next connect.
+      // From the device cache, not this tab's copy: another tab may have edited a
+      // queued record since this one loaded, and its copy is the one to send.
+      await replayUpserts("filingPlaces", email, toUpload(loadLocal(email), cloudIds, "filingPlaces", email), (p) =>
+        savePlace(email, p)
       );
-      clearPendingUpserts("filingPlaces", email);
     })()
       .catch(() => {})
       .finally(() => {
@@ -128,8 +129,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
         updatedAt: null,
       };
       setPlaces((prev) => [...prev, place]);
-      if (canSync && email) savePlace(email, place).catch(onSaveError);
-      else queueUpsert("filingPlaces", email, place.id);
+      durableSave("filingPlaces", email, place.id, canSync && email ? () => savePlace(email, place) : null).catch(onSaveError);
       return place;
     },
     [canSync, email, onSaveError]
@@ -179,11 +179,9 @@ export function useFilingPlaces(email?: string | null, connected = false) {
 
       const batch = [cabinet, ...drawers];
       setPlaces((prev) => [...prev, ...batch]);
-      if (canSync && email) {
-        batch.forEach((p) => savePlace(email, p).catch(onSaveError));
-      } else {
-        batch.forEach((p) => queueUpsert("filingPlaces", email, p.id));
-      }
+      batch.forEach((p) =>
+        durableSave("filingPlaces", email, p.id, canSync && email ? () => savePlace(email, p) : null).catch(onSaveError)
+      );
       return cabinet;
     },
     [canSync, email, onSaveError]
@@ -196,8 +194,8 @@ export function useFilingPlaces(email?: string | null, connected = false) {
           p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p
         );
         const updated = next.find((p) => p.id === id);
-        if (canSync && email && updated) savePlace(email, updated).catch(onSaveError);
-        else if (updated) queueUpsert("filingPlaces", email, updated.id);
+        if (updated)
+          durableSave("filingPlaces", email, updated.id, canSync && email ? () => savePlace(email, updated) : null).catch(onSaveError);
         return next;
       });
     },
@@ -227,16 +225,14 @@ export function useFilingPlaces(email?: string | null, connected = false) {
         const next = prev
           .map((p) => (p.parentId === id ? { ...p, parentId: null } : p))
           .filter((p) => p.id !== id);
-        unqueueUpsert("filingPlaces", email, id); // an edit to it must not be pushed back
-        if (canSync && email) {
-          deletePlace(email, id).catch(onSaveError);
-          orphans.forEach((p) =>
-            savePlace(email, { ...p, parentId: null }).catch(onSaveError)
-          );
-        } else {
-          queueDelete("filingPlaces", email, id); // replayed on connect
-          orphans.forEach((p) => queueUpsert("filingPlaces", email, p.id));
-        }
+        // Queued until each lands; the delete also drops a queued edit to it.
+        const on = canSync && email;
+        durableDelete("filingPlaces", email, id, on ? () => deletePlace(email, id) : null).catch(onSaveError);
+        orphans.forEach((p) =>
+          durableSave("filingPlaces", email, p.id, on ? () => savePlace(email, { ...p, parentId: null }) : null).catch(
+            onSaveError
+          )
+        );
         return next;
       });
     },
@@ -255,8 +251,7 @@ export function useFilingPlaces(email?: string | null, connected = false) {
         for (const item of incoming) {
           const merged = { ...(byId.get(item.id) ?? {}), ...item } as FilingPlace;
           byId.set(item.id, merged);
-          if (canSync && email) savePlace(email, merged).catch(onSaveError);
-          else queueUpsert("filingPlaces", email, merged.id);
+          durableSave("filingPlaces", email, merged.id, canSync && email ? () => savePlace(email, merged) : null).catch(onSaveError);
         }
         return [...byId.values()];
       });
