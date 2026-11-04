@@ -85,6 +85,7 @@ export function TimeUpModal({
       <div
         onClick={(e) => e.stopPropagation()}
         role="alertdialog"
+        aria-modal="true"
         aria-label="Timer finished"
         className={`animate-bd-scale-in w-full max-w-sm rounded-3xl border p-8 text-center shadow-2xl ${
           isFocusEnd

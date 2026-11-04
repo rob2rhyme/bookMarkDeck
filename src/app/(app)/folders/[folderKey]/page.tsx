@@ -1,6 +1,7 @@
 //src/app/(app)/folders/[folderKey]/page.tsx
 "use client";
 
+import { Modal } from "@/components/Modal";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useEffect } from "react";
@@ -743,326 +744,290 @@ export default function FolderPage() {
       )}
 
       {showBulkMoveBookmarksModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowBulkMoveBookmarksModal(false)}
+        <Modal
+          open
+          onClose={() => setShowBulkMoveBookmarksModal(false)}
+          label="Move bookmarks"
+          panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
         >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Move bookmarks"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Move bookmarks</h3>
-              <button
-                type="button"
-                onClick={() => setShowBulkMoveBookmarksModal(false)}
-                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs text-slate-400">
-                Move {selectedBookmarkIds.length} selected bookmark
-                {selectedBookmarkIds.length !== 1 ? "s" : ""} to:
-              </p>
-              <select
-                value={bookmarkBulkTarget}
-                onChange={(e) => setBookmarkBulkTarget(e.target.value)}
-                className={FIELD_CLASS}
-              >
-                <option value="__unstaged__">Unstaged</option>
-                {folderOptions.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.label}
-                  </option>
-                ))}
-                <option value="__new__">New folder…</option>
-              </select>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowBulkMoveBookmarksModal(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmBulkMove}
-                disabled={selectedBookmarkIds.length === 0}
-                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Move
-              </button>
-            </div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-100">Move bookmarks</h3>
+            <button
+              type="button"
+              onClick={() => setShowBulkMoveBookmarksModal(false)}
+              className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Close
+            </button>
           </div>
-        </div>
+          <div className="space-y-3">
+            <p className="text-xs text-slate-400">
+              Move {selectedBookmarkIds.length} selected bookmark
+              {selectedBookmarkIds.length !== 1 ? "s" : ""} to:
+            </p>
+            <select
+              value={bookmarkBulkTarget}
+              onChange={(e) => setBookmarkBulkTarget(e.target.value)}
+              className={FIELD_CLASS}
+            >
+              <option value="__unstaged__">Unstaged</option>
+              {folderOptions.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {folder.label}
+                </option>
+              ))}
+              <option value="__new__">New folder…</option>
+            </select>
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowBulkMoveBookmarksModal(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmBulkMove}
+              disabled={selectedBookmarkIds.length === 0}
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Move
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showBulkDeleteBookmarksConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
+        <Modal
+          open
+          onClose={() => setShowBulkDeleteBookmarksConfirm(false)}
+          label="Delete bookmarks"
+          panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl outline-none"
         >
-          <div
-            className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Delete bookmarks"
-          >
-            <h2 className="mb-2 text-base font-semibold text-slate-50">
-              Delete {selectedBookmarkIds.length} bookmarks?
-            </h2>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmBulkDelete}
-                className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
-              >
-                Delete
-              </button>
-            </div>
+          <h2 className="mb-2 text-base font-semibold text-slate-50">
+            Delete {selectedBookmarkIds.length} bookmarks?
+          </h2>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmBulkDelete}
+              className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+            >
+              Delete
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showNewFolderModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowNewFolderModal(false)}
+        <Modal
+          open
+          onClose={() => setShowNewFolderModal(false)}
+          label="New folder"
+          panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
         >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="New folder"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">New folder</h3>
-              <button
-                type="button"
-                onClick={() => setShowNewFolderModal(false)}
-                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="Folder name"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              className={FIELD_CLASS}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-100">New folder</h3>
+            <button
+              type="button"
+              onClick={() => setShowNewFolderModal(false)}
+              className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Close
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Folder name"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            className={FIELD_CLASS}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              const folderId = addFolderOption(newFolderName);
+              if (!folderId) return;
+              newFolderRequestRef.current?.(folderId);
+              setShowNewFolderModal(false);
+            }}
+          />
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowNewFolderModal(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 const folderId = addFolderOption(newFolderName);
                 if (!folderId) return;
                 newFolderRequestRef.current?.(folderId);
                 setShowNewFolderModal(false);
               }}
-            />
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowNewFolderModal(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const folderId = addFolderOption(newFolderName);
-                  if (!folderId) return;
-                  newFolderRequestRef.current?.(folderId);
-                  setShowNewFolderModal(false);
-                }}
-                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-              >
-                Create
-              </button>
-            </div>
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            >
+              Create
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showNewSubfolderModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowNewSubfolderModal(false)}
+        <Modal
+          open
+          onClose={() => setShowNewSubfolderModal(false)}
+          label="New subfolder"
+          panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
         >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="New subfolder"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">New subfolder</h3>
-              <button
-                type="button"
-                onClick={() => setShowNewSubfolderModal(false)}
-                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-            <div className="mb-3 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2">
-              <p className="text-xs text-slate-400">
-                You are in{" "}
-                <span className="font-semibold text-slate-200">
-                  {currentPathLabel || currentFolder.name}
-                </span>
-              </p>
-            </div>
-            <input
-              type="text"
-              placeholder="Subfolder name"
-              value={newSubfolderName}
-              onChange={(e) => {
-                setNewSubfolderName(e.target.value);
-                if (newSubfolderError) setNewSubfolderError("");
-              }}
-              className={FIELD_CLASS}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                createSubfolder();
-              }}
-            />
-            {newSubfolderError && (
-              <p className="mt-2 text-xs text-red-400">{newSubfolderError}</p>
-            )}
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowNewSubfolderModal(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={createSubfolder}
-                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-              >
-                Create
-              </button>
-            </div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-100">New subfolder</h3>
+            <button
+              type="button"
+              onClick={() => setShowNewSubfolderModal(false)}
+              className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Close
+            </button>
           </div>
-        </div>
+          <div className="mb-3 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2">
+            <p className="text-xs text-slate-400">
+              You are in{" "}
+              <span className="font-semibold text-slate-200">
+                {currentPathLabel || currentFolder.name}
+              </span>
+            </p>
+          </div>
+          <input
+            type="text"
+            placeholder="Subfolder name"
+            value={newSubfolderName}
+            onChange={(e) => {
+              setNewSubfolderName(e.target.value);
+              if (newSubfolderError) setNewSubfolderError("");
+            }}
+            className={FIELD_CLASS}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              createSubfolder();
+            }}
+          />
+          {newSubfolderError && (
+            <p className="mt-2 text-xs text-red-400">{newSubfolderError}</p>
+          )}
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowNewSubfolderModal(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={createSubfolder}
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            >
+              Create
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showRenameFolderModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowRenameFolderModal(false)}
+        <Modal
+          open
+          onClose={() => setShowRenameFolderModal(false)}
+          label="Rename folder"
+          panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
         >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Rename folder"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Rename folder</h3>
-              <button
-                type="button"
-                onClick={() => setShowRenameFolderModal(false)}
-                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="Folder name"
-              value={renameFolderName}
-              onChange={(e) => {
-                setRenameFolderName(e.target.value);
-                if (renameFolderError) setRenameFolderError("");
-              }}
-              className={FIELD_CLASS}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                applyRenameFolder();
-              }}
-            />
-            {renameFolderError && (
-              <p className="mt-2 text-xs text-red-400">{renameFolderError}</p>
-            )}
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowRenameFolderModal(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={applyRenameFolder}
-                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-              >
-                Save
-              </button>
-            </div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-100">Rename folder</h3>
+            <button
+              type="button"
+              onClick={() => setShowRenameFolderModal(false)}
+              className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Close
+            </button>
           </div>
-        </div>
+          <input
+            type="text"
+            placeholder="Folder name"
+            value={renameFolderName}
+            onChange={(e) => {
+              setRenameFolderName(e.target.value);
+              if (renameFolderError) setRenameFolderError("");
+            }}
+            className={FIELD_CLASS}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              applyRenameFolder();
+            }}
+          />
+          {renameFolderError && (
+            <p className="mt-2 text-xs text-red-400">{renameFolderError}</p>
+          )}
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowRenameFolderModal(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={applyRenameFolder}
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            >
+              Save
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showDeleteFolderConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowDeleteFolderConfirm(false)}
+        <Modal
+          open
+          onClose={() => setShowDeleteFolderConfirm(false)}
+          label="Delete folder"
+          panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl outline-none"
         >
-          <div
-            className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Delete folder"
-          >
-            <h2 className="mb-2 text-base font-semibold text-slate-50">Delete folder?</h2>
-            <p className="mb-4 text-xs text-slate-400">
-              Subfolders block deletion. Bookmarks in this folder move to Unstaged.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteFolderConfirm(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={applyDeleteFolder}
-                className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
-              >
-                Delete
-              </button>
-            </div>
+          <h2 className="mb-2 text-base font-semibold text-slate-50">Delete folder?</h2>
+          <p className="mb-4 text-xs text-slate-400">
+            Subfolders block deletion. Bookmarks in this folder move to Unstaged.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteFolderConfirm(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={applyDeleteFolder}
+              className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+            >
+              Delete
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {undoState && (

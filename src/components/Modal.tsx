@@ -5,7 +5,7 @@
 // role="dialog" / aria-modal semantics. Replaces ad-hoc inline modals.
 
 import { useCallbackRef } from "@/hooks/useCallbackRef";
-import { useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 type ModalProps = {
@@ -24,6 +24,25 @@ type ModalProps = {
   overlayClassName?: string;
 };
 
+// Open modals. Their key handlers all sit on `document`, so with two open (Add
+// link → New folder) a single Escape would close both; only the topmost acts on a
+// key. Topmost = nested deepest in React's tree (a dialog rendered inside another's
+// children, like a photo viewer in a detail view, is on top of it even though both
+// mount in the same commit and the child's effect runs first), then the one that
+// opened last. Depth travels by context, which crosses portals.
+type OpenModal = { id: number; depth: number };
+const openModals: OpenModal[] = [];
+let nextModalId = 0;
+const ModalDepth = createContext(0);
+
+function isTopmost(id: number): boolean {
+  let top: OpenModal | null = null;
+  for (const m of openModals) {
+    if (!top || m.depth > top.depth || (m.depth === top.depth && m.id > top.id)) top = m;
+  }
+  return top?.id === id;
+}
+
 const FOCUSABLE =
   'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
 
@@ -38,10 +57,23 @@ export function Modal({
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useCallbackRef(onClose);
+  const depth = useContext(ModalDepth);
+  // What had focus when the dialog opened — recorded while rendering, before React
+  // commits. A field inside with `autoFocus` takes focus during the commit, ahead
+  // of any effect, so an effect would record that field (about to be removed) and
+  // focus would fall to <body> on close. State adjusted during render is how React
+  // lets a component note something at the moment a prop changes.
+  const [from, setFrom] = useState<{ open: boolean; el: HTMLElement | null }>({ open: false, el: null });
+  if (open !== from.open) {
+    setFrom({
+      open,
+      el: open && typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null,
+    });
+  }
 
   useEffect(() => {
     if (!open) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previouslyFocused = from.el;
 
     // Lock body scroll. iOS Safari ignores overflow:hidden on <body> and
     // keeps routing touch pans to the page behind the overlay — making the
@@ -64,12 +96,20 @@ export function Modal({
     body.right = "0";
     body.width = "100%";
 
-    // Focus the first focusable element (or the panel itself).
+    // Focus the first focusable element (or the panel itself) — unless focus is
+    // already inside, which means a field asked for it with `autoFocus`; that
+    // is the field the dialog is for, not whichever button comes first.
     const panel = panelRef.current;
-    const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? panel)?.focus();
+    if (!panel?.contains(document.activeElement)) {
+      const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
+      (first ?? panel)?.focus();
+    }
+
+    const id = ++nextModalId;
+    openModals.push({ id, depth });
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (!isTopmost(id)) return;
       if (e.key === "Escape") {
         e.stopPropagation();
         onCloseRef();
@@ -99,13 +139,15 @@ export function Modal({
     document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
+      const at = openModals.findIndex((m) => m.id === id);
+      if (at >= 0) openModals.splice(at, 1);
       Object.assign(document.body.style, prevBody);
       window.scrollTo(0, scrollY);
       // preventScroll: refocusing the opener must not yank the page back to
       // it — we just restored the user's scroll spot.
       previouslyFocused?.focus?.({ preventScroll: true });
     };
-  }, [open, onCloseRef]);
+  }, [open, onCloseRef, depth, from.el]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -135,7 +177,7 @@ export function Modal({
           "w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
         } animate-bd-scale-in overscroll-contain`}
       >
-        {children}
+        <ModalDepth.Provider value={depth + 1}>{children}</ModalDepth.Provider>
       </div>
     </div>,
     document.body

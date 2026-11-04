@@ -1,5 +1,6 @@
 "use client";
 
+import { Modal } from "@/components/Modal";
 import { useEffect, useMemo, useState } from "react";
 
 import { Trash2, X } from "@/components/icons";
@@ -379,59 +380,54 @@ export function ActivityHistory({
 
       {/* Confirm-delete modal */}
       {pendingDelete && (
-        <div
-          onClick={() => setPendingDelete(null)}
-          className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+        <Modal
+          open
+          onClose={() => setPendingDelete(null)}
+          label="Confirm delete"
+          panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl outline-none"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label="Confirm delete"
-            className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
-          >
-            <div className="flex items-start justify-between">
-              <h2 className="text-base font-semibold text-slate-50">
-                Delete this activity?
-              </h2>
-              <button
-                type="button"
-                onClick={() => setPendingDelete(null)}
-                aria-label="Cancel"
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-slate-300 transition hover:text-slate-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="mt-3 truncate text-sm text-slate-300">
-              {TYPE_META[pendingDelete.type].glyph} {pendingDelete.text}
-            </p>
-            {pendingDelete.ref.source === "session" && (
-              <p className="mt-2 text-xs text-amber-300/90">
-                This is a focus block — deleting it also removes it from your
-                stats and streak.
-              </p>
-            )}
-            <p className="mt-2 text-xs text-slate-500">
-              You can undo right after, or restore from “Recently deleted”.
-            </p>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingDelete(null)}
-                className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500"
-              >
-                Delete
-              </button>
-            </div>
+          <div className="flex items-start justify-between">
+            <h2 className="text-base font-semibold text-slate-50">
+              Delete this activity?
+            </h2>
+            <button
+              type="button"
+              onClick={() => setPendingDelete(null)}
+              aria-label="Cancel"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-slate-300 transition hover:text-slate-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-        </div>
+          <p className="mt-3 truncate text-sm text-slate-300">
+            {TYPE_META[pendingDelete.type].glyph} {pendingDelete.text}
+          </p>
+          {pendingDelete.ref.source === "session" && (
+            <p className="mt-2 text-xs text-amber-300/90">
+              This is a focus block — deleting it also removes it from your
+              stats and streak.
+            </p>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            You can undo right after, or restore from “Recently deleted”.
+          </p>
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPendingDelete(null)}
+              className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDelete}
+              className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500"
+            >
+              Delete
+            </button>
+          </div>
+        </Modal>
       )}
     </section>
   );
