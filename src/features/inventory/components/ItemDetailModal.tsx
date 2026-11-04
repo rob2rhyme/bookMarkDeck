@@ -106,11 +106,12 @@ function Lightbox({
   if (!img) return null;
   const many = images.length > 1;
   return (
-    <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="animate-bd-fade-in fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-4"
+    <Modal
+      open
+      onClose={onClose}
+      label="Photo viewer"
+      overlayClassName="inset-0 p-4"
+      panelClassName="relative flex h-full w-full items-center justify-center bg-black/35 outline-none"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -154,7 +155,7 @@ function Lightbox({
           </button>
         </>
       )}
-    </div>
+    </Modal>
   );
 }
 

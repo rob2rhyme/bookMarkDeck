@@ -1,5 +1,6 @@
 "use client";
 
+import { Modal } from "@/components/Modal";
 import { useEffect, useRef, useState } from "react";
 
 import { X } from "@/components/icons";
@@ -94,7 +95,13 @@ export function BarcodeScanner({ onDetect, onCancel }: BarcodeScannerProps) {
   }, [onDetectRef]);
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-black/95 backdrop-blur-sm">
+    <Modal
+      open
+      onClose={onCancel}
+      label="Scan a barcode"
+      overlayClassName="inset-0"
+      panelClassName="flex h-full w-full flex-col bg-black/95 outline-none"
+    >
       <div className="flex items-center justify-between px-4 py-3 text-slate-100">
         <span className="text-sm font-medium">Scan a barcode</span>
         <button
@@ -143,7 +150,7 @@ export function BarcodeScanner({ onDetect, onCancel }: BarcodeScannerProps) {
           </>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
 

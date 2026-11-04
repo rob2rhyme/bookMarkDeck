@@ -1,5 +1,6 @@
 "use client";
 
+import { Modal } from "@/components/Modal";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -323,162 +324,144 @@ export default function UnstagedFolderPage() {
       )}
 
       {showBulkMoveBookmarksModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowBulkMoveBookmarksModal(false)}
+        <Modal
+          open
+          onClose={() => setShowBulkMoveBookmarksModal(false)}
+          label="Move bookmarks"
+          panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
         >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Move bookmarks"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Move bookmarks</h3>
-              <button
-                type="button"
-                onClick={() => setShowBulkMoveBookmarksModal(false)}
-                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs text-slate-400">
-                Move {selectedBookmarkIds.length} selected bookmark
-                {selectedBookmarkIds.length !== 1 ? "s" : ""} to:
-              </p>
-              <select
-                value={bookmarkBulkTarget}
-                onChange={(e) => setBookmarkBulkTarget(e.target.value)}
-                className={FIELD_CLASS}
-              >
-                <option value="__unstaged__">Unstaged</option>
-                {folderOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label ?? option.name}
-                  </option>
-                ))}
-                <option value="__new__">New folder…</option>
-              </select>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowBulkMoveBookmarksModal(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmBulkMove}
-                disabled={selectedBookmarkIds.length === 0}
-                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Move
-              </button>
-            </div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-100">Move bookmarks</h3>
+            <button
+              type="button"
+              onClick={() => setShowBulkMoveBookmarksModal(false)}
+              className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Close
+            </button>
           </div>
-        </div>
+          <div className="space-y-3">
+            <p className="text-xs text-slate-400">
+              Move {selectedBookmarkIds.length} selected bookmark
+              {selectedBookmarkIds.length !== 1 ? "s" : ""} to:
+            </p>
+            <select
+              value={bookmarkBulkTarget}
+              onChange={(e) => setBookmarkBulkTarget(e.target.value)}
+              className={FIELD_CLASS}
+            >
+              <option value="__unstaged__">Unstaged</option>
+              {folderOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label ?? option.name}
+                </option>
+              ))}
+              <option value="__new__">New folder…</option>
+            </select>
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowBulkMoveBookmarksModal(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmBulkMove}
+              disabled={selectedBookmarkIds.length === 0}
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Move
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showBulkDeleteBookmarksConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
+        <Modal
+          open
+          onClose={() => setShowBulkDeleteBookmarksConfirm(false)}
+          label="Delete bookmarks"
+          panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl outline-none"
         >
-          <div
-            className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Delete bookmarks"
-          >
-            <h2 className="mb-2 text-base font-semibold text-slate-50">
-              Delete {selectedBookmarkIds.length} bookmarks?
-            </h2>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmBulkDelete}
-                className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
-              >
-                Delete
-              </button>
-            </div>
+          <h2 className="mb-2 text-base font-semibold text-slate-50">
+            Delete {selectedBookmarkIds.length} bookmarks?
+          </h2>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmBulkDelete}
+              className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+            >
+              Delete
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showNewFolderModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={() => setShowNewFolderModal(false)}
+        <Modal
+          open
+          onClose={() => setShowNewFolderModal(false)}
+          label="New folder"
+          panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
         >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="New folder"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">New folder</h3>
-              <button
-                type="button"
-                onClick={() => setShowNewFolderModal(false)}
-                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="Folder name"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              className={FIELD_CLASS}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-100">New folder</h3>
+            <button
+              type="button"
+              onClick={() => setShowNewFolderModal(false)}
+              className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Close
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Folder name"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            className={FIELD_CLASS}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              const folderId = addFolderOption(newFolderName);
+              if (!folderId) return;
+              newFolderRequestRef.current?.(folderId);
+              setShowNewFolderModal(false);
+            }}
+          />
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowNewFolderModal(false)}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 const folderId = addFolderOption(newFolderName);
                 if (!folderId) return;
                 newFolderRequestRef.current?.(folderId);
                 setShowNewFolderModal(false);
               }}
-            />
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowNewFolderModal(false)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const folderId = addFolderOption(newFolderName);
-                  if (!folderId) return;
-                  newFolderRequestRef.current?.(folderId);
-                  setShowNewFolderModal(false);
-                }}
-                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-              >
-                Create
-              </button>
-            </div>
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            >
+              Create
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {undoState && (

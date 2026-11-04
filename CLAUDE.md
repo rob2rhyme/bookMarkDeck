@@ -353,6 +353,28 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   (`connectedMessage`). It was the same markup copied into five files with drifting
   wording; Habits had a different pill. Bookmarks is not one of them: it syncs by hand, by
   design, with its own controls. `e2e/sync-banner.spec.ts` checks all five.
+- **Every dialog is the shared `Modal`** (`components/Modal.tsx`), and `src/lib/dialogs.test.ts`
+  fails on a new hand-built one. About 25 were hand-built before, each missing some of what
+  `Modal` does: **Escape**, a **focus trap**, **focus returned** to what opened it, **page scroll
+  locked** behind it, and a backdrop that closes on a **press** (the old `onClick` closed it when
+  a text selection ended on the backdrop). Two had no dialog role at all (the shortcut editor and
+  Delete-all), so neither screen readers nor the check below could see them. Things the shared
+  one now gets right, each pinned in `Modal.dom.test.tsx` / `e2e/dialogs.spec.ts`: **an `autoFocus`
+  field keeps focus** (it used to be overridden by "first button"), and **the opener is recorded
+  during render** — an `autoFocus` field grabs focus during React's commit, before any effect, so
+  an effect recorded the field itself and focus fell to `<body>` on close (state adjusted during
+  render, because `react-hooks/refs` forbids a ref there); and **with one dialog opened from
+  another** (Add link → New folder) **only the topmost handles Escape/Tab** — topmost being nested
+  deepest in React's tree (context depth, which crosses portals), then opened last, because a
+  dialog rendered inside another's children mounts in the same commit with its effect first and
+  the DOM order puts it *first*. Three stay hand-built, with reasons in the test: the timer's
+  `alertdialog` (chimes on repeat), and the two mobile action sheets (`RowMenu`, the folder
+  manager's), which share state with a desktop dropdown so a modal would lock scroll and trap
+  focus invisibly there. **A new dialog is `<Modal open onClose label …>`**; for a bottom sheet or
+  full-bleed viewer pass `overlayClassName`. Keep the `{cond && <Modal open …>}` shape when the
+  body reads data that is null while closed. **Not verified on a device:** the shortcut touch
+  menu opens on a long press with the finger still down; it relies on the post-touch mouse events
+  targeting the tile, not the overlay.
 - **UI that opens on its own never lands on top of another dialog.** The first-run
   welcome (`Onboarding`) opens after a cloud check, so it used to cover whatever the user
   had just opened. It now waits until the page has been dialog-free for a moment

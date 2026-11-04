@@ -1259,106 +1259,100 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     <>
         {/* Add link modal */}
         {showAddForm && (
-          <div
-            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-            onClick={() => setShowAddForm(false)}
+          <Modal
+            open
+            onClose={() => setShowAddForm(false)}
+            label="Add link"
+            panelClassName="w-full max-w-3xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
           >
-            <div
-              className="w-full max-w-3xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Add link"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-medium text-slate-200">Add link</h2>
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="text-xs text-slate-400 hover:text-slate-200"
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-slate-200">Add link</h2>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="text-xs text-slate-400 hover:text-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="max-h-[80vh] overflow-y-auto">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  placeholder="Title (optional — taken from the page)"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <select
+                  value={newFolderSelection}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      openNewFolderModal((folderId) => {
+                        setNewFolderSelection(folderId);
+                      });
+                      return;
+                    }
+                    setNewFolderSelection(e.target.value);
+                  }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:max-w-xs"
                 >
-                  Cancel
+                  <option value="__unstaged__">Unstaged</option>
+                  {folderOptions.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.label}
+                    </option>
+                  ))}
+                  <option value="__new__">New folder…</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Tags (comma separated, e.g. work, dev, banking)"
+                  value={newTags}
+                  onChange={(e) => setNewTags(e.target.value)}
+                  className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <label className="flex shrink-0 items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={newReadLater}
+                    onChange={(e) => setNewReadLater(e.target.checked)}
+                    className="h-4 w-4 accent-blue-500"
+                  />
+                  Add to read later
+                </label>
+                {allTags.length > 0 && (
+                  <div className="flex w-full flex-wrap gap-1.5">
+                    {allTags.slice(0, 16).map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => appendNewTag(tag)}
+                        className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-300 transition hover:border-blue-400 hover:text-blue-200"
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button type="button"
+                  onClick={handleAddQuick}
+                  className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
+                >
+                  Save
                 </button>
               </div>
-              <div className="max-h-[80vh] overflow-y-auto">
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <input
-                    type="text"
-                    placeholder="Title (optional — taken from the page)"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                  <input
-                    type="url"
-                    placeholder="https://example.com"
-                    value={newUrl}
-                    onChange={(e) => setNewUrl(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <select
-                    value={newFolderSelection}
-                    onChange={(e) => {
-                      if (e.target.value === "__new__") {
-                        openNewFolderModal((folderId) => {
-                          setNewFolderSelection(folderId);
-                        });
-                        return;
-                      }
-                      setNewFolderSelection(e.target.value);
-                    }}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:max-w-xs"
-                  >
-                    <option value="__unstaged__">Unstaged</option>
-                    {folderOptions.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.label}
-                      </option>
-                    ))}
-                    <option value="__new__">New folder…</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Tags (comma separated, e.g. work, dev, banking)"
-                    value={newTags}
-                    onChange={(e) => setNewTags(e.target.value)}
-                    className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                  <label className="flex w-full items-center gap-2 text-xs text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={newReadLater}
-                      onChange={(e) => setNewReadLater(e.target.checked)}
-                      className="h-4 w-4 accent-blue-500"
-                    />
-                    Add to read later
-                  </label>
-                  {allTags.length > 0 && (
-                    <div className="flex w-full flex-wrap gap-1.5">
-                      {allTags.slice(0, 16).map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => appendNewTag(tag)}
-                          className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-300 transition hover:border-blue-400 hover:text-blue-200"
-                        >
-                          + {tag}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <button type="button"
-                    onClick={handleAddQuick}
-                    className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
             </div>
-          </div>
+          </Modal>
         )}
 
         <SectionNav
@@ -1405,68 +1399,62 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
             </div>
           </div>
           {showAddShortcutForm && (
-            <div
-              className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-              onClick={() => setShowAddShortcutForm(false)}
+            <Modal
+              open
+              onClose={() => setShowAddShortcutForm(false)}
+              label="Add app shortcut"
+              panelClassName="w-full max-w-3xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
             >
-              <div
-                className="w-full max-w-3xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-                aria-label="Add app shortcut"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-medium text-slate-200">Add shortcut</h2>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-medium text-slate-200">Add shortcut</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowAddShortcutForm(false)}
+                  className="text-xs text-slate-400 hover:text-slate-200"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    placeholder="App name"
+                    value={shortcutName}
+                    onChange={(e) => setShortcutName(e.target.value)}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <input
+                    type="url"
+                    placeholder="https://app.example.com"
+                    value={shortcutUrl}
+                    onChange={(e) => setShortcutUrl(e.target.value)}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    // UI-only label change; rendering already supports URLs or emoji.
+                    placeholder="😀 or https://example.com/icon.png"
+                    aria-label="Icon (emoji or image URL)"
+                    value={shortcutIconValue}
+                    onChange={(e) => {
+                      setShortcutIconTouched(true);
+                      setShortcutIconValue(e.target.value);
+                    }}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mt-4 flex justify-end">
                   <button
                     type="button"
-                    onClick={() => setShowAddShortcutForm(false)}
-                    className="text-xs text-slate-400 hover:text-slate-200"
+                    onClick={handleAddShortcut}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
                   >
-                    Close
+                    Save shortcut
                   </button>
                 </div>
-                <div className="max-h-[80vh] overflow-y-auto">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input
-                      type="text"
-                      placeholder="App name"
-                      value={shortcutName}
-                      onChange={(e) => setShortcutName(e.target.value)}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                    <input
-                      type="url"
-                      placeholder="https://app.example.com"
-                      value={shortcutUrl}
-                      onChange={(e) => setShortcutUrl(e.target.value)}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      // UI-only label change; rendering already supports URLs or emoji.
-                      placeholder="😀 or https://example.com/icon.png"
-                      aria-label="Icon (emoji or image URL)"
-                      value={shortcutIconValue}
-                      onChange={(e) => {
-                        setShortcutIconTouched(true);
-                        setShortcutIconValue(e.target.value);
-                      }}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleAddShortcut}
-                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
-                    >
-                      Save shortcut
-                    </button>
-                  </div>
-                </div>
               </div>
-            </div>
+            </Modal>
           )}
           {shortcuts.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">
@@ -2116,71 +2104,74 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
         )}
         {/* Shortcut edit modal */}
         {editingShortcut && (
-          <div className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
-            <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
-                    Edit shortcut
-                  </p>
-                  <p className="text-sm font-semibold text-slate-100">
-                    {editingShortcut.name}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCancelShortcutEdit}
-                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  Close
-                </button>
+          <Modal
+            open
+            onClose={handleCancelShortcutEdit}
+            label="Edit shortcut"
+            panelClassName="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
+                  Edit shortcut
+                </p>
+                <p className="text-sm font-semibold text-slate-100">
+                  {editingShortcut.name}
+                </p>
               </div>
-              <div className="flex flex-col gap-3">
-                <input
-                  type="text"
-                  placeholder="App name"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className={FIELD_CLASS}
-                />
-                <input
-                  type="text"
-                  placeholder="https://app.example.com"
-                  value={editUrl}
-                  onChange={(e) => setEditUrl(e.target.value)}
-                  className={FIELD_CLASS}
-                />
-                <input
-                  type="text"
-                  // UI-only label change; rendering already supports URLs or emoji.
-                  placeholder="😀 or https://example.com/icon.png"
-                  aria-label="Icon (emoji or image URL)"
-                  value={editIconValue}
-                  onChange={(e) => {
-                    setEditIconTouched(true);
-                    setEditIconValue(e.target.value);
-                  }}
-                  className={FIELD_CLASS}
-                />
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={handleCancelShortcutEdit}
-                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveShortcutEdit}
-                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-                >
-                  Save
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleCancelShortcutEdit}
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Close
+              </button>
             </div>
-          </div>
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                placeholder="App name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className={FIELD_CLASS}
+              />
+              <input
+                type="text"
+                placeholder="https://app.example.com"
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+                className={FIELD_CLASS}
+              />
+              <input
+                type="text"
+                // UI-only label change; rendering already supports URLs or emoji.
+                placeholder="😀 or https://example.com/icon.png"
+                aria-label="Icon (emoji or image URL)"
+                value={editIconValue}
+                onChange={(e) => {
+                  setEditIconTouched(true);
+                  setEditIconValue(e.target.value);
+                }}
+                className={FIELD_CLASS}
+              />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelShortcutEdit}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveShortcutEdit}
+                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Save
+              </button>
+            </div>
+          </Modal>
         )}
         {/* Undo bar */}
         {shortcutUndoState && (
@@ -2238,253 +2229,313 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
 
         {/* Confirm delete all modal */}
         {showClearConfirm && (
-          <div className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
-            <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl">
-              <h2 className="mb-2 text-base font-semibold text-slate-50">
-                Delete all bookmarks?
-              </h2>
-              <p className="mb-4 text-xs text-slate-400">
-                This will remove every bookmark from this device. You can still
-                use the Undo snackbar right after, but this action cannot be
-                reversed later.
+          <Modal
+            open
+            onClose={() => setShowClearConfirm(false)}
+            label="Delete all bookmarks"
+            panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl outline-none"
+          >
+            <h2 className="mb-2 text-base font-semibold text-slate-50">
+              Delete all bookmarks?
+            </h2>
+            <p className="mb-4 text-xs text-slate-400">
+              This will remove every bookmark from this device. You can still
+              use the Undo snackbar right after, but this action cannot be
+              reversed later.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(false)}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleClearAll();
+                  setShowClearConfirm(false);
+                }}
+                className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+              >
+                Delete all
+              </button>
+            </div>
+          </Modal>
+        )}
+        {showBulkDeleteFoldersConfirm && (
+          <Modal
+            open
+            onClose={() => setShowBulkDeleteFoldersConfirm(false)}
+            label="Delete folders"
+            panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl outline-none"
+          >
+            <h2 className="mb-2 text-base font-semibold text-slate-50">
+              Delete {selectedFolderKeys.length} folders?
+            </h2>
+            <p className="mb-4 text-xs text-slate-400">
+              Bookmarks will be moved to Unstaged.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteFoldersConfirm(false)}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyBulkDeleteFolders}
+                className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+              >
+                Delete folders
+              </button>
+            </div>
+          </Modal>
+        )}
+        {showBulkMoveBookmarksModal && (
+          <Modal
+            open
+            onClose={() => setShowBulkMoveBookmarksModal(false)}
+            label="Move bookmarks"
+            panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-100">Move bookmarks</h3>
+              <button
+                type="button"
+                onClick={() => setShowBulkMoveBookmarksModal(false)}
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs text-slate-400">
+                Move {selectedBookmarkIds.length} selected bookmark
+                {selectedBookmarkIds.length !== 1 ? "s" : ""} to:
               </p>
-              <div className="flex justify-end gap-2">
+              <select
+                value={bookmarkBulkTarget}
+                onChange={(e) => setBookmarkBulkTarget(e.target.value)}
+                className={FIELD_CLASS}
+              >
+                <option value="__unstaged__">Unstaged</option>
+                {folderOptions.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.label}
+                  </option>
+                ))}
+                <option value="__new__">New folder…</option>
+              </select>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkMoveBookmarksModal(false)}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyBulkMoveBookmarks}
+                disabled={selectedBookmarkIds.length === 0}
+                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Move
+              </button>
+            </div>
+          </Modal>
+        )}
+        {showBulkDeleteBookmarksConfirm && (
+          <Modal
+            open
+            onClose={() => setShowBulkDeleteBookmarksConfirm(false)}
+            label="Delete bookmarks"
+            panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl outline-none"
+          >
+            <h2 className="mb-2 text-base font-semibold text-slate-50">
+              Delete {selectedBookmarkIds.length} bookmarks?
+            </h2>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyBulkDeleteBookmarks}
+                className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </Modal>
+        )}
+        {activeFolderKey && (
+          <Modal
+            open
+            onClose={() => setActiveFolderKey(null)}
+            label={`${activeFolderLabel} folder`}
+            panelClassName="w-full max-w-5xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
+                  Folder
+                </p>
+                <p className="text-sm font-semibold text-slate-100">
+                  {activeFolderLabel}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {activeFolderKey !== "UNSTAGED" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={openRenameForActiveFolder}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-blue-400 hover:text-slate-50"
+                      aria-label="Rename folder"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openDeleteForActiveFolder}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50"
+                      aria-label="Delete folder"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
-                  onClick={() => setShowClearConfirm(false)}
-                  className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                  onClick={() => {
+                    if (bookmarkSelectMode) {
+                      clearBookmarkSelection();
+                      return;
+                    }
+                    setBookmarkSelectMode(true);
+                    setSelectedBookmarkIds([]);
+                  }}
+                  className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50"
                 >
-                  Cancel
+                  {bookmarkSelectMode ? "Done" : "Select"}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    handleClearAll();
-                    setShowClearConfirm(false);
+                    const targetFolderId =
+                      activeFolderKey === "UNSTAGED" ? null : activeFolderKey;
+                    setActiveFolderKey(null);
+                    handleAddLinkForFolder(targetFolderId);
                   }}
-                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+                  className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
                 >
-                  Delete all
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {showBulkDeleteFoldersConfirm && (
-          <div
-            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-            onClick={() => setShowBulkDeleteFoldersConfirm(false)}
-          >
-            <div
-              className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Delete folders"
-            >
-              <h2 className="mb-2 text-base font-semibold text-slate-50">
-                Delete {selectedFolderKeys.length} folders?
-              </h2>
-              <p className="mb-4 text-xs text-slate-400">
-                Bookmarks will be moved to Unstaged.
-              </p>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkDeleteFoldersConfirm(false)}
-                  className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
+                  + Add Link
                 </button>
                 <button
                   type="button"
-                  onClick={applyBulkDeleteFolders}
-                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
-                >
-                  Delete folders
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {showBulkMoveBookmarksModal && (
-          <div
-            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-            onClick={() => setShowBulkMoveBookmarksModal(false)}
-          >
-            <div
-              className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Move bookmarks"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-100">Move bookmarks</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowBulkMoveBookmarksModal(false)}
+                  onClick={() => setActiveFolderKey(null)}
                   className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
                 >
                   Close
                 </button>
               </div>
-              <div className="space-y-3">
-                <p className="text-xs text-slate-400">
-                  Move {selectedBookmarkIds.length} selected bookmark
-                  {selectedBookmarkIds.length !== 1 ? "s" : ""} to:
-                </p>
-                <select
-                  value={bookmarkBulkTarget}
-                  onChange={(e) => setBookmarkBulkTarget(e.target.value)}
-                  className={FIELD_CLASS}
-                >
-                  <option value="__unstaged__">Unstaged</option>
-                  {folderOptions.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.label}
-                    </option>
-                  ))}
-                  <option value="__new__">New folder…</option>
-                </select>
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkMoveBookmarksModal(false)}
-                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={applyBulkMoveBookmarks}
-                  disabled={selectedBookmarkIds.length === 0}
-                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Move
-                </button>
-              </div>
             </div>
-          </div>
-        )}
-        {showBulkDeleteBookmarksConfirm && (
-          <div
-            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-            onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
-          >
-            <div
-              className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Delete bookmarks"
-            >
-              <h2 className="mb-2 text-base font-semibold text-slate-50">
-                Delete {selectedBookmarkIds.length} bookmarks?
-              </h2>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkDeleteBookmarksConfirm(false)}
-                  className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={applyBulkDeleteBookmarks}
-                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {activeFolderKey && (
-          <div
-            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
-            onClick={() => setActiveFolderKey(null)}
-          >
-            <div
-              className="w-full max-w-5xl rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label={`${activeFolderLabel} folder`}
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">
-                    Folder
-                  </p>
-                  <p className="text-sm font-semibold text-slate-100">
-                    {activeFolderLabel}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {activeFolderKey !== "UNSTAGED" && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={openRenameForActiveFolder}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-blue-400 hover:text-slate-50"
-                        aria-label="Rename folder"
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={openDeleteForActiveFolder}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-base text-slate-300 transition hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50"
-                        aria-label="Delete folder"
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4h8v2" />
-                          <path d="M19 6l-1 14H6L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
-                      </button>
-                    </>
-                  )}
+            <div className="max-h-[80vh] overflow-y-auto pr-1">
+              {bookmarkSelectMode && (
+                <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
+                  <span className="text-xs text-slate-300">
+                    {selectedBookmarkIds.length} bookmark
+                    {selectedBookmarkIds.length !== 1 ? "s" : ""} selected
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
-                      if (bookmarkSelectMode) {
-                        clearBookmarkSelection();
-                        return;
-                      }
-                      setBookmarkSelectMode(true);
-                      setSelectedBookmarkIds([]);
+                      if (selectedBookmarkIds.length === 0) return;
+                      setBookmarkBulkTarget("__unstaged__");
+                      setShowBulkMoveBookmarksModal(true);
                     }}
-                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50"
+                    disabled={selectedBookmarkIds.length === 0}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {bookmarkSelectMode ? "Done" : "Select"}
+                    Move
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedBookmarkIds.length === 0) return;
+                      setShowBulkDeleteBookmarksConfirm(true);
+                    }}
+                    disabled={selectedBookmarkIds.length === 0}
+                    className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={selectAllBookmarksInActiveFolder}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearSelectedBookmarks}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearBookmarkSelection}
+                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              {activeFolderItems.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">
+                  <p className="text-slate-200">No bookmarks in this folder yet.</p>
+                  <p className="mt-2 text-xs text-slate-400">
+                    Assign a bookmark to this folder from the edit menu.
+                  </p>
                   <button
                     type="button"
                     onClick={() => {
@@ -2493,334 +2544,235 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                       setActiveFolderKey(null);
                       handleAddLinkForFolder(targetFolderId);
                     }}
-                    className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                    className="mt-4 inline-flex items-center rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
                   >
-                    + Add Link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveFolderKey(null)}
-                    className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                  >
-                    Close
+                    + Add Link to this folder
                   </button>
                 </div>
-              </div>
-              <div className="max-h-[80vh] overflow-y-auto pr-1">
-                {bookmarkSelectMode && (
-                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
-                    <span className="text-xs text-slate-300">
-                      {selectedBookmarkIds.length} bookmark
-                      {selectedBookmarkIds.length !== 1 ? "s" : ""} selected
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (selectedBookmarkIds.length === 0) return;
-                        setBookmarkBulkTarget("__unstaged__");
-                        setShowBulkMoveBookmarksModal(true);
-                      }}
-                      disabled={selectedBookmarkIds.length === 0}
-                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-blue-400 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              ) : (
+                <div className="space-y-6">
+                  {groupedActiveFolderItems.map(([tag, tagItems]) => (
+                    <section
+                      key={tag}
+                      aria-label={`Bookmarks tagged ${tag}`}
+                      className="space-y-3"
                     >
-                      Move
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (selectedBookmarkIds.length === 0) return;
-                        setShowBulkDeleteBookmarksConfirm(true);
-                      }}
-                      disabled={selectedBookmarkIds.length === 0}
-                      className="rounded-full border border-red-700/60 bg-red-900/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-red-900/60 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      onClick={selectAllBookmarksInActiveFolder}
-                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
-                    >
-                      Select all
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearSelectedBookmarks}
-                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearBookmarkSelection}
-                      className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
-                {activeFolderItems.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">
-                    <p className="text-slate-200">No bookmarks in this folder yet.</p>
-                    <p className="mt-2 text-xs text-slate-400">
-                      Assign a bookmark to this folder from the edit menu.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetFolderId =
-                          activeFolderKey === "UNSTAGED" ? null : activeFolderKey;
-                        setActiveFolderKey(null);
-                        handleAddLinkForFolder(targetFolderId);
-                      }}
-                      className="mt-4 inline-flex items-center rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-                    >
-                      + Add Link to this folder
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {groupedActiveFolderItems.map(([tag, tagItems]) => (
-                      <section
-                        key={tag}
-                        aria-label={`Bookmarks tagged ${tag}`}
-                        className="space-y-3"
-                      >
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
-                            {tag}
-                          </h3>
-                          <span className="text-xs text-slate-500">
-                            {tagItems.length} item{tagItems.length !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-                          {tagItems.map((b) => (
-                            <BookmarkCard
-                              key={`${tag}-${b.id}`}
-                              bookmark={b}
-                              query={search}
-                              folderOptions={folderOptions}
-                              folderName={
-                                typeof b.folderId === "string"
-                                  ? findFolderById(b.folderId)?.name
-                                  : undefined
-                              }
-                              onRequestNewFolder={(onCreated) => {
-                                openNewFolderModal((folderId) => {
-                                  onCreated(folderId);
-                                });
-                              }}
-                              onUpdate={updateBookmark}
-                              onDelete={handleDelete}
-                              selectMode={bookmarkSelectMode}
-                              isSelected={selectedBookmarkIds.includes(b.id)}
-                              onToggleSelect={toggleBookmarkSelection}
-                            />
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+                          {tag}
+                        </h3>
+                        <span className="text-xs text-slate-500">
+                          {tagItems.length} item{tagItems.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                        {tagItems.map((b) => (
+                          <BookmarkCard
+                            key={`${tag}-${b.id}`}
+                            bookmark={b}
+                            query={search}
+                            folderOptions={folderOptions}
+                            folderName={
+                              typeof b.folderId === "string"
+                                ? findFolderById(b.folderId)?.name
+                                : undefined
+                            }
+                            onRequestNewFolder={(onCreated) => {
+                              openNewFolderModal((folderId) => {
+                                onCreated(folderId);
+                              });
+                            }}
+                            onUpdate={updateBookmark}
+                            onDelete={handleDelete}
+                            selectMode={bookmarkSelectMode}
+                            isSelected={selectedBookmarkIds.includes(b.id)}
+                            onToggleSelect={toggleBookmarkSelection}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          </Modal>
         )}
         {showRenameFolderModal && (
-          <div
-            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-            onClick={() => {
+          <Modal
+            open
+            onClose={() => {
               setShowRenameFolderModal(false);
               setRenameFolderError("");
             }}
+            label="Rename folder"
+            panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
           >
-            <div
-              className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Rename folder"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-100">Rename folder</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowRenameFolderModal(false);
-                    setRenameFolderError("");
-                  }}
-                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  Close
-                </button>
-              </div>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Folder name"
-                  value={renameFolderInput}
-                  onChange={(e) => {
-                    setRenameFolderInput(e.target.value);
-                    if (renameFolderError) {
-                      setRenameFolderError("");
-                    }
-                  }}
-                  maxLength={MAX_FOLDER_NAME}
-                  className={FIELD_CLASS}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      renameFolder(activeFolderLabel, renameFolderInput);
-                    }
-                  }}
-                />
-                {renameFolderError && (
-                  <p className="text-xs text-red-400">{renameFolderError}</p>
-                )}
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowRenameFolderModal(false);
-                    setRenameFolderError("");
-                  }}
-                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => renameFolder(activeFolderLabel, renameFolderInput)}
-                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-                >
-                  Save
-                </button>
-              </div>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-100">Rename folder</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRenameFolderModal(false);
+                  setRenameFolderError("");
+                }}
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Close
+              </button>
             </div>
-          </div>
+            <div className="space-y-2">
+              <input
+                type="text"
+                placeholder="Folder name"
+                value={renameFolderInput}
+                onChange={(e) => {
+                  setRenameFolderInput(e.target.value);
+                  if (renameFolderError) {
+                    setRenameFolderError("");
+                  }
+                }}
+                maxLength={MAX_FOLDER_NAME}
+                className={FIELD_CLASS}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    renameFolder(activeFolderLabel, renameFolderInput);
+                  }
+                }}
+              />
+              {renameFolderError && (
+                <p className="text-xs text-red-400">{renameFolderError}</p>
+              )}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRenameFolderModal(false);
+                  setRenameFolderError("");
+                }}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => renameFolder(activeFolderLabel, renameFolderInput)}
+                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Save
+              </button>
+            </div>
+          </Modal>
         )}
         {showDeleteFolderConfirm && (
-          <div
-            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-            onClick={() => setShowDeleteFolderConfirm(false)}
+          <Modal
+            open
+            onClose={() => setShowDeleteFolderConfirm(false)}
+            label="Delete folder"
+            panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl outline-none"
           >
-            <div
-              className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-100 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Delete folder"
-            >
-              <h2 className="mb-2 text-base font-semibold text-slate-50">
-                Delete folder?
-              </h2>
-              <p className="mb-4 text-xs text-slate-400">bookmarks moved to Unstaged</p>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteFolderConfirm(false)}
-                  className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!activeFolderKey || activeFolderKey === "UNSTAGED") return;
-                    deleteFolder(activeFolderKey);
-                  }}
-                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
-                >
-                  Delete
-                </button>
-              </div>
+            <h2 className="mb-2 text-base font-semibold text-slate-50">
+              Delete folder?
+            </h2>
+            <p className="mb-4 text-xs text-slate-400">bookmarks moved to Unstaged</p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteFolderConfirm(false)}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!activeFolderKey || activeFolderKey === "UNSTAGED") return;
+                  deleteFolder(activeFolderKey);
+                }}
+                className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-500"
+              >
+                Delete
+              </button>
             </div>
-          </div>
+          </Modal>
         )}
         {showNewFolderModal && (
-          <div
-            className="animate-bd-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-            onClick={() => {
+          <Modal
+            open
+            onClose={() => {
               setShowNewFolderModal(false);
               setNewFolderError("");
             }}
+            label="New folder"
+            panelClassName="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 outline-none"
           >
-            <div
-              className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label="New folder"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-100">New folder</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNewFolderModal(false);
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-100">New folder</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewFolderModal(false);
+                  setNewFolderError("");
+                }}
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Folder name (e.g. Medical, Work)"
+                value={newFolderName}
+                onChange={(e) => {
+                  setNewFolderName(e.target.value);
+                  if (newFolderError) {
                     setNewFolderError("");
-                  }}
-                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  Close
-                </button>
-              </div>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Folder name (e.g. Medical, Work)"
-                  value={newFolderName}
-                  onChange={(e) => {
-                    setNewFolderName(e.target.value);
-                    if (newFolderError) {
-                      setNewFolderError("");
-                    }
-                  }}
-                  className={FIELD_CLASS}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const folderId = addRootFolder(newFolderName);
-                      if (!folderId) return;
-                      newFolderRequestRef.current?.(folderId);
-                      setShowNewFolderModal(false);
-                      setNewFolderError("");
-                    }
-                  }}
-                />
-                {newFolderError && (
-                  <p className="text-xs text-red-400">{newFolderError}</p>
-                )}
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNewFolderModal(false);
-                    setNewFolderError("");
-                  }}
-                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
+                  }
+                }}
+                className={FIELD_CLASS}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
                     const folderId = addRootFolder(newFolderName);
                     if (!folderId) return;
                     newFolderRequestRef.current?.(folderId);
                     setShowNewFolderModal(false);
                     setNewFolderError("");
-                  }}
-                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
-                >
-                  Create
-                </button>
-              </div>
+                  }
+                }}
+              />
+              {newFolderError && (
+                <p className="text-xs text-red-400">{newFolderError}</p>
+              )}
             </div>
-          </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewFolderModal(false);
+                  setNewFolderError("");
+                }}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const folderId = addRootFolder(newFolderName);
+                  if (!folderId) return;
+                  newFolderRequestRef.current?.(folderId);
+                  setShowNewFolderModal(false);
+                  setNewFolderError("");
+                }}
+                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Create
+              </button>
+            </div>
+          </Modal>
         )}
     </>
   );

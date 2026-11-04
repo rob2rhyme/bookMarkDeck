@@ -1,6 +1,7 @@
 //src/app/(app)/folders/manage/page.tsx
 "use client";
 
+import { Modal as BaseModal } from "@/components/Modal";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -29,51 +30,30 @@ type ModalProps = {
   children: React.ReactNode;
 };
 
+// A titled dialog with a Close button, on the shared Modal (Escape, focus trap,
+// scroll lock, focus restore).
 function Modal({ open, title, onClose, children }: ModalProps) {
-  useEffect(() => {
-    if (!open) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open, onClose]);
-
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-      onClick={onClose}
+    <BaseModal
+      open
+      onClose={onClose}
+      label={title}
+      panelClassName="mx-auto w-[min(560px,calc(100%-2rem))] rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl outline-none"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="mx-auto w-[min(560px,calc(100%-2rem))] rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-100">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
-          >
-            Close
-          </button>
-        </div>
-        {children}
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-base font-semibold text-slate-100">{title}</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+        >
+          Close
+        </button>
       </div>
-    </div>
+      {children}
+    </BaseModal>
   );
 }
 
@@ -1150,196 +1130,191 @@ export default function FolderManagementPage() {
       </Modal>
 
       {organizeOpen && organizePlan && (
-        <div
-          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
-          onClick={() => !applying && setOrganizeOpen(false)}
+        <BaseModal
+          open
+          onClose={() => !applying && setOrganizeOpen(false)}
+          label="Auto-organize"
+          overlayClassName="inset-0 flex items-end justify-center sm:items-center sm:p-4"
+          panelClassName="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border border-slate-800 bg-slate-950 shadow-2xl sm:rounded-3xl outline-none"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Auto-organize"
-            onClick={(event) => event.stopPropagation()}
-            className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border border-slate-800 bg-slate-950 shadow-2xl sm:rounded-3xl"
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-slate-800/70 px-5 py-4">
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold tracking-tight text-slate-50">
-                  ✨ Auto-organize
-                </h2>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  Tidy your folders into badged categories. Nothing changes
-                  until you apply.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => !applying && setOrganizeOpen(false)}
-                className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
-              >
-                Close
-              </button>
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 border-b border-slate-800/70 px-5 py-4">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-50">
+                ✨ Auto-organize
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Tidy your folders into badged categories. Nothing changes
+                until you apply.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => !applying && setOrganizeOpen(false)}
+              className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+            >
+              Close
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+            {/* Metrics */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                { label: "Nest folders", value: organizeSummary.folders },
+                { label: "Refile loose", value: organizeSummary.bookmarks },
+                { label: "New groups", value: organizeSummary.newParents },
+                { label: "Merge dups", value: organizeSummary.merges },
+              ].map((m) => (
+                <div
+                  key={m.label}
+                  className="rounded-xl border border-slate-800/70 bg-slate-900/50 px-3 py-2.5 text-center"
+                >
+                  <p className="text-xl font-semibold tabular-nums text-slate-50">
+                    {m.value}
+                  </p>
+                  <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                    {m.label}
+                  </p>
+                </div>
+              ))}
             </div>
 
-            {/* Body */}
-            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-              {/* Metrics */}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {[
-                  { label: "Nest folders", value: organizeSummary.folders },
-                  { label: "Refile loose", value: organizeSummary.bookmarks },
-                  { label: "New groups", value: organizeSummary.newParents },
-                  { label: "Merge dups", value: organizeSummary.merges },
-                ].map((m) => (
-                  <div
-                    key={m.label}
-                    className="rounded-xl border border-slate-800/70 bg-slate-900/50 px-3 py-2.5 text-center"
-                  >
-                    <p className="text-xl font-semibold tabular-nums text-slate-50">
-                      {m.value}
-                    </p>
-                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-500">
-                      {m.label}
-                    </p>
-                  </div>
-                ))}
+            {/* Folder coverage */}
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between text-[11px] text-slate-400">
+                <span>Top-level folders sorted</span>
+                <span className="tabular-nums text-slate-300">
+                  {organizeSummary.folders}/{folderCoverage} · {folderCoveragePct}%
+                </span>
               </div>
-
-              {/* Folder coverage */}
-              <div>
-                <div className="mb-1.5 flex items-baseline justify-between text-[11px] text-slate-400">
-                  <span>Top-level folders sorted</span>
-                  <span className="tabular-nums text-slate-300">
-                    {organizeSummary.folders}/{folderCoverage} · {folderCoveragePct}%
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-                  <div
-                    className="h-full rounded-full bg-blue-500 transition-all"
-                    style={{ width: `${folderCoveragePct}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Options */}
-              <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 p-1.5">
-                <OptionToggle
-                  checked={refileLoose}
-                  onChange={() => setRefileLoose((v) => !v)}
-                  title="Refile loose bookmarks"
-                  hint="Unfiled bookmarks → matching category folder"
+              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-all"
+                  style={{ width: `${folderCoveragePct}%` }}
                 />
-                {organizePlan.merges.length > 0 && (
-                  <OptionToggle
-                    checked={mergeEnabled}
-                    onChange={() => setMergeEnabled((v) => !v)}
-                    title={`Merge ${organizePlan.merges.length} duplicate folder${
-                      organizePlan.merges.length !== 1 ? "s" : ""
-                    }`}
-                    hint="Same-name folders combined into one"
-                  />
-                )}
               </div>
+            </div>
 
-              {/* Categories — selectable */}
-              {organizePlan.categories.length > 0 && (
-                <div>
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Categories — tap to include / skip
-                  </p>
-                  <div className="space-y-1.5">
-                    {organizePlan.categories.map((c) => {
-                      const off = excludedCats.has(c.key);
-                      return (
-                        <button
-                          key={c.key}
-                          type="button"
-                          aria-pressed={!off}
-                          onClick={() => toggleCat(c.key)}
-                          className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
-                            off
-                              ? "border-slate-800 bg-slate-900/30 opacity-50"
-                              : "border-slate-700 bg-slate-900/70 hover:border-slate-600"
+            {/* Options */}
+            <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 p-1.5">
+              <OptionToggle
+                checked={refileLoose}
+                onChange={() => setRefileLoose((v) => !v)}
+                title="Refile loose bookmarks"
+                hint="Unfiled bookmarks → matching category folder"
+              />
+              {organizePlan.merges.length > 0 && (
+                <OptionToggle
+                  checked={mergeEnabled}
+                  onChange={() => setMergeEnabled((v) => !v)}
+                  title={`Merge ${organizePlan.merges.length} duplicate folder${
+                    organizePlan.merges.length !== 1 ? "s" : ""
+                  }`}
+                  hint="Same-name folders combined into one"
+                />
+              )}
+            </div>
+
+            {/* Categories — selectable */}
+            {organizePlan.categories.length > 0 && (
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Categories — tap to include / skip
+                </p>
+                <div className="space-y-1.5">
+                  {organizePlan.categories.map((c) => {
+                    const off = excludedCats.has(c.key);
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        aria-pressed={!off}
+                        onClick={() => toggleCat(c.key)}
+                        className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
+                          off
+                            ? "border-slate-800 bg-slate-900/30 opacity-50"
+                            : "border-slate-700 bg-slate-900/70 hover:border-slate-600"
+                        }`}
+                      >
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-1.5 text-sm font-medium text-slate-100">
+                            <span className="truncate">{c.parentName}</span>
+                            {c.parentIsNew && (
+                              <span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-blue-300">
+                                new
+                              </span>
+                            )}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11px] text-slate-400">
+                            {c.folders.length > 0 &&
+                              `${c.folders.length} folder${c.folders.length !== 1 ? "s" : ""}`}
+                            {c.folders.length > 0 && c.bookmarks.length > 0 && " · "}
+                            {c.bookmarks.length > 0 &&
+                              `${c.bookmarks.length} bookmark${c.bookmarks.length !== 1 ? "s" : ""}`}
+                            {c.folders.length > 0 && (
+                              <span className="text-slate-500">
+                                {"  "}
+                                {c.folders.slice(0, 3).map((f) => f.name).join(", ")}
+                                {c.folders.length > 3 ? "…" : ""}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        <span
+                          className={`shrink-0 text-xs font-medium ${
+                            off ? "text-slate-500" : "text-blue-300"
                           }`}
                         >
-                          <span className="min-w-0">
-                            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-100">
-                              <span className="truncate">{c.parentName}</span>
-                              {c.parentIsNew && (
-                                <span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-blue-300">
-                                  new
-                                </span>
-                              )}
-                            </span>
-                            <span className="mt-0.5 block truncate text-[11px] text-slate-400">
-                              {c.folders.length > 0 &&
-                                `${c.folders.length} folder${c.folders.length !== 1 ? "s" : ""}`}
-                              {c.folders.length > 0 && c.bookmarks.length > 0 && " · "}
-                              {c.bookmarks.length > 0 &&
-                                `${c.bookmarks.length} bookmark${c.bookmarks.length !== 1 ? "s" : ""}`}
-                              {c.folders.length > 0 && (
-                                <span className="text-slate-500">
-                                  {"  "}
-                                  {c.folders.slice(0, 3).map((f) => f.name).join(", ")}
-                                  {c.folders.length > 3 ? "…" : ""}
-                                </span>
-                              )}
-                            </span>
-                          </span>
-                          <span
-                            className={`shrink-0 text-xs font-medium ${
-                              off ? "text-slate-500" : "text-blue-300"
-                            }`}
-                          >
-                            {off ? "Skip" : "Include"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          {off ? "Skip" : "Include"}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-
-              <p className="border-t border-slate-800/70 pt-3 text-[11px] text-slate-500">
-                {organizePlan.unmatchedFolders} folder
-                {organizePlan.unmatchedFolders !== 1 ? "s" : ""} and{" "}
-                {organizePlan.looseUncategorized} loose bookmark
-                {organizePlan.looseUncategorized !== 1 ? "s" : ""} couldn&apos;t be
-                categorized — left untouched.
-              </p>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between gap-3 border-t border-slate-800/70 px-5 py-3">
-              <p className="min-w-0 truncate text-xs text-slate-400">
-                {organizeSummary.cats === 0 && organizeSummary.merges === 0
-                  ? "Nothing selected"
-                  : `${organizeSummary.folders + organizeSummary.bookmarks} items → ${organizeSummary.cats} categor${organizeSummary.cats === 1 ? "y" : "ies"}`}
-              </p>
-              <div className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOrganizeOpen(false)}
-                  disabled={applying}
-                  className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-500 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={applyOrganize}
-                  disabled={
-                    applying ||
-                    (organizeSummary.cats === 0 && organizeSummary.merges === 0)
-                  }
-                  className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:opacity-50"
-                >
-                  {applying ? "Applying…" : "Apply"}
-                </button>
               </div>
+            )}
+
+            <p className="border-t border-slate-800/70 pt-3 text-[11px] text-slate-500">
+              {organizePlan.unmatchedFolders} folder
+              {organizePlan.unmatchedFolders !== 1 ? "s" : ""} and{" "}
+              {organizePlan.looseUncategorized} loose bookmark
+              {organizePlan.looseUncategorized !== 1 ? "s" : ""} couldn&apos;t be
+              categorized — left untouched.
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-3 border-t border-slate-800/70 px-5 py-3">
+            <p className="min-w-0 truncate text-xs text-slate-400">
+              {organizeSummary.cats === 0 && organizeSummary.merges === 0
+                ? "Nothing selected"
+                : `${organizeSummary.folders + organizeSummary.bookmarks} items → ${organizeSummary.cats} categor${organizeSummary.cats === 1 ? "y" : "ies"}`}
+            </p>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setOrganizeOpen(false)}
+                disabled={applying}
+                className="rounded-full border border-slate-700 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-500 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyOrganize}
+                disabled={
+                  applying ||
+                  (organizeSummary.cats === 0 && organizeSummary.merges === 0)
+                }
+                className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:opacity-50"
+              >
+                {applying ? "Applying…" : "Apply"}
+              </button>
             </div>
           </div>
-        </div>
+        </BaseModal>
       )}
 
       {/* Mobile action sheet — slides up over a blurred backdrop so it never
