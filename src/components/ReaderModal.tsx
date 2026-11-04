@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Modal } from "@/components/Modal";
+import { ReadLaterToggle } from "@/components/ReadLaterToggle";
 import { useToast } from "@/components/toast/ToastProvider";
 import { blockIndexFor, segmentBlock } from "@/lib/highlightSegments";
 import type { Article, ReaderBlock } from "@/lib/readerExtract";
@@ -24,11 +25,14 @@ export function ReaderModal({
   open,
   onClose,
   onHighlightsChange,
+  onReadLaterChange,
 }: {
   bookmark: Bookmark;
   open: boolean;
   onClose: () => void;
   onHighlightsChange: (next: BookmarkHighlight[] | undefined) => void;
+  /** When given, the dialog shows the read-later row (queue it, mark it read). */
+  onReadLaterChange?: (patch: Pick<Bookmark, "readLaterAt" | "readAt">) => void;
 }) {
   const { toast } = useToast();
   const target = normalizeUrl(bookmark.url);
@@ -128,6 +132,10 @@ export function ReaderModal({
           </button>
         </div>
       </div>
+
+      {onReadLaterChange && (
+        <ReadLaterToggle bookmark={bookmark} onChange={onReadLaterChange} className="border-b border-slate-800 px-5 py-2" />
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         {status === "loading" && <p className="text-sm text-slate-400">Loading the page…</p>}

@@ -212,6 +212,22 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   pins the cloud round trip. **Browse by tag** is a chip row on the home page
   (`@/utils/tagBrowse`: case-insensitive counts, most used first) that narrows `filtered`,
   so the folder view and Trending follow it.
+- **Read later is two timestamps on the bookmark, and the queue is derived**
+  (`@/utils/readLater`; `Bookmark.readLaterAt` = queued, `readAt` = finished). A queued
+  bookmark with no `readAt` is in the queue, **oldest first** so nothing sits forgotten behind
+  newer arrivals; finishing sets `readAt` (kept, so a bookmark can say "Read"), *Queue again*
+  clears it, *Remove* clears both. There is no separate list to drift from the bookmarks,
+  and because they are fields on the record **both whitelists must name them**
+  (`normalizeBookmarks` and `sanitizeBookmark`, via `cleanReadLater`; the cloud round trip is
+  pinned in `firestoreBookmarks.highlights.test.ts` — the same trap highlights had). Fed from
+  four places: a **Read later** row on every `BookmarkCard` (`ReadLaterToggle`; the icon row
+  has no room for a seventh button at 320px), the Add Link form's checkbox, the reader
+  dialog, and the **Share sheet, where it is ON by default** — a link shared from another app
+  is almost always something to read (one tap to untick). The home page's `ReadLaterCard`
+  lists the queue (five, then *Show all*), with Read / Done / ✕ per row; it looks the open
+  bookmark up in *all* bookmarks, so marking it read inside its own dialog doesn't close the
+  dialog under the reader. "Waiting 2 weeks" is calendar days in the local zone
+  (`waitingLabel`), never 24-hour spans of the UTC instant. `e2e/read-later.spec.ts`.
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the

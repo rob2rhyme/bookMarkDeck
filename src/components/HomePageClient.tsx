@@ -31,9 +31,11 @@ import { makeFolderOptions } from "@/utils/folderOptions";
 import { parseBookmarkHtml } from "@/utils/parseBookmarkHtml";
 import { parseServiceCsv } from "@/utils/parseServiceCsv";
 import { countTags, hasTag } from "@/utils/tagBrowse";
+import { queuePatch } from "@/utils/readLater";
 import { fetchLinkTitle } from "@/utils/linkTitle";
 import { STARTER_GROUPS, planStarterLinks } from "@/utils/starterLinks";
 import { MilestoneRow } from "@/components/MilestoneRow";
+import { ReadLaterCard } from "@/components/ReadLaterCard";
 import { StarterPicker } from "@/components/StarterPicker";
 import { isUnsafeUrl, normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
@@ -184,6 +186,7 @@ export function HomePageClient() {
   const [newUrl, setNewUrl] = useState("");
   const [newFolderSelection, setNewFolderSelection] = useState("__unstaged__");
   const [newTags, setNewTags] = useState(""); // NEW
+  const [newReadLater, setNewReadLater] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [starterOpen, setStarterOpen] = useState(false);
 const [showAddShortcutForm, setShowAddShortcutForm] = useState(false);
@@ -848,6 +851,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
       folderId,
       folder: folderName,
       tags,
+      ...(newReadLater ? queuePatch() : {}),
     });
     // Left untitled: save now under its URL, then take the page's own title.
     if (!typedTitle) {
@@ -860,6 +864,7 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
     setNewUrl("");
     setNewFolderSelection("__unstaged__");
     setNewTags("");
+    setNewReadLater(false);
     setShowAddForm(false);
   };
 
@@ -1321,6 +1326,15 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
                     onChange={(e) => setNewTags(e.target.value)}
                     className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 outline-none ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
+                  <label className="flex w-full items-center gap-2 text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={newReadLater}
+                      onChange={(e) => setNewReadLater(e.target.checked)}
+                      className="h-4 w-4 accent-blue-500"
+                    />
+                    Add to read later
+                  </label>
                   {allTags.length > 0 && (
                     <div className="flex w-full flex-wrap gap-1.5">
                       {allTags.slice(0, 16).map((tag) => (
@@ -1523,6 +1537,9 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
           celebrate={{ account: userId, ready: bookmarksHydrated }}
           metrics={{ bookmarks: bookmarks.length }}
         />
+
+        {/* Read later — what you've queued to read, oldest first */}
+        <ReadLaterCard bookmarks={bookmarks} onUpdate={updateBookmark} />
 
         {/* Rediscover — resurface one stale-but-once-loved bookmark */}
         {rediscover.bookmark && (

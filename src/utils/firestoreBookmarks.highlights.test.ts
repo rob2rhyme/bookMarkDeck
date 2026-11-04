@@ -54,3 +54,23 @@ describe("highlights through the cloud", () => {
     expect(got.bookmarks[0].highlights?.map((h) => h.text)).toEqual(["a passage"]);
   });
 });
+
+describe("the read-later queue through the cloud", () => {
+  const queued = { readLaterAt: "2026-02-01T09:00:00.000Z" };
+  const finished = { readLaterAt: "2026-02-01T09:00:00.000Z", readAt: "2026-02-03T09:00:00.000Z" };
+
+  it("goes up with the bookmark, and junk is cleaned on the way", async () => {
+    await saveBookmarks("me@example.com", [bookmark(queued), bookmark({ id: "b2", ...finished }), bookmark({ id: "b3", readLaterAt: "nope", readAt: 4 })] as never, []);
+    const payload = saved[0] as { bookmarks: Record<string, unknown>[] };
+    expect(payload.bookmarks[0]).toMatchObject(queued);
+    expect(payload.bookmarks[1]).toMatchObject(finished);
+    expect("readLaterAt" in payload.bookmarks[2]).toBe(false);
+    expect("readAt" in payload.bookmarks[2]).toBe(false);
+  });
+
+  it("comes back down with it", async () => {
+    stored = { bookmarks: [bookmark(finished)], folders: [] };
+    const got = await fetchBookmarks("me@example.com");
+    expect(got.bookmarks[0]).toMatchObject(finished);
+  });
+});

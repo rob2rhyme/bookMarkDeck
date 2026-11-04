@@ -607,3 +607,33 @@ describe("highlights on a bookmark", () => {
     expect(result.current.bookmarks.find((b) => b.id === "x1")?.highlights).toEqual(H);
   });
 });
+
+describe("the read-later queue on a bookmark", () => {
+  const Q = { readLaterAt: "2026-02-01T09:00:00.000Z" };
+
+  it("survives the device cache across a reload, and clears when dequeued", () => {
+    const first = renderHook(() => useBookmarks("test-user"));
+    let id = "";
+    act(() => {
+      id = first.result.current.addBookmark({ title: "T", url: "https://example.com", note: "", folderId: null, tags: [] });
+    });
+    act(() => first.result.current.updateBookmark(id, Q));
+    first.unmount();
+
+    const second = renderHook(() => useBookmarks("test-user"));
+    expect(second.result.current.bookmarks.find((b) => b.id === id)).toMatchObject(Q);
+    act(() => second.result.current.updateBookmark(id, { readLaterAt: undefined, readAt: undefined }));
+    second.unmount();
+    const third = renderHook(() => useBookmarks("test-user"));
+    expect(third.result.current.bookmarks.find((b) => b.id === id)?.readLaterAt).toBeUndefined();
+  });
+
+  it("comes along when a JSON backup is imported", () => {
+    const { result } = renderHook(() => useBookmarks("test-user"));
+    const { additions } = planBookmarkImport(result.current.bookmarks, [
+      { id: "q1", title: "Queued", url: "https://q.example.com", createdAt: "2026-01-01T00:00:00Z", ...Q },
+    ]);
+    act(() => result.current.importBookmarks(additions));
+    expect(result.current.bookmarks.find((b) => b.id === "q1")).toMatchObject(Q);
+  });
+});

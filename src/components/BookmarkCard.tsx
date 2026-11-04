@@ -29,6 +29,7 @@ import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { setBookmarkFocusLink } from "@/lib/bookmarkFocusLink";
 import { useToast } from "@/components/toast/ToastProvider";
 import { ReaderModal } from "@/components/ReaderModal";
+import { ReadLaterToggle } from "@/components/ReadLaterToggle";
 
 function safeParseUrl(rawUrl: string): URL | null {
   try {
@@ -605,6 +606,10 @@ export function BookmarkCard({
           </div>
         )}
 
+        {!selectMode && !isEditing && (
+          <ReadLaterToggle bookmark={bookmark} onChange={(patch) => onUpdate(bookmark.id, patch)} className="mt-2" />
+        )}
+
         {!selectMode && (
           <div className="mt-3 flex w-full items-center justify-evenly gap-2 border-t border-slate-800/70 pt-2">
             <IconAction
@@ -931,6 +936,10 @@ export function BookmarkCard({
             )}
           </div>
 
+          {!selectMode && !isEditing && (
+            <ReadLaterToggle bookmark={bookmark} onChange={(patch) => onUpdate(bookmark.id, patch)} className="mt-2" />
+          )}
+
           {!selectMode && (
             <div className="mt-3 flex w-full items-center justify-evenly gap-2 border-t border-slate-700/70 pt-2">
               <IconAction
@@ -1024,6 +1033,7 @@ export function BookmarkCard({
         open={readerOpen}
         onClose={() => setReaderOpen(false)}
         onHighlightsChange={(next) => onUpdate(bookmark.id, { highlights: next })}
+        onReadLaterChange={(patch) => onUpdate(bookmark.id, patch)}
       />
     </div>
   );

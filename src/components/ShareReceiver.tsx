@@ -1,5 +1,6 @@
 "use client";
 
+import { queuePatch } from "@/utils/readLater";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -38,6 +39,8 @@ export function ShareReceiver({
   const [title, setTitle] = useState(shared?.title ?? "");
   const [folderId, setFolderId] = useState(UNSTAGED);
   const [saved, setSaved] = useState(false);
+  // A link shared from another app is most often something to read: on by default.
+  const [readLater, setReadLater] = useState(true);
 
   const folderOptions = useMemo(() => makeFolderOptions(folders), [folders]);
   const existing = useMemo(
@@ -61,6 +64,7 @@ export function ShareReceiver({
       folderId: target,
       folder: target ? folders.find((f) => f.id === target)?.name : undefined,
       tags: [],
+      ...(readLater ? queuePatch() : {}),
     });
     setSaved(true);
   };
@@ -85,6 +89,7 @@ export function ShareReceiver({
             <Check className="h-4 w-4 text-emerald-400" />
             Saved to Bookmark Deck.
           </p>
+          {readLater && <p className="text-xs text-slate-400">It&apos;s in your read-later queue.</p>}
           <div className="flex flex-wrap gap-2">
             <Link
               href="/"
@@ -143,6 +148,16 @@ export function ShareReceiver({
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={readLater}
+              onChange={(e) => setReadLater(e.target.checked)}
+              className="h-4 w-4 accent-blue-500"
+            />
+            Add to read later
           </label>
 
           <div className="flex items-center gap-2">

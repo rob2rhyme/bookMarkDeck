@@ -85,7 +85,7 @@ test("read a saved page, highlight a passage, and it stays highlighted", async (
 
   // ...and is marked again after a reload.
   await page.reload();
-  await page.getByRole("button", { name: /^Read/ }).click();
+  await page.getByRole("button", { name: /^Read \(1 highlighted\)/ }).click();
   await expect(page.getByRole("dialog", { name: "A long read" }).locator("mark")).toHaveText("the page around the words");
 
   // Removing it unmarks the text and clears it from the bookmark.
