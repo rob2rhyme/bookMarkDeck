@@ -179,6 +179,15 @@ export default function GuidePage() {
               sign in, or that build their text with scripts, can&apos;t be
               shown this way; <strong>Open original</strong> is always there.
             </p>
+            <p>
+              <strong>Read later</strong> keeps a queue of what you mean to
+              read: tick it when you add a link, tap it on a bookmark or in the
+              reader, or share a link to Bookmark Deck from another app (that
+              one goes in the queue by default). The queue shows on the home
+              page, oldest first, so nothing gets buried under newer links;{" "}
+              <strong>Done</strong> marks it read, and{" "}
+              <strong>Queue again</strong> brings it back.
+            </p>
           </Sub>
           <Sub title="Import, export & backups">
             <p>

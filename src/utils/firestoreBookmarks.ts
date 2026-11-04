@@ -1,5 +1,6 @@
 // src/utils/firestoreBookmarks.ts
 import { cleanHighlights } from "@/utils/highlights";
+import { cleanReadLater } from "@/utils/readLater";
 import {
   Timestamp,
   addDoc,
@@ -95,6 +96,7 @@ function sanitizeBookmark(raw: Bookmark): Bookmark {
   if (typeof raw.pinned === "boolean") optional.pinned = raw.pinned;
   const highlights = cleanHighlights(raw.highlights);
   if (highlights) optional.highlights = highlights;
+  Object.assign(optional, cleanReadLater(raw));
 
   return { ...base, ...optional };
 }

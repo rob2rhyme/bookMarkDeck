@@ -25,4 +25,8 @@ export type Bookmark = {
   pinned?: boolean;
   /** Passages marked in the reader view (see `@/utils/highlights`). */
   highlights?: BookmarkHighlight[];
+  /** When it was put in the read-later queue (ISO instant). See `@/utils/readLater`. */
+  readLaterAt?: string;
+  /** When it was finished (ISO instant). A queued bookmark with this set is done. */
+  readAt?: string;
 };

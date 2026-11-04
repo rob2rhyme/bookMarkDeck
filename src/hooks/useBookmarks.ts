@@ -1,6 +1,7 @@
 "use client";
 
 import { cleanHighlights } from "@/utils/highlights";
+import { cleanReadLater } from "@/utils/readLater";
 import { useEffect, useRef, useState } from "react";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
@@ -106,6 +107,7 @@ function normalizeBookmarks(raw: unknown): Bookmark[] {
         lastUsedAt:
           typeof lastUsedAtValue === "string" ? lastUsedAtValue : undefined,
         highlights: cleanHighlights(record.highlights),
+        ...cleanReadLater(record),
       };
     });
 }
