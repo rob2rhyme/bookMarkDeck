@@ -49,7 +49,7 @@ What opening sign-in exposes, worst first:
 
 The measures that change the outcome of an exposure.
 
-1. ~~**Encrypt Filing's sensitive fields on the device.**~~ *(done for a paper's `reference` and `note`, per paper and opt-in, 2026-11-05 — `lib/lock.ts`, the Notes vault moved to `@/lib/vault`. Not yet: `Party.note`, folder and place notes.)* Reuse the Notes vault
+1. ~~**Encrypt Filing's sensitive fields on the device.**~~ *(done for a paper's `reference` and `note`, per paper and opt-in, 2026-11-05 — `lib/lock.ts`, the Notes vault moved to `@/lib/vault`. `Party.note` and folder and place notes need no lock today: no screen or hook has ever written one, so they hold no text — a form for them must ship with the lock.)* Reuse the Notes vault
    (`vault.ts`, `vaultSession.ts`, `useVaults.ts`): one account key wrapped by
    passphrase and recovery code. Encrypt `FilingDocument.reference`, `note`,
    obligation notes and `Party.note`. Leave `title`, dates, `folderId`, due dates

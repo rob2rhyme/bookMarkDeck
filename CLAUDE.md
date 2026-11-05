@@ -1333,9 +1333,13 @@ Other invariants:
   open/closed — a locked paper with the vault closed can still rename and move, and its seal
   is never touched). A new locked paper's id is generated before sealing, because the seal is
   bound to it. The slim cache keeps `confidential` so the list can show a lock beside a
-  paper whose sealed blob has not loaded. Not covered: folder, place and party notes, an
-  activity entry's note and an obligation's label stay readable (plan §2.1 names Party.note;
-  not done), and the PIN/biometric hiding of `confidential` papers (§2.3) is not built.
+  paper whose sealed blob has not loaded. **Place, party and folder `note` fields have
+  nothing to lock:** they are in the types, the data layer and the JSON backup, but no screen
+  or hook has ever written one (checked in git history), so they hold no text. A form for any
+  of them must ship with the Lock option, or not store free text — the credential check and
+  the lock exist for exactly this field shape. Not covered: an activity entry's note and an
+  obligation's label stay readable (reminders need them), and the PIN/biometric hiding of
+  `confidential` papers (§2.3) is not built.
 - **Import merges by id and NEVER deletes** (`lib/exportFiling.ts`), so
   restoring a stale backup can't remove what's been filed since. Each hook's
   `importMany` also writes through to Firestore, or an import would be stranded
