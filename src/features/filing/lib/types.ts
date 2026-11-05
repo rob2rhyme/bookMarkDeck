@@ -236,11 +236,26 @@ export type Obligation = {
 export type FilingAttachment = {
   id: string;
   documentId: string;
+  /** The file name — or, for a sealed scan, a generic stand-in: the real name is in `enc.name`. */
   name: string;
+  /** The ORIGINAL type (what the bytes are once opened), even when the stored object is sealed. */
   contentType: string;
+  /** The original size, before sealing added its overhead. */
   size: number;
   path: string;
-  url: string;
+  /**
+   * The old PUBLIC address of the object. Legacy only: a scan is now read through a
+   * short-lived signed URL (`/api/filing/attachment/read`) so the bucket can be private,
+   * and new pointers carry none. Kept so existing pointers still read.
+   */
+  url?: string;
+  /**
+   * Present when the stored object is ENCRYPTED on the device before upload (one blob,
+   * `iv ‖ ciphertext`, sealed with the account's vault and bound to this attachment's id).
+   * `kid` names the vault whose key opens it; `name` is the file name, sealed too, since
+   * "Jane Doe SSN card.pdf" is itself something to protect.
+   */
+  enc?: { kid: string; name: SealedText } | null;
   addedAt: string | null;
 };
 

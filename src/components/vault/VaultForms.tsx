@@ -161,7 +161,8 @@ export function SetupForm({
         {subject === "papers" ? (
           <>
             <span className="text-slate-300">Titles, dates and tags stay visible</span> so you can still find your
-            papers. Scans are not encrypted. The same passphrase opens locked notes.
+            papers. Scans you add are encrypted with it too (unless you untick that). The same passphrase opens
+            locked notes.
           </>
         ) : (
           <>

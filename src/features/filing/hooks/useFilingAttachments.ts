@@ -84,6 +84,27 @@ export function useFilingAttachments(
   );
 
   /**
+   * Swap a pointer for a new version of itself (a scan that was just encrypted: same id,
+   * a new object). The old OBJECT is deleted only once the new pointer has been saved —
+   * the other order could leave a pointer at bytes that are already gone.
+   */
+  const replace = useCallback(
+    async (next: FilingAttachment, oldPath: string) => {
+      setAttachments((prev) => sortAttachments(prev.map((a) => (a.id === next.id ? next : a))));
+      if (canSync && email) {
+        try {
+          await saveAttachment(email, next);
+        } catch (err) {
+          console.error("[filing] attachment save failed:", err);
+          return; // the old pointer still stands, so keep the old object
+        }
+      }
+      deleteFilingObjects([oldPath]);
+    },
+    [canSync, email]
+  );
+
+  /**
    * Remove the pointer, then the object. In that order on purpose: a failed
    * object delete leaves an orphan nobody sees, whereas a failed pointer delete
    * would leave a row pointing at bytes that are already gone.
@@ -101,5 +122,5 @@ export function useFilingAttachments(
     [canSync, email]
   );
 
-  return { attachments, loading, enabled, add, remove };
+  return { attachments, loading, enabled, add, replace, remove };
 }

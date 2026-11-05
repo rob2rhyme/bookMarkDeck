@@ -75,6 +75,7 @@ export function FilingDashboard() {
   const documents = useFilingDocuments(email, connected);
   const vault = useVaults(email, connected);
   const vaultAccess = useVaultAccess(vault, "papers", "Unlock to lock this paper");
+  const scanAccess = useVaultAccess(vault, "papers", "Unlock to use encrypted scans");
   const { toast } = useToast();
   const { settings, update: updateSettings } = useFilingSettings(email, connected);
 
@@ -860,12 +861,16 @@ export function FilingDashboard() {
           // without loading every attachment.
           documents.updateDocument(a.documentId, { hasAttachment: true });
         }}
+        onReplace={(next, oldPath) => void scans.replace(next, oldPath)}
         onRemove={(a) => {
           void scans.remove(a);
           if (scans.attachments.length <= 1) {
             documents.updateDocument(a.documentId, { hasAttachment: false });
           }
         }}
+        vaultReady={vault.ready}
+        ensureVault={scanAccess.ensure}
+        primaryKid={vault.primaryKid}
       />
 
       <BookmarkLinkModal
@@ -1023,6 +1028,7 @@ export function FilingDashboard() {
         ensureVault={vaultAccess.ensure}
       />
       {vaultAccess.dialog}
+      {scanAccess.dialog}
     </div>
   );
 }

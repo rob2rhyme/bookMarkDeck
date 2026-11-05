@@ -67,9 +67,11 @@ export default function PrivacyPage() {
             (up to 7), including bookmark payloads and cloud-safe shortcut data.
           </li>
           <li>
-            Photos and attachments, when that storage is configured, in a Cloudflare R2 bucket under
-            unguessable addresses. Anyone holding such an address can open the file, so they are not
-            covered by the database&rsquo;s sign-in rules.
+            Photos and attachments, when that storage is configured, in a Cloudflare R2 bucket. Item
+            photos sit under unguessable public addresses: anyone holding one can open the file, so
+            they are not covered by the database&rsquo;s sign-in rules. Filing scans are different —
+            they are encrypted on your device before upload (unless you turn that off for a scan),
+            and the app reads them only through short-lived addresses issued to you after sign-in.
           </li>
         </ul>
 
@@ -81,8 +83,10 @@ export default function PrivacyPage() {
           or the database in readable form, and nobody — including whoever stores your data — can read
           it without one of those two. Lose both and the locked text cannot be recovered by anyone.
           Titles and tags of locked notes, and a locked paper&rsquo;s title, dates, folder, tags,
-          aliases and reminders, stay readable so lists, search and reminders work. Scans attached to
-          a paper are not encrypted. Text saved before you locked something may remain in older
+          aliases and reminders, stay readable so lists, search and reminders work. A Filing scan you add
+          is encrypted the same way by default, and its file name is sealed with it; the scan&rsquo;s
+          type and size stay readable. A scan you choose to add unencrypted, and any added before this
+          existed, is stored as it is. Text saved before you locked something may remain in older
           backups or exports. Everything else in the app is protected by sign-in and database rules,
           not by end-to-end encryption.
         </p>

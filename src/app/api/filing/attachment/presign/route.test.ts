@@ -150,6 +150,71 @@ describe("filing presign route", () => {
       expect(json.path.split("/")[2]).toBe("etc");
     });
 
+    // A scan the browser already sealed: the route sees only its declared size, signs the
+    // upload as octet-stream, and still refuses what could never be a scan.
+    describe("a sealed (encrypted) upload", () => {
+      it("is stored and SIGNED as octet-stream, under a .bin key, whatever the original was", async () => {
+        asUser("sealA");
+        const json = await (
+          await POST(req({ contentType: "application/pdf", encrypted: true, size: 1000, documentId: "p1" }))
+        ).json();
+        expect(json.uploadContentType).toBe("application/octet-stream");
+        expect(json.path).toMatch(/^filing\/[a-f0-9]{16}\/p1\/[0-9a-f-]+\.bin$/);
+        // The signature covers it, so the PUT cannot swap the type afterwards.
+        expect(new URL(json.uploadUrl).searchParams.get("X-Amz-SignedHeaders")).toBe("content-type;host");
+      });
+
+      it("still refuses SVG and HTML as the original type", async () => {
+        asUser("sealB");
+        for (const type of ["image/svg+xml", "text/html", ""]) {
+          const res = await POST(req({ contentType: type, encrypted: true, size: 10 }));
+          expect(res.status).toBe(400);
+          expect((await res.json()).error).toBe("unsupported_type");
+        }
+      });
+
+      it("allows the cap plus the seal's overhead, and not a byte more", async () => {
+        asUser("sealC");
+        const overhead = 12 + 16;
+        const ok = await POST(req({ contentType: "application/pdf", encrypted: true, size: MAX_BYTES + overhead }));
+        expect(ok.status).toBe(200);
+        asUser("sealD");
+        const over = await POST(req({ contentType: "application/pdf", encrypted: true, size: MAX_BYTES + overhead + 1 }));
+        expect(over.status).toBe(413);
+      });
+
+      it("a plain upload gets no such allowance", async () => {
+        asUser("sealE");
+        const res = await POST(req({ contentType: "application/pdf", size: MAX_BYTES + 1 }));
+        expect(res.status).toBe(413);
+      });
+
+      it("a plain upload is signed with its own type, as before", async () => {
+        asUser("sealF");
+        const json = await (await POST(req({ contentType: "image/png", size: 10 }))).json();
+        expect(json.uploadContentType).toBe("image/png");
+        expect(json.path).toMatch(/\.png$/);
+      });
+    });
+
+    it("no longer needs R2_PUBLIC_BASE_URL, and hands back no public URL", async () => {
+      vi.stubEnv("R2_PUBLIC_BASE_URL", "");
+      asUser("noPublic");
+      const json = await (await POST(req({ contentType: "application/pdf" }))).json();
+      expect(json.enabled).toBe(true);
+      expect(json).not.toHaveProperty("publicUrl");
+    });
+
+    it("signs into R2_FILING_BUCKET when set, else the shared bucket", async () => {
+      asUser("bucketA");
+      const shared = await (await POST(req({ contentType: "application/pdf" }))).json();
+      expect(new URL(shared.uploadUrl).pathname.startsWith("/bucket/")).toBe(true);
+      vi.stubEnv("R2_FILING_BUCKET", "filing-private");
+      asUser("bucketB");
+      const own = await (await POST(req({ contentType: "application/pdf" }))).json();
+      expect(new URL(own.uploadUrl).pathname.startsWith("/filing-private/")).toBe(true);
+    });
+
     it("429 after exceeding the per-user rate limit", async () => {
       asUser("filingK");
       let last: Response | undefined;

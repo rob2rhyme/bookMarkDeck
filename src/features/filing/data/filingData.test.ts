@@ -23,6 +23,7 @@ vi.mock("@/lib/firebase", () => ({
 import { onSnapshot, setDoc } from "firebase/firestore";
 import {
   documentPayload,
+  mapAttachment,
   mapDocument,
   saveDocument,
   subscribeDocuments,
@@ -161,5 +162,46 @@ describe("a locked paper", () => {
     const read = mapDocument({ id: "d1", data: () => ({ title: "Policy", lock: { kid: "v" }, reference: "POL-1" }) });
     expect(read.lock).toBeUndefined();
     expect(read.reference).toBe("POL-1");
+  });
+});
+
+
+// A scan's pointer: the object's path is what matters now (a scan is read through a signed
+// URL built from it), and a sealed one names its vault and carries its file name sealed.
+describe("an attachment pointer", () => {
+  const SEAL = { kid: "v1", iv: "aXY=", ct: "Y3Q=" };
+  const read = (data: Record<string, unknown>) => mapAttachment({ id: "a1", data: () => data });
+
+  it("reads a legacy pointer (public url, no enc) unchanged", () => {
+    expect(read({ documentId: "d1", name: "scan.pdf", contentType: "application/pdf", size: 10, path: "filing/x/d1/y.pdf", url: "https://cdn/y.pdf" })).toMatchObject({
+      path: "filing/x/d1/y.pdf",
+      url: "https://cdn/y.pdf",
+      enc: null,
+    });
+  });
+
+  it("reads a new pointer with no url at all — the path is enough", () => {
+    const a = read({ documentId: "d1", name: "Locked scan", contentType: "application/pdf", size: 10, path: "filing/x/d1/y.bin", enc: { kid: "v1", name: SEAL } });
+    expect(a).not.toBeNull();
+    expect(a).not.toHaveProperty("url");
+    expect(a?.enc).toEqual({ kid: "v1", name: SEAL });
+  });
+
+  it("drops a pointer with no path, and reads a half-formed enc as NOT sealed rather than half-sealed", () => {
+    expect(read({ name: "x", url: "https://cdn/y.pdf" })).toBeNull();
+    for (const enc of [{ kid: "v1" }, { name: SEAL }, { kid: "", name: SEAL }, { kid: "v1", name: { kid: "v" } }, "yes", 7]) {
+      expect(read({ path: "filing/x/y.bin", enc })?.enc).toBeNull();
+    }
+  });
+
+  it("writes enc as null when a scan is not sealed, so a replaced pointer cannot keep a stale one", async () => {
+    const { saveAttachment } = await import("@/features/filing/data/filingData");
+    const base = { id: "a1", documentId: "d1", name: "scan.pdf", contentType: "application/pdf", size: 1, path: "filing/x/y.pdf", addedAt: null };
+    await saveAttachment("a@example.com", base);
+    const plain = vi.mocked(setDoc).mock.calls.at(-1)![1] as Record<string, unknown>;
+    expect(plain.enc).toBeNull();
+    expect(plain).not.toHaveProperty("url");
+    await saveAttachment("a@example.com", { ...base, enc: { kid: "v1", name: SEAL } });
+    expect((vi.mocked(setDoc).mock.calls.at(-1)![1] as Record<string, unknown>).enc).toEqual({ kid: "v1", name: SEAL });
   });
 });

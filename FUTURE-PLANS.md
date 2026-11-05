@@ -25,6 +25,12 @@ _Last reviewed: 2026-07-16._
    `ANALYSIS-MOBILE-APP-STRATEGY.md` §3 — billing lands *with* the metered
    feature).
 
+0a. **Close the public bucket for Filing scans (Cloudflare steps).** Shipped in code
+   (scans are encrypted on the device and read through signed URLs); the bucket side
+   is yours — CORS `GET`, then either a WAF rule blocking `/filing/` on the public
+   domain or a private `R2_FILING_BUCKET`, then **Encrypt** on any old scan. Step-by-step:
+   `SECURITY-LAUNCH-PLAN.md` → "Owner steps for §2.2".
+
 1. **Firebase OAuth safelist — fully zero-click login.** Deferred by owner
    decision (2026-07-15): leaving the setting as is for now. Today one Google
    sign-in connects all pillars after a single "Sign in to sync" tap when the

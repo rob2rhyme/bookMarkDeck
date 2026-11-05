@@ -289,8 +289,8 @@ export function DocumentFormModal({
                     <p id={lockHintId} className="mt-0.5 text-[12px] text-slate-500">
                       Encrypted on this device before they are saved &mdash; nobody else can read them, including
                       whoever stores your data. Title, dates, folder and tags stay visible so you can still find the
-                      paper. Scans are not encrypted. Lose your passphrase and recovery code and they cannot be
-                      recovered.
+                      paper. Scans are encrypted separately, when you add them. Lose your passphrase and recovery
+                      code and locked text cannot be recovered.
                     </p>
                   </div>
                 </div>

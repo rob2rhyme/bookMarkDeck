@@ -57,7 +57,7 @@ The measures that change the outcome of an exposure.
    Firestore dump then yields "2023 Form 1040, due March" and nothing usable.
    Same invariant as Notes: `sanitize`/`toFirestore` throws on a plaintext
    sensitive field for a locked record.
-2. **Encrypt attachments before upload, and make the bucket private.** Client-side
+2. ~~**Encrypt attachments before upload, and make the bucket private.**~~ *(code done 2026-11-05 for Filing scans — `lib/scanCrypto.ts`, `POST /api/filing/attachment/read`, optional `R2_FILING_BUCKET`; **the Cloudflare half is the owner's** — see "Owner steps for §2.2" below. Inventory photos are NOT covered: they are shown as plain `<img src>` from the public bucket.)* Client-side
    AES-GCM (key from the same vault) before the presigned PUT; a private bucket;
    a short-lived presigned GET issued by a session-gated route that checks
    `isOwned*Path`. The signed content-type and the SVG/HTML refusal stay.
@@ -72,6 +72,35 @@ The measures that change the outcome of an exposure.
    titles only (the PIN-locked inventory digest already does); the AI and TTS
    routes never see Filing content; no `console.*` of request bodies in `src/app/api`
    (currently true; add a source-scan test so it stays true).
+
+### Owner steps for §2.2 (Cloudflare — no code)
+
+The code encrypts and reads scans without a public bucket, but only **you** can close the
+public one. Do these in the Cloudflare dashboard (R2), same account as today:
+
+1. **CORS on the bucket Filing uses** — add `GET` (the `PUT` rule is already there) from
+   your app origin(s), allowed header `Content-Type`. Without `GET`, opening an *encrypted*
+   scan fails in the browser ("Couldn't fetch that scan") because the ciphertext is
+   fetched by script. A scan stored unencrypted still opens (it loads in a new tab).
+2. **Make Filing's objects unreachable from the public address.** Either:
+   - **(a) one bucket, custom domain (simplest, nothing to move):** if `R2_PUBLIC_BASE_URL`
+     is a *custom domain* (not `r2.dev`), add a WAF custom rule on that hostname that
+     **blocks** requests whose URI path starts with `/filing/`. Item photos (`/inventory/…`)
+     keep working; Filing scans become reachable only through the signed URLs the app
+     issues (those use the S3 endpoint, which the rule doesn't touch). With an `r2.dev`
+     address this is not possible — use (b).
+   - **(b) a separate private bucket:** create a bucket with **public access off** and CORS
+     as in step 1; give your R2 API token access to it; set `R2_FILING_BUCKET=<its name>`
+     in Vercel and redeploy. **Copy the existing `filing/` prefix across first**
+     (`rclone copy r2:old-bucket/filing r2:new-bucket/filing`, or the dashboard), or old
+     scans stop opening. New scans go to the new bucket straight away.
+3. **Re-encrypt old scans** — open a paper's **Scans** and press **Encrypt** on any scan
+   that shows it. (Each is fetched, sealed on your device, re-uploaded, and the plaintext
+   object deleted.) Until you do, those objects are readable by anyone holding their old
+   public address unless step 2 is in place.
+4. **Check it** — open `https://<your public domain>/filing/anything` (a made-up key): with
+   2(a) it must be blocked, not "not found"; then open a real scan in the app and confirm
+   it still opens.
 
 ## 3. Lock the door, not just the room
 
