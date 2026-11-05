@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "~8.4.3",
-    "@firebase/rules-unit-testing": "^5.0.2",
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
