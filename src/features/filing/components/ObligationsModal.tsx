@@ -6,9 +6,11 @@
 
 import { useEffect, useState } from "react";
 
+import { CredentialNotice } from "@/components/CredentialNotice";
 import { Modal } from "@/components/Modal";
 import { Trash } from "@/components/icons";
 import { Input, Select } from "@/components/ui/Field";
+import { looksLikeCredential } from "@/lib/credentialGuard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ActivityTimeline } from "@/features/filing/components/ActivityTimeline";
 import { SECTION_LABEL_CLASS, SectionLabel } from "@/components/ui/SectionLabel";
@@ -83,9 +85,11 @@ export function ObligationsModal({
   const preset = OBLIGATION_PRESETS.find((p) => p.id === presetId);
   const obligations = document.obligations ?? [];
 
+  const refused = looksLikeCredential(label);
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!dueOn || !document) return;
+    if (!dueOn || !document || refused) return;
     onAdd(document.id, {
       kind,
       dueOn,
@@ -260,6 +264,7 @@ export function ObligationsModal({
             aria-label="Reminder label"
             className="mt-1"
           />
+          <CredentialNotice kind={refused} />
         </div>
 
         <p className="text-[12px] text-slate-500">
@@ -270,7 +275,7 @@ export function ObligationsModal({
 
         <button
           type="submit"
-          disabled={!dueOn}
+          disabled={!dueOn || refused !== null}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
         >
           Add reminder

@@ -6,9 +6,11 @@
 
 import { useEffect, useState } from "react";
 
+import { CredentialNotice } from "@/components/CredentialNotice";
 import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { firstCredential } from "@/lib/credentialGuard";
 import { draftFor, EMPTY_DRAFT, type DocumentDraft } from "@/features/filing/lib/documentDraft";
 import { DOC_TYPES, type DocType, type FilingDocument, type FilingFolder,
          type FilingParty } from "@/features/filing/lib/types";
@@ -44,9 +46,15 @@ export function DocumentFormModal({
   const set = <K extends keyof DocumentDraft>(k: K, v: DocumentDraft[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
 
+  const original = editing ? draftFor(editing) : null;
+  const refused = firstCredential([
+    { value: draft.reference, was: original?.reference },
+    { value: draft.note, was: original?.note },
+  ]);
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft.title.trim()) return;
+    if (!draft.title.trim() || refused) return;
     onSubmit(draft);
     onClose();
   }
@@ -183,6 +191,7 @@ export function DocumentFormModal({
                 className="mt-1"
               />
             </div>
+            <CredentialNotice kind={refused} />
           </div>
         )}
 
@@ -196,7 +205,7 @@ export function DocumentFormModal({
           </button>
           <button
             type="submit"
-            disabled={!draft.title.trim()}
+            disabled={!draft.title.trim() || refused !== null}
             className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
             {editing ? "Save" : "File it"}

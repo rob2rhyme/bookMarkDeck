@@ -72,7 +72,8 @@ export function BookmarkLinkModal({
       </h2>
       <p className="mt-1 text-[13px] text-slate-400">
         The site this paper belongs to — the insurer, the bank, the agency. Then the
-        paper and the login are one record.
+        paper and the site are one record. Keep the password itself in a password
+        manager like Bitwarden or 1Password, not here.
       </p>
 
       {paper.bookmarkLink && (
