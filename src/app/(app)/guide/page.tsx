@@ -125,7 +125,10 @@ export default function GuidePage() {
               (which counts usage), edit everything including the note, or
               delete it (with Undo). Notes are hidden behind{" "}
               <code>••••••••</code> by default — tap the eye to reveal. Handy
-              for login hints and &ldquo;why did I save this?&rdquo; context.
+              for &ldquo;which account is this?&rdquo; and &ldquo;why did I
+              save this?&rdquo; context. Bookmark Deck is not a password
+              manager: a note that looks like a password, PIN, card number or
+              ID number is refused, so keep those in Bitwarden or 1Password.
             </p>
             <p>
               The <strong>⏱ &ldquo;Work on this in Focus&rdquo;</strong> button
@@ -897,6 +900,21 @@ export default function GuidePage() {
               have and where). Importing <strong>merges and never deletes</strong>,
               so restoring an old backup can&apos;t remove anything you&apos;ve
               filed since.
+            </p>
+          </Sub>
+
+          <Sub title="What Filing keeps, and what it shouldn't">
+            <p>
+              Filing finds your paper; it doesn&apos;t guard what&apos;s on it.
+              Unlike a <strong>locked note</strong>, a paper&apos;s fields are
+              not end-to-end encrypted — with sync on, they sit in your account
+              where the person running the service could technically read them.
+              A policy number, a case number or an account number in{" "}
+              <strong>Reference</strong> is what that field is for. A password,
+              PIN, card number or ID number is not: Filing refuses those when it
+              recognises them, and nothing is saved. If you need to write down
+              something secret, put it in a password manager, or in a locked
+              note, and say where in the paper&apos;s note.
             </p>
           </Sub>
         </Section>

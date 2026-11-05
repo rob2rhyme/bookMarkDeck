@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { CredentialNotice } from "@/components/CredentialNotice";
 import { Modal } from "@/components/Modal";
 import { DateInput } from "@/components/DateTimeField";
 import { ExternalLink, X } from "@/components/icons";
@@ -43,6 +44,7 @@ import {
   uploadInventoryPhoto,
 } from "@/features/inventory/lib/uploadPhoto";
 import { runLabelOcr, runReceiptOcr } from "@/features/inventory/lib/ocrEngine";
+import { firstCredential } from "@/lib/credentialGuard";
 import { todayKey } from "@/lib/dayKey";
 
 type ItemFormModalProps = {
@@ -602,7 +604,8 @@ export function ItemFormModal({
   const hasBox = !isBook && !isConsumable && !isClothing && !isDigital;
   const hasLending = !isConsumable && !isDigital;
 
-  const canSave = draft.name.trim().length > 0;
+  const refused = firstCredential([{ value: draft.notes, was: item.notes }]);
+  const canSave = draft.name.trim().length > 0 && !refused;
 
   // "Do I already own this?" — a gentle nudge while naming a NEW item.
   const lookalikes = isNew ? similarItems(existingItems, draft.name) : [];
@@ -1808,6 +1811,7 @@ export function ItemFormModal({
                 rows={2}
                 className={`${fieldClass} resize-y`}
               />
+              <CredentialNotice kind={refused} />
             </Field>
           </>
         )}

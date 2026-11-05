@@ -68,7 +68,7 @@ The measures that change the outcome of an exposure.
    incrementally when a user enables Google sync; keep refresh tokens server-side
    (Upstash, keyed by uid, encrypted with a server key) and read them in the
    `/api/google/*` routes. The cookie keeps identity only.
-5. **Never log or send sensitive fields anywhere.** Push digests carry counts and
+5. ~~**Never log or send sensitive fields anywhere.**~~ *(done 2026-11-05: `src/lib/apiLogging.test.ts`; the push/AI/TTS half is still a rule, not a test)* Push digests carry counts and
    titles only (the PIN-locked inventory digest already does); the AI and TTS
    routes never see Filing content; no `console.*` of request bodies in `src/app/api`
    (currently true; add a source-scan test so it stays true).
@@ -102,15 +102,15 @@ The measures that change the outcome of an exposure.
 
 Liability follows the promise. Make the scope unmistakable in the UI, not only in the Terms.
 
-1. **Detect and refuse credential-shaped input** in Filing `reference`/`note`,
+1. ~~**Detect and refuse credential-shaped input**~~ *(done 2026-11-05: `@/lib/credentialGuard`, wired into bookmark notes, Filing reference/note, reminder labels and inventory notes; `e2e/credential-guard.spec.ts`)* in Filing `reference`/`note`,
    inventory notes and bookmark notes: a `password:`/`pwd`/`pin:` label, a card
    number passing Luhn, a nine-digit SSN pattern, a CVV beside a card. Inline
    refusal, nothing saved: "Bookmark Deck is not a password manager. Store this
    in one." Pure `looksLikeCredential(text)` helper with tests; the Terms clause
    becomes enforced behaviour.
-2. **Keep `bookmarkLink` to the URL.** The form says the login belongs in
+2. ~~**Keep `bookmarkLink` to the URL.**~~ *(done: the link dialog's copy)* The form says the login belongs in
    Bitwarden or 1Password.
-3. **State the duty of care in the Filing guide**: unencrypted fields are readable
+3. ~~**State the duty of care in the Filing guide**~~ *(done, as it stands today: not encrypted, so say so)*: unencrypted fields are readable
    by the operator; encrypted fields are unrecoverable without passphrase or
    recovery code; the user chooses knowingly.
 

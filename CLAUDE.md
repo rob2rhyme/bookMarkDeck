@@ -228,6 +228,20 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   bookmark up in *all* bookmarks, so marking it read inside its own dialog doesn't close the
   dialog under the reader. "Waiting 2 weeks" is calendar days in the local zone
   (`waitingLabel`), never 24-hour spans of the UTC instant. `e2e/read-later.spec.ts`.
+- **Bookmark Deck is not a password manager, and the forms say so** (`@/lib/credentialGuard`,
+  `CredentialNotice`). A bookmark's note, a paper's Reference and Note, a reminder's label
+  and an item's Notes **refuse** text that looks like a password, PIN, card security code,
+  payment card number or government ID number — inline, with the reason and where it belongs,
+  and the save is blocked (the bookmark card stays in edit mode). That makes the Terms'
+  "do not store passwords, PINs, payment card data, government IDs" enforced behaviour. The
+  patterns are narrow on purpose, because a false refusal costs an edit and a bare run of
+  digits is usually a policy or order number: a **label** (`password:`, `PIN: 4821`, `cvv 123`)
+  whose value is not a pointer ("see Bitwarden"); a **card** needs an issuer prefix, the
+  right length *and* the Luhn checksum; an **SSN** needs the 3-2-4 shape with a valid area, or
+  a label. A field left as it was stored is skipped (`firstCredential`'s `was`), so a record
+  that predates the check stays editable. Not covered: import, restore and sync write
+  whatever they carry, and Filing/inventory encrypt nothing (Notes' locked notes are the one
+  place the operator cannot read). `SECURITY-LAUNCH-PLAN.md` §2 is the plan for that.
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the
@@ -477,7 +491,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     effect *ordering* and so are invisible to any unit test of the maths.
     Test-only helpers live in `src/test/` (`webLocksMock.ts`: pages, their Web Locks, and a
     page closing; `hydrationCloud.ts`: an in-memory `focusHydration` for hook tests).
-  - Six **source-scanning** tests sit in that node project and assert properties of how
+  - Eight **source-scanning** tests sit in that node project and assert properties of how
     the code is written rather than what it returns, so nothing else could catch them:
     `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
     `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
@@ -488,7 +502,10 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     step the code uses — see **Theme** below), `src/lib/storageKeys.test.ts` (the
     localStorage keys that are hardcoded in more than one file stay in agreement), and
     `src/lib/dayKeyFormatters.test.ts` (no day key is formatted outside `@/lib/dayKey` —
-    see **Day keys are LOCAL** above).
+    see **Day keys are LOCAL** above), `src/lib/dialogs.test.ts` (no hand-built dialog —
+    see **Every dialog is the shared `Modal`**), and `src/lib/apiLogging.test.ts` (no
+    `console.*` in `src/app/api`: handlers see request bodies, and the host keeps what they
+    print; a real need goes in its `ALLOWED` map with a reason).
 - **The session gate is `middleware.ts`, and route-handler tests cannot see it** — they call
   the handler directly. That blind spot let background push and billing ship dead: the
   matcher sent QStash's and Lemon Squeezy's cookieless webhook POSTs to `/login` with a 307

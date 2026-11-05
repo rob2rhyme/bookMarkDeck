@@ -4,6 +4,7 @@
 import { Bookmark } from "@/types/bookmark";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { CredentialNotice } from "@/components/CredentialNotice";
 import { HighlightedText } from "@/components/HighlightedText";
 import { IconAction } from "@/components/IconAction";
 import { NoteText } from "@/components/NoteText";
@@ -24,6 +25,7 @@ import {
   X,
 } from "@/components/icons";
 import { hapticTap } from "@/utils/haptics";
+import { firstCredential } from "@/lib/credentialGuard";
 import { normalizeUrl } from "@/utils/normalizeUrl";
 import { setFocusTaskIntent } from "@/lib/focusIntent";
 import { setBookmarkFocusLink } from "@/lib/bookmarkFocusLink";
@@ -120,6 +122,7 @@ export function BookmarkCard({
   const [note, setNote] = useState(bookmark.note ?? "");
   const [isEditing, setIsEditing] = useState(false);
   const [showNote, setShowNote] = useState(false);
+  const noteRefused = isEditing ? firstCredential([{ value: note, was: bookmark.note }]) : null;
   const router = useRouter();
   const { toast } = useToast();
   const [readerOpen, setReaderOpen] = useState(false);
@@ -302,7 +305,9 @@ export function BookmarkCard({
       setNote(bookmark.note ?? "");
       setIsEditing(true);
     } else {
-      // already editing -> treat as save
+      // already editing -> treat as save, unless the note holds a credential:
+      // stay in edit mode with the refusal showing under the field
+      if (noteRefused) return;
       persistChanges();
       setIsEditing(false);
       setShowNote(false);
@@ -559,10 +564,11 @@ export function BookmarkCard({
           <>
             <textarea
               className="h-20 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 outline-none ring-0 transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-900/40"
-              placeholder="Add login hints, purpose, etc."
+              placeholder="Add purpose, which account to use, etc."
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
+            <CredentialNotice kind={noteRefused} />
             <div className="mt-1.5 flex gap-2">
               <BulletButton onInsert={() => setNote((n) => appendBullet(n))} />
               <NumberButton onInsert={() => setNote((n) => appendNumber(n))} />
@@ -595,12 +601,12 @@ export function BookmarkCard({
             </div>
             {showNote ? (
               <NoteText
-                text={bookmark.note || "Add login hints, purpose, etc."}
+                text={bookmark.note || "Add purpose, which account to use, etc."}
                 className="block max-h-24 overflow-auto whitespace-pre-wrap leading-relaxed"
               />
             ) : (
               <p className="line-clamp-3 leading-relaxed">
-                {bookmark.note ? "••••••••" : "Add login hints, purpose, etc."}
+                {bookmark.note ? "••••••••" : "Add purpose, which account to use, etc."}
               </p>
             )}
           </div>
@@ -911,10 +917,11 @@ export function BookmarkCard({
               <>
                 <textarea
                   className="h-20 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 outline-none ring-0 transition focus:border-blue-500 focus:bg-slate-950 focus:ring-2 focus:ring-blue-900/40"
-                  placeholder="Add login hints, purpose, etc."
+                  placeholder="Add purpose, which account to use, etc."
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
+                <CredentialNotice kind={noteRefused} />
                 <div className="mt-1.5 flex gap-2">
                   <BulletButton onInsert={() => setNote((n) => appendBullet(n))} />
                   <NumberButton onInsert={() => setNote((n) => appendNumber(n))} />
@@ -924,12 +931,12 @@ export function BookmarkCard({
               <div className="h-20 overflow-auto rounded-xl border border-transparent bg-slate-950/5 px-2.5 py-1.5 text-xs text-slate-300">
                 {showNote ? (
                   <NoteText
-                    text={bookmark.note || "Add login hints, purpose, etc."}
+                    text={bookmark.note || "Add purpose, which account to use, etc."}
                     className="whitespace-pre-wrap"
                   />
                 ) : (
                   <span>
-                    {bookmark.note ? "••••••••" : "Add login hints, purpose, etc."}
+                    {bookmark.note ? "••••••••" : "Add purpose, which account to use, etc."}
                   </span>
                 )}
               </div>
