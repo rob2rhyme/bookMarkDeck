@@ -25,6 +25,7 @@ import {
   where,
 } from "firebase/firestore";
 
+import { ANY_UID, assertDocFits, docBytes } from "@/lib/docSize";
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { onConfirmedSnapshot, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import {
@@ -384,7 +385,18 @@ export async function saveItem(
   item: InventoryItem
 ): Promise<void> {
   const uid = await uidFor(emailHint);
-  await setDoc(doc(itemsCol(uid), item.id), itemPayload(item));
+  const payload = itemPayload(item);
+  assertDocFits(["users", uid, "inventoryItems", item.id], payload, ITEM_WHAT, ITEM_FIX);
+  await setDoc(doc(itemsCol(uid), item.id), payload);
+}
+
+export const ITEM_WHAT = "This item";
+export const ITEM_FIX =
+  "Remove a photo or shorten its notes — or set up cloud photo storage (R2), which keeps photos off the record.";
+
+/** What `saveItem` would store for this item, before the uid is known (counted at the longest uid). */
+export function itemDocBytes(item: InventoryItem): number {
+  return docBytes(["users", ANY_UID, "inventoryItems", item.id], itemPayload(item));
 }
 
 export async function deleteItem(emailHint: string, id: string): Promise<void> {
@@ -434,20 +446,24 @@ export async function fetchItemDocs(
 
 export async function saveItemDoc(emailHint: string, d: ItemDoc): Promise<void> {
   const uid = await uidFor(emailHint);
-  await setDoc(
-    doc(docsCol(uid), d.id),
-    prune({
-      itemId: d.itemId,
-      name: d.name,
-      kind: d.kind,
-      data: d.data,
-      path: strOrUndef(d.path),
-      w: d.w,
-      h: d.h,
-      // Preserve the original stamp on rewrite so doc ordering never resets.
-      createdAt: d.createdAt ?? serverTimestamp(),
-    })
+  const payload = prune({
+    itemId: d.itemId,
+    name: d.name,
+    kind: d.kind,
+    data: d.data,
+    path: strOrUndef(d.path),
+    w: d.w,
+    h: d.h,
+    // Preserve the original stamp on rewrite so doc ordering never resets.
+    createdAt: d.createdAt ?? serverTimestamp(),
+  });
+  assertDocFits(
+    ["users", uid, "inventoryDocs", d.id],
+    payload,
+    "This attachment",
+    "Try a smaller image, or set up cloud photo storage (R2), which keeps it off the record."
   );
+  await setDoc(doc(docsCol(uid), d.id), payload);
 }
 
 export async function deleteItemDoc(emailHint: string, id: string): Promise<void> {

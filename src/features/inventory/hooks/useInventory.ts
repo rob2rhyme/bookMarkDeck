@@ -5,9 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   deleteItem,
   fetchItems,
+  ITEM_FIX,
+  ITEM_WHAT,
+  itemDocBytes,
   saveItem,
   subscribeItems,
 } from "@/features/inventory/data/inventoryData";
+import { MAX_DOC_BYTES, tooLargeMessage } from "@/lib/docSize";
 import {
   durableDelete,
   durableSave,
@@ -39,6 +43,16 @@ function appendActivity(
     ...item,
     activity: [...(item.activity ?? []), entry].slice(-MAX_ACTIVITY),
   };
+}
+
+/**
+ * Why an item can't be saved as it stands, or null. Checked BEFORE a change is
+ * applied: Firestore would refuse it on the server, the queue would drop it, and
+ * the next snapshot would put the old copy back over the change.
+ */
+export function itemTooLarge(item: InventoryItem): string | null {
+  const bytes = itemDocBytes(item);
+  return bytes > MAX_DOC_BYTES ? tooLargeMessage(bytes, ITEM_WHAT, ITEM_FIX) : null;
 }
 
 const BASE_KEY = "bookmarkdeck:inventory:items:v1";
@@ -101,8 +115,23 @@ export function blankItem(currency: string): InventoryItem {
  * cache; cloud sync is via a live Firestore subscription plus explicit
  * push/pull. Writes are optimistic and fail-safe.
  */
-export function useInventory(email?: string | null, connected = false) {
+export function useInventory(
+  email?: string | null,
+  connected = false,
+  /** Told when a change is refused because the item would be too large to save. */
+  onRefused?: (message: string) => void
+) {
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const refusedRef = useRef(onRefused);
+  useEffect(() => {
+    refusedRef.current = onRefused;
+  }, [onRefused]);
+  /** False (and says why) when `item` would be too large to save. */
+  const fits = useCallback((item: InventoryItem) => {
+    const why = itemTooLarge(item);
+    if (why) refusedRef.current?.(why);
+    return !why;
+  }, []);
   // WHICH account's cache has loaded, not just whether one has. In the render
   // where the email arrives the state in hand is still the signed-out key's:
   // writing it then put that list over the account's cache, and a connect in the
@@ -181,7 +210,8 @@ export function useInventory(email?: string | null, connected = false) {
   const upsertItem = useCallback(
     (item: InventoryItem) => {
       const clean = { ...item, name: item.name.trim(), updatedAt: new Date().toISOString() };
-      if (!clean.name) return;
+      if (!clean.name) return false;
+      if (!fits(clean)) return false;
       setItems((prev) => {
         const exists = prev.some((i) => i.id === clean.id);
         return exists
@@ -189,8 +219,9 @@ export function useInventory(email?: string | null, connected = false) {
           : [clean, ...prev];
       });
       durableSave("inventoryItems", email, clean.id, canSync && email ? () => saveItem(email, clean) : null).catch(onSaveError);
+      return true;
     },
-    [canSync, email]
+    [canSync, email, fits]
   );
 
   const removeItem = useCallback(
@@ -205,6 +236,8 @@ export function useInventory(email?: string | null, connected = false) {
   /** Toggle archived without opening the editor. */
   const setArchived = useCallback(
     (id: string, archived: boolean) => {
+      const cur = itemsRef.current.find((i) => i.id === id);
+      if (cur && !fits({ ...cur, archived })) return;
       setItems((prev) => {
         const next = prev.map((i) =>
           i.id === id ? { ...i, archived, updatedAt: new Date().toISOString() } : i
@@ -215,12 +248,16 @@ export function useInventory(email?: string | null, connected = false) {
         return next;
       });
     },
-    [canSync, email]
+    [canSync, email, fits]
   );
 
   /** Apply a pure transform to one item, stamp updatedAt, and sync it. */
   const patch = useCallback(
     (id: string, fn: (i: InventoryItem) => InventoryItem) => {
+      // Judged on the current copy, outside the updater: a refusal tells the
+      // page, and the updater runs during render, where that isn't allowed.
+      const cur = itemsRef.current.find((i) => i.id === id);
+      if (cur && !fits(fn(cur))) return;
       setItems((prev) => {
         const next = prev.map((i) =>
           i.id === id ? { ...fn(i), updatedAt: new Date().toISOString() } : i
@@ -231,7 +268,7 @@ export function useInventory(email?: string | null, connected = false) {
         return next;
       });
     },
-    [canSync, email]
+    [canSync, email, fits]
   );
 
   /** Append a one-off history event (e.g. a note) to an item. */
@@ -288,6 +325,8 @@ export function useInventory(email?: string | null, connected = false) {
    *  out of the active catalog. Keeps disposition + record for history. */
   const releaseItem = useCallback(
     (id: string, day: string) => {
+      const cur = itemsRef.current.find((i) => i.id === id);
+      if (cur && !fits({ ...cur, releasedDate: day || null, archived: true })) return;
       setItems((prev) => {
         const next = prev.map((i) =>
           i.id === id
@@ -305,7 +344,7 @@ export function useInventory(email?: string | null, connected = false) {
         return next;
       });
     },
-    [canSync, email]
+    [canSync, email, fits]
   );
 
   const active = useMemo(() => items.filter((i) => !i.archived), [items]);

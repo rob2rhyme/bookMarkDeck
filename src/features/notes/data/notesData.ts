@@ -21,6 +21,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 
+import { ANY_UID, assertDocFits, docBytes, MAX_DOC_BYTES, tooLargeMessage, utf8Length } from "@/lib/docSize";
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { onConfirmedSnapshot, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import { normalizeNote, type Note } from "@/features/notes/lib/notes";
@@ -88,7 +89,32 @@ export async function fetchNotes(emailHint: string): Promise<Note[]> {
 /** Notes are always complete records, so this replaces the document (no merge). */
 export async function saveNote(emailHint: string, note: Note): Promise<void> {
   const uid = await uidFor(emailHint);
-  await setDoc(doc(notesCol(uid), note.id), toFirestore(note));
+  const payload = toFirestore(note);
+  assertDocFits(["users", uid, "notes", note.id], payload, NOTE_WHAT, noteFix(Boolean(note.lock)));
+  await setDoc(doc(notesCol(uid), note.id), payload);
+}
+
+const NOTE_WHAT = "This note";
+const noteFix = (locked: boolean) =>
+  locked
+    ? "A locked note is stored encrypted, which takes about a third more room — shorten it, or split it in two."
+    : "Shorten it, or split it in two.";
+
+/** Base64 of AES-GCM ciphertext: the UTF-8 text plus a 16-byte tag. */
+const sealedLength = (text: string) => 4 * Math.ceil((utf8Length(text) + 16) / 3);
+
+/**
+ * Why `note` with `body` can't be saved, or null. A locked note stores its body as
+ * ciphertext, so it is measured as sealed; the 300k-character cap alone always
+ * fits plaintext, but not that.
+ */
+export function noteTooLarge(note: Note, body: string, locked: boolean): string | null {
+  const path = ["users", ANY_UID, "notes", note.id];
+  const bytes = locked
+    ? docBytes(path, toFirestore({ ...note, body: "", lock: { kid: note.lock?.kid ?? ANY_UID, iv: "x".repeat(16), ct: "" } })) +
+      sealedLength(body)
+    : docBytes(path, toFirestore({ ...note, body, lock: undefined }));
+  return bytes > MAX_DOC_BYTES ? tooLargeMessage(bytes, NOTE_WHAT, noteFix(locked)) : null;
 }
 
 export async function deleteNote(emailHint: string, id: string): Promise<void> {

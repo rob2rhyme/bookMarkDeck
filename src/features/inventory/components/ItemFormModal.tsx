@@ -44,6 +44,7 @@ import {
   uploadInventoryPhoto,
 } from "@/features/inventory/lib/uploadPhoto";
 import { runLabelOcr, runReceiptOcr } from "@/features/inventory/lib/ocrEngine";
+import { itemTooLarge } from "@/features/inventory/hooks/useInventory";
 import { firstCredential } from "@/lib/credentialGuard";
 import { todayKey } from "@/lib/dayKey";
 
@@ -257,6 +258,8 @@ export function ItemFormModal({
   const [addingDoc, setAddingDoc] = useState(false);
   const [docKind, setDocKind] = useState<ItemDocKind>("receipt");
   const [docError, setDocError] = useState<string | null>(null);
+  // Why the last Save was refused (the item would be over Firestore's 1 MiB).
+  const [sizeError, setSizeError] = useState<string | null>(null);
   const [ocrStatus, setOcrStatus] = useState<
     "idle" | "scanning" | "done" | "none" | "error"
   >("idle");
@@ -278,6 +281,7 @@ export function ItemFormModal({
       setPhotoError(null);
       setDocs([]);
       setDocError(null);
+      setSizeError(null);
       setAddingDoc(false);
       setDocKind("receipt");
       setOcrStatus("idle");
@@ -730,6 +734,16 @@ export function ItemFormModal({
     // Lending transitions drive status; leave lost/misplaced/have as-is otherwise.
     if (!wasLent && nowLent) next.status = "lent";
     else if (wasLent && !nowLent) next.status = "have";
+
+    // Before anything irreversible (the orphan sweep below): an item over the
+    // limit would be refused by the server and the edit lost, so keep the form
+    // open with the reason instead.
+    const tooBig = itemTooLarge(next);
+    if (tooBig) {
+      setSizeError(tooBig);
+      return;
+    }
+    setSizeError(null);
 
     // Orphan control: R2 objects the save no longer references — the item's
     // previous photo when replaced/cleared, and any session uploads that were
@@ -1816,6 +1830,11 @@ export function ItemFormModal({
           </>
         )}
 
+        {sizeError && (
+          <p role="alert" className="text-xs text-amber-300">
+            {sizeError}
+          </p>
+        )}
         <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-1 flex gap-2 border-t border-slate-800/70 bg-slate-900/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6">
           <button
             type="button"

@@ -16,6 +16,7 @@ vi.mock("@/features/notes/data/notesData", () => ({
   saveDeletions: vi.fn(async () => {}),
   subscribeDeletions: vi.fn(() => () => {}),
   subscribeNotes: vi.fn(() => () => {}),
+  noteTooLarge: vi.fn(() => null),
 }));
 vi.mock("@/lib/vault/vaultData", () => ({
   fetchVaults: vi.fn(async () => []),

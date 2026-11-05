@@ -26,7 +26,9 @@ export type Note = {
 
 /**
  * Firestore caps a document at 1 MiB. A UTF-16 code unit is at most 3 bytes of
- * UTF-8, so this many characters always fits with room for the other fields.
+ * UTF-8, so this many characters always fits as plaintext with room for the
+ * other fields. Not once LOCKED: a sealed body is base64, a third larger, so a
+ * long note is also measured in bytes (`noteTooLarge` in data/notesData).
  */
 export const MAX_NOTE_CHARS = 300_000;
 
