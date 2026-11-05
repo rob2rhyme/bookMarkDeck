@@ -78,14 +78,13 @@ describe("documentsToCsv", () => {
     expect(lines[1]).toContain("Auto policy");
   });
 
-  it("leaves a locked paper's reference and note out of the spreadsheet", () => {
+  it("leaves a confidential (locked) paper out of the spreadsheet entirely — see confidential.test.ts", () => {
     const locked = doc({ lock: { kid: "v", iv: "i", ct: "c" }, confidential: true });
-    const csv = documentsToCsv([locked], [folder()], [], trail);
-    expect(csv).toContain("(locked)");
-    const header = CSV_COLUMNS as readonly string[];
-    const cells = csv.split("\r\n")[1].split(",");
-    expect(cells[header.indexOf("Reference")]).toBe("(locked)");
-    expect(cells[header.indexOf("Note")]).toBe("");
+    const csv = documentsToCsv([locked, doc({ id: "d2", title: "Plain paper" })], [folder()], [], trail);
+    const lines = csv.split("\r\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain("Plain paper");
+    expect(csv).not.toContain("Auto policy");
   });
 
   it("resolves the location to a breadcrumb, not ids", () => {

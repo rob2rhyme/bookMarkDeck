@@ -935,6 +935,19 @@ export default function GuidePage() {
               locked text is gone for good. If you need to write down something
               secret, a password manager is still the right place.
             </p>
+            <p>
+              A locked paper is <strong>confidential</strong>. Set a{" "}
+              <strong>PIN</strong> from the <strong>Confidential</strong> button
+              and confidential papers are hidden from the lists, search and
+              reminders panel until you enter it (or use your fingerprint or
+              face); <strong>Lock now</strong> hides them again and closes your
+              vault. That&apos;s a <strong>privacy screen, not encryption</strong>:
+              the title is still readable in your account, and the PIN stays on
+              this device. A confidential paper&apos;s name never appears in a
+              notification, is left out of the CSV, and shows in a calendar file
+              only as &ldquo;A confidential paper&rdquo;. A backup (JSON)
+              includes them, so it asks you to unlock first.
+            </p>
           </Sub>
         </Section>
 

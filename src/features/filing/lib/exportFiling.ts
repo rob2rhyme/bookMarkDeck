@@ -11,6 +11,7 @@
 // must not silently remove anything the backup predates.
 
 import { formatPath } from "@/features/filing/lib/breadcrumb";
+import { isConfidential } from "@/features/filing/lib/confidential";
 import { destroyOnFor, ruleById } from "@/features/filing/lib/retention";
 import {
   DEFAULT_FILING_SETTINGS,
@@ -72,8 +73,12 @@ export function documentsToCsv(
   const folderById = new Map(folders.map((f) => [f.id, f]));
   const partyById = new Map(parties.map((p) => [p.id, p]));
 
+  // A spreadsheet is plaintext that leaves the app, so a confidential paper is not in it AT
+  // ALL — not its name, folder or dates either (lib/confidential.ts). The JSON backup is the
+  // whole copy: its fields stay sealed, but its titles are readable, so the settings dialog
+  // won't make one while confidential papers are hidden behind the PIN.
   const rows = documents
-    .filter((d) => !d.archived)
+    .filter((d) => !d.archived && !isConfidential(d))
     .map((d) => {
       const folder = (d.folderId && folderById.get(d.folderId)) || null;
       const partyId = d.partyId ?? folder?.partyId ?? null;
@@ -86,16 +91,13 @@ export function documentsToCsv(
         (partyId && partyById.get(partyId)?.name) || "",
         d.docDate ?? "",
         d.filedAt ?? "",
-        // A locked paper's reference and note are not in the spreadsheet: the file would
-        // carry in the clear what the lock keeps out of the database. The JSON backup
-        // holds them sealed.
-        d.lock ? "(locked)" : d.reference ?? "",
+        d.reference ?? "",
         rule?.label ?? "",
         destroyOnFor(d, folder) ?? "",
         d.nextDueOn ?? "",
         d.bookmarkLink?.url ?? "",
         (d.tags ?? []).join(" "),
-        d.lock ? "" : d.note ?? "",
+        d.note ?? "",
       ];
     });
 

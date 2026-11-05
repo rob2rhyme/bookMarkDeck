@@ -15,6 +15,7 @@
 // open the app for more than a day, the digest stops until you do. The in-app
 // panel and the nav badge are the reliable surface; push is a convenience on top.
 
+import { isConfidential } from "@/features/filing/lib/confidential";
 import type { Bucket, DueItem } from "@/features/filing/lib/obligations";
 import type { ShredItem } from "@/features/filing/lib/retention";
 import type { CustodyItem } from "@/features/filing/lib/custody";
@@ -69,7 +70,9 @@ export function buildDigest(
 
   const parts: string[] = [];
 
-  const named = [...overdue, ...soon].slice(0, maxNamed);
+  // A confidential paper is COUNTED but never NAMED: a notification sits on the lock screen,
+  // which no PIN covers. (`rest` below still includes it, so "A and 2 more" stays honest.)
+  const named = [...overdue, ...soon].filter((d) => !isConfidential(d.document)).slice(0, maxNamed);
   if (named.length > 0) {
     const titles = named.map((d) => d.obligation.label || d.document.title);
     const rest = overdue.length + soon.length - named.length;

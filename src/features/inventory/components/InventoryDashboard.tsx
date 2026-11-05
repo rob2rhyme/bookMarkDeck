@@ -64,7 +64,7 @@ import { useStarterRooms } from "@/features/inventory/hooks/useStarterRooms";
 import { missingStarterRooms } from "@/features/inventory/lib/starterRooms";
 import { useAppLock } from "@/features/inventory/hooks/useAppLock";
 import { AppLockGate } from "@/features/inventory/components/AppLockGate";
-import { AppLockModal } from "@/features/inventory/components/AppLockModal";
+import { AppLockModal } from "@/components/appLock/AppLockModal";
 import { ItemFormModal } from "@/features/inventory/components/ItemFormModal";
 import { LocationManager } from "@/features/inventory/components/LocationManager";
 import { ValuePanel } from "@/features/inventory/components/ValuePanel";

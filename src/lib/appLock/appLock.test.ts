@@ -9,7 +9,7 @@ import {
   makePinConfig,
   toHex,
   verifyPin,
-} from "@/features/inventory/lib/appLock";
+} from "@/lib/appLock/appLock";
 
 describe("isValidPin", () => {
   it("accepts 4–8 digits", () => {

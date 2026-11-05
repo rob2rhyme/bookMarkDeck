@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Modal } from "@/components/Modal";
 import { X } from "@/components/icons";
-import { isValidPin } from "@/features/inventory/lib/appLock";
+import { isValidPin } from "@/lib/appLock/appLock";
 import { SECTION_LABEL_CLASS } from "@/components/ui/SectionLabel";
 
 type AppLockModalProps = {
@@ -18,6 +18,11 @@ type AppLockModalProps = {
   onDisable: () => void;
   onLockNow: () => void;
   onClose: () => void;
+  /** The heading and blurb — My Stuff's by default; Filing words its own (it hides papers, not a page). */
+  title?: string;
+  description?: ReactNode;
+  /** What "Lock now" is called, when it does more than lock (Filing also closes the vault). */
+  lockNowLabel?: string;
 };
 
 const fieldClass =
@@ -34,6 +39,15 @@ export function AppLockModal({
   onDisable,
   onLockNow,
   onClose,
+  title = "Lock My Stuff",
+  description = (
+    <>
+      A quick privacy screen so a passer-by can&apos;t browse your inventory on
+      an unlocked device. It isn&apos;t encryption — your sign-in is still what
+      keeps your data yours.
+    </>
+  ),
+  lockNowLabel = "Lock now",
 }: AppLockModalProps) {
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -80,12 +94,12 @@ export function AppLockModal({
     <Modal
       open={open}
       onClose={close}
-      label="App lock"
+      label={title}
       panelClassName="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl outline-none"
     >
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-50">
-          🔒 Lock My Stuff
+          🔒 {title}
         </h2>
         <button
           type="button"
@@ -96,11 +110,7 @@ export function AppLockModal({
           <X className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-1 text-xs text-slate-500">
-        A quick privacy screen so a passer-by can&apos;t browse your inventory on
-        an unlocked device. It isn&apos;t encryption — your sign-in is still what
-        keeps your data yours.
-      </p>
+      <p className="mt-1 text-xs text-slate-500">{description}</p>
 
       {showPinForm ? (
         <form onSubmit={savePin} className="mt-4 flex flex-col gap-2">
@@ -166,7 +176,7 @@ export function AppLockModal({
             }}
             className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
           >
-            🔒 Lock now
+            🔒 {lockNowLabel}
           </button>
 
           {biometricAvailable &&

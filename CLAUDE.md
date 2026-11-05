@@ -1338,8 +1338,32 @@ Other invariants:
   or hook has ever written one (checked in git history), so they hold no text. A form for any
   of them must ship with the Lock option, or not store free text — the credential check and
   the lock exist for exactly this field shape. Not covered: an activity entry's note and an
-  obligation's label stay readable (reminders need them), and the PIN/biometric hiding of
-  `confidential` papers (§2.3) is not built.
+  obligation's label stay readable (reminders need them).
+- **A confidential paper is also hidden behind a PIN, and its name never leaves the app in
+  plaintext** (`lib/confidential.ts`, `ConfidentialBar`, `@/lib/appLock`). *Confidential* is
+  exactly *locked* (`isConfidential` = `confidential || lock`). **The PIN** is the shared
+  device privacy lock (`@/lib/appLock`: a salted SHA-256 of 4–8 digits in localStorage, per
+  account and per pillar, optional WebAuthn biometric — lifted out of My Stuff, which keeps
+  its own key `bookmarkdeck:inventory:lock:v1` and behaviour; Filing's is
+  `bookmarkdeck:filing:lock:v1`, so neither opens the other). While it is on, `shownDocuments`
+  holds confidential papers back from **every list, the search, the folder counts, the
+  Upcoming/Expiry/Ready-to-clear panels and History**; the dashboard keeps the whole set for
+  what must not depend on the PIN (counts, the push digest, writes). **It is a privacy screen
+  for a passer-by and NOT encryption** — the title is plaintext in storage and the sealed
+  reference/note are opened by the vault passphrase, a separate thing; the copy says so. Until
+  the lock's settings are read (`hydrated`) papers are held back, because we can't yet know
+  whether one exists. **No PIN set → nothing hidden**, as before; the bar offers one when a
+  confidential paper exists. *Lock now* also closes the vault (every key this tab holds,
+  Notes' included) and closes any paper dialog, so nothing stays open that could show one.
+  **What leaves the app regardless of the PIN:** a notification **counts** a confidential
+  paper but never names it (`buildDigest` — a lock screen is the one place a title is public
+  and no PIN reaches it; `useFilingPush` is fed the whole lists for that reason); the **CSV
+  omits** confidential papers entirely (not their name, folder or dates); the **calendar
+  file keeps their dates** but titles them `A confidential paper — Renew` with no folder
+  trail. The **JSON backup** is the whole copy (sealed fields, readable titles) and so is
+  **refused while confidential papers are hidden** ("unlock first") — a backup that quietly
+  left them out would fail you later. **⌘K lists no papers at all**, so there is nothing to
+  filter; an index added later must skip `isConfidential`. `e2e/filing-pin.spec.ts`.
 - **Import merges by id and NEVER deletes** (`lib/exportFiling.ts`), so
   restoring a stale backup can't remove what's been filed since. Each hook's
   `importMany` also writes through to Firestore, or an import would be stranded
