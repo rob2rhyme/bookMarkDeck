@@ -24,32 +24,25 @@ should not be treated as a secret. And deleting a document removes its pointer
 first, then the object: a failed object delete leaves an orphan nobody sees,
 whereas the reverse would leave a row pointing at bytes that are already gone.
 
-## Firestore — no change required ✅
+## Firestore — covered by the owner rules ✅
 
-These are subcollections of `users/{uid}`, so the existing recursive owner rule
-already covers them. Confirm this block is present in the Firebase console /
-`firestore.rules`:
+These are subcollections of `users/{uid}`, so the owner rules in `firestore.rules`
+already cover them (this uid AND the owner's verified email).
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{uid}/{document=**} {
-      allow read, write: if isOwner(uid); // this uid AND the owner's verified email — see firestore.rules
-    }
-  }
-}
-```
+**One filing-specific check lives in that rule:** `lockedTextSealed` refuses a
+`filingDocuments` write whose `lock` is set while `reference` or `note` holds text
+(empty or absent is fine) — even from the owner. `documentPayload` already throws
+before sending one; the rule is the server's copy of that line.
 
 Firestore evaluates the **deployed** ruleset, so a correct file in the repo is
 only half the story. `.github/workflows/firestore-rules.yml` handles both halves
 on any change to the rules files: verify against the emulator, deploy on merge to
 `main`, then read the released ruleset back to confirm it landed.
 
-`npm run verify:rules` checks the repo copy against the Firestore emulator — 40
+`npm run verify:rules` checks the repo copy against the Firestore emulator — 80
 assertions covering owner access to every pillar's collections (nested paths
-included), cross-uid denial on read/write/delete, anonymous denial, and that the
-recursive rule doesn't leak outside `users/{uid}`. It needs Java and a running
+included), cross-uid denial on read/write/delete, anonymous denial, locked papers
+refused with plaintext, and that nothing leaks outside `users/{uid}`. It needs Java and a running
 emulator, so it's out of `npm test` and lives in its own workflow:
 
 ```

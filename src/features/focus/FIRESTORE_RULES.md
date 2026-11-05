@@ -25,13 +25,8 @@ The focus feature stores data in per-user subcollections:
 - `users/{uid}/prefs/ui` (cloud-remembered one-shot UI flags — welcome /
   habit-onboarding dismissals; see `src/lib/uiPrefs.ts`)
 
-These are all covered by the one owner-scoped recursive rule in `firestore.rules`:
-
-```
-match /users/{uid}/{document=**} {
-  allow read, write: if isOwner(uid); // this uid AND the owner's verified email — see firestore.rules
-}
-```
+These are all covered by the owner rules in `firestore.rules` (this uid AND the owner's verified email; one
+wildcard over every collection under `users/{uid}`, so a new one needs no rule).
 
 It also covers bookmarks/shortcuts (`users/{uid}` + `users/{uid}/bookmarkBackups`).
 

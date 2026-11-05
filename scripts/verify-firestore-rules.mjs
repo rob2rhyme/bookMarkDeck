@@ -64,7 +64,7 @@ const noEmail = env.authenticatedContext(STRANGER).firestore();
 const shouting = env.authenticatedContext(STRANGER, { email: OWNER.toUpperCase(), email_verified: true }).firestore();
 
 // A SAMPLE of the collections pillars write under users/{uid} — not an
-// inventory. firestore.rules is one recursive match on users/{uid}/{document=**},
+// inventory. firestore.rules matches any collection under users/{uid} by wildcard,
 // so every name is covered whether or not it is listed here; the point is to
 // exercise the rule against realistic paths. Names must be real ones, though:
 // this list used to include "habitsLog", which the app has never written, while
@@ -134,6 +134,28 @@ await check("owner reads a notes vault", assertSucceeds(getDoc(doc(alice, `users
 await check("other uid cannot read a notes vault", assertFails(getDoc(doc(bob, `users/${ALICE}/notesVaults/v1`))));
 await check("other uid cannot replace a notes vault", assertFails(setDoc(doc(bob, `users/${ALICE}/notesVaults/v1`), VAULT)));
 await check("anonymous cannot read a notes vault", assertFails(getDoc(doc(anon, `users/${ALICE}/notesVaults/v1`))));
+
+// Locked text stays sealed: the server refuses plaintext beside a lock, even from
+// the owner. Shapes follow notesData toFirestore and filingData documentPayload.
+const SEAL = { kid: "v1", iv: "i", ct: "c" };
+const LOCKED_NOTE = { ...NOTE, body: "", lock: SEAL };
+await check("owner writes a locked note with an empty body", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notes/l1`), LOCKED_NOTE)));
+await check("owner updates a locked note, still sealed", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notes/l1`), { ...LOCKED_NOTE, pinned: true })));
+await check("a locked note with a plaintext body is refused", assertFails(setDoc(doc(alice, `users/${ALICE}/notes/l1`), { ...LOCKED_NOTE, body: "secret" })));
+await check("a new locked note with a plaintext body is refused", assertFails(setDoc(doc(alice, `users/${ALICE}/notes/l2`), { ...LOCKED_NOTE, body: "secret" })));
+await check("an unlocked note (lock: null) keeps its body", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notes/l3`), { ...NOTE, lock: null })));
+await check("owner deletes a locked note", assertSucceeds(deleteDoc(doc(alice, `users/${ALICE}/notes/l1`))));
+
+const PAPER = { title: "Policy", confidential: false, lock: null, reference: "POL-1", note: "n", tags: [] };
+const LOCKED_PAPER = { title: "Policy", confidential: true, lock: SEAL, tags: [] };
+await check("an unlocked paper keeps its reference and note", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/filingDocuments/p1`), PAPER)));
+await check("a locked paper with no reference or note is accepted", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/filingDocuments/p2`), LOCKED_PAPER)));
+await check("a locked paper with empty reference and note is accepted", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/filingDocuments/p2`), { ...LOCKED_PAPER, reference: "", note: "" })));
+await check("a locked paper with a plaintext reference is refused", assertFails(setDoc(doc(alice, `users/${ALICE}/filingDocuments/p2`), { ...LOCKED_PAPER, reference: "POL-1" })));
+await check("a locked paper with a plaintext note is refused", assertFails(setDoc(doc(alice, `users/${ALICE}/filingDocuments/p2`), { ...LOCKED_PAPER, note: "n" })));
+await check("locking an existing paper without dropping its text is refused", assertFails(setDoc(doc(alice, `users/${ALICE}/filingDocuments/p1`), { ...PAPER, lock: SEAL })));
+await check("the check is scoped to notes and papers", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/inventoryItems/i1`), { lock: SEAL, body: "x", note: "x" })));
+await check("documents nested under a note stay reachable", assertSucceeds(setDoc(doc(alice, `users/${ALICE}/notes/n9/sub/s1`), { body: "x", lock: SEAL })));
 
 // Only the owner's account gets in at all — even to a users/{uid} of its own.
 // Before the lock, any Google account could keep data here at the owner's cost.

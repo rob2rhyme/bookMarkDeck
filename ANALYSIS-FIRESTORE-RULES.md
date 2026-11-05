@@ -1,8 +1,9 @@
 # ANALYSIS — Rewriting the Firestore rules for strangers (2026-11-05)
 
 Owner question, on `SECURITY-LAUNCH-PLAN.md` §3.1: *should the rules drop the email
-allowlist? Need more review — do thorough research.* Nothing here is deployed; the
-rules file is unchanged. Merging a rules change to `main` **is** a production deploy
+allowlist? Need more review — do thorough research.* Owner's answer: keep the
+allowlist; build the two lock invariants (done: `lockedTextSealed` in `firestore.rules`,
+14 emulator assertions, 80 in all). The rest stays a plan until sign-in opens. Merging a rules change to `main` **is** a production deploy
 (`.github/workflows/firestore-rules.yml`), so this document comes before any code.
 
 ## Recommendation
@@ -30,7 +31,7 @@ rules file is unchanged. Merging a rules change to `main` **is** a production de
 `allowedEmails()`. The Firebase web config is public by design (it ships in every page),
 and Firebase Auth's Google provider lets *any* Google account create a Firebase user.
 Without the email check, anyone can sign in from a script with that config and write
-under their own `users/{uid}` — any collection name (the match is `{document=**}`), any
+under their own `users/{uid}` — any collection name (the match is a wildcard), any
 number of documents, up to 1 MiB each. Our app is not needed for any of it.
 
 What that costs depends on the plan, which this repo cannot see:
@@ -108,7 +109,7 @@ privacy failure rather than a size one:
 Both writers replace the whole document and throw before sending a violating one, so no
 legitimate write can be refused.
 
-**Optional:** replace `{document=**}` with the 30 known collection names. Cheap, and it
+**Optional:** replace the collection wildcard with the 30 known collection names. Cheap, and it
 stops arbitrary collections, but not volume. It is safe only with a test that fails when
 a path in the source is missing from the rules (an extension of
 `src/lib/firestorePaths.test.ts`) — otherwise the next new collection is refused and its
@@ -150,13 +151,15 @@ writes dropped.
   (rules unchanged), then the rules change in its own PR. Rollback is reverting that PR;
   the console also keeps the previous ruleset.
 
-## Decision needed
+## Decisions
 
-- Keep the allowlist for now? (recommended)
-- Build the two lock invariants into the rules now? They're safe and independent of
-  opening sign-in.
-- Which plan is `unified-project-440e5` on? (console → Usage and billing)
-- Claim via custom token (spike first) or via `setCustomUserClaims`?
+- Keep the allowlist for now — **decided, kept.**
+- Lock invariants in the rules now — **decided, built.** Asserted with payload shapes
+  copied from the two builders, not the builders themselves (they import the app's
+  Firestore module, whose sentinels the test SDK's copy refuses). Mutation-checked:
+  with the check disabled, exactly its five refusals fail.
+- Still open: which plan is `unified-project-440e5` on? (console → Usage and billing)
+- Still open, at launch: claim via custom token (spike first) or via `setCustomUserClaims`?
 
 Sources: Firebase docs on rules limits, custom claims, App Check, Auth user actions and
 billing, via search (firebase.google.com is not reachable from the build sandbox):

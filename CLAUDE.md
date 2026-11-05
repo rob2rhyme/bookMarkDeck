@@ -84,12 +84,21 @@ same lock.
 
 ### Firestore security rules
 Rules live in the committed **`firestore.rules`** at the repo root (wired via `firebase.json` →
-`.firebaserc`, project `unified-project-440e5`): a single owner-scoped recursive rule
-`match /users/{uid}/{document=**}` allowing read/write only when `request.auth.uid == uid`
+`.firebaserc`, project `unified-project-440e5`): owner-scoped rules on `users/{uid}`, every
+document under it and anything nested deeper, allowing read/write only when `request.auth.uid == uid`
 **and** the token's email is the owner's, verified (`isOwner`; `allowedEmails()` repeats
 `DEFAULT_ALLOWED_EMAILS` from `src/auth/allowlist.ts`, and `allowlist.test.ts` fails if the
 two differ — rules can't read env, so `AUTH_ALLOWED_EMAILS` doesn't reach them) —
-which covers every collection, since all user data lives under `users/{uid}`. Per-feature notes:
+which covers every collection, since all user data lives under `users/{uid}`. **One content
+check:** `lockedTextSealed` refuses a locked note with a body, or a locked paper with a
+`reference`/`note`, even from the owner — the server-side copy of the line `toFirestore` and
+`documentPayload` already hold. It is deliberately the only one: a refused write is
+*dropped* by the offline queue (`isPermanentWriteError`), so a rule stricter than what the app
+sends loses edits silently. `ANALYSIS-FIRESTORE-RULES.md` is why there is no other field
+validation, and why the email allowlist stays until sign-in opens. Rules OR together, so the
+check has to sit in the rule that grants the write; the deeper-nesting match starts at a
+third segment (`{sub}/{rest=**}`) so it can't also match a note or paper and bypass it.
+Per-feature notes:
 `src/features/{focus,habits,inventory,notes}/FIRESTORE_RULES.md`. Any new collection must stay under
 `users/{uid}` (or get its own owner-scoped rule) — and that is **enforced**, not just asked for:
 `src/lib/firestorePaths.test.ts` scans the source for `doc(db, …)` / `collection(db, …)` and fails
@@ -107,7 +116,7 @@ then reads the released ruleset back to confirm the deploy landed:
 
 | Command | Answers |
 |---|---|
-| `npm run verify:rules` | is the **file** correct? (66 assertions: owner access, cross-uid denial, anonymous denial, other accounts and unverified/missing emails denied even their own tree, no leak outside `users/{uid}`; notes and notes vaults asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
+| `npm run verify:rules` | is the **file** correct? (80 assertions: owner access, cross-uid denial, anonymous denial, other accounts and unverified/missing emails denied even their own tree, locked notes and papers refused with plaintext, no leak outside `users/{uid}`; notes and notes vaults asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
 | `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |

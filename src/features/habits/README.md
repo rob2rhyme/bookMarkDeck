@@ -22,8 +22,8 @@ beginner-first "Simple" view and its toggle were retired and removed.)
 - `users/{uid}/habitEntries/{habitId}_{YYYY-MM-DD}` — one per-day log
   (deterministic id ⇒ idempotent, offline-safe). Holds `status` (done/skipped),
   `count`, optional `note` + `at`.
-- No new security rule — the repo's recursive owner rule
-  (`match /users/{uid}/{document=**}`) already scopes it. See
+- No new security rule — the repo's owner rules on `users/{uid}` already
+  scope it. See
   `src/features/habits/FIRESTORE_RULES.md`.
 
 ## Streak engine (derive, don't store)
