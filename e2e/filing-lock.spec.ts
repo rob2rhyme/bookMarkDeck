@@ -76,13 +76,13 @@ test("a locked paper's reference and note never reach the device cache, and open
   expect(cached).not.toContain(SECRET_NOTE);
 
   // The list says it is locked.
-  await page.getByRole("button", { name: "Papers" }).click();
+  await page.getByRole("button", { name: "Papers", exact: true }).click();
   const papers = page.getByRole("dialog");
   await expect(papers.getByRole("img", { name: "Reference and note locked" })).toBeVisible();
 
   // After a reload the keys are gone: the form opens locked.
   await page.reload();
-  await page.getByRole("button", { name: "Papers" }).click();
+  await page.getByRole("button", { name: "Papers", exact: true }).click();
   await page.getByRole("button", { name: "Car insurance", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "Edit paper" });
   await edit.getByText("Add details", { exact: false }).click();

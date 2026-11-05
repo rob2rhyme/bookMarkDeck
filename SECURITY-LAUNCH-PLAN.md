@@ -61,7 +61,7 @@ The measures that change the outcome of an exposure.
    AES-GCM (key from the same vault) before the presigned PUT; a private bucket;
    a short-lived presigned GET issued by a session-gated route that checks
    `isOwned*Path`. The signed content-type and the SVG/HTML refusal stay.
-3. **Give `confidential` teeth.** Confidential = encrypted fields, hidden behind
+3. ~~**Give `confidential` teeth.**~~ *(done 2026-11-05: `lib/confidential.ts`, the Filing PIN via the shared `@/lib/appLock`, `ConfidentialBar`; ⌘K lists no papers today, so nothing to exclude there.)* Confidential = encrypted fields, hidden behind
    the PIN/biometric lock (`appLock.ts` pattern), excluded from push text, CSV
    export and ⌘K results.
 4. **Move Google tokens out of the cookie.** Request `tasks`/`calendar` scopes

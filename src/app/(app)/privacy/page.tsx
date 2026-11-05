@@ -87,8 +87,10 @@ export default function PrivacyPage() {
           is encrypted the same way by default, and its file name is sealed with it; the scan&rsquo;s
           type and size stay readable. A scan you choose to add unencrypted, and any added before this
           existed, is stored as it is. Text saved before you locked something may remain in older
-          backups or exports. Everything else in the app is protected by sign-in and database rules,
-          not by end-to-end encryption.
+          backups or exports. A locked paper is also &ldquo;confidential&rdquo;: an optional PIN on this
+          device hides it from the lists and search, and its name is never put in a notification,
+          the CSV, or a calendar file. That PIN is a privacy screen, not encryption. Everything else
+          in the app is protected by sign-in and database rules, not by end-to-end encryption.
         </p>
 
         <h2 className="mt-6 text-lg font-semibold text-slate-50">How we use the data</h2>

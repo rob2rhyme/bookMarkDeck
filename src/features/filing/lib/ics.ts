@@ -10,6 +10,7 @@
 // and all-day events dodge the timezone question entirely — no VTIMEZONE, no
 // DST edge case, no "due at midnight in whose zone?".
 
+import { CONFIDENTIAL_NAME, isConfidential } from "@/features/filing/lib/confidential";
 import { periodMonths, isDate } from "@/features/filing/lib/obligations";
 import { destroyOnFor } from "@/features/filing/lib/retention";
 import type {
@@ -17,6 +18,7 @@ import type {
   FilingFolder,
   Obligation,
 } from "@/features/filing/lib/types";
+import { OBLIGATION_KINDS } from "@/features/filing/lib/types";
 
 const PRODID = "-//Bookmark Deck//Filing//EN";
 
@@ -116,7 +118,11 @@ export function filingEvents(
   for (const doc of documents) {
     if (doc.archived) continue;
     const folder = (doc.folderId && byId.get(doc.folderId)) || null;
-    const where = whereLine(folder, opts.trailFor?.(doc.id));
+    const secret = isConfidential(doc);
+    // A calendar file is plaintext that leaves the app. A confidential paper's DATE is worth
+    // having there (a passport renewal you'd miss otherwise); its NAME, its label and where
+    // it is kept are not — so it appears as "A confidential paper", by kind of obligation.
+    const where = secret ? "" : whereLine(folder, opts.trailFor?.(doc.id));
 
     for (const o of doc.obligations ?? []) {
       if (o.archived || !isDate(o.dueOn)) continue;
@@ -125,8 +131,10 @@ export function filingEvents(
       events.push({
         uid: uid("obligation", doc.id, o.id),
         date: o.dueOn,
-        summary: `${o.label || doc.title}`,
-        description: `${doc.title} — ${where}`,
+        summary: secret
+          ? `${CONFIDENTIAL_NAME} — ${OBLIGATION_KINDS.find((k) => k.id === o.kind)?.label ?? "due"}`
+          : `${o.label || doc.title}`,
+        description: secret ? CONFIDENTIAL_NAME : `${doc.title} — ${where}`,
         rrule: rrule(o),
       });
     }
@@ -137,8 +145,8 @@ export function filingEvents(
         events.push({
           uid: uid("retention", doc.id, "destroy"),
           date: destroyOn,
-          summary: `Clear out: ${doc.title}`,
-          description: `Retention reached — ${where}`,
+          summary: `Clear out: ${secret ? CONFIDENTIAL_NAME.toLowerCase() : doc.title}`,
+          description: secret ? "Retention reached" : `Retention reached — ${where}`,
         });
       }
     }

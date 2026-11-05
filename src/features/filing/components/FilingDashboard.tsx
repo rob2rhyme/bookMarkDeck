@@ -8,7 +8,11 @@ import { SyncBanner } from "@/components/SyncBanner";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useVaultAccess } from "@/components/vault/useVaultAccess";
 import { useVaults } from "@/lib/vault/useVaults";
-import { keyFor } from "@/lib/vault/vaultSession";
+import { AppLockModal } from "@/components/appLock/AppLockModal";
+import { useAppLock } from "@/lib/appLock/useAppLock";
+import { ConfidentialBar } from "@/features/filing/components/ConfidentialBar";
+import { countConfidential, isConfidential, shownDocuments } from "@/features/filing/lib/confidential";
+import { keyFor, lock as lockVault } from "@/lib/vault/vaultSession";
 import { MilestoneRow } from "@/components/MilestoneRow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -62,6 +66,9 @@ import type { FilingDocument, FilingFolder } from "@/features/filing/lib/types";
 const splitAliases = (raw: string) =>
   raw.split(",").map((a) => a.trim()).filter(Boolean);
 
+/** Per-pillar key of the Filing PIN — separate from My Stuff's, so neither opens the other. */
+const FILING_LOCK_BASE = "bookmarkdeck:filing:lock:v1";
+
 const docIcon = (t?: string) => DOC_TYPES.find((d) => d.id === (t ?? ""))?.icon ?? "📄";
 
 export function FilingDashboard() {
@@ -76,6 +83,11 @@ export function FilingDashboard() {
   const vault = useVaults(email, connected);
   const vaultAccess = useVaultAccess(vault, "papers", "Unlock to lock this paper");
   const scanAccess = useVaultAccess(vault, "papers", "Unlock to use encrypted scans");
+  // The Filing PIN lock: confidential papers are hidden while it is on. Held back too until
+  // the lock has been READ (`hydrated`), because before that we can't know whether one exists.
+  const pinLock = useAppLock(FILING_LOCK_BASE, email);
+  const hideConfidential = !pinLock.hydrated || pinLock.locked;
+  const [lockOpen, setLockOpen] = useState(false);
   const { toast } = useToast();
   const { settings, update: updateSettings } = useFilingSettings(email, connected);
 
@@ -110,9 +122,30 @@ export function FilingDashboard() {
     return () => window.clearInterval(id);
   }, []);
 
+  // What every list, search and panel below may show. `documents.active` / `.documents` are
+  // the WHOLE set — used for what must not depend on the PIN: counts, the push digest (which
+  // counts but never names a confidential paper), backups, and writes.
+  const activeShown = useMemo(
+    () => shownDocuments(documents.active, hideConfidential),
+    [documents.active, hideConfidential]
+  );
+  const docsShown = useMemo(
+    () => shownDocuments(documents.documents, hideConfidential),
+    [documents.documents, hideConfidential]
+  );
+  const confidentialCount = useMemo(() => countConfidential(documents.active), [documents.active]);
+  const countShown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const d of activeShown) {
+      const key = d.folderId ?? "__unfiled__";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [activeShown]);
+
   const searchData = useMemo(
-    () => ({ places: places.places, folders: folders.active, documents: documents.active }),
-    [places.places, folders.active, documents.active]
+    () => ({ places: places.places, folders: folders.active, documents: activeShown }),
+    [places.places, folders.active, activeShown]
   );
 
   const hits = useMemo(() => searchFiling(searchData, query), [searchData, query]);
@@ -138,21 +171,31 @@ export function FilingDashboard() {
     [folders.active, partyFilter, placeScope]
   );
 
-  const inbox = useMemo(() => unfiled(documents.documents), [documents.documents]);
+  const inbox = useMemo(() => unfiled(docsShown), [docsShown]);
 
-  const due = useMemo(
+  // The full lists feed the push digest, which counts every paper but names none that is
+  // confidential (digest.ts). The panels get the same lists minus what the PIN is hiding.
+  const dueAll = useMemo(
     () => (today ? dueItems(documents.active, today, settings.leadDays) : []),
     [documents.active, today, settings.leadDays]
+  );
+  const due = useMemo(
+    () => (hideConfidential ? dueAll.filter((i) => !isConfidential(i.document)) : dueAll),
+    [dueAll, hideConfidential]
   );
 
   /** Papers whose retention has run out. Same lead window as the reminders, so
    *  the two halves of the Attention surface agree on what "soon" means. */
-  const shred = useMemo(
+  const shredAll = useMemo(
     () =>
       today
         ? shredItems(documents.active, folders.active, today, settings.leadDays)
         : [],
     [documents.active, folders.active, today, settings.leadDays]
+  );
+  const shred = useMemo(
+    () => (hideConfidential ? shredAll.filter((i) => !isConfidential(i.document)) : shredAll),
+    [shredAll, hideConfidential]
   );
 
   // Loaded per document, on open — attachments are the one collection here that
@@ -161,8 +204,8 @@ export function FilingDashboard() {
 
   /** Everything with a validity date — the whole list, not just what's imminent. */
   const expiry = useMemo(
-    () => (today ? expiryItems(documents.active, folders.active, today) : []),
-    [documents.active, folders.active, today]
+    () => (today ? expiryItems(activeShown, folders.active, today) : []),
+    [activeShown, folders.active, today]
   );
   const expiringSoon = useMemo(() => expiringCount(expiry), [expiry]);
 
@@ -179,8 +222,8 @@ export function FilingDashboard() {
     email,
     enabled: settings.pushEnabled,
     hour: settings.pushHour,
-    due,
-    shred,
+    due: dueAll,
+    shred: shredAll,
     custody: out,
     ready: Boolean(today) && documents.hydrated && folders.hydrated,
   });
@@ -311,6 +354,24 @@ export function FilingDashboard() {
     },
     [editingFolder, folders]
   );
+
+  /**
+   * "Lock now": hide confidential papers AND close the vault, and close anything open that
+   * could be showing one (the paper form, scans, reminders, link, a folder's papers).
+   * Locking the vault drops every key this tab holds, Notes' included — that is the point of
+   * a button you press when you step away.
+   */
+  const lockConfidential = useCallback(() => {
+    setDocumentFormOpen(false);
+    setEditingDocument(null);
+    setAddToFolderId(null);
+    setScansFor(null);
+    setLinkingFor(null);
+    setObligationsFor(null);
+    setPapersFor(null);
+    void lockVault();
+    pinLock.lockNow();
+  }, [pinLock]);
 
   const submitDocument = useCallback(
     async (draft: DocumentDraft, meta: FormMeta): Promise<boolean> => {
@@ -452,6 +513,18 @@ export function FilingDashboard() {
             </button>
             <button
               type="button"
+              onClick={() => setLockOpen(true)}
+              aria-label="Confidential papers lock"
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border bg-slate-900 px-3 py-1.5 text-xs font-semibold transition ${
+                pinLock.enabled
+                  ? "border-blue-500/50 text-blue-300 hover:border-blue-400"
+                  : "border-slate-700 text-slate-200 hover:border-slate-500"
+              }`}
+            >
+              <span aria-hidden>🔒</span> Confidential
+            </button>
+            <button
+              type="button"
               onClick={() => setSettingsOpen(true)}
               className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
             >
@@ -504,6 +577,20 @@ export function FilingDashboard() {
             </p>
           ) : undefined
         }
+      />
+
+      <ConfidentialBar
+        ready={pinLock.hydrated}
+        enabled={pinLock.enabled}
+        locked={pinLock.hydrated && pinLock.locked}
+        count={confidentialCount}
+        hasBiometric={pinLock.hasBiometric}
+        biometricAvailable={pinLock.biometricAvailable}
+        onUnlockPin={pinLock.unlockWithPin}
+        onUnlockBiometric={pinLock.unlockWithBiometric}
+        onReset={pinLock.resetLock}
+        onLockNow={lockConfidential}
+        onManage={() => setLockOpen(true)}
       />
 
       {/* Active place filter — usually arrived at by scanning a label */}
@@ -612,7 +699,7 @@ export function FilingDashboard() {
 
       {lens === "insights" && (
         <FilingInsights
-          documents={documents.documents}
+          documents={docsShown}
           folders={folders.folders}
           placeCount={places.places.length}
           today={today}
@@ -620,7 +707,7 @@ export function FilingDashboard() {
       )}
 
       {/* What's due — the reason to open this page between filing sessions */}
-      {query.trim().length < 2 && (due.length > 0 || documents.active.length > 0) && (
+      {query.trim().length < 2 && (due.length > 0 || activeShown.length > 0) && (
         <UpcomingPanel
           items={due}
           trailFor={trailFor}
@@ -784,7 +871,7 @@ export function FilingDashboard() {
             <ul className="grid gap-2 sm:grid-cols-2">
               {visibleFolders.map((f) => {
                 const trail = folderTrail(f, places.paths);
-                const count = documents.countByFolder[f.id] ?? 0;
+                const count = countShown[f.id] ?? 0;
                 return (
                   <li
                     key={f.id}
@@ -851,7 +938,7 @@ export function FilingDashboard() {
       <AttachmentsModal
         open={Boolean(scansFor)}
         onClose={() => setScansFor(null)}
-        document={documents.active.find((d) => d.id === scansFor) ?? null}
+        document={activeShown.find((d) => d.id === scansFor) ?? null}
         attachments={scans.attachments}
         loading={scans.loading}
         connected={connected}
@@ -876,7 +963,7 @@ export function FilingDashboard() {
       <BookmarkLinkModal
         open={Boolean(linkingFor)}
         onClose={() => setLinkingFor(null)}
-        document={documents.active.find((d) => d.id === linkingFor) ?? null}
+        document={activeShown.find((d) => d.id === linkingFor) ?? null}
         email={email}
         onLink={(documentId, link) => documents.updateDocument(documentId, { bookmarkLink: link })}
         onUnlink={(documentId) => documents.updateDocument(documentId, { bookmarkLink: null })}
@@ -894,6 +981,7 @@ export function FilingDashboard() {
         trailFor={trailFor}
         connected={connected}
         onImport={importBackup}
+        confidentialHidden={hideConfidential}
       />
 
       <CustodyModal
@@ -962,13 +1050,13 @@ export function FilingDashboard() {
         paths={places.paths}
         partyNameById={partyNameById}
         countByPlace={countByPlace}
-        countByFolder={documents.countByFolder}
+        countByFolder={countShown}
       />
       <FolderPapersModal
         open={Boolean(papersFor)}
         onClose={() => setPapersFor(null)}
         folder={papersFor ? folders.byId[papersFor] ?? null : null}
-        documents={documents.active.filter((d) => d.folderId === papersFor)}
+        documents={activeShown.filter((d) => d.folderId === papersFor)}
         trail={
           papersFor && folders.byId[papersFor]
             ? folderTrail(folders.byId[papersFor], places.paths)
@@ -1004,7 +1092,7 @@ export function FilingDashboard() {
       <ObligationsModal
         open={Boolean(obligationsFor)}
         onClose={() => setObligationsFor(null)}
-        document={documents.active.find((d) => d.id === obligationsFor) ?? null}
+        document={activeShown.find((d) => d.id === obligationsFor) ?? null}
         today={today}
         onAdd={documents.addObligation}
         onComplete={(documentId, obligationId) =>
@@ -1029,6 +1117,28 @@ export function FilingDashboard() {
       />
       {vaultAccess.dialog}
       {scanAccess.dialog}
+      <AppLockModal
+        open={lockOpen}
+        enabled={pinLock.enabled}
+        hasBiometric={pinLock.hasBiometric}
+        biometricAvailable={pinLock.biometricAvailable}
+        onEnablePin={pinLock.enablePin}
+        onAddBiometric={pinLock.addBiometric}
+        onRemoveBiometric={pinLock.removeBiometric}
+        onDisable={pinLock.disable}
+        onLockNow={lockConfidential}
+        onClose={() => setLockOpen(false)}
+        title="Lock confidential papers"
+        description={
+          <>
+            A PIN hides your <strong>confidential</strong> (locked) papers from the lists, search and
+            reminders panel when you step away. It is a privacy screen for a passer-by, not encryption:
+            their reference and note are sealed by your vault passphrase, which is separate, and their
+            titles are not. A notification never names one either way.
+          </>
+        }
+        lockNowLabel="Lock now (also closes your vault)"
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { countConfidential } from "@/features/filing/lib/confidential";
 import { buildIcs, filingEvents } from "@/features/filing/lib/ics";
 import { pushSupported, requestPushPermission, usePushPermission } from "@/lib/push";
 import {
@@ -45,6 +46,7 @@ export function FilingSettingsModal({
   trailFor,
   connected,
   onImport,
+  confidentialHidden,
 }: {
   open: boolean;
   onClose: () => void;
@@ -58,6 +60,8 @@ export function FilingSettingsModal({
   /** Reminders live in the cloud copy, not the on-device cache — see below. */
   connected: boolean;
   onImport: (data: FilingBackup) => void;
+  /** The Filing PIN lock is hiding confidential papers right now. */
+  confidentialHidden: boolean;
 }) {
   const [exported, setExported] = useState(0);
   const [importState, setImportState] = useState<
@@ -65,6 +69,11 @@ export function FilingSettingsModal({
   >({ kind: "idle" });
   const canPush = pushSupported();
   const permission = usePushPermission();
+
+  // A backup that quietly left the hidden papers out would be a backup that fails you later,
+  // so while they are hidden the JSON export asks to be unlocked first instead.
+  const confidential = countConfidential(documents);
+  const backupBlocked = confidentialHidden && confidential > 0;
 
   const events = filingEvents(documents, folders, {
     includeRetention: settings.icsIncludeRetention,
@@ -82,6 +91,7 @@ export function FilingSettingsModal({
   }
 
   function downloadJson() {
+    if (backupBlocked) return;
     const at = new Date();
     const now = at.toISOString(); // exportedAt stays an instant
     const backup = buildBackup(
@@ -278,7 +288,8 @@ export function FilingSettingsModal({
             <button
               type="button"
               onClick={downloadJson}
-              className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+              disabled={backupBlocked}
+              className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500 disabled:opacity-40"
             >
               Export JSON
             </button>
@@ -304,6 +315,17 @@ export function FilingSettingsModal({
               />
             </label>
           </div>
+
+          {confidential > 0 && (
+            <p className="mt-2 text-[12px] text-slate-500">
+              {backupBlocked
+                ? `Unlock your ${confidential} confidential paper${confidential === 1 ? "" : "s"} first — a backup without ${confidential === 1 ? "it" : "them"} would be incomplete. `
+                : ""}
+              The JSON backup includes confidential papers (their reference and note stay sealed; their
+              titles are readable). The CSV leaves them out, and the calendar file shows them only as
+              &ldquo;A confidential paper&rdquo;.
+            </p>
+          )}
 
           <p className="mt-2 text-[12px] text-slate-500">
             Importing merges by id and never deletes — restoring an old backup won&rsquo;t
