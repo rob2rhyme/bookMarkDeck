@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "audit": "node scripts/audit.mjs",
     "verify:rules": "node scripts/verify-firestore-rules.mjs",
     "verify:rules:emulated": "npx -y firebase-tools@15.28.2 emulators:exec --only firestore --project rules-check \"npm run verify:rules\"",
     "check:rules": "node scripts/check-deployed-rules.mjs",
