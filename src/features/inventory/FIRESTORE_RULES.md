@@ -13,22 +13,10 @@ users/{uid}/inventoryWishlist/{wishId}     # "want to buy" list (separate from o
 
 ## Firestore — no change required ✅
 
-These are subcollections of `users/{uid}`, so the existing recursive owner rule
-already covers them. Confirm this block is present in the Firebase console /
-`firestore.rules`:
+These are subcollections of `users/{uid}`, so the owner rules in `firestore.rules` (this uid AND the owner's verified email; one
+wildcard over every collection under `users/{uid}`, so a new one needs no rule) already cover them.
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{uid}/{document=**} {
-      allow read, write: if isOwner(uid); // this uid AND the owner's verified email — see firestore.rules
-    }
-  }
-}
-```
-
-If your project scopes rules per-collection instead of with the recursive
+If your project scopes rules per-collection instead of with the collection
 wildcard, add the three collections explicitly:
 
 ```

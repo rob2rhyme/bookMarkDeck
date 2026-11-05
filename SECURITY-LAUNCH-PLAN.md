@@ -110,6 +110,14 @@ public one. Do these in the Cloudflare dashboard (R2), same account as today:
    add `admin/users/{uid}` (writable only by Admin SDK) with a `disabled` flag
    the owner rule checks. Re-run the 66 assertions and add cross-account and
    disabled-account cases. CI already deploys and reads back.
+   **Revised after research (2026-11-05, `ANALYSIS-FIRESTORE-RULES.md`):** keep the
+   email allowlist until sign-in opens, then gate on a server-issued membership claim
+   rather than "any verified email"; **no** per-field type/length validation — the
+   offline queue drops a refused write, so a rule stricter than the app loses edits
+   silently; kill switch = claim + Auth disable + revoked refresh tokens (≤1h), the
+   `admin/users/{uid}` read only if an instant cut-off is ever needed. **Done:** the
+   lock invariants (`lockedTextSealed` — a locked note's body, a locked paper's
+   reference and note, refused in plaintext; 80 assertions).
 2. **Firebase App Check** (reCAPTCHA Enterprise on web, Play Integrity in the
    shell) so only this app can use the public Firebase config.
 3. **Dedicated Firebase project** with its own IAM, budget alerts, **point-in-time

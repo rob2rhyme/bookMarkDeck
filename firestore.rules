@@ -6,20 +6,22 @@ rules_version = '2';
 // folders[], shortcuts[], …), its subcollections (bookmarkBackups), and every
 // feature pillar — focus*, habit*, inventory*, filing* and notes* collections alike.
 //
-// One owner-scoped recursive rule covers the user document and everything
-// beneath it — current and future. That is why adding a pillar needs no rule
-// change: a new collection under users/{uid} is already covered. Only the
+// Owner-scoped rules cover the user document and everything beneath it —
+// current and future. That is why adding a pillar needs no rule change: a new
+// collection under users/{uid} is already covered. The one content check is
+// lockedTextSealed() below: encrypted fields of locked notes and papers. Only the
 // owner's Google account (verified email, allowedEmails() below) gets in at all,
 // and only to its own uid; everything else is denied by default.
 //
-// Verified against the Firestore emulator (66 assertions — the count is printed
+// Verified against the Firestore emulator (80 assertions — the count is printed
 // by scripts/verify-firestore-rules.mjs and repeated in CLAUDE.md, so the three
 // move together): the owner can reach
 // every pillar's collections including deeply nested paths, a second signed-in
 // uid is denied read, write and delete on all of them, unauthenticated access
 // is denied, any other account (or an unverified or missing email) is denied
-// even its own users/{uid}, and nothing outside users/{uid} matches any allow
-// statement.
+// even its own users/{uid}, a locked note or paper carrying plaintext is
+// refused even from the owner, and nothing outside users/{uid} matches any
+// allow statement.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -39,8 +41,35 @@ service cloud.firestore {
         && request.auth.token.email.lower() in allowedEmails();
     }
 
-    match /users/{uid}/{document=**} {
+    // A locked note's body and a locked paper's reference and note are end-to-end
+    // encrypted; the plaintext must never reach the server. The client already
+    // refuses to send it (notesData toFirestore, filingData documentPayload) —
+    // this holds the same line if a client ever doesn't. Both writers replace the
+    // whole document, so request.resource.data is exactly what was sent. An empty
+    // string is not plaintext (a locked paper can carry reference: "").
+    function lockedTextSealed(collection) {
+      let d = request.resource.data;
+      return d.get('lock', null) == null
+        || (collection == 'notes' && d.get('body', '') == '')
+        || (collection == 'filingDocuments'
+            && d.get('reference', '') in [null, '']
+            && d.get('note', '') in [null, ''])
+        || !(collection in ['notes', 'filingDocuments']);
+    }
+
+    match /users/{uid} {
       allow read, write: if isOwner(uid);
+
+      match /{collection}/{docId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && lockedTextSealed(collection);
+      }
+
+      // Anything nested deeper (users/{uid}/a/b/c/d…). {sub} keeps this from
+      // also matching a top-level document, which would OR past the check above.
+      match /{collection}/{docId}/{sub}/{rest=**} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
   }

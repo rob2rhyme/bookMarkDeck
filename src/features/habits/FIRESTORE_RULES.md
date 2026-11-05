@@ -9,16 +9,9 @@ users/{uid}/habitEntries/{habitId}_{YYYY-MM-DD}  # per-day logs (deterministic i
 
 ## Security rules — no change required
 
-The repo's root `firestore.rules` already covers these with one recursive,
-owner-scoped rule:
-
-```
-match /users/{uid}/{document=**} {
-  allow read, write: if request.auth != null && request.auth.uid == uid;
-}
-```
-
-A signed-in user can only read/write data under their own `uid`, so the new
+The repo's root `firestore.rules` already covers these with its owner rules
+(this uid AND the owner's verified email, over every collection under
+`users/{uid}`), so the new
 `habits` and `habitEntries` subcollections are covered automatically. Deploy
 with:
 
