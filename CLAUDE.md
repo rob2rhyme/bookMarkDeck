@@ -522,7 +522,7 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     effect *ordering* and so are invisible to any unit test of the maths.
     Test-only helpers live in `src/test/` (`webLocksMock.ts`: pages, their Web Locks, and a
     page closing; `hydrationCloud.ts`: an in-memory `focusHydration` for hook tests).
-  - Eight **source-scanning** tests sit in that node project and assert properties of how
+  - Nine **source-scanning** tests sit in that node project and assert properties of how
     the code is written rather than what it returns, so nothing else could catch them:
     `src/lib/firestorePaths.test.ts` (every Firestore path starts `users/{uid}`),
     `src/lib/featureBoundaries.test.ts` (a feature never imports another feature — see the
@@ -536,7 +536,11 @@ Owner-deferred config decisions live in `FUTURE-PLANS.md`.
     see **Day keys are LOCAL** above), `src/lib/dialogs.test.ts` (no hand-built dialog —
     see **Every dialog is the shared `Modal`**), and `src/lib/apiLogging.test.ts` (no
     `console.*` in `src/app/api`: handlers see request bodies, and the host keeps what they
-    print; a real need goes in its `ALLOWED` map with a reason).
+    print; a real need goes in its `ALLOWED` map with a reason), and
+    `src/lib/privacyProcessors.test.ts` (every outside service the source calls — an SDK
+    import or an API host — is named on the privacy page, and a row whose service is gone
+    from the source fails too, so a removed provider leaves the page. A service that leaves
+    no trace in the code, like Vercel, is named on the page without a row).
 - **The session gate is `middleware.ts`, and route-handler tests cannot see it** — they call
   the handler directly. That blind spot let background push and billing ship dead: the
   matcher sent QStash's and Lemon Squeezy's cookieless webhook POSTs to `/login` with a 307
@@ -1454,6 +1458,11 @@ Other invariants:
     and recovery code loses the scan; a 20 MB scan is read into memory, sealed in one piece
     (WebCrypto has no streaming AES-GCM); legacy plaintext scans stay where they were until
     the owner presses Encrypt or copies the `filing/` prefix to a new bucket.
+  - **Known gap: deleting a paper leaves its scans** — `removeDocument` deletes the record
+    only, so its `filingDocs` pointers and R2 objects stay (an unencrypted legacy scan stays
+    readable through a signed URL to its owner). The privacy page says so and tells people
+    to delete scans first; the fix is to purge them with the paper, as My Stuff does for an
+    item after its Undo window.
 - Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`,

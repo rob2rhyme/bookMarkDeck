@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Privacy" };
 
 export default function PrivacyPage() {
   return (
-    <LegalPageLayout title="Privacy Policy" lastUpdated="October 21, 2026">
+    <LegalPageLayout title="Privacy Policy" lastUpdated="November 5, 2026">
       <section className="space-y-3 text-sm leading-relaxed text-slate-200">
         <p>
           Bookmark Deck is local-first. Your data is stored in your browser first, and a cloud copy
@@ -74,6 +74,78 @@ export default function PrivacyPage() {
             and the app reads them only through short-lived addresses issued to you after sign-in.
           </li>
         </ul>
+
+        <h2 className="mt-6 text-lg font-semibold text-slate-50">Services that receive data</h2>
+        <p>
+          Bookmark Deck runs on other companies&rsquo; services. Each one below receives only what is
+          listed, and only when you use the feature named. None of them is used for advertising or
+          analytics.
+        </p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <strong>Google</strong> — signs you in (Google sign-in and Firebase Authentication),
+            stores your synced data (Firebase Firestore), and, if you use them, your Tasks and
+            Calendar (see &ldquo;Google account data&rdquo;). Bookmark and shortcut icons are loaded
+            by your browser from Google&rsquo;s icon service, which receives the site&rsquo;s
+            domain (for example <code>example.com</code>, not the full address) along with your
+            browser&rsquo;s usual request details. If Google has no icon, your browser asks the site
+            itself for one.
+          </li>
+          <li>
+            <strong>Vercel</strong> — hosts the app and its server functions, so it receives every
+            request your browser makes to Bookmark Deck (your IP address, browser and the page or
+            function asked for), as any web host does, and keeps request logs under its own terms.
+          </li>
+          <li>
+            <strong>Cloudflare (R2 storage)</strong> — stores item photos and attachments, and
+            Filing scans (encrypted on your device by default; see below).
+          </li>
+          <li>
+            <strong>Upstash</strong> — two services. Its database keeps your email address with
+            your plan status (if you buy Premium) and monthly usage counts for the AI features and
+            the Natural voice; usage counts expire after about 40 days. Its scheduler (QStash)
+            holds a reminder you turn on until it is due: the notification&rsquo;s title and text,
+            the page it opens, and your browser&rsquo;s push address. A Filing reminder never names
+            a confidential paper, and a PIN-locked My Stuff sends counts only, never item names.
+          </li>
+          <li>
+            <strong>Your browser&rsquo;s push service</strong> (Google, Mozilla, Apple or Microsoft,
+            depending on the browser) — delivers those reminders. The notification is encrypted for
+            your browser, so the push service sees only that one was sent, and when.
+          </li>
+          <li>
+            <strong>Anthropic</strong> — only if you use AI capture or AI insights in My Stuff. AI
+            capture sends the one photo you choose and your currency. AI insights sends counts and
+            your category, location and tag names — never item names, serial numbers or notes.
+          </li>
+          <li>
+            <strong>OpenAI</strong> — only the meditation cue wording, if you choose the Natural
+            voice (see above).
+          </li>
+          <li>
+            <strong>Product databases</strong> (UPCitemdb, Open Food Facts, Open Beauty Facts, Open
+            Products Facts and Open Library) — when you scan or type a barcode, our server sends
+            them that number and nothing else. Product and cover pictures they return are loaded by
+            your browser from them.
+          </li>
+          <li>
+            <strong>jsDelivr</strong> — reading a label or receipt loads the text-recognition engine
+            from this public code host. The photo is read on your device and is not sent anywhere.
+          </li>
+          <li>
+            <strong>Lemon Squeezy</strong> — only if you buy Premium. It is the seller of record and
+            takes your payment under its own privacy policy; we pass it your email address to start
+            checkout. We receive your email, plan and subscription dates — never card details.
+          </li>
+          <li>
+            <strong>Websites you read or save</strong> — when the app fetches a page&rsquo;s title or
+            its text for reader view, the website sees a request from our server, not from you.
+          </li>
+        </ul>
+        <p>
+          Anthropic and OpenAI state in their API terms that what is sent through their APIs is not
+          used to train their models by default.
+        </p>
 
         <h2 className="mt-6 text-lg font-semibold text-slate-50">Locked notes and locked papers (end-to-end encrypted)</h2>
         <p>
@@ -170,14 +242,29 @@ export default function PrivacyPage() {
         <h2 className="mt-6 text-lg font-semibold text-slate-50">Retention and deletion</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>Local data remains until you delete entries, use clear actions, or clear browser site data.</li>
-          <li>Cloud data remains until overwritten or removed through sync operations.</li>
           <li>
-            You can remove cloud bookmark data by deleting locally and syncing to cloud, then optionally
-            revoking app access in your Google account.
+            Cloud data remains until you delete it in the app. A deletion reaches the cloud as you
+            make it, or the next time you connect — except bookmarks and shortcuts, which reach it
+            when you press Sync to cloud. Bookmark backups keep the newest 7.
+          </li>
+          <li>
+            Photos and attachments are removed from storage when you delete them, or the My Stuff
+            item they belong to. Filing scans are removed when you delete the scan; deleting a
+            paper does not yet remove its scans, so delete those first.
           </li>
           <li>
             A note&rsquo;s history is deleted with the note. The deletion log keeps the titles of the
             last 100 deleted notes.
+          </li>
+          <li>
+            Monthly usage counts expire after about 40 days. A scheduled reminder is kept until it is
+            delivered or you turn it off. Your plan status is kept while you have an account.
+          </li>
+          <li>
+            To delete everything we hold about you — your synced data, files, plan status and usage
+            counts — email us at the address below. There is no self-serve button for this yet.
+            Lemon Squeezy keeps the payment records tax law requires it to keep. You can also revoke
+            Bookmark Deck&rsquo;s access to your Google account at any time (see above).
           </li>
         </ul>
 
@@ -191,6 +278,11 @@ export default function PrivacyPage() {
           <li>
             Do not store highly sensitive secrets in bookmark notes or unlocked notes; use a locked note
             (or lock a Filing paper&rsquo;s reference and note) if you must keep one here.
+          </li>
+          <li>
+            If we learn of a breach that affects your data, we will tell you by email without undue
+            delay — what happened, what data was involved and what to do — and notify the
+            authorities where the law requires.
           </li>
         </ul>
 

@@ -164,7 +164,10 @@ Technical measures reduce harm; these reduce exposure to the owner personally.
    statement that the service is not HIPAA, PCI-DSS or FINRA compliant;
    arbitration with class-action waiver where enforceable; governing law. One
    lawyer read; a template is not enough for a product that stores identity documents.
-3. **Write the breach plan before it is needed.** US state laws: notice within
+3. ~~**Write the breach plan before it is needed.**~~ *(done 2026-11-05: `BREACH-PLAN.md` —
+   contain/assess/notify/recover, and a rotation table saying what each secret's rotation
+   does to users. Its §0 lists set-up still owed: Firestore Data Access audit logs are off
+   by default, and without them "who was affected" has no answer.)* US state laws: notice within
    30–60 days; GDPR: 72 hours to the regulator. Decide who is told, how users are
    reached (email from the entity, in-app banner), how sessions are revoked
    (rotate `NEXTAUTH_SECRET`), how affected objects are identified (R2 access
@@ -177,7 +180,12 @@ Technical measures reduce harm; these reduce exposure to the owner personally.
    and here is the record" is most of the defence.
 6. **Age-gate and geo-scope.** Adults only; decide whether to sell outside the
    home jurisdiction in year one. Each new privacy regime is a new duty.
-7. **Privacy policy update.** Name Anthropic, OpenAI, Upstash, QStash, Cloudflare
+7. ~~**Privacy policy update.**~~ *(done 2026-11-05: "Services that receive data" names each
+   service and what it gets — plus Vercel, the browsers' push services, the product databases
+   and jsDelivr, which this list missed, and Google's icon service, which sees every bookmarked
+   domain; retention per store; deletion by email until the route exists; a breach-notice
+   promise. `src/lib/privacyProcessors.test.ts` fails when the code uses a service the page
+   doesn't name. Still a lawyer's read before launch.)* Name Anthropic, OpenAI, Upstash, QStash, Cloudflare
    R2, Lemon Squeezy and Google as processors with what each receives; state the
    encryption boundary for Notes and Filing; state retention and the deletion route.
 
