@@ -28,7 +28,7 @@
     "@upstash/qstash": "^2.12.0",
     "@upstash/redis": "^1.39.0",
     "barcode-detector": "^3.2.2",
-    "firebase": "^12.19.0",
+    "firebase": "^13.1.0",
     "next": "^16.3.8",
     "next-auth": "^4.24.14",
     "qrcode": "^1.5.4",
