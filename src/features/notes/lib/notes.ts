@@ -3,7 +3,7 @@
 import { normalizeActivity, type NoteEvent } from "@/features/notes/lib/activity";
 import { toPlainText } from "@/features/notes/lib/markdown";
 import { normalizeTags } from "@/features/notes/lib/tags";
-import { normalizeLock, type NoteLock } from "@/features/notes/lib/vault";
+import { normalizeLock, type NoteLock } from "@/lib/vault/vault";
 
 export type Note = {
   id: string;

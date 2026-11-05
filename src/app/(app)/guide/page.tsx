@@ -905,16 +905,27 @@ export default function GuidePage() {
 
           <Sub title="What Filing keeps, and what it shouldn't">
             <p>
-              Filing finds your paper; it doesn&apos;t guard what&apos;s on it.
-              Unlike a <strong>locked note</strong>, a paper&apos;s fields are
-              not end-to-end encrypted — with sync on, they sit in your account
+              Filing finds your paper; it doesn&apos;t guard what&apos;s on it
+              unless you ask it to. By default a paper&apos;s fields are not
+              end-to-end encrypted — with sync on, they sit in your account
               where the person running the service could technically read them.
               A policy number, a case number or an account number in{" "}
               <strong>Reference</strong> is what that field is for. A password,
               PIN, card number or ID number is not: Filing refuses those when it
-              recognises them, and nothing is saved. If you need to write down
-              something secret, put it in a password manager, or in a locked
-              note, and say where in the paper&apos;s note.
+              recognises them, and nothing is saved.
+            </p>
+            <p>
+              To keep a paper&apos;s <strong>reference and note</strong> from
+              everyone, including whoever stores your data, tick{" "}
+              <strong>Lock reference and note</strong> in its form. They&apos;re
+              encrypted on your device with the same passphrase as locked notes
+              (you&apos;ll set one the first time, and get a recovery code).{" "}
+              <em>Title, dates, folder, tags and reminders stay readable</em> so
+              you can still find the paper and get reminded; locked text isn&apos;t
+              searchable and stays out of the CSV export. <em>Scans are not
+              encrypted.</em> Lose the passphrase and the recovery code and the
+              locked text is gone for good. If you need to write down something
+              secret, a password manager is still the right place.
             </p>
           </Sub>
         </Section>
@@ -1033,8 +1044,9 @@ export default function GuidePage() {
               No analytics or ad SDKs. Google Tasks/Calendar are touched only
               if you enable Google sync, and the access token lives in your
               encrypted session cookie — not on a server database. Your session
-              ends after 14 days without using the app. Locked notes are the one
-              thing that&apos;s end-to-end encrypted; everything else is kept
+              ends after 14 days without using the app. Locked notes, and the
+              reference and note of Filing papers you lock, are the things
+              that are end-to-end encrypted; everything else is kept
               private by your sign-in and the database rules. To leave:
               export your data, delete locally, sync the empty state, and
               revoke the app at myaccount.google.com/permissions. Details in{" "}

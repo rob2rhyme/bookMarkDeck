@@ -13,7 +13,7 @@
 import { dayKeyFor } from "@/lib/dayKey";
 import { toPlainText } from "@/features/notes/lib/markdown";
 import { normalizeNote, sortNotes, type Note } from "@/features/notes/lib/notes";
-import { normalizeVault, type VaultRecord } from "@/features/notes/lib/vault";
+import { normalizeVault, type VaultRecord } from "@/lib/vault/vault";
 
 const APP = "bookmarkdeck-notes";
 const VERSION = 1;

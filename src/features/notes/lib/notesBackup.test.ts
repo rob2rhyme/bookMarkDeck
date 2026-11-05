@@ -10,7 +10,7 @@ import {
   toMarkdownExport,
   vaultsToAdd,
 } from "./notesBackup";
-import type { VaultRecord } from "./vault";
+import type { VaultRecord } from "@/lib/vault/vault";
 
 const note = (id: string, over: Partial<Note> = {}): Note => ({
   id,

@@ -86,13 +86,16 @@ export function documentsToCsv(
         (partyId && partyById.get(partyId)?.name) || "",
         d.docDate ?? "",
         d.filedAt ?? "",
-        d.reference ?? "",
+        // A locked paper's reference and note are not in the spreadsheet: the file would
+        // carry in the clear what the lock keeps out of the database. The JSON backup
+        // holds them sealed.
+        d.lock ? "(locked)" : d.reference ?? "",
         rule?.label ?? "",
         destroyOnFor(d, folder) ?? "",
         d.nextDueOn ?? "",
         d.bookmarkLink?.url ?? "",
         (d.tags ?? []).join(" "),
-        d.note ?? "",
+        d.lock ? "" : d.note ?? "",
       ];
     });
 

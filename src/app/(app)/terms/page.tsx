@@ -64,7 +64,7 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold text-slate-50">Sensitive information</h2>
           <p>
             Do not store highly sensitive credentials (passwords, PINs, payment card data, government IDs)
-            in Bookmark Deck content fields. Locked notes are end-to-end encrypted, but a forgotten
+            in Bookmark Deck content fields. Locked notes and locked Filing papers are end-to-end encrypted, but a forgotten
             passphrase and a lost recovery code mean their text cannot be recovered by anyone — keep your
             recovery code somewhere safe.
           </p>

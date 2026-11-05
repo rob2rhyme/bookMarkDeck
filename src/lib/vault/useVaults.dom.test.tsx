@@ -1,15 +1,15 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/features/notes/data/notesData", () => ({
+vi.mock("@/lib/vault/vaultData", () => ({
   fetchVaults: vi.fn(async () => []),
   saveVault: vi.fn(async () => {}),
   subscribeVaults: vi.fn(() => () => {}),
 }));
 
-import { fetchVaults, saveVault, subscribeVaults } from "@/features/notes/data/notesData";
-import { createVault, vaultIterationLimits, type VaultRecord } from "@/features/notes/lib/vault";
-import { isUnlocked, resetVaultSessionForTests } from "@/features/notes/lib/vaultSession";
+import { fetchVaults, saveVault, subscribeVaults } from "@/lib/vault/vaultData";
+import { createVault, vaultIterationLimits, type VaultRecord } from "@/lib/vault/vault";
+import { isUnlocked, resetVaultSessionForTests } from "@/lib/vault/vaultSession";
 import { syncedIds } from "@/utils/syncedIds";
 import { useVaults } from "./useVaults";
 

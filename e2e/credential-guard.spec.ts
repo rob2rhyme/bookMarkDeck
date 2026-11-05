@@ -72,11 +72,11 @@ test("a paper's reference refuses a card number but takes a policy number", asyn
   await dialog.getByLabel("Title").fill("Car insurance");
   await dialog.getByText("Add details", { exact: false }).click();
 
-  await dialog.getByLabel("Reference").fill("4111 1111 1111 1111");
+  await dialog.getByRole("textbox", { name: "Reference", exact: true }).fill("4111 1111 1111 1111");
   await expect(dialog.getByRole("alert")).toContainText("looks like a card number");
   await expect(dialog.locator('button[type="submit"]')).toBeDisabled();
 
-  await dialog.getByLabel("Reference").fill("Policy 4829104772");
+  await dialog.getByRole("textbox", { name: "Reference", exact: true }).fill("Policy 4829104772");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   await expect(dialog.locator('button[type="submit"]')).toBeEnabled();
 });

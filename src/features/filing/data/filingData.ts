@@ -30,6 +30,8 @@ import {
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { onConfirmedSnapshot, type SnapshotMeta } from "@/lib/firestoreSnapshot";
+import { normalizeLock } from "@/lib/vault/vault";
+import { withLockInvariant } from "@/features/filing/lib/lock";
 import {
   DOC_TYPES,
   OBLIGATION_KINDS,
@@ -333,10 +335,13 @@ function mapBookmarkLink(raw: unknown): FilingDocument["bookmarkLink"] {
   return { id: str(b.id), title: str(b.title), url };
 }
 
-function mapDocument(d: { id: string; data: () => Record<string, unknown> }): FilingDocument {
+export function mapDocument(d: { id: string; data: () => Record<string, unknown> }): FilingDocument {
   const data = d.data();
   const docType = data.docType;
-  return prune({
+  // A locked paper's reference and note are read as absent whatever the document
+  // holds: the sealed copy is the only one that counts, and a stray plaintext field
+  // (an old backup restored over it, a hand edit) must not surface as if it were real.
+  return withLockInvariant(prune({
     id: d.id,
     title: str(data.title),
     folderId: strOrNull(data.folderId),
@@ -347,6 +352,7 @@ function mapDocument(d: { id: string; data: () => Record<string, unknown> }): Fi
     isOriginal: boolOrUndef(data.isOriginal),
     copies: numOrUndef(data.copies),
     confidential: boolOrUndef(data.confidential),
+    lock: normalizeLock(data.lock) ?? undefined,
     retentionRuleId: strOrNull(data.retentionRuleId),
     overrideDestroyOn: strOrNull(data.overrideDestroyOn),
     obligations: Array.isArray(data.obligations)
@@ -365,10 +371,16 @@ function mapDocument(d: { id: string; data: () => Record<string, unknown> }): Fi
     archived: boolOrUndef(data.archived),
     createdAt: timestampToIso(data.createdAt),
     updatedAt: timestampToIso(data.updatedAt),
-  });
+  }));
 }
 
-function documentPayload(d: FilingDocument) {
+export function documentPayload(d: FilingDocument) {
+  // The plaintext of a locked paper must never leave the device. The hook strips it
+  // before it gets here; this refuses if anything ever hands it over regardless —
+  // the same line Notes' toFirestore holds for a locked note's body.
+  if (d.lock && (d.reference || d.note)) {
+    throw new Error(`[filing] refusing to write plaintext of locked document ${d.id}`);
+  }
   return prune({
     title: d.title,
     folderId: d.folderId ?? null,
@@ -378,7 +390,8 @@ function documentPayload(d: FilingDocument) {
     filedAt: d.filedAt,
     isOriginal: d.isOriginal ?? false,
     copies: d.copies,
-    confidential: d.confidential ?? false,
+    confidential: Boolean(d.lock),
+    lock: d.lock ?? null,
     retentionRuleId: d.retentionRuleId ?? null,
     overrideDestroyOn: d.overrideDestroyOn ?? null,
     obligations: (d.obligations ?? []).map((o) => prune({ ...o })),

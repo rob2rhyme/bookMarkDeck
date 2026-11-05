@@ -22,6 +22,8 @@ vi.mock("@/lib/firebase", () => ({
 
 import { onSnapshot, setDoc } from "firebase/firestore";
 import {
+  documentPayload,
+  mapDocument,
   saveDocument,
   subscribeDocuments,
   subscribeFolders,
@@ -117,5 +119,47 @@ describe.each([
     feed(snap(true)); // a later offline blip
     feed(snap(false, true)); // this page's own unacknowledged write
     expect(cb).toHaveBeenCalledTimes(3);
+  });
+});
+
+
+// A locked paper's reference and note live only as a sealed blob. The data layer is
+// the last line: reads ignore plaintext beside a lock, and a write refuses it.
+describe("a locked paper", () => {
+  const LOCK = { kid: "v1", iv: "aXY=", ct: "Y3Q=" };
+
+  it("round-trips the lock and writes confidential to match it", () => {
+    const payload = documentPayload({ ...DOC, lock: LOCK });
+    expect(payload).toMatchObject({ lock: LOCK, confidential: true });
+    expect(payload).not.toHaveProperty("reference");
+    const back = mapDocument({ id: "d1", data: () => ({ ...payload, createdAt: null }) as Record<string, unknown> });
+    expect(back).toMatchObject({ lock: LOCK, confidential: true });
+  });
+
+  it("writes lock: null for an ordinary paper, so a removed lock leaves the cloud copy", () => {
+    expect(documentPayload({ ...DOC, reference: "POL-1" })).toMatchObject({ lock: null, confidential: false, reference: "POL-1" });
+  });
+
+  it("refuses to write plaintext beside a lock — before touching Firestore", async () => {
+    expect(() => documentPayload({ ...DOC, lock: LOCK, reference: "POL-1" })).toThrow(/plaintext/);
+    expect(() => documentPayload({ ...DOC, lock: LOCK, note: "secret" })).toThrow(/plaintext/);
+    await expect(saveDocument("a@example.com", { ...DOC, lock: LOCK, note: "secret" })).rejects.toThrow(/plaintext/);
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it("reads a stray plaintext field on a locked document as absent", () => {
+    const read = mapDocument({
+      id: "d1",
+      data: () => ({ title: "Policy", lock: LOCK, reference: "POL-1", note: "leaked?" }),
+    });
+    expect(read.lock).toEqual(LOCK);
+    expect(read.reference).toBeUndefined();
+    expect(read.note).toBeUndefined();
+  });
+
+  it("drops a malformed lock rather than half-locking: the paper reads as ordinary", () => {
+    const read = mapDocument({ id: "d1", data: () => ({ title: "Policy", lock: { kid: "v" }, reference: "POL-1" }) });
+    expect(read.lock).toBeUndefined();
+    expect(read.reference).toBe("POL-1");
   });
 });

@@ -27,7 +27,7 @@ vi.mock("@/lib/firebase", () => ({
 }));
 
 import { collection, onSnapshot, setDoc } from "firebase/firestore";
-import { mapNote, saveNote, subscribeDeletions, subscribeNotes, subscribeVaults, toFirestore } from "./notesData";
+import { mapNote, saveNote, subscribeDeletions, subscribeNotes, toFirestore } from "./notesData";
 import type { Note } from "@/features/notes/lib/notes";
 
 const NOTE: Note = {
@@ -132,10 +132,7 @@ async function attach(subscribe: (email: string, cb: (v: unknown[]) => void) => 
   return { cb, options: call[1], feed: call[2] };
 }
 
-describe.each([
-  ["subscribeNotes", subscribeNotes],
-  ["subscribeVaults", subscribeVaults],
-] as const)("%s — cache-only guard", (_name, subscribe) => {
+describe.each([["subscribeNotes", subscribeNotes]] as const)("%s — cache-only guard", (_name, subscribe) => {
   beforeEach(() => vi.mocked(onSnapshot).mockClear().mockReturnValue(() => {}));
 
   it("holds a cache-only first snapshot back until the server has answered", async () => {

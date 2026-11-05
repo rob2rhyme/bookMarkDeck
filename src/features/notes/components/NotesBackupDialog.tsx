@@ -15,7 +15,7 @@ import {
   vaultsToAdd,
   type ImportPlan,
 } from "@/features/notes/lib/notesBackup";
-import type { VaultRecord } from "@/features/notes/lib/vault";
+import type { VaultRecord } from "@/lib/vault/vault";
 
 const BTN =
   "rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-300 disabled:opacity-50";

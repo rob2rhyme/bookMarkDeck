@@ -240,8 +240,8 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   right length *and* the Luhn checksum; an **SSN** needs the 3-2-4 shape with a valid area, or
   a label. A field left as it was stored is skipped (`firstCredential`'s `was`), so a record
   that predates the check stays editable. Not covered: import, restore and sync write
-  whatever they carry, and Filing/inventory encrypt nothing (Notes' locked notes are the one
-  place the operator cannot read). `SECURITY-LAUNCH-PLAN.md` §2 is the plan for that.
+  whatever they carry, and inventory encrypts nothing (locked notes and locked Filing papers
+  are the places the operator cannot read). `SECURITY-LAUNCH-PLAN.md` §2 is the plan.
 - **The folder tree travels with every backup.** Restore used to put back only the
   bookmarks, which then pointed at folders that no longer existed — hidden from the
   grid *and* Unstaged until a reload — and "Download backup" left folders out of the
@@ -1310,6 +1310,32 @@ Other invariants:
   `src/lib/storageKeys.test.ts` pins that set, along with the nine other keys
   hardcoded in more than one file — bump one copy and the reader silently reads
   nothing, which no other check can see.
+- **A paper's reference and note can be LOCKED — end-to-end encrypted with the Notes vault**
+  (`lib/lock.ts`, `FilingDocument.lock`, `DocumentFormModal`'s "Lock reference and note").
+  Per paper, opt-in, like a locked note, and for the same reason (forgetting the passphrase
+  costs only what was locked). The two fields are sealed as one JSON blob with AES-GCM under
+  context `filing` and the paper's id as additional data, so a paper's seal won't open as a
+  note or as another paper (`sealText`/`openText` in `@/lib/vault/vault`; Notes still seals
+  under `note`, byte for byte). **The invariant:** a locked paper has NO plaintext `reference`
+  or `note` in state, cache or Firestore, and `confidential` equals `Boolean(lock)`. It is held
+  three times: `withLockInvariant` runs inside `withDerived`, which every write and snapshot
+  passes; `mapDocument` reads a stray plaintext field beside a lock as absent (an old backup
+  restored over a locked paper cannot resurface it); and `documentPayload` **throws** on a
+  locked paper that still carries one. What stays readable is what lists, search, reminders,
+  the badge and the shred queue run on — title, dates, folder, tags, aliases, obligations,
+  activity — and the form says so before anything is locked. **Scans are not encrypted**
+  (plan §2.2). Locked text is not searchable and the CSV shows `(locked)` for the reference
+  and nothing for the note; the JSON backup carries the seal. The decrypted text exists only
+  in the open form's memory, and only while the vault is open: the vault locking again (idle
+  timeout) puts the fields back to locked and an unsaved edit to them is not written
+  (`secretsOpen`; Notes saves pending typing first via `onBeforeLock`, this does not).
+  **What a submit writes** is decided by pure `planWrite` (new/edit × plain/locked × vault
+  open/closed — a locked paper with the vault closed can still rename and move, and its seal
+  is never touched). A new locked paper's id is generated before sealing, because the seal is
+  bound to it. The slim cache keeps `confidential` so the list can show a lock beside a
+  paper whose sealed blob has not loaded. Not covered: folder, place and party notes, an
+  activity entry's note and an obligation's label stay readable (plan §2.1 names Party.note;
+  not done), and the PIN/biometric hiding of `confidential` papers (§2.3) is not built.
 - **Import merges by id and NEVER deletes** (`lib/exportFiling.ts`), so
   restoring a stale backup can't remove what's been filed since. Each hook's
   `importMany` also writes through to Firestore, or an import would be stranded
@@ -1412,7 +1438,7 @@ feature; nothing imports it — removable cleanly in both directions.
   focus elsewhere — and ⌘/Ctrl+Enter toggles a checkbox. Edits are applied through
   `execCommand("insertText")` so they stay on the native undo stack (setting `value`
   wipes it); `e2e/authed.spec.ts` pins ⌘Z in a real browser.
-- **Clipboard** (`lib/clipboard.ts`): `@capacitor/clipboard` when
+- **Clipboard** (`@/lib/clipboard`, shared since the vault forms need it): `@capacitor/clipboard` when
   `Capacitor.isNativePlatform()`, falling back to `navigator.clipboard` on **any**
   native failure — the shell loads the live site, so a deploy reaches devices before a
   rebuilt app carries the plugin (see `CAPACITOR_IOS.md` §1).
@@ -1434,8 +1460,10 @@ feature; nothing imports it — removable cleanly in both directions.
   The formatting toolbar and ⌘B/⌘I/⌘⇧X go through the same `TextEdit` +
   `execCommand` path as the list smarts, so ⌘Z undoes them. No ⌘K for links — that
   is the app-wide command palette.
-- **Locked notes are end-to-end encrypted, per note, opt-in** (`lib/vault.ts`,
-  `lib/vaultSession.ts`, `hooks/useVaults.ts`). Owner decision: lock *selected* notes
+- **Locked notes are end-to-end encrypted, per note, opt-in** (`@/lib/vault/vault`,
+  `@/lib/vault/vaultSession`, `@/lib/vault/useVaults` — **shared with Filing**, see there:
+  one vault, one passphrase, one unlock for both; the records stay under
+  `users/{uid}/notesVaults`, a name that predates the sharing). Owner decision: lock *selected* notes
   with one notes passphrase, not the whole pillar — forgetting it costs only what was
   locked. **Envelope design:** one random AES-256-GCM data key per vault encrypts note
   bodies; the vault record (`users/{uid}/notesVaults/{id}`) stores that key only
