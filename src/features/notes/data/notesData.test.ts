@@ -27,7 +27,8 @@ vi.mock("@/lib/firebase", () => ({
 }));
 
 import { collection, onSnapshot, setDoc } from "firebase/firestore";
-import { mapNote, saveNote, subscribeDeletions, subscribeNotes, toFirestore } from "./notesData";
+import { mapNote, noteTooLarge, saveNote, subscribeDeletions, subscribeNotes, toFirestore } from "./notesData";
+import { DocTooLargeError } from "@/lib/docSize";
 import type { Note } from "@/features/notes/lib/notes";
 
 const NOTE: Note = {
@@ -182,5 +183,31 @@ describe("subscribeDeletions — cache-only guard", () => {
     feed(logSnap(true, [entry]));
     expect(cb).toHaveBeenCalledTimes(2);
     expect(cb).toHaveBeenLastCalledWith([entry]);
+  });
+});
+
+// A locked note stores its body sealed, as base64 — a third larger. The editor's
+// 300k-character cap always fits plaintext, but not that, so a long locked note
+// was accepted on the device and refused by the server, and the edit lost.
+describe("notes over Firestore's limit", () => {
+  const cjk = (n: number) => "日".repeat(n); // 3 bytes of UTF-8 each
+  const LOCK = { kid: "v1", iv: "i", ct: "c" };
+
+  it("fits 280k characters as plaintext but not sealed", () => {
+    expect(noteTooLarge(NOTE, cjk(280_000), false)).toBeNull();
+    expect(noteTooLarge({ ...NOTE, lock: LOCK }, cjk(280_000), true)).toMatch(
+      /^This note is 1\.\d\d MB, and one saved record holds up to 1 MB\. A locked note is stored encrypted/
+    );
+  });
+
+  it("measures a note about to be locked as sealed, before it has a lock", () => {
+    expect(noteTooLarge(NOTE, cjk(280_000), true)).not.toBeNull();
+    expect(noteTooLarge(NOTE, "short", true)).toBeNull();
+  });
+
+  it("saveNote refuses an oversized note without sending it", async () => {
+    vi.mocked(setDoc).mockClear();
+    await expect(saveNote("me@example.com", { ...NOTE, body: "x".repeat(1_100_000) })).rejects.toBeInstanceOf(DocTooLargeError);
+    expect(setDoc).not.toHaveBeenCalled();
   });
 });

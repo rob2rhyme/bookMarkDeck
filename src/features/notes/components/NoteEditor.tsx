@@ -29,6 +29,7 @@ import { copyText } from "@/lib/clipboard";
 import { parseMarkdown, toggleTaskLine } from "@/features/notes/lib/markdown";
 import { tagCounts } from "@/features/notes/lib/tags";
 import { countWords, editedAgo, isBlank, MAX_NOTE_CHARS, type Note } from "@/features/notes/lib/notes";
+import { noteTooLarge } from "@/features/notes/data/notesData";
 import {
   continueList,
   cycleHeading,
@@ -116,7 +117,15 @@ export function NoteEditorScreen({ id }: { id: string }) {
     const n = noteRef.current;
     const kid = vault.primaryKid();
     if (!n || !kid) return;
-    encryptAndStore(n, kid, getDraft()).then(
+    const draft = getDraft();
+    // Sealed, the body takes about a third more room: a long note that fits as
+    // plaintext can be refused once locked — say so rather than lose the edit.
+    const tooBig = noteTooLarge(n, draft.body, true);
+    if (tooBig) {
+      toast(tooBig, { variant: "error" });
+      return;
+    }
+    encryptAndStore(n, kid, draft).then(
       () => toast("Note locked", { variant: "success", duration: 2000 }),
       () => toast("Couldn't lock the note.", { variant: "error" })
     );
@@ -484,8 +493,16 @@ function NoteEditor({
   }, [saveNow, router, confirming, view]);
 
   const onBodyChange = (value: string) => {
-    if (value.length > MAX_NOTE_CHARS) {
-      toast("This note has reached its size limit.", { variant: "error" });
+    // Under 100k characters even a locked note fits (≤3 bytes a unit, sealed in
+    // base64), so the byte count only runs on long notes.
+    const tooBig =
+      value.length > MAX_NOTE_CHARS
+        ? "This note has reached its size limit."
+        : value.length > 100_000
+          ? noteTooLarge(note, value, Boolean(note.lock))
+          : null;
+    if (tooBig) {
+      toast(tooBig, { variant: "error" });
       return;
     }
     setBody(value);

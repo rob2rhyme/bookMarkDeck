@@ -355,6 +355,28 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   while the connect in the same commit replayed from it — pushing default Focus
   settings over a queued change, and un-queuing records it couldn't find. Habits
   and Focus also leave a queued id the replay can't find (`keepUnsent`).
+- **A record Firestore would refuse for size is refused here first, with a reason**
+  (`@/lib/docSize`). Firestore caps a document at 1 MiB and enforces it on the *server*:
+  the device accepted the write, the server refused it (`invalid-argument`), the queue
+  dropped it as final, and the next snapshot put the old copy back — the edit vanished
+  without a word. `docBytes` counts a document Firestore's documented way (pinned to the
+  docs' 147-byte worked example), with nested maps given a document's 32-byte overhead —
+  the docs are ambiguous there and the emulator doesn't apply the document limit at all
+  (it caps one field value at 1,048,487 bytes, whatever the shape), so this errs high:
+  refusing early costs a message, guessing low costs the edit. Where it bites:
+  **an item** (`itemTooLarge` — the form stays open with the reason, and the hook refuses
+  `upsertItem`/`patch`/`setArchived`/`releaseItem` before applying, telling the page
+  through `onRefused`; checked outside the state updater, which runs during render),
+  **a note** (`noteTooLarge` — a locked body is stored as base64 ciphertext, a third
+  larger, so the 300k-character cap that always fits plaintext doesn't fit sealed; checked
+  on typing past 100k characters and before locking), and **the bookmark library**
+  (`saveBookmarks` checks the account document — merged with the shortcuts it holds — and
+  the backup copy before writing either). The writers themselves (`saveItem`,
+  `saveItemDoc`, `saveNote`, `saveBookmarks`) throw `DocTooLargeError` before sending, as
+  a backstop: its code isn't one the queue treats as final, so a refused record stays
+  queued on the device rather than dropped. Not covered: Filing papers and folders, whose
+  arrays are capped or small; and the bookmark library is still **one document** — past
+  1 MiB it can't sync at all until it is split across documents, which is a schema change.
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 
@@ -1566,8 +1588,9 @@ feature; nothing imports it — removable cleanly in both directions.
 - Keys: `N` new note, `/` search, ⌘E Edit/Preview, Esc clears search or leaves the editor. An input that
   handles Esc itself `preventDefault`s it, and the editor's window handler skips a
   prevented Esc — that is how the tag box clears without closing the note.
-- Size cap: `MAX_NOTE_CHARS` (300k UTF-16 units ≤ 900 KB UTF-8) keeps a note inside
-  Firestore's 1 MiB document limit.
+- Size cap: `MAX_NOTE_CHARS` (300k UTF-16 units ≤ 900 KB UTF-8) keeps a plaintext note
+  inside Firestore's 1 MiB document limit; a locked note is measured in bytes as sealed
+  (`noteTooLarge`), since its base64 ciphertext is a third larger.
 - **⌘K finds notes without importing the feature.** `@/lib/notesIndex` owns the notes
   cache key (`useNotes` imports it, so the two can't drift) and gives the palette a
   read-only summary of **the signed-in account's** cache only; a locked note is listed by

@@ -129,10 +129,11 @@ writes dropped.
 
 ## Found on the way (not rules, worth fixing)
 
-- **Oversized documents fail the same silent way.** An item with eight data-URL photos
-  (up to 700 KB) plus 300 activity entries can near 1 MiB; Firestore refuses it with
-  `invalid-argument`, and `durableSave` drops the edit. Notes' 300k-character cap is
-  checked in the editor, not in `toFirestore`.
+- ~~**Oversized documents fail the same silent way.**~~ *(fixed: `@/lib/docSize`; see
+  CLAUDE.md.)* The realistic paths were an item whose notes push it past the limit, a long
+  locked note (base64 ciphertext is a third larger than the 300k-character cap allows
+  for), and a bookmark library past 1 MiB. The item form's own 700 KB photo budget turned
+  out to fit beside a full 300-entry history.
 - `appendDeletion` writes the full title; the 200-character trim happens only in
   `saveDeletions`.
 - The root `users/{uid}` doc's `version` is written as `2` by bookmarks and `1` by

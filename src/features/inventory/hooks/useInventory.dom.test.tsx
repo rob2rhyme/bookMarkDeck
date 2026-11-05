@@ -6,6 +6,9 @@ vi.mock("@/features/inventory/data/inventoryData", () => ({
   fetchItems: vi.fn(async () => []),
   saveItem: vi.fn(async () => {}),
   subscribeItems: vi.fn(() => () => {}),
+  itemDocBytes: vi.fn(() => 0),
+  ITEM_WHAT: "This item",
+  ITEM_FIX: "Remove a photo.",
   deleteLocation: vi.fn(async () => {}),
   fetchLocations: vi.fn(async () => []),
   saveLocation: vi.fn(async () => {}),
@@ -19,6 +22,7 @@ vi.mock("@/features/inventory/data/inventoryData", () => ({
 import {
   deleteItem,
   fetchItems,
+  itemDocBytes,
   fetchLocations,
   fetchWishlist,
   saveItem,
@@ -288,5 +292,46 @@ describe("signed in, offline, tab closed", () => {
       vi.mocked(subscribeWishlist)
     );
     expect(vi.mocked(saveWishlist).mock.calls.map(([, w]) => w.name)).toEqual(["Cordless drill"]);
+  });
+});
+
+// Firestore refuses a document over 1 MiB on the server; the queue then drops the
+// write and the next snapshot puts the old copy back. So the hook refuses first.
+describe("useInventory — an item too large to save", () => {
+  const huge = (id: string) => vi.mocked(itemDocBytes).mockImplementation((i) => (i.id === id ? 2_000_000 : 0));
+
+  it("refuses the change, keeps the item as it was, and says why", async () => {
+    localStorage.setItem(KEY, JSON.stringify([item("I1")]));
+    const refused = vi.fn();
+    const { result } = renderHook(() => useInventory(EMAIL, false, refused));
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    huge("I1");
+    let applied: boolean | undefined;
+    act(() => {
+      applied = result.current.upsertItem({ ...item("I1"), name: "renamed" });
+    });
+    act(() => result.current.markUsed("I1"));
+    act(() => result.current.setArchived("I1", true));
+    expect(applied).toBe(false);
+    const [kept] = result.current.items;
+    expect(kept).toMatchObject({ id: "I1", name: "I1" });
+    expect(kept.archived).toBeFalsy();
+    expect(kept.activity).toBeUndefined();
+    expect(refused).toHaveBeenCalledTimes(3);
+    expect(refused.mock.calls[0][0]).toMatch(/^This item is 1\.\d\d MB, and one saved record holds up to 1 MB\. Remove a photo\.$/);
+    expect(pendingUpsertIds("inventoryItems", EMAIL).size).toBe(0);
+    vi.mocked(itemDocBytes).mockImplementation(() => 0);
+  });
+
+  it("applies a change that fits", async () => {
+    vi.mocked(itemDocBytes).mockImplementation(() => 0);
+    const refused = vi.fn();
+    const { result } = renderHook(() => useInventory(EMAIL, false, refused));
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    act(() => {
+      result.current.upsertItem(item("I2"));
+    });
+    expect(result.current.items.map((i) => i.id)).toEqual(["I2"]);
+    expect(refused).not.toHaveBeenCalled();
   });
 });

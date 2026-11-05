@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
+import { assertDocFits } from "@/lib/docSize";
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
@@ -232,12 +233,35 @@ export async function saveBookmarks(
   const sanitizedFolders = folders
     .map(sanitizeFolder)
     .filter((folder) => Boolean(folder.name));
-  await createBackupSnapshot(user.uid, sanitizedBookmarks, sanitizedFolders, shortcuts);
   const payload = {
     bookmarks: sanitizedBookmarks,
     folders: sanitizedFolders,
     updatedAt: serverTimestamp(),
     version: 2,
   };
+  // Both copies must fit before either is written: the library is one document
+  // (merged with the shortcuts it already holds) and so is each backup of it.
+  // Over the limit, Firestore would refuse it after a backup had been taken.
+  const sanitizedShortcuts = shortcuts?.map(sanitizeShortcut) ?? [];
+  const fix =
+    "Nothing was uploaded; everything stays on this device. Notes, highlights and tags take room too — trimming those, or removing bookmarks you no longer need, brings it under.";
+  assertDocFits(
+    ["users", user.uid],
+    sanitizeForFirestore({ ...payload, shortcuts: sanitizedShortcuts, shortcutsUpdatedAt: serverTimestamp() }),
+    "Your bookmark library",
+    fix
+  );
+  assertDocFits(
+    ["users", user.uid, "bookmarkBackups", "x".repeat(20)],
+    sanitizeForFirestore({
+      bookmarks: sanitizedBookmarks,
+      folders: sanitizedFolders,
+      shortcuts: sanitizedShortcuts,
+      createdAt: Timestamp.fromDate(new Date()),
+    }),
+    "Your bookmark library",
+    fix
+  );
+  await createBackupSnapshot(user.uid, sanitizedBookmarks, sanitizedFolders, shortcuts);
   await setDoc(userDocRef(user.uid), sanitizeForFirestore(payload), { merge: true });
 }

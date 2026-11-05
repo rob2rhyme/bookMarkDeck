@@ -122,9 +122,9 @@ export function InventoryDashboard() {
   const { connected, connecting, error, connect } = useInventorySync(email);
 
   const { settings, update } = useInventorySettings(email, connected);
-  const inv = useInventory(email, connected);
-  const loc = useInventoryLocations(email, connected);
   const { toast } = useToast();
+  const inv = useInventory(email, connected, (message) => toast(message, { variant: "error" }));
+  const loc = useInventoryLocations(email, connected);
   const bookmarkLibrary = useBookmarkLibrary(email);
   const wishlist = useWishlist(email, connected);
   const focusProjects = useFocusProjects(email);
