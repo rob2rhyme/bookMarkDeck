@@ -227,6 +227,48 @@ export async function openText(key: CryptoKey, context: string, id: string, seal
   return dec.decode(pt);
 }
 
+/** Bytes of IV at the front of a sealed binary blob. */
+const IV_BYTES = 12;
+
+/**
+ * Seal a file's bytes. The result is ONE self-contained blob — `iv ‖ ciphertext+tag` —
+ * so an uploaded object needs nothing beside it to be opened except the key and the
+ * (context, id) it was sealed under. Which vault's key it was sealed with is recorded
+ * by the caller, as `kid` is for text.
+ */
+export async function sealBytes(
+  key: CryptoKey,
+  context: string,
+  id: string,
+  data: ArrayBuffer
+): Promise<Uint8Array<ArrayBuffer>> {
+  const iv = random(IV_BYTES);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad(context, id) }, key, data));
+  const out = new Uint8Array(IV_BYTES + ct.length);
+  out.set(iv, 0);
+  out.set(ct, IV_BYTES);
+  return out;
+}
+
+/** The inverse of `sealBytes`; throws if the key, context, id or bytes are not the ones it was sealed with. */
+export async function openBytes(
+  key: CryptoKey,
+  context: string,
+  id: string,
+  sealed: ArrayBuffer
+): Promise<ArrayBuffer> {
+  if (sealed.byteLength <= IV_BYTES) throw new Error("sealed blob is too short");
+  const bytes = new Uint8Array(sealed);
+  return crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: bytes.slice(0, IV_BYTES), additionalData: aad(context, id) },
+    key,
+    bytes.slice(IV_BYTES)
+  );
+}
+
+/** What sealing adds to a file's size: the IV and GCM's 16-byte tag. */
+export const SEAL_OVERHEAD = IV_BYTES + 16;
+
 /* ----------------------------------------------------------------- notes --- */
 
 // "note" is the context Notes has always sealed under; changing it would strand

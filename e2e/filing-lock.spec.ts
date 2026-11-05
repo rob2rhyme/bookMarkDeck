@@ -56,7 +56,7 @@ test("a locked paper's reference and note never reach the device cache, and open
   const vault = page.getByRole("dialog", { name: /passphrase|recovery code/i });
   await expect(vault).toBeVisible();
   await expect(vault.getByRole("heading", { name: "Set a passphrase for locked papers" })).toBeVisible();
-  await expect(vault).toContainText("Scans are not encrypted");
+  await expect(vault).toContainText("Scans you add are encrypted with it too");
   await vault.getByLabel("Passphrase", { exact: true }).fill(PASS);
   await vault.getByLabel("Confirm passphrase").fill(PASS);
   await vault.getByRole("button", { name: "Create passphrase" }).click();

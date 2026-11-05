@@ -883,10 +883,18 @@ export default function GuidePage() {
               stored in your account, so this needs sync on, and the button only
               appears when file storage is set up on your deployment.
             </p>
-            <p className="text-slate-400">
-              Treat a scan as a convenience, not a vault: it&apos;s stored at an
-              unguessable address rather than behind a password, so keep genuinely
-              sensitive originals as paper.
+            <p>
+              Scans are <strong>encrypted on your device</strong> before they&apos;re
+              uploaded, with the same passphrase as locked notes — the first scan
+              sets one up, and gives you a recovery code. The file name is sealed
+              too. To open one you unlock, and it&apos;s decrypted here: a photo
+              shows in place, a PDF is offered as a download. Lose the passphrase
+              and the recovery code and the scan is gone, which is why it&apos;s a
+              convenience, not a vault: keep the paper. You can untick{" "}
+              <strong>Encrypt scans I add</strong> to store one as it is, and a
+              scan stored that way has an <strong>Encrypt</strong> button. Nothing
+              is opened from a public address: a scan is fetched through a link
+              that works for two minutes and only for you.
             </p>
           </Sub>
 
@@ -922,8 +930,8 @@ export default function GuidePage() {
               (you&apos;ll set one the first time, and get a recovery code).{" "}
               <em>Title, dates, folder, tags and reminders stay readable</em> so
               you can still find the paper and get reminded; locked text isn&apos;t
-              searchable and stays out of the CSV export. <em>Scans are not
-              encrypted.</em> Lose the passphrase and the recovery code and the
+              searchable and stays out of the CSV export. <em>Scans are
+              encrypted separately, when you add them.</em> Lose the passphrase and the recovery code and the
               locked text is gone for good. If you need to write down something
               secret, a password manager is still the right place.
             </p>

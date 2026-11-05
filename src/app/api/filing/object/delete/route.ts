@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { createHash } from "node:crypto";
 
+import { filingStorage } from "@/features/filing/lib/filingStorage";
 import { isOwnedFilingPath, presignR2Put } from "@/features/filing/lib/r2";
 
 export const runtime = "nodejs";
@@ -22,11 +23,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ enabled: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const bucket = process.env.R2_BUCKET;
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+  const storage = filingStorage();
+  if (!storage) {
     return NextResponse.json({ enabled: false });
   }
 
@@ -52,11 +50,8 @@ export async function POST(req: NextRequest) {
   await Promise.all(
     paths.map(async (key) => {
       const url = presignR2Put({
-        accountId,
-        bucket,
+        ...storage,
         key,
-        accessKeyId,
-        secretAccessKey,
         now: new Date(),
         expiresSeconds: 60,
         method: "DELETE",

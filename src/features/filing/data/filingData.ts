@@ -452,16 +452,25 @@ export async function saveSettings(
 
 /* -------------------------------------------------------- attachments --- */
 
-function mapAttachment(d: {
+/** `{ kid, name: {kid, iv, ct} }` or null — anything half-formed reads as NOT sealed, never as sealed. */
+function mapEnc(raw: unknown): FilingAttachment["enc"] {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const name = normalizeLock(r.name);
+  return typeof r.kid === "string" && r.kid && name ? { kid: r.kid, name } : null;
+}
+
+export function mapAttachment(d: {
   id: string;
   data: () => Record<string, unknown>;
 }): FilingAttachment | null {
   const data = d.data();
   const path = str(data.path);
-  const url = str(data.url);
   // A pointer with no object behind it is worse than no pointer — it renders as
-  // a broken link the user can't act on. Drop it.
-  if (!path || !url) return null;
+  // a broken link the user can't act on. Drop it. (`url` is legacy and no longer
+  // required: a scan is read through a signed URL built from `path`.)
+  if (!path) return null;
+  const url = str(data.url);
   return {
     id: d.id,
     documentId: str(data.documentId),
@@ -469,7 +478,8 @@ function mapAttachment(d: {
     contentType: str(data.contentType),
     size: typeof data.size === "number" ? data.size : 0,
     path,
-    url,
+    ...(url ? { url } : {}),
+    enc: mapEnc(data.enc),
     addedAt: timestampToIso(data.addedAt),
   };
 }
@@ -500,6 +510,9 @@ export async function saveAttachment(
       size: attachment.size,
       path: attachment.path,
       url: attachment.url,
+      // null, not omitted: the write merges nothing (setDoc replaces), so this is
+      // what makes "no longer sealed" — or never sealed — explicit on the record.
+      enc: attachment.enc ?? null,
       addedAt: attachment.addedAt ?? serverTimestamp(),
     })
   );

@@ -1323,8 +1323,8 @@ Other invariants:
   restored over a locked paper cannot resurface it); and `documentPayload` **throws** on a
   locked paper that still carries one. What stays readable is what lists, search, reminders,
   the badge and the shred queue run on — title, dates, folder, tags, aliases, obligations,
-  activity — and the form says so before anything is locked. **Scans are not encrypted**
-  (plan §2.2). Locked text is not searchable and the CSV shows `(locked)` for the reference
+  activity — and the form says so before anything is locked. **Scans are encrypted
+  separately, when they are added** (below), not by locking the paper. Locked text is not searchable and the CSV shows `(locked)` for the reference
   and nothing for the note; the JSON backup carries the seal. The decrypted text exists only
   in the open form's memory, and only while the vault is open: the vault locking again (idle
   timeout) puts the fields back to locked and an unsaved edit to them is not written
@@ -1363,6 +1363,42 @@ Other invariants:
   - The whole surface **hides itself** when the R2 env vars are absent, rather
     than offering a button that can't work (`attachmentsEnabled()` probes the
     presign route once).
+  - **A scan is ENCRYPTED on the device before upload, by default, and is READ through
+    a two-minute signed URL — never a public address** (`lib/scanCrypto.ts`,
+    `AttachmentsModal`, `POST /api/filing/attachment/read`). The object is one blob,
+    `iv ‖ AES-GCM`, sealed with the account's vault (the one Notes and locked papers use)
+    under context `filing-scan` and the ATTACHMENT's id as additional data, so a sealed
+    scan swapped onto another pointer won't open. It is stored and its type *signed* as
+    `application/octet-stream` under a `.bin` key — the storage layer never holds a type it
+    could serve it as — while the pointer keeps the ORIGINAL `contentType`, which the route
+    still checks against the allow-list (SVG/HTML stay refused even sealed) and which
+    `openScan` checks again before typing the decrypted bytes (anything else becomes
+    octet-stream, so a tampered pointer can't turn them into a page). The pointer's
+    `enc: { kid, name }` names the vault and carries the FILE NAME sealed too (the pointer's
+    own `name` is the stand-in `Locked scan`) — "Jane Doe SSN card.pdf" is itself sensitive.
+    Type and size stay readable. **Opening** asks the vault for the key (the shared unlock
+    dialog), fetches the ciphertext and decrypts it here: an image previews in place (blob
+    URL, revoked the moment it is closed or the vault locks), and a **PDF is a download** —
+    `object-src 'none'` forbids embedding one, and a preview isn't worth loosening the CSP.
+    Decrypted file names and an open preview are dropped when the vault locks. A scan
+    stored unencrypted (the box unticked, or uploaded before this) opens in a new tab from a
+    fresh signed URL and has an **Encrypt** button: fetch it, seal it here, upload the sealed
+    copy, swap the pointer, and only after the new pointer is saved delete the old object
+    (`useFilingAttachments.replace`). **The read route** is session-gated, requires the key to
+    sit in the caller's own `filing/{userSeg}/` prefix (`isOwnedFilingPath`, so another user's
+    object and another pillar's both read as `bad_path`), is limited per user, and answers
+    `Cache-Control: no-store` — a signed URL is a bearer credential. That is what lets
+    the bucket be **private**: nothing here needs `R2_PUBLIC_BASE_URL` any more, and new
+    pointers carry no `url` (`FilingAttachment.url` is legacy, kept so old pointers read).
+    `R2_FILING_BUCKET` (optional, `filingStorage()` in `lib/filingStorage.ts`, shared by the
+    presign, read and delete routes so they can't disagree) names a separate private bucket
+    while item photos stay on the public `R2_BUCKET`. **Reading a sealed scan is a browser
+    `fetch` of the signed URL, so the bucket's CORS must allow GET from the app's origin**
+    (the PUT already needs it). **Limits:** whoever runs the app could ship a bundle that
+    exfiltrates the passphrase (the stated limit of every web E2E scheme); a lost passphrase
+    and recovery code loses the scan; a 20 MB scan is read into memory, sealed in one piece
+    (WebCrypto has no streaming AES-GCM); legacy plaintext scans stay where they were until
+    the owner presses Encrypt or copies the `filing/` prefix to a new bucket.
 - Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`,

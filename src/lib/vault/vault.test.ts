@@ -9,9 +9,12 @@ import {
   normalizeLock,
   normalizeRecoveryCode,
   normalizeVault,
+  SEAL_OVERHEAD,
+  openBytes,
   openText,
   openVault,
   resetPassphrase,
+  sealBytes,
   sealText,
   vaultIterationLimits,
   WrongSecretError,
@@ -158,5 +161,44 @@ describe("a tampered iteration count", () => {
     const reset = await resetPassphrase(record, recoveryCode, "new pass");
     expect(reset.record.pass.iterations).toBe(PBKDF2_ITERATIONS);
     expect(reset.record.recovery).toEqual(record.recovery);
+  });
+});
+
+describe("sealing bytes", () => {
+  const bytes = (...n: number[]) => new Uint8Array(n).buffer;
+
+  it("round-trips, and the sealed blob is iv ‖ ciphertext+tag with nothing readable in it", async () => {
+    const { record, key } = await createVault("pw-pw-pw-pw", FAST);
+    const data = new TextEncoder().encode("PASSPORT 123456789").buffer as ArrayBuffer;
+    const sealed = await sealBytes(key, "filing-scan", "a1", data);
+    expect(sealed.length).toBe(data.byteLength + SEAL_OVERHEAD);
+    expect(new TextDecoder().decode(sealed)).not.toContain("PASSPORT");
+    const back = await openBytes(key, "filing-scan", "a1", sealed.buffer);
+    expect(new TextDecoder().decode(back)).toBe("PASSPORT 123456789");
+    expect(record.id).toBeTruthy();
+  });
+
+  it("is bound to its context and id — a swapped pointer or another kind of record won't open it", async () => {
+    const { key } = await createVault("pw-pw-pw-pw", FAST);
+    const sealed = await sealBytes(key, "filing-scan", "a1", bytes(1, 2, 3));
+    await expect(openBytes(key, "filing-scan", "a2", sealed.buffer)).rejects.toThrow();
+    await expect(openBytes(key, "note", "a1", sealed.buffer)).rejects.toThrow();
+  });
+
+  it("detects tampering and refuses a blob too short to hold an IV", async () => {
+    const { key } = await createVault("pw-pw-pw-pw", FAST);
+    const sealed = await sealBytes(key, "filing-scan", "a1", bytes(1, 2, 3, 4));
+    const flipped = sealed.slice();
+    flipped[flipped.length - 1] ^= 1;
+    await expect(openBytes(key, "filing-scan", "a1", flipped.buffer)).rejects.toThrow();
+    await expect(openBytes(key, "filing-scan", "a1", new Uint8Array(12).buffer)).rejects.toThrow(/too short/);
+  });
+
+  it("uses a fresh IV each time, and handles an empty file", async () => {
+    const { key } = await createVault("pw-pw-pw-pw", FAST);
+    const a = await sealBytes(key, "filing-scan", "a1", bytes());
+    const b = await sealBytes(key, "filing-scan", "a1", bytes());
+    expect(a.slice(0, 12)).not.toEqual(b.slice(0, 12));
+    expect((await openBytes(key, "filing-scan", "a1", a.buffer)).byteLength).toBe(0);
   });
 });

@@ -77,7 +77,8 @@ export default function FaqPage() {
             The same goes for a <strong>Filing paper&apos;s reference and
             note</strong> if you lock them: one passphrase opens both. A
             paper&apos;s title, dates, folder, tags and reminders stay
-            readable, and scans are not encrypted.
+            readable. Scans you attach are encrypted too, by default, with the
+            same passphrase.
           </p>
         </Q>
 
