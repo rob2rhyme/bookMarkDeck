@@ -4,14 +4,16 @@
 // optional and collapsed, because every product in this category dies of entry
 // friction (ANALYSIS-FILING-LOG.md §12).
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { CredentialNotice } from "@/components/CredentialNotice";
 import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { firstCredential } from "@/lib/credentialGuard";
+import { keyFor, useVaultUnlocked } from "@/lib/vault/vaultSession";
 import { draftFor, EMPTY_DRAFT, type DocumentDraft } from "@/features/filing/lib/documentDraft";
+import { openPaper, type FormMeta } from "@/features/filing/lib/lock";
 import { DOC_TYPES, type DocType, type FilingDocument, type FilingFolder,
          type FilingParty } from "@/features/filing/lib/types";
 
@@ -25,38 +27,100 @@ export function DocumentFormModal({
   folders,
   parties,
   defaultFolderId,
+  vaultReady,
+  ensureVault,
 }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (draft: DocumentDraft) => void;
+  /** Resolve `false` to keep the form open (a lock that could not be made, say). */
+  onSubmit: (draft: DocumentDraft, meta: FormMeta) => Promise<boolean | void> | boolean | void;
   editing?: FilingDocument | null;
   folders: FilingFolder[];
   parties: FilingParty[];
   defaultFolderId?: string | null;
+  /** The vault records have loaded (so setting one up is safe). */
+  vaultReady: boolean;
+  /** Set up or unlock the vault in the shared dialog; true once one is open. */
+  ensureVault: () => Promise<boolean>;
 }) {
   const [draft, setDraft] = useState<DocumentDraft>(EMPTY_DRAFT);
+  // What the form started from. For a locked paper that is the DECRYPTED reference
+  // and note once they could be read, so "changed" means changed by the user.
+  const [seed, setSeed] = useState<DocumentDraft>(EMPTY_DRAFT);
   const [showMore, setShowMore] = useState(false);
+  const [wantLock, setWantLock] = useState(false);
+  const [secretsLoaded, setSecretsLoaded] = useState(false);
+  const [lockNote, setLockNote] = useState<string | null>(null);
+  const lockId = useId();
+  const lockHintId = useId();
 
   useEffect(() => {
     if (!open) return;
+    const start = editing ? draftFor(editing) : { ...EMPTY_DRAFT, folderId: defaultFolderId ?? null };
     setShowMore(false);
-    setDraft(editing ? draftFor(editing) : { ...EMPTY_DRAFT, folderId: defaultFolderId ?? null });
+    setDraft(start);
+    setSeed(start);
+    setWantLock(Boolean(editing?.lock));
+    setSecretsLoaded(false);
+    setLockNote(null);
   }, [open, editing, defaultFolderId]);
+
+  // A locked paper's reference and note exist, readable, only while the vault is open.
+  const sealed = editing?.lock ?? null;
+  const unlocked = useVaultUnlocked();
+  const key = sealed && unlocked ? keyFor(sealed.kid) : undefined;
+  useEffect(() => {
+    if (!open || !editing || !sealed || !key) return;
+    let cancelled = false;
+    openPaper(key, editing.id, sealed).then(
+      (s) => {
+        if (cancelled) return;
+        setSeed((d) => ({ ...d, reference: s.reference, note: s.note }));
+        setDraft((d) => ({ ...d, reference: s.reference, note: s.note }));
+        setSecretsLoaded(true);
+      },
+      () => {
+        if (!cancelled) setLockNote("This paper couldn\u2019t be decrypted. Its sealed text may be damaged.");
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [open, editing, sealed, key]);
+
+  // Readable only while loaded AND the vault is still open: if it locks again (idle
+  // timeout) the fields go back to locked and an unsaved edit to them is not written.
+  const secretsOpen = secretsLoaded && Boolean(key);
+  const lockedClosed = Boolean(sealed) && !secretsOpen;
 
   const set = <K extends keyof DocumentDraft>(k: K, v: DocumentDraft[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
 
-  const original = editing ? draftFor(editing) : null;
+  // Judged against the seed, not the stored record: a locked paper's stored fields are
+  // empty, so its decrypted text would otherwise read as something the user just typed.
   const refused = firstCredential([
-    { value: draft.reference, was: original?.reference },
-    { value: draft.note, was: original?.note },
+    { value: draft.reference, was: seed.reference },
+    { value: draft.note, was: seed.note },
   ]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!draft.title.trim() || refused) return;
-    onSubmit(draft);
-    onClose();
+    const ok = await onSubmit(draft, { seed, wantLock, secretsOpen });
+    if (ok !== false) onClose();
+  }
+
+  async function toggleLock(next: boolean) {
+    setLockNote(null);
+    if (!next) return setWantLock(false);
+    if (!vaultReady) return setLockNote("Still loading your lock settings \u2014 try again in a moment.");
+    if (await ensureVault()) setWantLock(true);
+  }
+
+  async function unlockToEdit() {
+    setLockNote(null);
+    if (!vaultReady) return setLockNote("Still loading your lock settings \u2014 try again in a moment.");
+    await ensureVault();
   }
 
   return (
@@ -163,8 +227,9 @@ export function DocumentFormModal({
                 <Input
                   value={draft.reference}
                   onChange={(e) => set("reference", e.target.value)}
-                  placeholder="Policy no."
+                  placeholder={lockedClosed ? "\u{1F512} Locked" : "Policy no."}
                   aria-label="Reference"
+                  disabled={lockedClosed}
                   className="mt-1"
                 />
               </div>
@@ -186,12 +251,56 @@ export function DocumentFormModal({
               <Input
                 value={draft.note}
                 onChange={(e) => set("note", e.target.value)}
-                placeholder="Signed original, do not fold"
+                placeholder={lockedClosed ? "\u{1F512} Locked" : "Signed original, do not fold"}
                 aria-label="Note"
+                disabled={lockedClosed}
                 className="mt-1"
               />
             </div>
             <CredentialNotice kind={refused} />
+
+            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+              {lockedClosed ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[13px] text-slate-300">
+                    <span aria-hidden>{"\u{1F512} "}</span>
+                    Reference and note are locked.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={unlockToEdit}
+                    className="shrink-0 rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-blue-400"
+                  >
+                    Unlock to view or edit
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 text-[13px] text-slate-300">
+                  <input
+                    id={lockId}
+                    type="checkbox"
+                    checked={wantLock}
+                    onChange={(e) => void toggleLock(e.target.checked)}
+                    aria-describedby={lockHintId}
+                    className="mt-0.5 accent-blue-500"
+                  />
+                  <div>
+                    <label htmlFor={lockId}>Lock reference and note</label>
+                    <p id={lockHintId} className="mt-0.5 text-[12px] text-slate-500">
+                      Encrypted on this device before they are saved &mdash; nobody else can read them, including
+                      whoever stores your data. Title, dates, folder and tags stay visible so you can still find the
+                      paper. Scans are not encrypted. Lose your passphrase and recovery code and they cannot be
+                      recovered.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {lockNote && (
+                <p role="alert" className="mt-2 text-[12px] text-amber-300">
+                  {lockNote}
+                </p>
+              )}
+            </div>
           </div>
         )}
 

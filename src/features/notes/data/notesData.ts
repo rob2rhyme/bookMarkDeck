@@ -24,13 +24,9 @@ import {
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { onConfirmedSnapshot, type SnapshotMeta } from "@/lib/firestoreSnapshot";
 import { normalizeNote, type Note } from "@/features/notes/lib/notes";
-import { normalizeVault, type VaultRecord } from "@/features/notes/lib/vault";
 import { normalizeDeletions, type DeletedEntry } from "@/features/notes/lib/deletionLog";
 
 const notesCol = (uid: string) => collection(db, "users", uid, "notes");
-// Locked notes' vault records: salts, IVs and WRAPPED keys — nothing that opens a
-// note without the passphrase or recovery code. See lib/vault.ts.
-const vaultsCol = (uid: string) => collection(db, "users", uid, "notesVaults");
 
 async function uidFor(emailHint: string): Promise<string> {
   const user = await ensureFirebaseGoogleAuth(emailHint);
@@ -118,44 +114,6 @@ export function subscribeNotes(
       );
     })
     .catch((err) => console.error("[notes] listener auth failed:", err));
-  return () => {
-    cancelled = true;
-    unsub();
-  };
-}
-
-/* --------------------------------------------------------------- vaults --- */
-
-const mapVaults = (docs: { id: string; data: () => Record<string, unknown> }[]) =>
-  docs.map((d) => normalizeVault({ ...d.data(), id: d.id })).filter((v): v is VaultRecord => v !== null);
-
-export async function fetchVaults(emailHint: string): Promise<VaultRecord[]> {
-  const uid = await uidFor(emailHint);
-  return mapVaults((await getDocsFromServer(vaultsCol(uid))).docs);
-}
-
-export async function saveVault(emailHint: string, vault: VaultRecord): Promise<void> {
-  const uid = await uidFor(emailHint);
-  const { id, ...rest } = vault;
-  await setDoc(doc(vaultsCol(uid), id), rest);
-}
-
-export function subscribeVaults(
-  emailHint: string,
-  cb: (vaults: VaultRecord[], meta: SnapshotMeta) => void
-): Unsub {
-  let unsub: Unsub = () => {};
-  let cancelled = false;
-  uidFor(emailHint)
-    .then((uid) => {
-      if (cancelled) return;
-      unsub = onConfirmedSnapshot(
-        vaultsCol(uid),
-        (snap, meta) => cb(mapVaults(snap.docs), meta),
-        (err) => console.error("[notes] vault listener error:", err)
-      );
-    })
-    .catch((err) => console.error("[notes] vault listener auth failed:", err));
   return () => {
     cancelled = true;
     unsub();

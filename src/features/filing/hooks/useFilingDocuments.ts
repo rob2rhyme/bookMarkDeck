@@ -8,6 +8,7 @@ import {
   saveDocument,
   subscribeDocuments,
 } from "@/features/filing/data/filingData";
+import { withLockInvariant } from "@/features/filing/lib/lock";
 import { complete, nextDueOn, nudgeDates } from "@/features/filing/lib/obligations";
 import type {
   CompleteDocument,
@@ -71,6 +72,7 @@ type SlimDocument = Pick<
   | "retentionRuleId"
   | "overrideDestroyOn"
   | "bookmarkLink"
+  | "confidential"
   | "tags"
   | "archived"
 >;
@@ -89,6 +91,7 @@ const slim = (d: FilingDocument): SlimDocument => ({
   retentionRuleId: d.retentionRuleId,
   overrideDestroyOn: d.overrideDestroyOn,
   bookmarkLink: d.bookmarkLink,
+  confidential: d.confidential,
   tags: d.tags,
   archived: d.archived,
 });
@@ -142,14 +145,21 @@ function loadLocal(email?: string | null): FilingDocument[] {
  * `remindFrom` / `nextDueDefault` are deliberately NOT persisted: they are a
  * pure function of `obligations`, and a derived value in two places is a
  * derived value that eventually drifts.
+ *
+ * It is also the one place every write and every snapshot passes, so it carries the
+ * lock invariant (`withLockInvariant`): a locked paper never holds plaintext
+ * reference or note in state, whatever built it.
  */
-const withDerived = <T extends FilingDocument>(d: T): T => ({
-  ...d,
-  nextDueOn: nextDueOn(d.obligations),
-  ...nudgeDates(d.obligations),
-});
+const withDerived = <T extends FilingDocument>(d: T): T =>
+  withLockInvariant({
+    ...d,
+    nextDueOn: nextDueOn(d.obligations),
+    ...nudgeDates(d.obligations),
+  });
 
 export type NewDocument = {
+  /** Given when the caller must know it first: a locked paper's ciphertext is bound to its id. */
+  id?: string;
   title: string;
   folderId?: string | null;
   partyId?: string | null;
@@ -158,6 +168,8 @@ export type NewDocument = {
   reference?: string;
   aliases?: string[];
   note?: string;
+  /** Already sealed by the caller (lib/lock.ts); reference and note are then ignored. */
+  lock?: FilingDocument["lock"];
 };
 
 export function useFilingDocuments(email?: string | null, connected = false) {
@@ -248,7 +260,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
       if (!title) return null;
       const now = new Date().toISOString();
       const document: CompleteDocument = {
-        id: crypto.randomUUID(),
+        id: input.id ?? crypto.randomUUID(),
         title,
         folderId: input.folderId ?? null,
         partyId: input.partyId ?? null,
@@ -258,6 +270,7 @@ export function useFilingDocuments(email?: string | null, connected = false) {
         aliases: (input.aliases ?? []).map((a) => a.trim()).filter(Boolean),
         tags: [],
         note: input.note?.trim() || undefined,
+        lock: input.lock ?? undefined,
         obligations: [],
         nextDueOn: null,
         remindFrom: null,

@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { fetchVaults, saveVault, subscribeVaults } from "@/features/notes/data/notesData";
+import { fetchVaults, saveVault, subscribeVaults } from "@/lib/vault/vaultData";
 import {
   normalizeVault,
   openVault,
   resetPassphrase,
   WrongSecretError,
   type VaultRecord,
-} from "@/features/notes/lib/vault";
-import { addKeys, unlockedKids } from "@/features/notes/lib/vaultSession";
+} from "@/lib/vault/vault";
+import { addKeys, unlockedKids } from "@/lib/vault/vaultSession";
 import { durableSave, replayUpserts } from "@/utils/pendingDeletes";
 import { untilAnswered } from "@/utils/untilAnswered";
 import { recordSyncedIdsUnlessPending, toUpload } from "@/utils/syncedIds";
@@ -116,7 +116,7 @@ export function useVaults(email?: string | null, connected = false) {
       // device while notes locked with it sync everywhere.
       if (!canSync || !email) return durableSave(DOMAIN, email, vault.id, null);
       return durableSave(DOMAIN, email, vault.id, () => saveVault(email, vault)).catch((err) =>
-        console.error("[notes] vault save failed; will retry on reconnect:", err)
+        console.error("[vault] save failed; will retry on reconnect:", err)
       );
     },
     [canSync, email, commit]

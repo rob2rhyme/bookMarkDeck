@@ -200,24 +200,42 @@ export async function resetPassphrase(
   return { record: next, key: await unwrap(next.pass, newPassphrase, false) };
 }
 
-/* ----------------------------------------------------------------- notes --- */
+/* ---------------------------------------------------------------- sealing --- */
 
-const aad = (noteId: string) => enc.encode(`bookmarkdeck:note:v1:${noteId}`);
+/** What a locked record stores in place of its sensitive text. */
+export type SealedText = NoteLock;
 
-export async function encryptNote(key: CryptoKey, kid: string, noteId: string, text: string): Promise<NoteLock> {
+/**
+ * Ciphertext is bound to WHAT it belongs to — the kind of record and its id — as GCM
+ * additional data. So a note's ciphertext pasted onto a paper fails to open instead
+ * of showing the wrong text there, and so does one paper's onto another.
+ */
+const aad = (context: string, id: string) => enc.encode(`bookmarkdeck:${context}:v1:${id}`);
+
+export async function sealText(key: CryptoKey, kid: string, context: string, id: string, text: string): Promise<SealedText> {
   const iv = random(12);
-  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad(noteId) }, key, enc.encode(text));
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad(context, id) }, key, enc.encode(text));
   return { kid, iv: toB64(iv), ct: toB64(new Uint8Array(ct)) };
 }
 
-export async function decryptNote(key: CryptoKey, noteId: string, lock: NoteLock): Promise<string> {
+export async function openText(key: CryptoKey, context: string, id: string, sealed: SealedText): Promise<string> {
   const pt = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: fromB64(lock.iv), additionalData: aad(noteId) },
+    { name: "AES-GCM", iv: fromB64(sealed.iv), additionalData: aad(context, id) },
     key,
-    fromB64(lock.ct)
+    fromB64(sealed.ct)
   );
   return dec.decode(pt);
 }
+
+/* ----------------------------------------------------------------- notes --- */
+
+// "note" is the context Notes has always sealed under; changing it would strand
+// every locked note.
+export const encryptNote = (key: CryptoKey, kid: string, noteId: string, text: string): Promise<NoteLock> =>
+  sealText(key, kid, "note", noteId, text);
+
+export const decryptNote = (key: CryptoKey, noteId: string, lock: NoteLock): Promise<string> =>
+  openText(key, "note", noteId, lock);
 
 /* ------------------------------------------------------------ validation --- */
 

@@ -3,12 +3,15 @@
 import { useId, useState } from "react";
 
 import { Copy } from "@/components/icons";
-import { copyText } from "@/features/notes/lib/clipboard";
-import { WrongSecretError } from "@/features/notes/lib/vault";
+import { copyText } from "@/lib/clipboard";
+import { WrongSecretError } from "@/lib/vault/vault";
 
-// The passphrase forms for locked notes. Presentational: the caller supplies the
-// async action (create / unlock / reset), so the same forms work inline on a
-// locked note and inside the dialog that locking a note opens.
+// The passphrase forms for locked notes and locked papers — one vault, so one
+// passphrase opens both. Presentational: the caller supplies the async action
+// (create / unlock / reset), so the same forms work inline on a locked note and
+// inside the dialog that locking a note or a paper opens.
+
+export type VaultSubject = "notes" | "papers";
 
 export const MIN_PASSPHRASE = 8;
 
@@ -76,7 +79,10 @@ function passProblem(pass: string, confirm: string): string | null {
 export function SetupForm({
   onCreate,
   onDone,
+  subject = "notes",
 }: {
+  /** What is being locked, for the wording only. */
+  subject?: VaultSubject;
   /** Creates and stores the vault, unlocks it, and returns the recovery code. */
   onCreate: (passphrase: string) => Promise<string>;
   onDone: () => void;
@@ -97,7 +103,7 @@ export function SetupForm({
         </h2>
         <p className="text-sm text-slate-400">
           If you forget your passphrase, this code is the <span className="text-slate-200">only</span> other way to open
-          your locked notes. It won&rsquo;t be shown again.
+          your locked {subject}. It won&rsquo;t be shown again.
         </p>
         <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 p-3">
           <code data-testid="recovery-code" className="flex-1 font-mono text-sm tracking-wide text-slate-100">
@@ -112,7 +118,7 @@ export function SetupForm({
           </button>
         </div>
         <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-          Lose both the passphrase and this code, and locked notes can&rsquo;t be recovered — by anyone.
+          Lose both the passphrase and this code, and locked {subject} can&rsquo;t be recovered — by anyone.
         </p>
         <label className="flex items-start gap-2 text-sm text-slate-300">
           <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} className="mt-1 accent-blue-500" />
@@ -144,16 +150,29 @@ export function SetupForm({
       }}
     >
       <h2 id="vault-title" className="text-lg font-semibold text-slate-50">
-        Set a passphrase for locked notes
+        Set a passphrase for locked {subject}
       </h2>
       <p className="text-sm text-slate-400">
-        A locked note is encrypted on this device before it&rsquo;s saved. Only this passphrase — or the recovery code
-        you&rsquo;ll get next — can open it. Nobody else can, including whoever stores your data.{" "}
-        <span className="text-slate-300">Titles and tags stay visible</span> so you can still find your notes.
+        {subject === "papers"
+          ? "A locked paper's reference and note are encrypted on this device before they're saved."
+          : "A locked note is encrypted on this device before it\u2019s saved."}{" "}
+        Only this passphrase — or the recovery code you&rsquo;ll get next — can open it. Nobody else can, including
+        whoever stores your data.{" "}
+        {subject === "papers" ? (
+          <>
+            <span className="text-slate-300">Titles, dates and tags stay visible</span> so you can still find your
+            papers. Scans are not encrypted. The same passphrase opens locked notes.
+          </>
+        ) : (
+          <>
+            <span className="text-slate-300">Titles and tags stay visible</span> so you can still find your notes. The
+            same passphrase opens locked papers in Filing.
+          </>
+        )}
       </p>
       <p className="text-xs text-slate-500">
-        Locking protects a note from then on. Text saved before you locked it may still be in older backups or
-        exports.
+        Locking protects {subject === "papers" ? "a paper" : "a note"} from then on. Text saved before you locked it
+        may still be in older backups or exports.
       </p>
       <NewPassphraseFields pass={pass} confirm={confirm} setPass={setPass} setConfirm={setConfirm} />
       {error && (

@@ -73,6 +73,12 @@ export default function FaqPage() {
             find locked notes. Unlocked notes, like the rest of your data, are
             protected by your sign-in rather than by encryption.
           </p>
+          <p>
+            The same goes for a <strong>Filing paper&apos;s reference and
+            note</strong> if you lock them: one passphrase opens both. A
+            paper&apos;s title, dates, folder, tags and reminders stay
+            readable, and scans are not encrypted.
+          </p>
         </Q>
 
         <Q q="What does a note's History show?">

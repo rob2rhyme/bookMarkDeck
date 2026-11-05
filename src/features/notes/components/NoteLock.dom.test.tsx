@@ -16,13 +16,15 @@ vi.mock("@/features/notes/data/notesData", () => ({
   saveDeletions: vi.fn(async () => {}),
   subscribeDeletions: vi.fn(() => () => {}),
   subscribeNotes: vi.fn(() => () => {}),
+}));
+vi.mock("@/lib/vault/vaultData", () => ({
   fetchVaults: vi.fn(async () => []),
   saveVault: vi.fn(async () => {}),
   subscribeVaults: vi.fn(() => () => {}),
 }));
 // Real WebCrypto, at a test-sized PBKDF2 cost.
-vi.mock("@/features/notes/lib/vault", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/features/notes/lib/vault")>();
+vi.mock("@/lib/vault/vault", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/vault/vault")>();
   return {
     ...actual,
     createVault: (p: string, o = {}) => actual.createVault(p, { ...o, iterations: 1_000 }),
@@ -30,8 +32,8 @@ vi.mock("@/features/notes/lib/vault", async (importOriginal) => {
 });
 
 import type { Note } from "@/features/notes/lib/notes";
-import { lock as lockVault, resetVaultSessionForTests } from "@/features/notes/lib/vaultSession";
-import { vaultIterationLimits } from "@/features/notes/lib/vault";
+import { lock as lockVault, resetVaultSessionForTests } from "@/lib/vault/vaultSession";
+import { vaultIterationLimits } from "@/lib/vault/vault";
 
 vaultIterationLimits.min = 1_000;
 import { NoteEditorScreen } from "./NoteEditor";

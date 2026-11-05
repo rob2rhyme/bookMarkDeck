@@ -9,8 +9,10 @@ import {
   normalizeLock,
   normalizeRecoveryCode,
   normalizeVault,
+  openText,
   openVault,
   resetPassphrase,
+  sealText,
   vaultIterationLimits,
   WrongSecretError,
 } from "./vault";
@@ -47,6 +49,25 @@ describe("vault", () => {
     const { record, key } = await createVault("pw-pw-pw-pw", FAST);
     const lock = await encryptNote(key, record.id, "note-1", "secret");
     await expect(decryptNote(key, "note-2", lock)).rejects.toThrow();
+  });
+
+  it("seals under a record kind: a paper's ciphertext does not open as a note, or as another paper", async () => {
+    const { record, key } = await createVault("pw-pw-pw-pw", FAST);
+    const sealed = await sealText(key, record.id, "filing", "p1", '{"reference":"POL-1"}');
+    expect(sealed.ct).not.toContain("POL");
+    expect(await openText(key, "filing", "p1", sealed)).toBe('{"reference":"POL-1"}');
+    await expect(openText(key, "note", "p1", sealed)).rejects.toThrow();
+    await expect(openText(key, "filing", "p2", sealed)).rejects.toThrow();
+  });
+
+  it("keeps sealing notes under the context they were always sealed with", async () => {
+    // A locked note written before the vault was shared must still open: "note" is
+    // part of every existing ciphertext's additional data.
+    const { record, key } = await createVault("pw-pw-pw-pw", FAST);
+    const lock = await encryptNote(key, record.id, "n1", "old text");
+    expect(await openText(key, "note", "n1", lock)).toBe("old text");
+    const viaText = await sealText(key, record.id, "note", "n1", "new text");
+    expect(await decryptNote(key, "n1", viaText)).toBe("new text");
   });
 
   it("uses a fresh IV every time", async () => {

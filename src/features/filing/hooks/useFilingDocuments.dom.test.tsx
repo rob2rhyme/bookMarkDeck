@@ -312,3 +312,85 @@ describe("signed in, offline, tab closed", () => {
     expect(deleteDocument).toHaveBeenCalledWith(EMAIL, FULL.id);
   });
 });
+
+// A locked paper's reference and note are sealed on the device; the plaintext must
+// never reach state, the cache, or a write — whoever built the record.
+describe("a locked paper", () => {
+  const LOCK = { kid: "v1", iv: "aXY=", ct: "Y3Q=" };
+
+  it("never holds plaintext: added with both, only the lock survives — in state, cache and the write", async () => {
+    const tab = mount(true);
+    await waitFor(() => expect(tab.result.current.hydrated).toBe(true));
+    let id = "";
+    act(() => {
+      id = tab.result.current.addDocument({
+        id: "locked-1",
+        title: "Car insurance",
+        reference: "POL-4829104772",
+        note: "call Dana",
+        lock: LOCK,
+      })!.id;
+    });
+    const paper = tab.result.current.documents.find((d) => d.id === id)!;
+    expect(paper).toMatchObject({ lock: LOCK, confidential: true });
+    expect(paper.reference).toBeUndefined();
+    expect(paper.note).toBeUndefined();
+
+    const cache = window.localStorage.getItem(KEY) ?? "";
+    expect(cache).not.toContain("POL-4829104772");
+    expect(cache).not.toContain("Dana");
+    expect(cache).toContain(LOCK.ct);
+
+    await waitFor(() => expect(saved()).toHaveLength(1));
+    expect(JSON.stringify(saved()[0])).not.toContain("POL-4829104772");
+  });
+
+  it("an update that sets the lock clears the plaintext it replaces", async () => {
+    const tab = mount(false);
+    await waitFor(() => expect(tab.result.current.hydrated).toBe(true));
+    let id = "";
+    act(() => {
+      id = tab.result.current.addDocument({ title: "Policy", reference: "POL-1", note: "n" })!.id;
+    });
+    act(() => tab.result.current.updateDocument(id, { reference: undefined, note: undefined, lock: LOCK }));
+    const paper = tab.result.current.documents.find((d) => d.id === id)!;
+    expect(paper).toMatchObject({ lock: LOCK, confidential: true });
+    expect(paper.reference).toBeUndefined();
+    expect(window.localStorage.getItem(KEY) ?? "").not.toContain("POL-1");
+  });
+
+  it("taking the lock off clears the flag and keeps the text written back", async () => {
+    const tab = mount(false);
+    await waitFor(() => expect(tab.result.current.hydrated).toBe(true));
+    let id = "";
+    act(() => {
+      id = tab.result.current.addDocument({ title: "Policy", lock: LOCK })!.id;
+    });
+    act(() => tab.result.current.updateDocument(id, { lock: null, reference: "POL-1" }));
+    expect(tab.result.current.documents.find((d) => d.id === id)).toMatchObject({
+      reference: "POL-1",
+      confidential: false,
+    });
+  });
+
+  it("a snapshot that carries both lock and plaintext (an old backup over it) shows only the lock", async () => {
+    const tab = mount(true);
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
+    act(() => deliver([{ ...FULL, lock: LOCK, confidential: true }]));
+    const paper = tab.result.current.documents[0];
+    expect(paper.lock).toEqual(LOCK);
+    expect(paper.reference).toBeUndefined();
+    expect(paper.note).toBeUndefined();
+  });
+
+  it("the slim cache keeps the flag, so the list can still say which papers are locked", async () => {
+    recordSyncedIds("filingDocuments", EMAIL, [FULL.id]);
+    const tab = mount(true);
+    await waitFor(() => expect(subscribeDocuments).toHaveBeenCalled());
+    act(() => deliver([{ ...FULL, lock: LOCK, reference: undefined, note: undefined, confidential: true }]));
+    tab.unmount();
+    const [cached] = JSON.parse(window.localStorage.getItem(KEY) ?? "[]");
+    expect(cached.confidential).toBe(true);
+    expect(cached.reference).toBeUndefined();
+  });
+});

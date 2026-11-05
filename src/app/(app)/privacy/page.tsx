@@ -73,16 +73,18 @@ export default function PrivacyPage() {
           </li>
         </ul>
 
-        <h2 className="mt-6 text-lg font-semibold text-slate-50">Locked notes (end-to-end encrypted)</h2>
+        <h2 className="mt-6 text-lg font-semibold text-slate-50">Locked notes and locked papers (end-to-end encrypted)</h2>
         <p>
-          A note you lock is encrypted on your device (AES-256-GCM) before it is saved, with a key that
-          only your notes passphrase or your recovery code can unlock. The text of a locked note never
-          reaches our servers or the database in readable form, and nobody — including whoever stores
-          your data — can read it without one of those two. Lose both and the locked text cannot be
-          recovered by anyone. Titles and tags of locked notes stay readable so the list and search
-          work, and text saved before you locked a note may remain in older backups or exports.
-          Everything else in the app is protected by sign-in and database rules, not by end-to-end
-          encryption.
+          A note you lock, and the reference and note of a Filing paper you lock, are encrypted on your
+          device (AES-256-GCM) before they are saved, with a key that only your passphrase or your
+          recovery code can unlock — one passphrase for both. What you lock never reaches our servers
+          or the database in readable form, and nobody — including whoever stores your data — can read
+          it without one of those two. Lose both and the locked text cannot be recovered by anyone.
+          Titles and tags of locked notes, and a locked paper&rsquo;s title, dates, folder, tags,
+          aliases and reminders, stay readable so lists, search and reminders work. Scans attached to
+          a paper are not encrypted. Text saved before you locked something may remain in older
+          backups or exports. Everything else in the app is protected by sign-in and database rules,
+          not by end-to-end encryption.
         </p>
 
         <h2 className="mt-6 text-lg font-semibold text-slate-50">How we use the data</h2>
@@ -182,7 +184,7 @@ export default function PrivacyPage() {
           <li>Protect your device and Google account credentials.</li>
           <li>
             Do not store highly sensitive secrets in bookmark notes or unlocked notes; use a locked note
-            if you must keep one here.
+            (or lock a Filing paper&rsquo;s reference and note) if you must keep one here.
           </li>
         </ul>
 

@@ -79,6 +79,11 @@ export function FolderPapersModal({
                 >
                   {d.title}
                 </button>
+                {d.confidential && (
+                  <span role="img" aria-label="Reference and note locked" title="Reference and note locked" className="text-[11px]">
+                    {"\u{1F512}"}
+                  </span>
+                )}
                 {d.nextDueOn && days !== null && (
                   <span
                     className={`text-[11px] tabular-nums ${

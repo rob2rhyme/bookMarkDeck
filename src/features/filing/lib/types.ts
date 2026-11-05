@@ -4,6 +4,8 @@
 // Kept fully under src/features/filing/ so the pillar stays removable and never
 // touches bookmark or inventory data.
 
+import type { SealedText } from "@/lib/vault/vault";
+
 /** The furniture. A place nests: site → room → cabinet → drawer/shelf/box. */
 export type PlaceKind =
   | "site"
@@ -276,8 +278,20 @@ export type FilingDocument = {
   filedAt?: string; // YYYY-MM-DD — when you put it away
   isOriginal?: boolean; // the legally-significant copy
   copies?: number;
-  /** UI gate behind the app lock — NOT a security boundary. See FIRESTORE_RULES.md. */
+  /**
+   * True exactly while the paper is LOCKED (`lock` is set). It used to be a UI gate
+   * with nothing behind it; it is kept as the flag lists and exports read, and
+   * `withLockInvariant` (hooks/useFilingDocuments) keeps it equal to `Boolean(lock)`.
+   */
   confidential?: boolean;
+  /**
+   * `reference` and `note`, encrypted on this device with the account's vault (the
+   * one Notes uses) and bound to this paper's id. While set, those two fields are
+   * ALWAYS absent from state, cache and Firestore — the plaintext exists only in
+   * the open form's memory. Title, dates, folder, tags, aliases and obligations
+   * stay readable: lists, search, reminders and the badge need them.
+   */
+  lock?: SealedText | null;
   retentionRuleId?: string | null; // overrides the folder's
   overrideDestroyOn?: string | null;
   obligations: Obligation[]; // Phase 3

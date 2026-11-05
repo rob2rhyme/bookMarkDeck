@@ -20,12 +20,12 @@ import { NotesSyncBanner } from "@/features/notes/components/NotesSyncBanner";
 import { TagFilter } from "@/features/notes/components/TagFilter";
 import { useNotes } from "@/features/notes/hooks/useNotes";
 import { useNotesSync } from "@/features/notes/hooks/useNotesSync";
-import { useVaults } from "@/features/notes/hooks/useVaults";
-import { copyText, readText } from "@/features/notes/lib/clipboard";
+import { useVaults } from "@/lib/vault/useVaults";
+import { copyText, readText } from "@/lib/clipboard";
 import { MAX_NOTE_CHARS, type Note } from "@/features/notes/lib/notes";
 import { isActive, parseQuery, searchNotes, type NoteHit } from "@/features/notes/lib/search";
 import { tagCounts } from "@/features/notes/lib/tags";
-import { lock as lockVault, useVaultUnlocked } from "@/features/notes/lib/vaultSession";
+import { lock as lockVault, useVaultUnlocked } from "@/lib/vault/vaultSession";
 import { consumeNewNoteIntent, NEW_NOTE_NUDGE } from "@/lib/notesIndex";
 import { CONFLICTS_FOUND } from "@/features/notes/lib/conflicts";
 

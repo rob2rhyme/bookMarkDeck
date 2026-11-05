@@ -5,6 +5,10 @@
 // type "car title", get "Garage › Grey cabinet › Drawer 2 › Vehicles".
 
 import { SyncBanner } from "@/components/SyncBanner";
+import { useToast } from "@/components/toast/ToastProvider";
+import { useVaultAccess } from "@/components/vault/useVaultAccess";
+import { useVaults } from "@/lib/vault/useVaults";
+import { keyFor } from "@/lib/vault/vaultSession";
 import { MilestoneRow } from "@/components/MilestoneRow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -31,7 +35,7 @@ import { PlaceManager } from "@/features/filing/components/PlaceManager";
 import { PartyManager } from "@/features/filing/components/PartyManager";
 import { FolderFormModal, type FolderDraft } from "@/features/filing/components/FolderFormModal";
 import { DocumentFormModal, type DocumentDraft } from "@/features/filing/components/DocumentFormModal";
-import { changedFields, draftFor } from "@/features/filing/lib/documentDraft";
+import { type FormMeta, planWrite, sealPaper } from "@/features/filing/lib/lock";
 import { WhereIsPaperModal } from "@/features/filing/components/WhereIsPaperModal";
 import { LabelPrintModal } from "@/features/filing/components/LabelPrintModal";
 import { UpcomingPanel } from "@/features/filing/components/UpcomingPanel";
@@ -69,6 +73,9 @@ export function FilingDashboard() {
   const parties = useFilingParties(email, connected);
   const folders = useFilingFolders(email, connected);
   const documents = useFilingDocuments(email, connected);
+  const vault = useVaults(email, connected);
+  const vaultAccess = useVaultAccess(vault, "papers", "Unlock to lock this paper");
+  const { toast } = useToast();
   const { settings, update: updateSettings } = useFilingSettings(email, connected);
 
   const [query, setQuery] = useState("");
@@ -305,30 +312,55 @@ export function FilingDashboard() {
   );
 
   const submitDocument = useCallback(
-    (draft: DocumentDraft) => {
-      const payload = {
+    async (draft: DocumentDraft, meta: FormMeta): Promise<boolean> => {
+      const plan = planWrite({ editing: editingDocument, draft, meta });
+      const base = {
         title: draft.title,
         folderId: draft.folderId,
         partyId: draft.partyId,
         docType: draft.docType || undefined,
         docDate: draft.docDate || undefined,
-        reference: draft.reference.trim() || undefined,
         aliases: splitAliases(draft.aliases),
-        note: draft.note.trim() || undefined,
       };
-      if (editingDocument) {
-        const changed = changedFields(draftFor(editingDocument), draft);
-        if (changed.length > 0) {
-          documents.updateDocument(
-            editingDocument.id,
-            Object.fromEntries(changed.map((k) => [k, payload[k]])) as Partial<typeof payload>
-          );
+      // A locked paper's ciphertext is bound to its id, so a new one needs its id first.
+      const id = editingDocument?.id ?? crypto.randomUUID();
+      let secretFields: Partial<Pick<FilingDocument, "reference" | "note" | "lock">> = {};
+      const w = plan.secret;
+      if (w.mode === "seal") {
+        const kid = editingDocument?.lock?.kid ?? vault.primaryKid();
+        const key = kid ? keyFor(kid) : undefined;
+        if (!kid || !key) {
+          toast("The vault is locked \u2014 unlock it to lock this paper.", { variant: "error" });
+          return false;
         }
-      } else documents.addDocument(payload);
+        try {
+          // The plaintext fields are cleared, not just omitted: the update merges.
+          secretFields = { reference: undefined, note: undefined, lock: await sealPaper(key, kid, id, w.secrets) };
+        } catch {
+          toast("Couldn\u2019t lock the paper. Nothing was saved.", { variant: "error" });
+          return false;
+        }
+      } else if (w.mode === "plain") {
+        secretFields = {
+          ...(w.fields.includes("reference") ? { reference: w.secrets.reference || undefined } : {}),
+          ...(w.fields.includes("note") ? { note: w.secrets.note || undefined } : {}),
+          ...(w.unlock ? { lock: null } : {}),
+        };
+      }
+      if (editingDocument) {
+        const changes = {
+          ...Object.fromEntries(plan.fields.map((k) => [k, base[k]])),
+          ...secretFields,
+        };
+        if (Object.keys(changes).length > 0) documents.updateDocument(editingDocument.id, changes);
+      } else {
+        documents.addDocument({ id, ...base, ...secretFields });
+      }
       setEditingDocument(null);
       setAddToFolderId(null);
+      return true;
     },
-    [editingDocument, documents]
+    [editingDocument, documents, vault, toast]
   );
 
   const empty =
@@ -987,7 +1019,10 @@ export function FilingDashboard() {
         folders={folders.active}
         parties={parties.active}
         defaultFolderId={addToFolderId}
+        vaultReady={vault.ready}
+        ensureVault={vaultAccess.ensure}
       />
+      {vaultAccess.dialog}
     </div>
   );
 }
