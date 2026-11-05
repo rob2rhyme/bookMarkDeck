@@ -583,8 +583,9 @@ patched `sharp` and `postcss`, so it holds the fix for those two. When an adviso
 a range the tree already allows (`next` asks for `sharp ^0.35.4`), `npm update <pkg>` is the
 whole fix — a lockfile change, no override.
 
-**`npm audit` is not 0, and what remains is dev-only.** As of 2026-11-03 it reports 18
-*moderate* advisories, all one chain: `eslint` / `@typescript-eslint/*` / `eslint-config-next` /
+**`npm audit` is not 0, and what remains is dev-only.** As of 2026-11-05 it reports 10
+*moderate* advisories (18 two days earlier — the count moves with npm's advisory data, not our
+code, so don't pin to it), all one chain: `eslint` / `@typescript-eslint/*` / `eslint-config-next` /
 `eslint-plugin-*` → `glob` + `minimatch` (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249). Both are
 denial-of-service through crafted glob *patterns*; the only patterns they see are the lint
 plugins' own, at lint time, over this repo — nothing user-supplied, nothing shipped. npm's
@@ -595,7 +596,13 @@ and real**: the same day, an audit found `next` 16.0.0–16.4.0 carrying two una
 remote-code-execution advisories (image optimization with SVGs; `use cache`) and a Server
 Actions DoS, plus `zod`, `re2js` and `undici` highs — all fixed by `npm update` within the
 existing ranges (next 16.4.5). Advisories land without a code change, so **run `npm audit`
-before merging anything, not only when touching dependencies.** Update with
+before merging anything, not only when touching dependencies.** **`npm run audit`** is that
+check with the policy applied (`scripts/audit.mjs`, decisions in `scripts/audit-policy.mjs`,
+pinned by `src/lib/auditPolicy.test.ts`): anything in the production tree fails at any
+severity, `high`/`critical` anywhere fails, and the standing dev-only moderates are listed but
+pass — bare `npm audit` exits non-zero on them forever, which trains people to ignore it. Exit
+0 pass, 1 policy failed, 2 could not audit (registry unreachable — unknown, never a pass). It is
+**not a CI gate** on purpose: an advisory landing would turn every unrelated PR red. Update with
 `npx -y npm@11 update <pkg>` and read the lockfile diff: the sandbox's own npm 10 rewrites the
 whole file (drops the platform binaries' `libc` fields) where npm 11 changes only what moved.
 

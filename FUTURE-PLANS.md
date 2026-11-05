@@ -53,8 +53,8 @@ _Last reviewed: 2026-07-16._
 
 ## Small doc/tooling follow-ups
 
-5. **`npm run audit` script** (the one unshipped piece of FOCUS-INTEGRATION
-   Phase 0b — headers and `.env.example` are done).
+_(none open — `npm run audit` shipped 2026-11-05. Optional, owner's call: run it on a
+schedule in CI rather than as a PR gate.)_
 
 ## Verification still worth a minute
 
