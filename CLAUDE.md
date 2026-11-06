@@ -1458,11 +1458,21 @@ Other invariants:
     and recovery code loses the scan; a 20 MB scan is read into memory, sealed in one piece
     (WebCrypto has no streaming AES-GCM); legacy plaintext scans stay where they were until
     the owner presses Encrypt or copies the `filing/` prefix to a new bucket.
-  - **Known gap: deleting a paper leaves its scans** — `removeDocument` deletes the record
-    only, so its `filingDocs` pointers and R2 objects stay (an unencrypted legacy scan stays
-    readable through a signed URL to its owner). The privacy page says so and tells people
-    to delete scans first; the fix is to purge them with the paper, as My Stuff does for an
-    item after its Undo window.
+  - **Deleting a paper deletes its scans** (`lib/scanPurge.ts`, `removePaper` in
+    `FilingDashboard`). It used to delete the record only, leaving its `filingDocs` pointers
+    and R2 objects behind. **Nothing is deleted inside the 6-second Undo window**: the paper
+    is only hidden (`removing`, filtered out of the `documents` every list and count reads),
+    because scans can't be brought back — and closing the tab or leaving the page in that
+    window deletes nothing (timers are cleared on unmount). Unlike My Stuff, which deletes the
+    item at once and re-adds it on Undo: a paper still `partial` from the slim cache can't be
+    re-saved. When the window closes the paper is removed and its id **queued**
+    (`bookmarkdeck:filing:scanPurge:v1:{email}`) *before* the purge is tried; it leaves the
+    queue only once the server has listed the paper's scans (`fetchAttachmentsFromServer` —
+    an offline cache would answer "no scans") and the route confirms every file gone
+    (`purgeFilingObjects`, 25 a request, by the route's `deleted` count), files first, then
+    pointers. Retried on connect and on `online`. Not covered: papers deleted before this
+    shipped keep their scans (no sweep — a pointer whose paper isn't in the cloud yet may
+    belong to a paper still queued on another device). `e2e/filing-remove.spec.ts`.
 - Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`,

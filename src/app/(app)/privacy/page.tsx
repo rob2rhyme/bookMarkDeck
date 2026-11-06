@@ -248,9 +248,9 @@ export default function PrivacyPage() {
             when you press Sync to cloud. Bookmark backups keep the newest 7.
           </li>
           <li>
-            Photos and attachments are removed from storage when you delete them, or the My Stuff
-            item they belong to. Filing scans are removed when you delete the scan; deleting a
-            paper does not yet remove its scans, so delete those first.
+            Photos, attachments and Filing scans are removed from storage when you delete them, or
+            the item or paper they belong to — once the few seconds in which you can undo have
+            passed, and, if your device is offline then, the next time it connects.
           </li>
           <li>
             A note&rsquo;s history is deleted with the note. The deletion log keeps the titles of the
