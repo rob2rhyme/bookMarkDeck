@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Pencil, Trash } from "@/components/icons";
 import { ShortcutApp } from "@/types/shortcut";
 import { hapticTap } from "@/utils/haptics";
+import { iconUrlFor } from "@/utils/iconUrl";
 
 type Props = {
   app: ShortcutApp;
@@ -43,23 +44,7 @@ type HoverCardPosition = {
   placement: "below" | "above";
 };
 
-function getFaviconUrl(rawUrl: string): string | null {
-  try {
-    const url = new URL(rawUrl);
-    const host = url.hostname;
-    if (!host || !host.includes(".")) return null;
-    return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`;
-  } catch {
-    try {
-      const url = new URL(`https://${rawUrl}`);
-      const host = url.hostname;
-      if (!host || !host.includes(".")) return null;
-      return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`;
-    } catch {
-      return null;
-    }
-  }
-}
+const getFaviconUrl = iconUrlFor;
 
 function firstLetterFromUrlOrName(url: string, name: string): string {
   const extract = (value: string) => {

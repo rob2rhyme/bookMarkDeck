@@ -41,6 +41,7 @@ import { isUnsafeUrl, normalizeUrl } from "@/utils/normalizeUrl";
 import type { FirestoreBookmarkBackup } from "@/utils/firestoreBookmarks";
 import { buildBackupFile, parseBackupJson } from "@/utils/bookmarkBackupFile";
 import { FIELD_CLASS } from "@/components/ui/Field";
+import { iconPath } from "@/utils/iconUrl";
 
 function getHostname(rawUrl: string) {
   try {
@@ -60,9 +61,7 @@ function getFaviconUrl(rawUrl: string): string {
       const url = new URL(value);
       const host = url.hostname;
       if (!host || !host.includes(".")) return "";
-      return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(
-        host
-      )}`;
+      return iconPath(host);
     } catch {
       return "";
     }

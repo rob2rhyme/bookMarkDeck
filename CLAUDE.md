@@ -182,7 +182,17 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   private, link-local/metadata, CGNAT, multicast, or those behind IPv4-mapped/NAT64
   forms); 5 s for the chain, 256 KB read, HTML only; session-gated, 30/min. A failure is
   `{ title: null }`, never an error. `fetchPageTitle.test.ts` runs it against a real local
-  server. Description and favicon are not fetched (favicons come from the URL).
+  server. Description is not fetched. **Icons are ours too** (`GET /api/icon?host=` →
+  `@/lib/siteIcon`, every `<img>` through `@/utils/iconUrl`): they came from Google's icon
+  service, which saw every bookmarked domain, with the site's own `/favicon.ico` fetched
+  from the user's browser as a fallback. The route asks the homepage's `<link rel=icon>`s
+  (the touch icon first, then larger sizes) and always `/favicon.ico` last, through the same
+  fence (`fetchImage` in `@/lib/fetchPage`: 100 KB, refused rather than cut), within a 9 s
+  budget. **Raster only, by the bytes** (`sniffIcon`: PNG/JPEG/GIF/WebP/ICO, whatever the
+  server calls it): an SVG can carry script, and opened directly from our origin it would
+  run as us — the response also carries `nosniff` and a `sandbox` CSP. `private, max-age`
+  a week (a 404 a day): the route is session-gated, so no shared cache may hold it.
+  600/min per user. `e2e/icons.spec.ts` fails if a page asks Google's icon service again.
 - **An empty library offers starter links** (`StarterPicker` + `@/utils/starterLinks`),
   from a link in the empty state — never opened on its own, since a returning user on a
   new device should *Sync from cloud* first. Picks are filed into a top-level folder per
@@ -1470,9 +1480,14 @@ Other invariants:
     queue only once the server has listed the paper's scans (`fetchAttachmentsFromServer` —
     an offline cache would answer "no scans") and the route confirms every file gone
     (`purgeFilingObjects`, 25 a request, by the route's `deleted` count), files first, then
-    pointers. Retried on connect and on `online`. Not covered: papers deleted before this
-    shipped keep their scans (no sweep — a pointer whose paper isn't in the cloud yet may
-    belong to a paper still queued on another device). `e2e/filing-remove.spec.ts`.
+    pointers. Retried on connect and on `online`. `e2e/filing-remove.spec.ts`. **Scans left by
+    papers deleted before this** are found only on request (Filing settings → *Scans from
+    deleted papers*, `LeftoverScans` + `orphanScans`) and removed on a second tap — never by
+    a sweep, because a pointer whose paper isn't in the cloud may belong to one still on its
+    way from another device. So it counts a paper as existing if the cloud **or** this device
+    holds it (`fetchDocumentIdsFromServer`, every id — `fetchDocuments` drops blank-titled
+    papers, whose scans would then read as orphaned), and leaves any scan younger than a day,
+    or with no recorded time.
 - Shared-file touches (additive only): `AppShell.tsx` (nav pill + the `short`
   labels the six-cell bottom nav needs), `icons.tsx` (`Cabinet`),
   `AppShellHost.tsx` (badge), `CommandPalette.tsx`, `src/lib/filingIntent.ts`,

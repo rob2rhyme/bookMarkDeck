@@ -52,9 +52,14 @@ import { BookmarkLinkModal } from "@/features/filing/components/BookmarkLinkModa
 import { ExpiryPanel } from "@/features/filing/components/ExpiryPanel";
 import { AttachmentsModal } from "@/features/filing/components/AttachmentsModal";
 import { useFilingAttachments } from "@/features/filing/hooks/useFilingAttachments";
-import { deleteAttachment, fetchAttachmentsFromServer } from "@/features/filing/data/filingData";
+import {
+  deleteAttachment,
+  fetchAllAttachmentsFromServer,
+  fetchAttachmentsFromServer,
+  fetchDocumentIdsFromServer,
+} from "@/features/filing/data/filingData";
 import { purgeFilingObjects } from "@/features/filing/lib/attachments";
-import { flushScanPurges, queueScanPurge } from "@/features/filing/lib/scanPurge";
+import { flushScanPurges, orphanScans, queueScanPurge, removeScans } from "@/features/filing/lib/scanPurge";
 import { FilingInsights } from "@/features/filing/components/FilingInsights";
 import { expiryItems, expiringCount } from "@/features/filing/lib/expiry";
 import type { FilingBackup } from "@/features/filing/lib/types";
@@ -1058,6 +1063,27 @@ export function FilingDashboard() {
         connected={connected}
         onImport={importBackup}
         confidentialHidden={hideConfidential}
+        leftoverScans={
+          connected && email && scans.enabled
+            ? {
+                // A paper counts as existing if the cloud or this device holds it — one
+                // filed offline here hasn't reached the cloud yet.
+                find: async () => {
+                  const [all, cloudIds] = await Promise.all([
+                    fetchAllAttachmentsFromServer(email),
+                    fetchDocumentIdsFromServer(email),
+                  ]);
+                  const known = new Set([...cloudIds, ...allDocuments.documents.map((d) => d.id)]);
+                  return orphanScans(all, known, Date.now());
+                },
+                remove: (list) =>
+                  removeScans(list, {
+                    deleteFiles: purgeFilingObjects,
+                    deletePointer: (id) => deleteAttachment(email, id),
+                  }),
+              }
+            : null
+        }
       />
 
       <CustodyModal

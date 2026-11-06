@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Modal } from "@/components/Modal";
 import { Input, Select } from "@/components/ui/Field";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { LeftoverScans, type LeftoverScansApi } from "@/features/filing/components/LeftoverScans";
 import { countConfidential } from "@/features/filing/lib/confidential";
 import { buildIcs, filingEvents } from "@/features/filing/lib/ics";
 import { pushSupported, requestPushPermission, usePushPermission } from "@/lib/push";
@@ -47,6 +48,7 @@ export function FilingSettingsModal({
   connected,
   onImport,
   confidentialHidden,
+  leftoverScans,
 }: {
   open: boolean;
   onClose: () => void;
@@ -62,6 +64,8 @@ export function FilingSettingsModal({
   onImport: (data: FilingBackup) => void;
   /** The Filing PIN lock is hiding confidential papers right now. */
   confidentialHidden: boolean;
+  /** Finding and removing scans whose paper is gone — null while signed out or without scan storage. */
+  leftoverScans?: LeftoverScansApi | null;
 }) {
   const [exported, setExported] = useState(0);
   const [importState, setImportState] = useState<
@@ -347,6 +351,8 @@ export function FilingSettingsModal({
             </p>
           )}
         </div>
+
+        {leftoverScans && <LeftoverScans api={leftoverScans} />}
       </div>
 
       <button

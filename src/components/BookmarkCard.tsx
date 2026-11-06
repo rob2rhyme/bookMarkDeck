@@ -32,6 +32,7 @@ import { setBookmarkFocusLink } from "@/lib/bookmarkFocusLink";
 import { useToast } from "@/components/toast/ToastProvider";
 import { ReaderModal } from "@/components/ReaderModal";
 import { ReadLaterToggle } from "@/components/ReadLaterToggle";
+import { iconUrlFor } from "@/utils/iconUrl";
 
 function safeParseUrl(rawUrl: string): URL | null {
   try {
@@ -46,16 +47,8 @@ function safeParseUrl(rawUrl: string): URL | null {
 }
 
 function getFaviconCandidates(rawUrl: string): string[] {
-  const parsed = safeParseUrl(rawUrl);
-  if (!parsed) return [];
-  const host = parsed.hostname;
-  if (!host || !host.includes(".")) return [];
-  // favicon candidate fallback logic
-  return [
-    `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`,
-    `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(host)}`,
-    `${parsed.origin}/favicon.ico`,
-  ];
+  const url = iconUrlFor(rawUrl);
+  return url ? [url] : [];
 }
 
 type Props = {

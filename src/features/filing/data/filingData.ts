@@ -511,6 +511,23 @@ export async function fetchAttachmentsFromServer(
   return snap.docs.map(mapAttachment).filter((a): a is FilingAttachment => a !== null);
 }
 
+/** Every scan pointer, from the server — for finding scans whose paper is gone. */
+export async function fetchAllAttachmentsFromServer(emailHint: string): Promise<FilingAttachment[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocsFromServer(attachmentsCol(uid));
+  return snap.docs.map(mapAttachment).filter((a): a is FilingAttachment => a !== null);
+}
+
+/**
+ * The id of every paper in the cloud, from the server. Not `fetchDocuments`, which
+ * drops a paper with a blank title — and would make that paper's scans look orphaned.
+ */
+export async function fetchDocumentIdsFromServer(emailHint: string): Promise<Set<string>> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocsFromServer(documentsCol(uid));
+  return new Set(snap.docs.map((d) => d.id));
+}
+
 export async function saveAttachment(
   emailHint: string,
   attachment: FilingAttachment

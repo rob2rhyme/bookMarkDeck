@@ -25,6 +25,7 @@ import {
   StickyNote,
   Timer,
 } from "@/components/icons";
+import { iconPath } from "@/utils/iconUrl";
 
 export const OPEN_COMMAND_PALETTE_EVENT = "bd:open-command-palette";
 // Broadcasts the palette's open/closed state (detail.open). The mobile bottom
@@ -55,9 +56,9 @@ function Favicon({ url }: { url: string }) {
   }
   if (failed || !host) return <Bookmark className="h-4 w-4 text-slate-500" />;
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- tiny remote favicon, no layout need for next/image
+    // eslint-disable-next-line @next/next/no-img-element -- tiny favicon, no layout need for next/image
     <img
-      src={`https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`}
+      src={iconPath(host)}
       alt=""
       width={16}
       height={16}
