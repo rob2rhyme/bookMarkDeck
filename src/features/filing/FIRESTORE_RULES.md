@@ -39,7 +39,7 @@ only half the story. `.github/workflows/firestore-rules.yml` handles both halves
 on any change to the rules files: verify against the emulator, deploy on merge to
 `main`, then read the released ruleset back to confirm it landed.
 
-`npm run verify:rules` checks the repo copy against the Firestore emulator — 80
+`npm run verify:rules` checks the repo copy against the Firestore emulator — 84
 assertions covering owner access to every pillar's collections (nested paths
 included), cross-uid denial on read/write/delete, anonymous denial, locked papers
 refused with plaintext, and that nothing leaks outside `users/{uid}`. It needs Java and a running

@@ -6,6 +6,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -13,8 +14,10 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { assertDocFits } from "@/lib/docSize";
+import { chunkId, fitsOneDocument, packLibrary, unpackLibrary, type LibraryChunk } from "@/utils/bookmarkChunks";
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
@@ -25,6 +28,14 @@ const userBackupsCollectionRef = (uid: string) =>
   collection(db, "users", uid, "bookmarkBackups");
 
 const MAX_BACKUPS = 7;
+
+// A library that fits one document (almost every library) is stored as it always was:
+// `bookmarks[]` and `folders[]` on users/{uid}. One that doesn't is cut into chunk
+// documents under users/{uid}/bookmarkLibrary, and the root says so with `libraryChunks`.
+// The marker, not `version` — saveShortcuts overwrites `version` on the same document.
+const libraryChunksRef = (uid: string) => collection(db, "users", uid, "bookmarkLibrary");
+// A backup of a library that doesn't fit one document is the same, under its own document.
+const backupChunksRef = (backupRef: ReturnType<typeof doc>) => collection(backupRef, "chunks");
 
 export type FirestoreBookmarkPayload = {
   bookmarks: Bookmark[];
@@ -146,6 +157,19 @@ export async function fetchBookmarks(
       : typeof data.updatedAt === "string"
         ? data.updatedAt
         : undefined;
+  if (typeof data.libraryChunks === "number" && data.libraryChunks > 0) {
+    const chunks = await readChunks(
+      libraryChunksRef(user.uid),
+      data.libraryChunks,
+      "Your cloud bookmark library is incomplete"
+    );
+    const { bookmarks, folders } = unpackLibrary(chunks);
+    return {
+      bookmarks: bookmarks.map(sanitizeBookmark),
+      folders: folders.map(sanitizeFolder).filter((folder) => Boolean(folder.name)),
+      updatedAt,
+    };
+  }
   return {
     bookmarks: Array.isArray(data.bookmarks)
       ? (data.bookmarks as Bookmark[]).map(sanitizeBookmark)
@@ -159,11 +183,40 @@ export async function fetchBookmarks(
   };
 }
 
+/**
+ * The `count` chunks under `ref`, in order. Throws when any is missing or malformed:
+ * a partial library handed back as the whole one would be taken as the cloud's truth,
+ * and a pull would then drop everything the missing chunk held.
+ */
+async function readChunks(
+  ref: ReturnType<typeof collection>,
+  count: number,
+  incomplete: string
+): Promise<LibraryChunk[]> {
+  const found = new Map<number, LibraryChunk>();
+  (await getDocs(ref)).docs.forEach((d) => {
+    const data = d.data();
+    if (Number.isInteger(data.i) && Array.isArray(data.bookmarks) && Array.isArray(data.folders)) {
+      found.set(data.i as number, { bookmarks: data.bookmarks as Bookmark[], folders: data.folders as Folder[] });
+    }
+  });
+  const chunks: LibraryChunk[] = [];
+  for (let i = 0; i < count; i++) {
+    const chunk = found.get(i);
+    if (!chunk) {
+      throw new Error(`${incomplete} (part ${i + 1} of ${count} is missing). Nothing was changed on this device — try again in a moment.`);
+    }
+    chunks.push(chunk);
+  }
+  return chunks;
+}
+
 async function createBackupSnapshot(
   uid: string,
   bookmarks: Bookmark[],
   folders: Folder[],
-  shortcuts?: ShortcutApp[]
+  shortcuts?: ShortcutApp[],
+  fitsOne = true
 ) {
   const createdAt = new Date();
   const payload = {
@@ -172,14 +225,38 @@ async function createBackupSnapshot(
     shortcuts: shortcuts?.map(sanitizeShortcut) ?? [],
     createdAt: Timestamp.fromDate(createdAt),
   };
-  await addDoc(userBackupsCollectionRef(uid), sanitizeForFirestore(payload));
+  if (fitsOne) {
+    await addDoc(userBackupsCollectionRef(uid), sanitizeForFirestore(payload));
+  } else {
+    // Too big for one document: the backup document keeps the date and shortcuts and
+    // says how many chunks follow; one atomic batch, so a backup is whole or absent.
+    const chunks = packLibrary(folders, bookmarks);
+    const ref = doc(userBackupsCollectionRef(uid));
+    const batch = writeBatch(db);
+    batch.set(
+      ref,
+      sanitizeForFirestore({ shortcuts: payload.shortcuts, createdAt: payload.createdAt, chunks: chunks.length })
+    );
+    chunks.forEach((chunk, i) =>
+      batch.set(doc(backupChunksRef(ref), chunkId(i)), sanitizeForFirestore({ i, ...chunk }))
+    );
+    await batch.commit();
+  }
 
   const all = await getDocs(
     query(userBackupsCollectionRef(uid), orderBy("createdAt", "desc"))
   );
-  const extras = all.docs.slice(MAX_BACKUPS);
-  if (extras.length > 0) {
-    await Promise.all(extras.map((docSnap) => deleteDoc(docSnap.ref)));
+  for (const extra of all.docs.slice(MAX_BACKUPS)) {
+    // Deleting a document leaves its subcollection behind: take a chunked backup's parts first.
+    if (typeof extra.data().chunks === "number") {
+      const parts = await getDocs(backupChunksRef(extra.ref));
+      if (parts.docs.length > 0) {
+        const batch = writeBatch(db);
+        parts.docs.forEach((part) => batch.delete(part.ref));
+        await batch.commit();
+      }
+    }
+    await deleteDoc(extra.ref);
   }
 }
 
@@ -191,7 +268,7 @@ export async function fetchBookmarkBackups(
     query(userBackupsCollectionRef(user.uid), orderBy("createdAt", "desc"))
   );
 
-  return snap.docs.map((docSnap) => {
+  const backups = await Promise.all(snap.docs.map(async (docSnap): Promise<FirestoreBookmarkBackup | null> => {
     const data = docSnap.data();
     const createdAt =
       data.createdAt instanceof Timestamp
@@ -200,11 +277,25 @@ export async function fetchBookmarkBackups(
           ? data.createdAt
           : new Date().toISOString();
 
-    const backupBookmarks = Array.isArray(data.bookmarks)
-      ? (data.bookmarks as Bookmark[]).map(sanitizeBookmark)
+    let rawBookmarks: unknown = data.bookmarks;
+    let rawFolders: unknown = data.folders;
+    if (typeof data.chunks === "number" && data.chunks > 0) {
+      try {
+        const { bookmarks, folders } = unpackLibrary(
+          await readChunks(backupChunksRef(docSnap.ref), data.chunks, "This backup is incomplete")
+        );
+        rawBookmarks = bookmarks;
+        rawFolders = folders;
+      } catch {
+        // A backup cut short is not offered: restoring it would drop what it lacks.
+        return null;
+      }
+    }
+    const backupBookmarks = Array.isArray(rawBookmarks)
+      ? (rawBookmarks as Bookmark[]).map(sanitizeBookmark)
       : [];
-    const backupFolders = Array.isArray(data.folders)
-      ? (data.folders as Folder[])
+    const backupFolders = Array.isArray(rawFolders)
+      ? (rawFolders as Folder[])
           .map(sanitizeFolder)
           .filter((folder) => Boolean(folder.name))
       : undefined;
@@ -219,7 +310,8 @@ export async function fetchBookmarkBackups(
       createdAt,
       shortcuts: backupShortcuts,
     };
-  });
+  }));
+  return backups.filter((b): b is FirestoreBookmarkBackup => b !== null);
 }
 
 export async function saveBookmarks(
@@ -233,35 +325,80 @@ export async function saveBookmarks(
   const sanitizedFolders = folders
     .map(sanitizeFolder)
     .filter((folder) => Boolean(folder.name));
+  const sanitizedShortcuts = shortcuts?.map(sanitizeShortcut) ?? [];
   const payload = {
     bookmarks: sanitizedBookmarks,
     folders: sanitizedFolders,
     updatedAt: serverTimestamp(),
     version: 2,
   };
-  // Both copies must fit before either is written: the library is one document
-  // (merged with the shortcuts it already holds) and so is each backup of it.
-  // Over the limit, Firestore would refuse it after a backup had been taken.
-  const sanitizedShortcuts = shortcuts?.map(sanitizeShortcut) ?? [];
-  const fix =
-    "Nothing was uploaded; everything stays on this device. Notes, highlights and tags take room too — trimming those, or removing bookmarks you no longer need, brings it under.";
-  assertDocFits(
+
+  // Which shape each copy takes is settled before anything is written. The library is
+  // one document (beside the shortcuts it shares) when it fits, and so is each backup
+  // of it; when it doesn't, it is cut into chunks. A library too big even for that is
+  // refused here, before a backup has been taken.
+  const libraryFitsOne = fitsOneDocument(
     ["users", user.uid],
-    sanitizeForFirestore({ ...payload, shortcuts: sanitizedShortcuts, shortcutsUpdatedAt: serverTimestamp() }),
-    "Your bookmark library",
-    fix
+    sanitizeForFirestore({ ...payload, shortcuts: sanitizedShortcuts, shortcutsUpdatedAt: serverTimestamp() })
   );
-  assertDocFits(
+  const backupFitsOne = fitsOneDocument(
     ["users", user.uid, "bookmarkBackups", "x".repeat(20)],
     sanitizeForFirestore({
       bookmarks: sanitizedBookmarks,
       folders: sanitizedFolders,
       shortcuts: sanitizedShortcuts,
       createdAt: Timestamp.fromDate(new Date()),
-    }),
-    "Your bookmark library",
-    fix
+    })
   );
-  await createBackupSnapshot(user.uid, sanitizedBookmarks, sanitizedFolders, shortcuts);
-  await setDoc(userDocRef(user.uid), sanitizeForFirestore(payload), { merge: true });
+  const chunks = libraryFitsOne ? null : packLibrary(sanitizedFolders, sanitizedBookmarks);
+  if (!backupFitsOne) packLibrary(sanitizedFolders, sanitizedBookmarks);
+  if (chunks) {
+    // What stays on the root document is the shortcuts and a few small fields.
+    assertDocFits(
+      ["users", user.uid],
+      sanitizeForFirestore({ libraryChunks: chunks.length, updatedAt: serverTimestamp(), shortcuts: sanitizedShortcuts, shortcutsUpdatedAt: serverTimestamp() }),
+      "Your shortcuts",
+      "Nothing was uploaded; everything stays on this device. Remove shortcuts you no longer use."
+    );
+  }
+
+  // Chunks a previous save left behind. One read of an empty collection costs the same
+  // as one document, so the common case pays for a single read.
+  const left = (await getDocs(libraryChunksRef(user.uid))).docs;
+
+  await createBackupSnapshot(user.uid, sanitizedBookmarks, sanitizedFolders, shortcuts, backupFitsOne);
+
+  if (!chunks) {
+    if (left.length === 0) {
+      await setDoc(userDocRef(user.uid), sanitizeForFirestore(payload), { merge: true });
+      return;
+    }
+    // The library shrank back to one document: the root takes the arrays and drops the
+    // marker in the same commit that removes the chunks, so no reader sees both.
+    const batch = writeBatch(db);
+    batch.set(
+      userDocRef(user.uid),
+      { ...sanitizeForFirestore(payload), libraryChunks: deleteField() },
+      { merge: true }
+    );
+    left.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    return;
+  }
+
+  // Chunked: every chunk, the marker and the removal of leftovers commit together or not
+  // at all. A reader sees the old library or the new one, never half of each.
+  const batch = writeBatch(db);
+  const kept = new Set<string>();
+  chunks.forEach((chunk, i) => {
+    kept.add(chunkId(i));
+    batch.set(doc(libraryChunksRef(user.uid), chunkId(i)), sanitizeForFirestore({ i, ...chunk }));
+  });
+  left.filter((d) => !kept.has(d.id)).forEach((d) => batch.delete(d.ref));
+  batch.set(
+    userDocRef(user.uid),
+    { libraryChunks: chunks.length, updatedAt: serverTimestamp(), bookmarks: deleteField(), folders: deleteField() },
+    { merge: true }
+  );
+  await batch.commit();
 }

@@ -3,7 +3,7 @@
 Owner question, on `SECURITY-LAUNCH-PLAN.md` §3.1: *should the rules drop the email
 allowlist? Need more review — do thorough research.* Owner's answer: keep the
 allowlist; build the two lock invariants (done: `lockedTextSealed` in `firestore.rules`,
-14 emulator assertions, 80 in all). The rest stays a plan until sign-in opens. Merging a rules change to `main` **is** a production deploy
+14 emulator assertions; 84 in all since the bookmark library chunks). The rest stays a plan until sign-in opens. Merging a rules change to `main` **is** a production deploy
 (`.github/workflows/firestore-rules.yml`), so this document comes before any code.
 
 ## Recommendation

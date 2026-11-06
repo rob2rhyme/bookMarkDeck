@@ -20,9 +20,10 @@ import { addDoc, setDoc } from "firebase/firestore";
 import { DocTooLargeError } from "@/lib/docSize";
 import { saveBookmarks } from "@/utils/firestoreBookmarks";
 
-// The whole library is one document, and so is each backup of it. Over 1 MiB,
-// Firestore refused the backup and the push failed with its raw error; now
-// neither copy is written and the message says what to do.
+// A library over one document (1 MiB) is now split into chunks (see
+// firestoreBookmarks.chunks.test.ts). What is still refused — before either copy is
+// written, with a message that says what to do — is a library too big even for that,
+// and shortcuts that alone outgrow the root document.
 const library = (n: number, note = "") =>
   Array.from({ length: n }, (_, i) => ({
     id: `b${i}`,
@@ -37,11 +38,11 @@ beforeEach(() => {
   vi.mocked(setDoc).mockClear();
 });
 
-describe("a bookmark library over Firestore's limit", () => {
+describe("a bookmark library over what can be saved", () => {
   it("is refused before either copy is written, and says nothing left the device", async () => {
-    const err = await saveBookmarks("me@example.com", library(4_000, "n".repeat(300)) as never, []).catch((e) => e);
+    const err = await saveBookmarks("me@example.com", library(40_000, "n".repeat(300)) as never, []).catch((e) => e);
     expect(err).toBeInstanceOf(DocTooLargeError);
-    expect((err as Error).message).toMatch(/^Your bookmark library is \d\.\d\d MB, and one saved record holds up to 1 MB\. Nothing was uploaded/);
+    expect((err as Error).message).toMatch(/^Your bookmark library is \d+\.\d\d MB, and one saved record holds up to 1 MB\. Nothing was uploaded/);
     expect(addDoc).not.toHaveBeenCalled();
     expect(setDoc).not.toHaveBeenCalled();
   });

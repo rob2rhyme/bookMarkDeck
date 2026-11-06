@@ -76,7 +76,36 @@ same lock.
 
 - One document per user: **`users/{uid}`** holds arrays/fields: `bookmarks[]`, `folders[]`,
   `shortcuts[]`, plus `*UpdatedAt` timestamps. Written with `setDoc(ref, {...}, { merge: true })`.
-- Subcollection in use: **`users/{uid}/bookmarkBackups`**.
+- Subcollections in use: **`users/{uid}/bookmarkBackups`**, and — only for a library too big
+  for one document — **`users/{uid}/bookmarkLibrary`** (below).
+- **A library that outgrows one document is split, one that fits is untouched**
+  (`@/utils/bookmarkChunks`, `saveBookmarks`/`fetchBookmarks` in `firestoreBookmarks.ts`).
+  Past 1 MiB the library used to be unsyncable. Now `bookmarks[]` and `folders[]` stay on the
+  root exactly as before while they fit (almost every library: no migration, no new reads
+  beyond one empty-collection listing per save). When they don't, they are cut by `docBytes`
+  into chunks of ≤ 600 KB — folders first, order kept, so reading is concatenation — written as
+  `bookmarkLibrary/000`, `001`, … each `{ i, folders, bookmarks }`, and the root carries
+  `libraryChunks: N` instead of the arrays (`deleteField()`). **The marker is `libraryChunks`,
+  not `version`**: `saveShortcuts` overwrites `version` on the same document. Every chunk, the
+  marker and the removal of leftovers go in **one `writeBatch`**, so a reader sees the old
+  library or the new one, never half of each; at most 14 chunks (a commit is capped at 10 MiB),
+  beyond which the save is refused with nothing written — not even the backup, which is judged
+  first. A library that shrinks back to one document clears the marker and deletes its chunks in
+  the same batch. **A read that finds a chunk missing throws** ("…is incomplete… Nothing was
+  changed on this device") rather than returning what it has: a partial library taken as the
+  cloud's truth would make a pull drop everything the missing part held. A backup of a chunked
+  library is the same shape one level down (`bookmarkBackups/{id}` with `chunks: N` and a
+  `chunks` subcollection) — **deleting a document does not delete its subcollection**, so
+  pruning to seven takes a backup's parts first — and a backup with a part missing is left out
+  of the list rather than offered as a truncated restore. The shortcuts stay on the root. The
+  rules need no change (`/{collection}/{docId}/{sub}/{rest=**}` covers the backup parts; four
+  assertions pin it). `src/test/fakeFirestore.ts` is an in-memory Firestore that enforces the
+  1 MiB document and 500-write / 10 MiB batch limits the emulator doesn't, and
+  `firestoreBookmarks.chunks.test.ts` round-trips both shapes through it.
+  **Known limit:** a device still running the bundle from before this will read a chunked
+  library as empty (it looks for `bookmarks[]` on the root) and its next pull would drop what
+  the cloud "lacks". Only a library that was already too big to sync reaches this, and only on a
+  device that has not yet reloaded onto the new bundle.
 - Access helpers: `src/utils/firestoreBookmarks.ts`, `src/utils/firestoreShortcuts.ts`.
   Pattern: `const ref = doc(db, "users", uid)` after `ensureFirebaseGoogleAuth(...)`.
 - **"Collections" in product terms = `folders`** (`src/types/folder.ts`: `id`, `name`,
@@ -116,7 +145,7 @@ then reads the released ruleset back to confirm the deploy landed:
 
 | Command | Answers |
 |---|---|
-| `npm run verify:rules` | is the **file** correct? (80 assertions: owner access, cross-uid denial, anonymous denial, other accounts and unverified/missing emails denied even their own tree, locked notes and papers refused with plaintext, no leak outside `users/{uid}`; notes and notes vaults asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
+| `npm run verify:rules` | is the **file** correct? (84 assertions: owner access, cross-uid denial, anonymous denial, other accounts and unverified/missing emails denied even their own tree, locked notes and papers refused with plaintext, no leak outside `users/{uid}`; notes and notes vaults asserted in full) — needs `FIRESTORE_EMULATOR_HOST` |
 | `npm run verify:rules:emulated` | the same, booting the emulator itself (needs Java) — what CI runs |
 | `npm run deploy:rules` | push the repo copy to production |
 | `npm run check:rules` | is **production** running the repo copy? |
@@ -222,7 +251,7 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   *Open original* is the way to them. **The page is never stored** — fetched fresh each
   time (browser-cached 10 min) — only the reader's **highlights** are, on the bookmark
   (`Bookmark.highlights`: `{id, text, createdAt}`, ≤30 a bookmark, ≤600 chars each,
-  because bookmarks share one 1 MiB Firestore document). A highlight is found again **by
+  because a library that fits is one 1 MiB Firestore document). A highlight is found again **by
   its text** within a single block, so one the page has since changed just isn't marked,
   and a selection spanning paragraphs is refused with a message. Highlights are a field on
   the record, so **every whitelist that rebuilds a bookmark must name them** —
@@ -385,8 +414,8 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   `saveItemDoc`, `saveNote`, `saveBookmarks`) throw `DocTooLargeError` before sending, as
   a backstop: its code isn't one the queue treats as final, so a refused record stays
   queued on the device rather than dropped. Not covered: Filing papers and folders, whose
-  arrays are capped or small; and the bookmark library is still **one document** — past
-  1 MiB it can't sync at all until it is split across documents, which is a schema change.
+  arrays are capped or small. The bookmark library is split into chunks when it outgrows one
+  document (see **Data model**), so `saveBookmarks` now refuses only past 14 chunks (~8 MB).
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 

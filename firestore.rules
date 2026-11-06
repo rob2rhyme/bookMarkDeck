@@ -13,7 +13,7 @@ rules_version = '2';
 // owner's Google account (verified email, allowedEmails() below) gets in at all,
 // and only to its own uid; everything else is denied by default.
 //
-// Verified against the Firestore emulator (80 assertions — the count is printed
+// Verified against the Firestore emulator (84 assertions — the count is printed
 // by scripts/verify-firestore-rules.mjs and repeated in CLAUDE.md, so the three
 // move together): the owner can reach
 // every pillar's collections including deeply nested paths, a second signed-in
