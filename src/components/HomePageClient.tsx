@@ -119,6 +119,7 @@ export function HomePageClient() {
     syncToCloud,
     isSyncing,
     syncError,
+    deviceCacheFull,
     lastSyncedAt,
     refreshBackups,
     backups,
@@ -1711,6 +1712,12 @@ const newFolderRequestRef = useRef<((folderId: string) => void) | null>(null);
               <p className="text-[12px] text-slate-500">
                 Sync bookmarks to Firebase so they follow your Google login across devices.
               </p>
+              {deviceCacheFull && (
+                <p className="text-[11px] text-amber-300">
+                  Your library is too big for this browser to keep a copy. Changes stay in this tab only
+                  until you Sync to cloud, so sync before closing it.
+                </p>
+              )}
               {syncError && (
                 <p className="text-[11px] text-red-400">{syncError}</p>
               )}

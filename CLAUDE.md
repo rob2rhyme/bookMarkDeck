@@ -416,6 +416,14 @@ See `src/hooks/useShortcuts.ts` / `useBookmarks.ts`:
   queued on the device rather than dropped. Not covered: Filing papers and folders, whose
   arrays are capped or small. The bookmark library is split into chunks when it outgrows one
   document (see **Data model**), so `saveBookmarks` now refuses only past 14 chunks (~8 MB).
+- **A library too big for the browser's storage keeps working.** localStorage holds about 5 MB
+  while the cloud takes a library up to ~8 MB (14 chunks). `saveToStorage` used to throw
+  `QuotaExceededError` uncaught inside an effect. It now catches it, leaves the last cached
+  copy as it was, and sets a per-tab flag (`deviceCacheFull`, a tiny `useSyncExternalStore`
+  store — an effect-set state would add an ESLint warning) that the home page's sync card
+  turns into "changes stay in this tab until you Sync to cloud". Nothing is lost while the tab
+  lives; closing it before a sync drops what was not pushed. The cache is not moved to
+  IndexedDB: that would change every reader of `bookmarkdeck:v2:{email}` (four files).
 - Cloud sync to/from Firestore is **explicit** (`syncToCloud*` / `syncFromCloud*`), not automatic.
 - Components are presentational; hooks expose a stable public API.
 
