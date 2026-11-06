@@ -24,8 +24,10 @@ import {
   getDocFromServer,
   getDocs,
   getDocsFromServer,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 
 import { db, ensureFirebaseGoogleAuth } from "@/lib/firebase";
@@ -494,6 +496,19 @@ export async function fetchAttachments(
     .map(mapAttachment)
     .filter((a): a is FilingAttachment => a !== null)
     .filter((a) => !documentId || a.documentId === documentId);
+}
+
+/**
+ * One paper's scan pointers, from the SERVER only. A purge must not read an offline
+ * answer — the memory cache would say "no scans" and the purge would be marked done.
+ */
+export async function fetchAttachmentsFromServer(
+  emailHint: string,
+  documentId: string
+): Promise<FilingAttachment[]> {
+  const uid = await uidFor(emailHint);
+  const snap = await getDocsFromServer(query(attachmentsCol(uid), where("documentId", "==", documentId)));
+  return snap.docs.map(mapAttachment).filter((a): a is FilingAttachment => a !== null);
 }
 
 export async function saveAttachment(

@@ -52,6 +52,9 @@ import { BookmarkLinkModal } from "@/features/filing/components/BookmarkLinkModa
 import { ExpiryPanel } from "@/features/filing/components/ExpiryPanel";
 import { AttachmentsModal } from "@/features/filing/components/AttachmentsModal";
 import { useFilingAttachments } from "@/features/filing/hooks/useFilingAttachments";
+import { deleteAttachment, fetchAttachmentsFromServer } from "@/features/filing/data/filingData";
+import { purgeFilingObjects } from "@/features/filing/lib/attachments";
+import { flushScanPurges, queueScanPurge } from "@/features/filing/lib/scanPurge";
 import { FilingInsights } from "@/features/filing/components/FilingInsights";
 import { expiryItems, expiringCount } from "@/features/filing/lib/expiry";
 import type { FilingBackup } from "@/features/filing/lib/types";
@@ -68,6 +71,7 @@ const splitAliases = (raw: string) =>
 
 /** Per-pillar key of the Filing PIN — separate from My Stuff's, so neither opens the other. */
 const FILING_LOCK_BASE = "bookmarkdeck:filing:lock:v1";
+const UNDO_REMOVE_MS = 6000;
 
 const docIcon = (t?: string) => DOC_TYPES.find((d) => d.id === (t ?? ""))?.icon ?? "📄";
 
@@ -79,7 +83,23 @@ export function FilingDashboard() {
   const places = useFilingPlaces(email, connected);
   const parties = useFilingParties(email, connected);
   const folders = useFilingFolders(email, connected);
-  const documents = useFilingDocuments(email, connected);
+  const allDocuments = useFilingDocuments(email, connected);
+  // A removed paper waits out its Undo window here, hidden from every list, count and
+  // panel below, and nothing is deleted until the window closes: then the paper goes,
+  // and its scans with it. Closing the tab inside the window deletes nothing, which is
+  // the safe way round — scans can't be brought back.
+  const [removing, setRemoving] = useState<ReadonlySet<string>>(() => new Set());
+  const documents = useMemo(
+    () =>
+      removing.size === 0
+        ? allDocuments
+        : {
+            ...allDocuments,
+            documents: allDocuments.documents.filter((d) => !removing.has(d.id)),
+            active: allDocuments.active.filter((d) => !removing.has(d.id)),
+          },
+    [allDocuments, removing]
+  );
   const vault = useVaults(email, connected);
   const vaultAccess = useVaultAccess(vault, "papers", "Unlock to lock this paper");
   const scanAccess = useVaultAccess(vault, "papers", "Unlock to use encrypted scans");
@@ -90,6 +110,62 @@ export function FilingDashboard() {
   const [lockOpen, setLockOpen] = useState(false);
   const { toast } = useToast();
   const { settings, update: updateSettings } = useFilingSettings(email, connected);
+
+  const flushPurges = useCallback(() => {
+    if (!connected || !email) return;
+    void flushScanPurges(email, {
+      list: (documentId) => fetchAttachmentsFromServer(email, documentId),
+      deleteFiles: purgeFilingObjects,
+      deletePointer: (id) => deleteAttachment(email, id),
+    });
+  }, [connected, email]);
+  // A paper deleted while offline (or whose purge failed) has its scans purged on the
+  // next connect, and when the network comes back.
+  useEffect(() => {
+    flushPurges();
+    window.addEventListener("online", flushPurges);
+    return () => window.removeEventListener("online", flushPurges);
+  }, [flushPurges]);
+
+  // Leaving the page inside an Undo window deletes nothing, as closing the tab does.
+  const removeTimers = useRef(new Set<number>());
+  useEffect(() => {
+    const timers = removeTimers.current;
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
+
+  const removePaper = (id: string) => {
+    const paper = allDocuments.documents.find((d) => d.id === id);
+    if (!paper) return;
+    setRemoving((prev) => new Set(prev).add(id));
+    const unhide = () =>
+      setRemoving((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    const timer = window.setTimeout(() => {
+      removeTimers.current.delete(timer);
+      allDocuments.removeDocument(id);
+      // Queued before it is tried, so a purge cut short by a closed tab or a lost
+      // network is finished on the next connect. Signed out, there are no scans.
+      if (email) queueScanPurge(email, id);
+      flushPurges();
+      unhide();
+    }, UNDO_REMOVE_MS);
+    removeTimers.current.add(timer);
+    toast(`Removed \u201c${paper.title}\u201d${paper.hasAttachment ? " and its scans" : ""}.`, {
+      duration: UNDO_REMOVE_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          window.clearTimeout(timer);
+          removeTimers.current.delete(timer);
+          unhide();
+        },
+      },
+    });
+  };
 
   const [query, setQuery] = useState("");
   const [partyFilter, setPartyFilter] = useState<string>("");
@@ -1081,7 +1157,7 @@ export function FilingDashboard() {
           setScansFor(documentId);
         }}
         scansEnabled={scans.enabled === true}
-        onRemove={documents.removeDocument}
+        onRemove={removePaper}
         onAdd={() => {
           setAddToFolderId(papersFor);
           setPapersFor(null);

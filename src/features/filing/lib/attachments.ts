@@ -155,6 +155,32 @@ export function deleteFilingObjects(paths: Array<string | undefined | null>): vo
   }).catch(() => {});
 }
 
+/**
+ * Delete objects and say whether they are gone — for a purge that must not drop
+ * the pointers until it knows. True when storage isn't set up here (nothing can be
+ * reached to delete); false on any failure, so the caller keeps its work queued.
+ */
+export async function purgeFilingObjects(paths: Array<string | undefined | null>): Promise<boolean> {
+  const keys = [...new Set(paths.filter((p): p is string => Boolean(p?.trim())))];
+  for (let i = 0; i < keys.length; i += 25) {
+    const batch = keys.slice(i, i + 25); // the route takes 25 at a time
+    try {
+      const res = await fetch("/api/filing/object/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths: batch }),
+      });
+      if (!res.ok) return false;
+      const json = (await res.json()) as { enabled?: boolean; deleted?: number };
+      if (json.enabled === false) return true;
+      if (json.deleted !== batch.length) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
 export const READ_FAILURE_MESSAGES: Record<ReadFailure, string> = {
   disabled: "File storage isn't set up on this deployment.",
   rate_limited: "Too many requests just now. Try again in a minute.",
