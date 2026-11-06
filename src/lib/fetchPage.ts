@@ -78,14 +78,32 @@ function decoder(encoding: string | undefined) {
   }
 }
 
-type Hop = { status: number; location?: string; html?: string; truncated?: boolean };
+type Hop = { status: number; location?: string; body?: Buffer; type?: string; truncated?: boolean };
+
+/** What a request will read: a page, or an image. Anything else is answered with its status only. */
+type Want = {
+  accept: string;
+  takes: (contentType: string) => boolean;
+};
+
+const HTML: Want = {
+  accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
+  takes: (type) => type.includes("text/html") || type.includes("application/xhtml"),
+};
+
+const IMAGE: Want = {
+  accept: "image/png,image/x-icon,image/vnd.microsoft.icon,image/*;q=0.8",
+  // The bytes are sniffed afterwards; this only stops a page being read as an image.
+  takes: (type) => type.startsWith("image/") || type === "application/octet-stream" || type === "",
+};
 
 function request(
   url: URL,
   allow: (ip: string) => boolean,
   signal: AbortSignal,
   maxBytes: number,
-  stopAtHead: boolean
+  stopAtHead: boolean,
+  want: Want
 ): Promise<Hop> {
   return new Promise((resolve, reject) => {
     const mod = url.protocol === "https:" ? https : http;
@@ -98,7 +116,7 @@ function request(
         signal,
         headers: {
           "user-agent": USER_AGENT,
-          accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
+          accept: want.accept,
           "accept-encoding": "gzip, deflate, br",
           "accept-language": "en",
         },
@@ -110,7 +128,7 @@ function request(
           return resolve({ status, location: res.headers.location });
         }
         const type = String(res.headers["content-type"] ?? "").toLowerCase();
-        if (status !== 200 || !(type.includes("text/html") || type.includes("application/xhtml"))) {
+        if (status !== 200 || !want.takes(type)) {
           res.resume();
           return resolve({ status });
         }
@@ -123,7 +141,7 @@ function request(
           if (done) return;
           done = true;
           res.destroy();
-          resolve({ status, html: Buffer.concat(chunks).toString("utf8"), truncated });
+          resolve({ status, body: Buffer.concat(chunks), type, truncated });
         };
         body.on("data", (chunk: Buffer) => {
           if (done) return;
@@ -151,6 +169,29 @@ export async function fetchHtml(
   raw: string,
   opts: FetchHtmlOptions = {}
 ): Promise<{ html: string; truncated: boolean } | null> {
+  const got = await fetchFenced(raw, opts, HTML);
+  return got ? { html: got.body.toString("utf8"), truncated: got.truncated } : null;
+}
+
+/**
+ * The bytes of the image at `raw`, or null — on the same terms as `fetchHtml`
+ * (public addresses only, every redirect re-checked). An image longer than
+ * `maxBytes` is refused, not cut: half an image is no use. The caller sniffs the
+ * bytes; the server's content type is only a first filter.
+ */
+export async function fetchImage(
+  raw: string,
+  opts: Omit<FetchHtmlOptions, "stopAtHead"> = {}
+): Promise<Buffer | null> {
+  const got = await fetchFenced(raw, opts, IMAGE);
+  return got && !got.truncated ? got.body : null;
+}
+
+async function fetchFenced(
+  raw: string,
+  opts: FetchHtmlOptions,
+  want: Want
+): Promise<{ body: Buffer; truncated: boolean } | null> {
   const allow = opts.allowAddress ?? isPublicAddress;
   const signal = AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   let url: URL;
@@ -167,13 +208,14 @@ export async function fetchHtml(
         allow,
         signal,
         opts.maxBytes ?? DEFAULT_MAX_BYTES,
-        opts.stopAtHead === true
+        opts.stopAtHead === true,
+        want
       );
       if (res.location !== undefined) {
         url = new URL(res.location, url); // re-checked at the top of the loop
         continue;
       }
-      return res.html === undefined ? null : { html: res.html, truncated: res.truncated === true };
+      return res.body === undefined ? null : { body: res.body, truncated: res.truncated === true };
     }
     return null;
   } catch {

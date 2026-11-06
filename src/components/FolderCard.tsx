@@ -6,6 +6,7 @@ import { useState } from "react";
 import { HighlightedText } from "@/components/HighlightedText";
 import { FolderTree } from "@/components/icons";
 import { Bookmark } from "@/types/bookmark";
+import { iconPath } from "@/utils/iconUrl";
 
 type FolderCardProps = {
   name: string;
@@ -45,7 +46,7 @@ function getFaviconUrl(rawUrl: string): string {
       const url = new URL(value);
       const host = url.hostname;
       if (!host || !host.includes(".")) return "";
-      return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(host)}`;
+      return iconPath(host);
     } catch {
       return "";
     }

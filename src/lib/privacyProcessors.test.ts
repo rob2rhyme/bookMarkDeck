@@ -17,7 +17,7 @@ const PAGE = path.join(ROOT, "src", "app", "(app)", "privacy", "page.tsx");
 
 /** Name as the page writes it → what in the source shows the service is used. */
 const SERVICES: Array<{ name: string; used: RegExp }> = [
-  { name: "Google", used: /google\.com\/s2\/favicons|firebase\/firestore/ },
+  { name: "Google", used: /firebase\/firestore/ },
   { name: "Cloudflare", used: /r2\.cloudflarestorage\.com/ },
   { name: "Upstash", used: /@upstash\/redis/ },
   { name: "QStash", used: /@upstash\/qstash/ },

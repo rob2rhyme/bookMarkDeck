@@ -85,11 +85,7 @@ export default function PrivacyPage() {
           <li>
             <strong>Google</strong> — signs you in (Google sign-in and Firebase Authentication),
             stores your synced data (Firebase Firestore), and, if you use them, your Tasks and
-            Calendar (see &ldquo;Google account data&rdquo;). Bookmark and shortcut icons are loaded
-            by your browser from Google&rsquo;s icon service, which receives the site&rsquo;s
-            domain (for example <code>example.com</code>, not the full address) along with your
-            browser&rsquo;s usual request details. If Google has no icon, your browser asks the site
-            itself for one.
+            Calendar (see &ldquo;Google account data&rdquo;).
           </li>
           <li>
             <strong>Vercel</strong> — hosts the app and its server functions, so it receives every
@@ -138,8 +134,10 @@ export default function PrivacyPage() {
             checkout. We receive your email, plan and subscription dates — never card details.
           </li>
           <li>
-            <strong>Websites you read or save</strong> — when the app fetches a page&rsquo;s title or
-            its text for reader view, the website sees a request from our server, not from you.
+            <strong>Websites you read or save</strong> — when the app fetches a page&rsquo;s title, its
+            text for reader view, or a bookmark&rsquo;s icon, the website sees a request from our
+            server, not from you. Icons are fetched by the site&rsquo;s name only (for example{" "}
+            <code>example.com</code>), and no other service is asked for them.
           </li>
         </ul>
         <p>

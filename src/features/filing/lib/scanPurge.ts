@@ -48,10 +48,12 @@ export type PurgeDeps = {
   deletePointer: (attachmentId: string) => Promise<void>;
 };
 
-/** Purge one paper's scans. True when nothing of them is left. */
-export async function purgeScans(documentId: string, deps: PurgeDeps): Promise<boolean> {
+/** Delete these scans: the files, then — only once those are confirmed gone — their pointers. */
+export async function removeScans(
+  scans: FilingAttachment[],
+  deps: Pick<PurgeDeps, "deleteFiles" | "deletePointer">
+): Promise<boolean> {
   try {
-    const scans = await deps.list(documentId);
     if (scans.length === 0) return true;
     if (!(await deps.deleteFiles(scans.map((s) => s.path)))) return false;
     await Promise.all(scans.map((s) => deps.deletePointer(s.id)));
@@ -59,6 +61,36 @@ export async function purgeScans(documentId: string, deps: PurgeDeps): Promise<b
   } catch {
     return false;
   }
+}
+
+/** Purge one paper's scans. True when nothing of them is left. */
+export async function purgeScans(documentId: string, deps: PurgeDeps): Promise<boolean> {
+  try {
+    return await removeScans(await deps.list(documentId), deps);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Scans left by papers deleted before deleting a paper took its scans: pointers whose
+ * paper is neither in the cloud nor on this device. A scan younger than a day is left
+ * alone — its paper may still be on its way from another device — and so is one with
+ * no recorded time. Found on request and removed only on a second, explicit tap: there
+ * is no automatic sweep.
+ */
+export const ORPHAN_MIN_AGE_MS = 24 * 60 * 60 * 1000;
+
+export function orphanScans(
+  scans: FilingAttachment[],
+  paperIds: ReadonlySet<string>,
+  now: number
+): FilingAttachment[] {
+  return scans.filter((s) => {
+    if (paperIds.has(s.documentId)) return false;
+    const added = s.addedAt ? Date.parse(s.addedAt) : NaN;
+    return Number.isFinite(added) && now - added >= ORPHAN_MIN_AGE_MS;
+  });
 }
 
 /** Work through the queue, one paper at a time; what fails stays for next time. */

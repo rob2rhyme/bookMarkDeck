@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { purgeFilingObjects } from "./attachments";
-import { flushScanPurges, purgeScans, queuedScanPurges, queueScanPurge, type PurgeDeps } from "./scanPurge";
+import {
+  flushScanPurges,
+  ORPHAN_MIN_AGE_MS,
+  orphanScans,
+  purgeScans,
+  queuedScanPurges,
+  queueScanPurge,
+  removeScans,
+  type PurgeDeps,
+} from "./scanPurge";
 import type { FilingAttachment } from "./types";
 
 // Deleting a paper used to delete the record only: its scan pointers and stored files
@@ -111,5 +120,32 @@ describe("purgeFilingObjects", () => {
     vi.stubGlobal("fetch", fetch);
     expect(await purgeFilingObjects(Array.from({ length: 30 }, (_, i) => `k${i}`))).toBe(true);
     expect(fetch.mock.calls.map(([, init]) => JSON.parse(init.body).paths.length)).toEqual([25, 5]);
+  });
+});
+
+describe("orphanScans (scans left by papers deleted before the purge existed)", () => {
+  const now = Date.parse("2026-11-06T12:00:00Z");
+  const at = (msAgo: number) => new Date(now - msAgo).toISOString();
+  const s = (id: string, documentId: string, addedAt: string | null) => ({ ...scan(id, documentId), addedAt });
+
+  it("finds a scan whose paper is neither in the cloud nor on the device", () => {
+    const scans = [s("a", "gone", at(2 * ORPHAN_MIN_AGE_MS)), s("b", "kept", at(2 * ORPHAN_MIN_AGE_MS))];
+    expect(orphanScans(scans, new Set(["kept"]), now).map((x) => x.id)).toEqual(["a"]);
+  });
+
+  it("leaves a scan younger than a day — its paper may still be on its way — and one with no time", () => {
+    const scans = [s("young", "gone", at(ORPHAN_MIN_AGE_MS - 1000)), s("untimed", "gone", null)];
+    expect(orphanScans(scans, new Set(), now)).toEqual([]);
+  });
+});
+
+describe("removeScans", () => {
+  it("removes nothing when there is nothing, and keeps pointers when files aren't confirmed gone", async () => {
+    const d = deps();
+    expect(await removeScans([], d)).toBe(true);
+    expect(d.deleteFiles).not.toHaveBeenCalled();
+    const failing = deps({ deleteFiles: vi.fn(async () => false) });
+    expect(await removeScans([scan("a")], failing)).toBe(false);
+    expect(failing.deletePointer).not.toHaveBeenCalled();
   });
 });
