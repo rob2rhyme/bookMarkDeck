@@ -637,3 +637,31 @@ describe("the read-later queue on a bookmark", () => {
     expect(result.current.bookmarks.find((b) => b.id === "q1")).toMatchObject(Q);
   });
 });
+
+describe("a device cache that is full", () => {
+  it("keeps working in memory and says so, instead of throwing", () => {
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    try {
+      const { result } = renderHook(() => useBookmarks("test-user"));
+      act(() => result.current.addBookmark({ title: "A", url: "https://a.com" }));
+      expect(result.current.bookmarks.map((b) => b.title)).toEqual(["A"]);
+      expect(result.current.deviceCacheFull).toBe(true);
+    } finally {
+      set.mockRestore();
+    }
+  });
+
+  it("clears the notice once a write fits again", () => {
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const { result } = renderHook(() => useBookmarks("test-user"));
+    act(() => result.current.addBookmark({ title: "A", url: "https://a.com" }));
+    expect(result.current.deviceCacheFull).toBe(true);
+    set.mockRestore();
+    act(() => result.current.addBookmark({ title: "B", url: "https://b.com" }));
+    expect(result.current.deviceCacheFull).toBe(false);
+  });
+});

@@ -2,7 +2,7 @@
 
 import { cleanHighlights } from "@/utils/highlights";
 import { cleanReadLater } from "@/utils/readLater";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Bookmark } from "@/types/bookmark";
 import { Folder } from "@/types/folder";
 import {
@@ -309,9 +309,28 @@ function loadFromStorage(userId?: string | null): BookmarkDeckStorageV2 {
     folders: migrated.folders,
   };
 
-  window.localStorage.setItem(storageKeyV2ForUser(userId), JSON.stringify(payload));
-  window.localStorage.removeItem(legacyLocalFoldersKey(userId));
+  try {
+    window.localStorage.setItem(storageKeyV2ForUser(userId), JSON.stringify(payload));
+    window.localStorage.removeItem(legacyLocalFoldersKey(userId));
+  } catch {
+    // Migrated copy didn't fit; the legacy keys stay, and the next load migrates again.
+  }
   return payload;
+}
+
+// The browser caps localStorage (about 5 MB), while the cloud now takes a library up to
+// ~8 MB. A write over the cap throws; uncaught, inside an effect, it took the page down.
+// It is a per-tab fact, so it lives in a tiny store the hook reads with useSyncExternalStore.
+let cacheFull = false;
+const cacheListeners = new Set<() => void>();
+function setCacheFull(next: boolean) {
+  if (cacheFull === next) return;
+  cacheFull = next;
+  cacheListeners.forEach((l) => l());
+}
+function subscribeCacheFull(listener: () => void) {
+  cacheListeners.add(listener);
+  return () => void cacheListeners.delete(listener);
 }
 
 function saveToStorage(
@@ -325,7 +344,14 @@ function saveToStorage(
     bookmarks,
     folders,
   };
-  window.localStorage.setItem(storageKeyV2ForUser(userId), JSON.stringify(payload));
+  try {
+    window.localStorage.setItem(storageKeyV2ForUser(userId), JSON.stringify(payload));
+    setCacheFull(false);
+  } catch {
+    // Quota (or storage blocked). The library stays in memory and in the cloud; the
+    // old cached copy is left as it was rather than removed — it is better than none.
+    setCacheFull(true);
+  }
 }
 
 /**
@@ -554,6 +580,7 @@ export function useBookmarks(userId?: string | null) {
   const [hydrated, setHydrated] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const deviceCacheFull = useSyncExternalStore(subscribeCacheFull, () => cacheFull, () => false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [backups, setBackups] = useState<FirestoreBookmarkBackup[]>([]);
   const [areBackupsLoading, setAreBackupsLoading] = useState(false);
@@ -987,6 +1014,8 @@ export function useBookmarks(userId?: string | null) {
     syncToCloud,
     isSyncing,
     syncError,
+    /** The library no longer fits the browser's storage: changes live in memory until synced. */
+    deviceCacheFull,
     lastSyncedAt,
     refreshBackups,
     backups,
