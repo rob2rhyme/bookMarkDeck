@@ -166,6 +166,23 @@ await check("the owner's address, unverified, is refused", assertFails(setDoc(do
 await check("a token with no email is refused", assertFails(setDoc(doc(noEmail, `users/${STRANGER}/x/1`), { a: 1 })));
 await check("the owner's address matches in any case", assertSucceeds(setDoc(doc(shouting, `users/${STRANGER}/x/1`), { a: 1 })));
 
+// A bookmark library too big for one document is stored as chunks (bookmarkLibrary/{i}),
+// and a backup of one as a subcollection of its backup document — a level deeper than
+// anything else. They must be the owner's, like the rest.
+await check(
+  "owner writes a bookmark library chunk",
+  assertSucceeds(setDoc(doc(alice, `users/${ALICE}/bookmarkLibrary/000`), { i: 0, folders: [], bookmarks: [] }))
+);
+await check(
+  "owner writes a chunk of a chunked backup (a level deeper)",
+  assertSucceeds(setDoc(doc(alice, `users/${ALICE}/bookmarkBackups/b1/chunks/000`), { i: 0, folders: [], bookmarks: [] }))
+);
+await check("other uid cannot read a library chunk", assertFails(getDoc(doc(bob, `users/${ALICE}/bookmarkLibrary/000`))));
+await check(
+  "other uid cannot read a backup chunk",
+  assertFails(getDoc(doc(bob, `users/${ALICE}/bookmarkBackups/b1/chunks/000`)))
+);
+
 // The recursive rule must not leak outside users/{uid}.
 await check("root collection denied", assertFails(setDoc(doc(alice, `filingDocuments/x1`), { a: 1 })));
 await check("other top-level denied", assertFails(setDoc(doc(alice, `admin/config`), { a: 1 })));

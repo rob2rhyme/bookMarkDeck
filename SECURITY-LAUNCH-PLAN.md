@@ -117,7 +117,7 @@ public one. Do these in the Cloudflare dashboard (R2), same account as today:
    silently; kill switch = claim + Auth disable + revoked refresh tokens (≤1h), the
    `admin/users/{uid}` read only if an instant cut-off is ever needed. **Done:** the
    lock invariants (`lockedTextSealed` — a locked note's body, a locked paper's
-   reference and note, refused in plaintext; 80 assertions).
+   reference and note, refused in plaintext; 84 assertions).
 2. **Firebase App Check** (reCAPTCHA Enterprise on web, Play Integrity in the
    shell) so only this app can use the public Firebase config.
 3. **Dedicated Firebase project** with its own IAM, budget alerts, **point-in-time
